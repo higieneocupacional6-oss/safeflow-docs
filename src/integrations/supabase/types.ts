@@ -14,6 +14,102 @@ export type Database = {
   }
   public: {
     Tables: {
+      empresas: {
+        Row: {
+          cnae_principal: string | null
+          cnpj: string
+          cnpj_contratante: string | null
+          created_at: string
+          endereco: string | null
+          escopo_contrato: string | null
+          fiscal_email: string | null
+          fiscal_nome: string | null
+          fiscal_telefone: string | null
+          gestor_email: string | null
+          gestor_nome: string | null
+          gestor_telefone: string | null
+          grau_risco: string | null
+          id: string
+          jornada_trabalho: string | null
+          local_trabalho: string | null
+          nome_contratante: string | null
+          nome_fantasia: string | null
+          numero_contrato: string | null
+          numero_funcionarios_fem: number | null
+          numero_funcionarios_masc: number | null
+          preposto_email: string | null
+          preposto_nome: string | null
+          preposto_telefone: string | null
+          razao_social: string
+          total_funcionarios: number | null
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          cnae_principal?: string | null
+          cnpj: string
+          cnpj_contratante?: string | null
+          created_at?: string
+          endereco?: string | null
+          escopo_contrato?: string | null
+          fiscal_email?: string | null
+          fiscal_nome?: string | null
+          fiscal_telefone?: string | null
+          gestor_email?: string | null
+          gestor_nome?: string | null
+          gestor_telefone?: string | null
+          grau_risco?: string | null
+          id?: string
+          jornada_trabalho?: string | null
+          local_trabalho?: string | null
+          nome_contratante?: string | null
+          nome_fantasia?: string | null
+          numero_contrato?: string | null
+          numero_funcionarios_fem?: number | null
+          numero_funcionarios_masc?: number | null
+          preposto_email?: string | null
+          preposto_nome?: string | null
+          preposto_telefone?: string | null
+          razao_social: string
+          total_funcionarios?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          cnae_principal?: string | null
+          cnpj?: string
+          cnpj_contratante?: string | null
+          created_at?: string
+          endereco?: string | null
+          escopo_contrato?: string | null
+          fiscal_email?: string | null
+          fiscal_nome?: string | null
+          fiscal_telefone?: string | null
+          gestor_email?: string | null
+          gestor_nome?: string | null
+          gestor_telefone?: string | null
+          grau_risco?: string | null
+          id?: string
+          jornada_trabalho?: string | null
+          local_trabalho?: string | null
+          nome_contratante?: string | null
+          nome_fantasia?: string | null
+          numero_contrato?: string | null
+          numero_funcionarios_fem?: number | null
+          numero_funcionarios_masc?: number | null
+          preposto_email?: string | null
+          preposto_nome?: string | null
+          preposto_telefone?: string | null
+          razao_social?: string
+          total_funcionarios?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           created_at: string
