@@ -16,18 +16,7 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 
-const steps = ["Identificação", "Setores e Funções", "Riscos", "Listagem", "Gerar Documento"];
-
-const mockEmpresas = [
-  { id: "1", nome: "Alpha Construções", cnpj: "12.345.678/0001-90", endereco: "Rua das Palmeiras, 500 - São Paulo/SP", cnae: "41.20-4-00", setores: [
-    { id: "s1", nome: "Produção", funcoes: [{ id: "f1", nome: "Operador de Máquinas" }, { id: "f2", nome: "Soldador" }] },
-    { id: "s2", nome: "Administrativo", funcoes: [{ id: "f3", nome: "Auxiliar Administrativo" }] },
-  ]},
-  { id: "2", nome: "Beta Industrial", cnpj: "98.765.432/0001-10", endereco: "Av. Industrial, 1200 - Guarulhos/SP", cnae: "25.11-0-00", setores: [
-    { id: "s3", nome: "Fundição", funcoes: [{ id: "f4", nome: "Fundidor" }, { id: "f5", nome: "Moldador" }] },
-    { id: "s4", nome: "Manutenção", funcoes: [{ id: "f6", nome: "Mecânico" }] },
-  ]},
-];
+const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
 interface RiscoEntry {
   id: string;
@@ -56,8 +45,7 @@ export default function LtcatWizard() {
   const [dataElab, setDataElab] = useState("");
 
   // Step 2
-  const [selectedSetor, setSelectedSetor] = useState("");
-  const [selectedFuncoes, setSelectedFuncoes] = useState<string[]>([]);
+  const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
 
   // Step 3
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
@@ -66,7 +54,7 @@ export default function LtcatWizard() {
     tecnica: "", equipamento: "", resultado: "", unidade: "", lt: "", ltUnidade: "",
   });
 
-  // Step 5
+  // Step 4
   const [selectedTemplate, setSelectedTemplate] = useState("");
 
   const { data: templates = [] } = useQuery({
@@ -78,11 +66,45 @@ export default function LtcatWizard() {
     },
   });
 
-  const empresa = mockEmpresas.find((e) => e.id === empresaId);
-  const setor = empresa?.setores.find((s) => s.id === selectedSetor);
+  const { data: empresas = [] } = useQuery({
+    queryKey: ["empresas"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("empresas").select("*").order("razao_social");
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const toggleFuncao = (fId: string) => {
-    setSelectedFuncoes((prev) => prev.includes(fId) ? prev.filter((f) => f !== fId) : [...prev, fId]);
+  const { data: setores = [], isLoading: loadingSetores } = useQuery({
+    queryKey: ["setores", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId).order("nome_setor");
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!empresaId,
+  });
+
+  const { data: funcoes = [], isLoading: loadingFuncoes } = useQuery({
+    queryKey: ["funcoes", empresaId],
+    queryFn: async () => {
+      if (!empresaId || setores.length === 0) return [];
+      const setorIds = setores.map((s: any) => s.id);
+      const { data, error } = await supabase.from("funcoes").select("*").in("setor_id", setorIds).order("nome_funcao");
+      if (error) throw error;
+      return data;
+    },
+    enabled: setores.length > 0,
+  });
+
+  const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
+
+  const empresa = empresas.find((e: any) => e.id === empresaId);
+
+  const openRiskModal = (setor: any) => {
+    setCurrentRiskSetor(setor);
+    setRiskDialogOpen(true);
   };
 
   const handleSaveRisk = () => {
@@ -90,10 +112,15 @@ export default function LtcatWizard() {
       toast.error("Preencha os campos obrigatórios");
       return;
     }
-    const setorNome = setor?.nome || "";
-    const funcaoNomes = setor?.funcoes.filter((f) => selectedFuncoes.includes(f.id)).map((f) => f.nome) || [];
+    const setorNome = currentRiskSetor?.nome_setor || "";
+    const funcaoNomes = funcoesBySetor(currentRiskSetor?.id).map((f: any) => f.nome_funcao) || [];
 
-    funcaoNomes.forEach((fn) => {
+    if (funcaoNomes.length === 0) {
+      toast.error("Este setor não possui funções cadastradas. Cadastre funções antes de avaliar os riscos.");
+      return;
+    }
+
+    funcaoNomes.forEach((fn: string) => {
       setRiscos((prev) => [
         ...prev,
         {
@@ -108,12 +135,11 @@ export default function LtcatWizard() {
 
     setRiskDialogOpen(false);
     setRiskForm({ tipoAvaliacao: "", tipoAgente: "", agente: "", viaAbsorcao: "", exposicao: "", tecnica: "", equipamento: "", resultado: "", unidade: "", lt: "", ltUnidade: "" });
-    toast.success("Risco cadastrado!");
+    toast.success("Risco cadastrado para todas as funções do setor!");
   };
 
   const canAdvance = () => {
-    if (step === 0) return !!empresaId && !!responsavel;
-    if (step === 1) return !!selectedSetor && selectedFuncoes.length > 0;
+    if (step === 0) return !!empresaId;
     return true;
   };
 
@@ -153,7 +179,7 @@ export default function LtcatWizard() {
 
       // Build template data from wizard state
       const templateData: Record<string, string> = {
-        empresa: empresa?.nome || "",
+        empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
         cnpj: empresa?.cnpj || "",
         endereco: empresa?.endereco || "",
         cnae: empresa?.cnae || "",
@@ -161,8 +187,8 @@ export default function LtcatWizard() {
         crea,
         cargo,
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setor: setor?.nome || "",
-        funcao: setor?.funcoes.filter((f) => selectedFuncoes.includes(f.id)).map((f) => f.nome).join(", ") || "",
+        setor: funcoes.length > 0 ? funcoes[0].nome_setor || "Vários Setores" : "", // Temporary fallback
+        funcao: funcoes.map((f: any) => f.nome_funcao).join(", ") || "",
       };
 
       // Add first risk data as simple variables
@@ -220,12 +246,14 @@ export default function LtcatWizard() {
       {step === 0 && (
         <div className="glass-card rounded-xl p-6 max-w-2xl space-y-4">
           <div>
-            <Label>Empresa</Label>
+            <Label>Empresa <span className="text-destructive">*</span></Label>
             <Select value={empresaId} onValueChange={setEmpresaId}>
               <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
               <SelectContent>
-                {mockEmpresas.map((e) => (
-                  <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                {empresas.map((e: any) => (
+                  <SelectItem key={e.id} value={e.id}>
+                    {e.razao_social || e.nome_fantasia} {e.cnpj ? `(${e.cnpj})` : ""}
+                  </SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -241,57 +269,74 @@ export default function LtcatWizard() {
         </div>
       )}
 
-      {/* Step 2: Setores e Funções */}
-      {step === 1 && empresa && (
-        <div className="glass-card rounded-xl p-6 max-w-2xl space-y-4">
-          <div>
-            <Label>Setor</Label>
-            <Select value={selectedSetor} onValueChange={(v) => { setSelectedSetor(v); setSelectedFuncoes([]); }}>
-              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o setor" /></SelectTrigger>
-              <SelectContent>
-                {empresa.setores.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          {setor && (
-            <div>
-              <Label className="mb-2 block">Funções</Label>
-              <div className="space-y-2">
-                {setor.funcoes.map((f) => (
-                  <label key={f.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                    selectedFuncoes.includes(f.id) ? "border-accent bg-accent/5" : "border-border hover:border-muted-foreground/30"
-                  }`}>
-                    <input type="checkbox" checked={selectedFuncoes.includes(f.id)} onChange={() => toggleFuncao(f.id)} className="accent-[hsl(35,95%,55%)]" />
-                    <span className="font-medium text-sm">{f.nome}</span>
-                  </label>
+      {/* Step 2: Riscos (Nova Estrutura) */}
+      {step === 1 && empresaId && (
+        <div className="space-y-4 max-w-4xl">
+          <div className="glass-card rounded-xl p-6">
+            <h2 className="text-xl font-heading font-bold mb-2">Avaliação de Riscos</h2>
+            <p className="text-muted-foreground mb-6">Mapeie os setores da empresa e informe os riscos. Clique em um setor para avaliar.</p>
+            
+            {loadingSetores || loadingFuncoes ? (
+              <div className="flex justify-center py-12"><Loader2 className="w-8 h-8 animate-spin text-muted-foreground" /></div>
+            ) : setores.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground">Nenhum setor cadastrado para esta empresa.</div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {setores.map((setor: any) => (
+                  <div 
+                    key={setor.id} 
+                    className="glass-card rounded-xl p-5 border border-border hover:border-accent hover:shadow-md transition-all cursor-pointer group"
+                    onClick={() => openRiskModal(setor)}
+                  >
+                    <div className="flex items-start justify-between mb-3">
+                      <div>
+                        <h3 className="font-heading text-lg font-bold text-foreground group-hover:text-accent transition-colors uppercase leading-tight">
+                          {setor.nome_setor}
+                        </h3>
+                        {setor.ghe_ges && (
+                          <Badge variant="secondary" className="text-xs mt-1 bg-accent/10 text-accent-foreground border-accent/20">
+                            GHE/GES: {setor.ghe_ges}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4">
+                      <Label className="text-xs font-semibold text-muted-foreground mb-2 block uppercase tracking-wider">FUNÇÕES:</Label>
+                      {funcoesBySetor(setor.id).length === 0 ? (
+                        <p className="text-xs text-muted-foreground/60 italic">Nenhuma função vinculada</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-1.5">
+                          {funcoesBySetor(setor.id).map((f: any) => (
+                            <Badge key={f.id} variant="outline" className="text-[10px] font-normal leading-tight px-1.5 py-0 min-h-0 bg-background/50">
+                              {f.nome_funcao}
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="mt-5 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
+                      <span>Clique para avaliar rescos</span>
+                      <ArrowRight className="w-3 h-3 text-accent" />
+                    </div>
+                  </div>
                 ))}
               </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Step 2 → open risk dialog */}
-      {step === 2 && (
-        <div className="glass-card rounded-xl p-6 max-w-2xl">
-          <div className="text-center py-8">
-            <p className="text-muted-foreground mb-4">Cadastre os riscos para as funções selecionadas</p>
-            <Button onClick={() => setRiskDialogOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-              <Plus className="w-4 h-4 mr-2" />Adicionar Risco
-            </Button>
+            )}
           </div>
+          
           {riscos.length > 0 && (
-            <div className="mt-4">
-              <p className="text-sm text-muted-foreground mb-2">{riscos.length} risco(s) cadastrado(s)</p>
+            <div className="glass-card rounded-xl p-4 flex items-center justify-between">
+              <span className="text-sm font-medium">{riscos.length} risco(s) cadastrado(s)</span>
+              <Button variant="ghost" size="sm" onClick={() => setStep(2)}>Ver Listagem</Button>
             </div>
           )}
         </div>
       )}
 
       {/* Step 3: Listagem */}
-      {step === 3 && (
+      {step === 2 && (
         <div className="glass-card rounded-xl overflow-hidden">
           <Table>
             <TableHeader>
@@ -331,7 +376,7 @@ export default function LtcatWizard() {
       )}
 
       {/* Step 4: Generate */}
-      {step === 4 && (
+      {step === 3 && (
         <div className="glass-card rounded-xl p-8 max-w-2xl text-center">
           <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
           <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
