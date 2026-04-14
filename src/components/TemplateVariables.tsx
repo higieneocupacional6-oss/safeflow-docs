@@ -44,6 +44,14 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis de Risco / Agente",
+    vars: [
+      "{{agente_nome}}", "{{tipo_agente}}", "{{codigo_esocial}}", "{{descricao_esocial}}",
+      "{{propagacao}}", "{{tipo_exposicao}}", "{{fonte_geradora}}", "{{danos_saude}}",
+      "{{medidas_controle}}", "{{tipo_epi}}", "{{epi_eficaz}}",
+    ],
+  },
+  {
     title: "Variáveis do Documento",
     vars: [
       "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
@@ -78,7 +86,7 @@ export function TemplateVariables() {
 
           <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
             <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Essas variáveis são provenientes da etapa de cadastro de empresa, contrato e setores/funções. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de setor e função permitem repetição dinâmica (loop) para empresas com múltiplos setores e funções.
+            Essas variáveis são provenientes do cadastro de empresa, contrato, setores/funções e riscos/agentes. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de setor, função e risco permitem repetição dinâmica (loop) para empresas com múltiplos registros.
           </div>
 
           <div className="space-y-5">

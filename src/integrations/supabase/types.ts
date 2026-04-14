@@ -151,6 +151,57 @@ export type Database = {
           },
         ]
       }
+      riscos: {
+        Row: {
+          codigo_esocial: string | null
+          created_at: string
+          danos_saude: string | null
+          descricao_esocial: string | null
+          epi_eficaz: string | null
+          fonte_geradora: string | null
+          id: string
+          medidas_controle: string | null
+          nome: string
+          propagacao: string[] | null
+          tipo: string
+          tipo_epi: string | null
+          tipo_exposicao: string | null
+          updated_at: string
+        }
+        Insert: {
+          codigo_esocial?: string | null
+          created_at?: string
+          danos_saude?: string | null
+          descricao_esocial?: string | null
+          epi_eficaz?: string | null
+          fonte_geradora?: string | null
+          id?: string
+          medidas_controle?: string | null
+          nome: string
+          propagacao?: string[] | null
+          tipo: string
+          tipo_epi?: string | null
+          tipo_exposicao?: string | null
+          updated_at?: string
+        }
+        Update: {
+          codigo_esocial?: string | null
+          created_at?: string
+          danos_saude?: string | null
+          descricao_esocial?: string | null
+          epi_eficaz?: string | null
+          fonte_geradora?: string | null
+          id?: string
+          medidas_controle?: string | null
+          nome?: string
+          propagacao?: string[] | null
+          tipo?: string
+          tipo_epi?: string | null
+          tipo_exposicao?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       setores: {
         Row: {
           created_at: string
