@@ -44,6 +44,14 @@ interface RiscoEntry {
   unidade_resultado_id: string;
   limite_tolerancia: string;
   unidade_limite_id: string;
+  resultados_detalhados?: {
+    id: string;
+    item_id: string;
+    resultado: string;
+    unidade_resultado_id: string;
+    limite_tolerancia: string;
+    unidade_limite_id: string;
+  }[];
 }
 
 export default function LtcatWizard() {
@@ -65,10 +73,11 @@ export default function LtcatWizard() {
   // Risk Management
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
   const [riskForm, setRiskForm] = useState({
-    items: [{ colaborador: "", funcao_id: "", funcao_nome: "" }],
+    items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
     tipo_avaliacao: "qualitativa",
     tipo_agente: "",
     agente_id: "",
+    agente_nome: "",
     codigo_esocial: "",
     descricao_esocial: "",
     propagacao: "",
@@ -82,6 +91,7 @@ export default function LtcatWizard() {
     unidade_resultado_id: "",
     limite_tolerancia: "",
     unidade_limite_id: "",
+    resultados_detalhados: [] as any[],
   });
 
 
@@ -171,7 +181,25 @@ export default function LtcatWizard() {
     setCurrentRiskSetor(setor);
     setRiskForm({
       ...riskForm,
-      items: [{ colaborador: "", funcao_id: "", funcao_nome: "" }]
+      items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
+      tipo_avaliacao: "qualitativa",
+      tipo_agente: "",
+      agente_id: "",
+      agente_nome: "",
+      codigo_esocial: "",
+      descricao_esocial: "",
+      propagacao: "",
+      tipo_exposicao: "",
+      fonte_geradora: "",
+      danos_saude: "",
+      medidas_controle: "",
+      tecnica_id: "",
+      equipamento_id: "",
+      resultado: "",
+      unidade_resultado_id: "",
+      limite_tolerancia: "",
+      unidade_limite_id: "",
+      resultados_detalhados: [],
     });
     setRiskDialogOpen(true);
   };
@@ -183,6 +211,7 @@ export default function LtcatWizard() {
         ...riskForm,
         agente_id: agentId,
         tipo_agente: agent.tipo || "",
+        agente_nome: agent.nome || "",
         codigo_esocial: agent.codigo_esocial || "",
         descricao_esocial: agent.descricao_esocial || "",
         propagacao: agent.propagacao?.join(", ") || "",
@@ -197,7 +226,7 @@ export default function LtcatWizard() {
   const addItemBlock = () => {
     setRiskForm({
       ...riskForm,
-      items: [...riskForm.items, { colaborador: "", funcao_id: "", funcao_nome: "" }]
+      items: [...riskForm.items, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }]
     });
   };
 
@@ -224,6 +253,20 @@ export default function LtcatWizard() {
     }
 
     const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
+    const isFisico = riskForm.tipo_agente?.toLowerCase() === "físico";
+    const isRuido = agent?.nome?.toLowerCase().includes("ruído");
+    const showCompleta = isFisico && isRuido;
+
+    if (showCompleta) {
+      if (riskForm.resultados_detalhados.length === 0) {
+        toast.error("Adicione ao menos um resultado");
+        return;
+      }
+      if (riskForm.resultados_detalhados.some(r => !r.item_id || !r.resultado || !r.unidade_resultado_id)) {
+        toast.error("Preencha todos os campos obrigatórios nos resultados");
+        return;
+      }
+    }
     const newRisk: RiscoEntry = {
       id: Date.now().toString(),
       setor_id: currentRiskSetor.id,
@@ -246,6 +289,7 @@ export default function LtcatWizard() {
       unidade_resultado_id: riskForm.unidade_resultado_id,
       limite_tolerancia: riskForm.limite_tolerancia,
       unidade_limite_id: riskForm.unidade_limite_id,
+      resultados_detalhados: riskForm.resultados_detalhados,
     };
 
     // Persistence attempt (optional since user has to run SQL, but good to have)
@@ -699,42 +743,152 @@ export default function LtcatWizard() {
             </section>
 
             {/* SEÇÃO 5: RESULTADOS */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 border-b pb-2">
-                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Resultado</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" step="0.01" value={riskForm.resultado} onChange={e => setRiskForm({...riskForm, resultado: e.target.value})} />
-                    <Select value={riskForm.unidade_resultado_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_resultado_id: v })}>
-                      <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                      <SelectContent>
-                        {unidades.map((u: any) => (
-                          <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+            {(() => {
+              const isFisico = riskForm.tipo_agente?.toLowerCase() === "físico";
+              const isRuido = riskForm.agente_nome?.toLowerCase().includes("ruído");
+              const showCompleta = isFisico && isRuido;
+              const showSimplificada = !showCompleta && riskForm.tipo_avaliacao === "quantitativa";
+
+              if (!showCompleta && !showSimplificada) return null;
+
+              return (
+                <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
                   </div>
-                </div>
-                <div className="space-y-2">
-                  <Label>Limite de Tolerância</Label>
-                  <div className="flex gap-2">
-                    <Input type="number" step="0.01" value={riskForm.limite_tolerancia} onChange={e => setRiskForm({...riskForm, limite_tolerancia: e.target.value})} />
-                    <Select value={riskForm.unidade_limite_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_limite_id: v })}>
-                      <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                      <SelectContent>
-                        {unidades.map((u: any) => (
-                          <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </div>
-            </section>
+
+                  {showSimplificada && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Resultado</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" step="0.01" value={riskForm.resultado} onChange={e => setRiskForm({...riskForm, resultado: e.target.value})} />
+                          <Select value={riskForm.unidade_resultado_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_resultado_id: v })}>
+                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                            <SelectContent>
+                              {unidades.map((u: any) => (
+                                <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Limite de Tolerância</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" step="0.01" value={riskForm.limite_tolerancia} onChange={e => setRiskForm({...riskForm, limite_tolerancia: e.target.value})} />
+                          <Select value={riskForm.unidade_limite_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_limite_id: v })}>
+                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                            <SelectContent>
+                              {unidades.map((u: any) => (
+                                <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {showCompleta && (
+                    <div className="space-y-4">
+                      {riskForm.resultados_detalhados.map((res, index) => (
+                        <div key={res.id} className="p-4 border rounded-xl bg-muted/10 relative space-y-4 group">
+                          <div className="grid grid-cols-1 gap-4">
+                            <div>
+                              <Label>Colaborador <span className="text-destructive">*</span></Label>
+                              <Select value={res.item_id} onValueChange={(v) => {
+                                const newRes = [...riskForm.resultados_detalhados];
+                                newRes[index] = { ...newRes[index], item_id: v };
+                                setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                              }}>
+                                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o colaborador" /></SelectTrigger>
+                                <SelectContent>
+                                  {riskForm.items.map((it: any) => (
+                                    <SelectItem key={it.id} value={it.id}>
+                                      {it.colaborador ? `${it.colaborador} - ${it.funcao_nome}` : 'Colaborador não preenchido'}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <div className="space-y-2">
+                                <Label>Resultado <span className="text-destructive">*</span></Label>
+                                <div className="flex gap-2">
+                                  <Input type="number" step="0.01" value={res.resultado} onChange={e => {
+                                    const newRes = [...riskForm.resultados_detalhados];
+                                    newRes[index] = { ...newRes[index], resultado: e.target.value };
+                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                                  }} />
+                                  <Select value={res.unidade_resultado_id} onValueChange={(v) => {
+                                    const newRes = [...riskForm.resultados_detalhados];
+                                    newRes[index] = { ...newRes[index], unidade_resultado_id: v };
+                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                                  }}>
+                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                                    <SelectContent>
+                                      {unidades.map((u: any) => (
+                                        <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="space-y-2">
+                                <Label>Limite de Tolerância</Label>
+                                <div className="flex gap-2">
+                                  <Input type="number" step="0.01" value={res.limite_tolerancia} onChange={e => {
+                                    const newRes = [...riskForm.resultados_detalhados];
+                                    newRes[index] = { ...newRes[index], limite_tolerancia: e.target.value };
+                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                                  }} />
+                                  <Select value={res.unidade_limite_id} onValueChange={(v) => {
+                                     const newRes = [...riskForm.resultados_detalhados];
+                                     newRes[index] = { ...newRes[index], unidade_limite_id: v };
+                                     setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                                  }}>
+                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                                    <SelectContent>
+                                      {unidades.map((u: any) => (
+                                        <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="absolute top-2 right-2 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
+                            onClick={() => {
+                              const newRes = riskForm.resultados_detalhados.filter((_, i) => i !== index);
+                              setRiskForm({ ...riskForm, resultados_detalhados: newRes });
+                            }}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      ))}
+                      <Button variant="outline" size="sm" onClick={() => {
+                         setRiskForm({
+                            ...riskForm,
+                            resultados_detalhados: [
+                               ...riskForm.resultados_detalhados,
+                               { id: crypto.randomUUID(), item_id: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }
+                            ]
+                         })
+                      }} className="text-accent border-accent/20 hover:bg-accent/5">
+                        <Plus className="w-4 h-4 mr-2" />Adicionar Resultado para Colaborador
+                      </Button>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
           </div>
 
           <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
