@@ -744,12 +744,14 @@ export default function LtcatWizard() {
 
             {/* SEÇÃO 5: RESULTADOS */}
             {(() => {
-              const isFisico = riskForm.tipo_agente?.toLowerCase() === "físico";
-              const isRuido = riskForm.agente_nome?.toLowerCase().includes("ruído");
+              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
+              const agenteNomeStr = (riskForm.agente_nome || "").toLowerCase();
+              
+              const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
+              const isRuido = agenteNomeStr.includes("ruí") || agenteNomeStr.includes("rui");
+              
               const showCompleta = isFisico && isRuido;
-              const showSimplificada = !showCompleta && riskForm.tipo_avaliacao === "quantitativa";
-
-              if (!showCompleta && !showSimplificada) return null;
+              const showSimplificada = !showCompleta;
 
               return (
                 <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
