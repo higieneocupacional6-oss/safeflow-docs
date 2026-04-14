@@ -33,7 +33,7 @@ export function AppSidebar() {
           </div>
           {!collapsed && (
             <div>
-              <h1 className="font-heading text-sm font-bold text-sidebar-accent-foreground tracking-tight">FLOW SAFE PRO</h1>
+            <h1 className="font-heading text-sm font-bold text-sidebar-accent-foreground tracking-tight">SAFEDOC</h1>
               <p className="text-[10px] text-sidebar-foreground/60 uppercase tracking-widest">Gestão SST</p>
             </div>
           )}

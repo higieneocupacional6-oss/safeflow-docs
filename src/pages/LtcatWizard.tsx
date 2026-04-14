@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,15 +10,20 @@ import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
 
 const steps = ["Identificação", "Setores e Funções", "Riscos", "Listagem", "Gerar Documento"];
 
 const mockEmpresas = [
-  { id: "1", nome: "Alpha Construções", setores: [
+  { id: "1", nome: "Alpha Construções", cnpj: "12.345.678/0001-90", endereco: "Rua das Palmeiras, 500 - São Paulo/SP", cnae: "41.20-4-00", setores: [
     { id: "s1", nome: "Produção", funcoes: [{ id: "f1", nome: "Operador de Máquinas" }, { id: "f2", nome: "Soldador" }] },
     { id: "s2", nome: "Administrativo", funcoes: [{ id: "f3", nome: "Auxiliar Administrativo" }] },
   ]},
-  { id: "2", nome: "Beta Industrial", setores: [
+  { id: "2", nome: "Beta Industrial", cnpj: "98.765.432/0001-10", endereco: "Av. Industrial, 1200 - Guarulhos/SP", cnae: "25.11-0-00", setores: [
     { id: "s3", nome: "Fundição", funcoes: [{ id: "f4", nome: "Fundidor" }, { id: "f5", nome: "Moldador" }] },
     { id: "s4", nome: "Manutenção", funcoes: [{ id: "f6", nome: "Mecânico" }] },
   ]},
@@ -41,6 +46,7 @@ export default function LtcatWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [generating, setGenerating] = useState(false);
 
   // Step 1
   const [empresaId, setEmpresaId] = useState("");
@@ -56,17 +62,20 @@ export default function LtcatWizard() {
   // Step 3
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
   const [riskForm, setRiskForm] = useState({
-    tipoAvaliacao: "",
-    tipoAgente: "",
-    agente: "",
-    viaAbsorcao: "",
-    exposicao: "",
-    tecnica: "",
-    equipamento: "",
-    resultado: "",
-    unidade: "",
-    lt: "",
-    ltUnidade: "",
+    tipoAvaliacao: "", tipoAgente: "", agente: "", viaAbsorcao: "", exposicao: "",
+    tecnica: "", equipamento: "", resultado: "", unidade: "", lt: "", ltUnidade: "",
+  });
+
+  // Step 5
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("templates").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
   });
 
   const empresa = mockEmpresas.find((e) => e.id === empresaId);
@@ -89,15 +98,10 @@ export default function LtcatWizard() {
         ...prev,
         {
           id: Date.now().toString() + fn,
-          setor: setorNome,
-          funcao: fn,
-          tipoAvaliacao: riskForm.tipoAvaliacao,
-          tipoAgente: riskForm.tipoAgente,
-          agente: riskForm.agente,
-          exposicao: riskForm.exposicao,
-          resultado: riskForm.resultado,
-          unidade: riskForm.unidade,
-          lt: riskForm.lt,
+          setor: setorNome, funcao: fn,
+          tipoAvaliacao: riskForm.tipoAvaliacao, tipoAgente: riskForm.tipoAgente,
+          agente: riskForm.agente, exposicao: riskForm.exposicao,
+          resultado: riskForm.resultado, unidade: riskForm.unidade, lt: riskForm.lt,
         },
       ]);
     });
@@ -113,7 +117,6 @@ export default function LtcatWizard() {
     return true;
   };
 
-  // Dynamic fields based on agent
   const getAgentFields = () => {
     const agent = riskForm.agente.toLowerCase();
     if (agent.includes("vibração") && agent.includes("corpo")) return "vibracao_corpo";
@@ -121,6 +124,72 @@ export default function LtcatWizard() {
     if (agent.includes("calor")) return "calor";
     if (agent.includes("poeira") || agent.includes("fumo") || agent.includes("vapor")) return "componentes";
     return "padrao";
+  };
+
+  const handleGenerateDocument = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+
+    setGenerating(true);
+    try {
+      const template = templates.find((t: any) => t.id === selectedTemplate);
+      if (!template) throw new Error("Template não encontrado");
+
+      // Download template file
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("templates")
+        .download(template.file_path);
+      if (downloadError) throw downloadError;
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const zip = new PizZip(arrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: "{", end: "}" },
+      });
+
+      // Build template data from wizard state
+      const templateData: Record<string, string> = {
+        empresa: empresa?.nome || "",
+        cnpj: empresa?.cnpj || "",
+        endereco: empresa?.endereco || "",
+        cnae: empresa?.cnae || "",
+        responsavel,
+        crea,
+        cargo,
+        data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+        setor: setor?.nome || "",
+        funcao: setor?.funcoes.filter((f) => selectedFuncoes.includes(f.id)).map((f) => f.nome).join(", ") || "",
+      };
+
+      // Add first risk data as simple variables
+      if (riscos.length > 0) {
+        const r = riscos[0];
+        templateData.agente = r.agente;
+        templateData.resultado = r.resultado;
+        templateData.unidade = r.unidade;
+        templateData.limite_tolerancia = r.lt;
+      }
+
+      doc.render(templateData);
+
+      const output = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+      });
+
+      const year = new Date().getFullYear();
+      saveAs(output, `LTCAT_${year}.docx`);
+      toast.success("Documento gerado com sucesso!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -162,24 +231,12 @@ export default function LtcatWizard() {
             </Select>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Responsável Técnico</Label>
-              <Input className="mt-1" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Nome completo" />
-            </div>
-            <div>
-              <Label>CREA</Label>
-              <Input className="mt-1" value={crea} onChange={(e) => setCrea(e.target.value)} placeholder="00000/D-SP" />
-            </div>
+            <div><Label>Responsável Técnico</Label><Input className="mt-1" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Nome completo" /></div>
+            <div><Label>CREA</Label><Input className="mt-1" value={crea} onChange={(e) => setCrea(e.target.value)} placeholder="00000/D-SP" /></div>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <Label>Cargo</Label>
-              <Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Engenheiro de Segurança" />
-            </div>
-            <div>
-              <Label>Data de Elaboração</Label>
-              <Input className="mt-1" type="date" value={dataElab} onChange={(e) => setDataElab(e.target.value)} />
-            </div>
+            <div><Label>Cargo</Label><Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Engenheiro de Segurança" /></div>
+            <div><Label>Data de Elaboração</Label><Input className="mt-1" type="date" value={dataElab} onChange={(e) => setDataElab(e.target.value)} /></div>
           </div>
         </div>
       )}
@@ -206,12 +263,7 @@ export default function LtcatWizard() {
                   <label key={f.id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                     selectedFuncoes.includes(f.id) ? "border-accent bg-accent/5" : "border-border hover:border-muted-foreground/30"
                   }`}>
-                    <input
-                      type="checkbox"
-                      checked={selectedFuncoes.includes(f.id)}
-                      onChange={() => toggleFuncao(f.id)}
-                      className="accent-[hsl(35,95%,55%)]"
-                    />
+                    <input type="checkbox" checked={selectedFuncoes.includes(f.id)} onChange={() => toggleFuncao(f.id)} className="accent-[hsl(35,95%,55%)]" />
                     <span className="font-medium text-sm">{f.nome}</span>
                   </label>
                 ))}
@@ -284,14 +336,21 @@ export default function LtcatWizard() {
           <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
           <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
           <p className="text-muted-foreground mb-6">Selecione o template e gere o documento final</p>
-          <Select>
+          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
             <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="ltcat-v2">LTCAT Padrão v2</SelectItem>
+              {templates.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
-          <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => toast.success("Documento gerado com sucesso!")}>
-            <FileDown className="w-4 h-4 mr-2" />Gerar Documento
+          <Button
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+            onClick={handleGenerateDocument}
+            disabled={generating || !selectedTemplate}
+          >
+            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+            Gerar Documento
           </Button>
         </div>
       )}
@@ -338,12 +397,10 @@ export default function LtcatWizard() {
                 </Select>
               </div>
             </div>
-
             <div>
               <Label>Agente</Label>
               <Input className="mt-1" value={riskForm.agente} onChange={(e) => setRiskForm({ ...riskForm, agente: e.target.value })} placeholder="Ex: Ruído Contínuo, Poeira de Sílica..." />
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Via de Absorção</Label>
@@ -367,7 +424,6 @@ export default function LtcatWizard() {
                 </Select>
               </div>
             </div>
-
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label>Técnica de Amostragem</Label>
@@ -421,7 +477,6 @@ export default function LtcatWizard() {
                   <div><Label>Taxa Metabólica</Label><Input className="mt-1" placeholder="kcal/h" /></div>
                 </div>
               );
-              // padrao & componentes
               return (
                 <div className="grid grid-cols-2 gap-3">
                   <div><Label>Resultado</Label><Input className="mt-1" value={riskForm.resultado} onChange={(e) => setRiskForm({ ...riskForm, resultado: e.target.value })} /></div>
