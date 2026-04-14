@@ -1,0 +1,100 @@
+import { useState } from "react";
+import { Info, Copy, Check } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+const variableGroups = [
+  {
+    title: "Variáveis de Empresa",
+    vars: [
+      "{{cnpj}}", "{{razao_social}}", "{{nome_fantasia}}", "{{cnae_principal}}",
+      "{{grau_risco}}", "{{endereco}}", "{{numero_funcionarios_fem}}",
+      "{{numero_funcionarios_masc}}", "{{total_funcionarios}}", "{{jornada_trabalho}}",
+    ],
+  },
+  {
+    title: "Variáveis de Contrato",
+    vars: [
+      "{{numero_contrato}}", "{{cnpj_contratante}}", "{{nome_contratante}}",
+      "{{vigencia_inicio}}", "{{vigencia_fim}}", "{{local_trabalho}}", "{{escopo_contrato}}",
+    ],
+  },
+  {
+    title: "Variáveis de Responsáveis",
+    vars: [
+      "{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}",
+      "{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}",
+      "{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}",
+    ],
+  },
+  {
+    title: "Variáveis do Documento",
+    vars: [
+      "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
+      "{{setor}}", "{{funcao}}", "{{agente}}", "{{resultado}}", "{{unidade}}", "{{limite_tolerancia}}",
+    ],
+  },
+];
+
+export function TemplateVariables() {
+  const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState("");
+
+  const handleCopy = (v: string) => {
+    navigator.clipboard.writeText(v);
+    setCopied(v);
+    toast.success(`Copiado: ${v}`);
+    setTimeout(() => setCopied(""), 2000);
+  };
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2">
+        <Info className="w-4 h-4" />
+        Variáveis Disponíveis
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Variáveis Disponíveis</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
+            <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+            Essas variáveis são provenientes da etapa de cadastro de empresa e contrato. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento.
+          </div>
+
+          <div className="space-y-5">
+            {variableGroups.map((group) => (
+              <div key={group.title}>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{group.title}</h4>
+                <div className="flex flex-wrap gap-1.5">
+                  {group.vars.map((v) => (
+                    <Badge
+                      key={v}
+                      variant="outline"
+                      className="font-mono text-xs py-1 px-2 cursor-pointer hover:bg-accent/10 transition-colors"
+                      onClick={() => handleCopy(v)}
+                    >
+                      {v}
+                      {copied === v ? (
+                        <Check className="w-3 h-3 ml-1 text-success" />
+                      ) : (
+                        <Copy className="w-3 h-3 ml-1 opacity-40" />
+                      )}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
