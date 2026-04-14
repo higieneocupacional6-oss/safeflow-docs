@@ -87,6 +87,18 @@ const variableGroups = [
       "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
     ],
   },
+  {
+    title: "VARIÁVEIS DE EPI (LTCAT)",
+    vars: [
+      "{{epi_nome}}", "{{epi_ca}}", "{{epi_atenuacao}}", "{{epi_eficaz}}",
+    ],
+  },
+  {
+    title: "VARIÁVEIS DE EPC (LTCAT)",
+    vars: [
+      "{{epc_nome}}", "{{epc_eficaz}}",
+    ],
+  },
 
 ];
 
@@ -122,6 +134,10 @@ export function TemplateVariables() {
             <p className="text-accent font-medium text-xs">
               <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
               As variáveis de riscos do LTCAT são provenientes da etapa de avaliação de riscos por setor. Utilize essas variáveis para montar seus templates (.docx), e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de avaliação de calor e vibração também são provenientes do cadastro de riscos (LTCAT) e permitem repetição dinâmica (um setor pode ter várias funções e uma função pode ter várias avaliações).
+            </p>
+            <p className="text-accent font-medium text-xs">
+              <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
+              As variáveis de EPI/EPC são provenientes da avaliação de riscos no LTCAT. Utilize essas variáveis para montagem dos templates (.docx), e o sistema fará o preenchimento automático. Suportam uso em loop (múltiplos EPIs/EPCs por risco).
             </p>
           </div>
 

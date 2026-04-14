@@ -164,6 +164,16 @@ export default function LtcatWizard() {
   const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
   const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
 
+  // EPI/EPC form state inside risk dialog
+  const [epiEpcRiskForm, setEpiEpcRiskForm] = useState({
+    epi_id: "",
+    epi_ca: "",
+    epi_atenuacao: "",
+    epi_eficaz: "",
+    epc_id: "",
+    epc_eficaz: "",
+  });
+
   const [generating, setGenerating] = useState(false);
 
   // Step 1
@@ -200,6 +210,32 @@ export default function LtcatWizard() {
     unidade_limite_id: "",
     resultados_detalhados: [] as any[],
   });
+
+  const { data: epiEpcCatalog = [] } = useQuery({
+    queryKey: ["epi_epc"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("epi_epc")
+        .select("*, epi_epc_riscos(risco_id)")
+        .order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Filter EPIs/EPCs by the current risco being evaluated
+  const episFiltrados = epiEpcCatalog.filter(
+    (item: any) =>
+      item.tipo === "EPI" &&
+      (item.epi_epc_riscos?.some((r: any) => r.risco_id === riskForm.agente_id) ||
+        item.epi_epc_riscos?.length === 0)
+  );
+  const epcsFiltrados = epiEpcCatalog.filter(
+    (item: any) =>
+      item.tipo === "EPC" &&
+      (item.epi_epc_riscos?.some((r: any) => r.risco_id === riskForm.agente_id) ||
+        item.epi_epc_riscos?.length === 0)
+  );
 
 
   // Step 4
@@ -309,6 +345,7 @@ export default function LtcatWizard() {
       unidade_limite_id: "",
       resultados_detalhados: [],
     });
+    setEpiEpcRiskForm({ epi_id: "", epi_ca: "", epi_atenuacao: "", epi_eficaz: "", epc_id: "", epc_eficaz: "" });
     setRiskDialogOpen(true);
   };
 
@@ -1171,6 +1208,105 @@ export default function LtcatWizard() {
                       )}
                     </div>
                   )}
+                </section>
+              );
+            })()}
+
+            {/* SEÇÃO EPI/EPC — Section 6 for quantitative, Section 5 for qualitative */}
+            {(() => {
+              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
+              const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
+              const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" ||
+                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
+                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
+                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
+                tipoAgenteStr.includes("frio"));
+              const sectionNum = isQualitative ? 5 : 6;
+              const isRuido = (riskForm.agente_nome || "").toLowerCase().includes("ruído") ||
+                (riskForm.agente_nome || "").toLowerCase().includes("ruido");
+
+              return (
+                <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO {sectionNum}: EPI / EPC</h3>
+                  </div>
+
+                  {/* --- EPI block --- */}
+                  <div className="space-y-3">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">EPI — Equipamento de Proteção Individual</p>
+
+                    <div>
+                      <Label>EPI</Label>
+                      <Select value={epiEpcRiskForm.epi_id} onValueChange={(v) => setEpiEpcRiskForm({ ...epiEpcRiskForm, epi_id: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o EPI" /></SelectTrigger>
+                        <SelectContent>
+                          {episFiltrados.length === 0 ? (
+                            <SelectItem value="__none" disabled>Nenhum EPI vinculado a este agente</SelectItem>
+                          ) : (
+                            episFiltrados.map((item: any) => (
+                              <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>CA (Certificado de Aprovação)</Label>
+                      <Input className="mt-1" placeholder="Ex: CA 12345" value={epiEpcRiskForm.epi_ca} onChange={e => setEpiEpcRiskForm({ ...epiEpcRiskForm, epi_ca: e.target.value })} />
+                    </div>
+
+                    {isRuido && (
+                      <div className="animate-in fade-in slide-in-from-top-1">
+                        <Label>Atenuação</Label>
+                        <Input className="mt-1" placeholder="Ex: 20 dB(A)" value={epiEpcRiskForm.epi_atenuacao} onChange={e => setEpiEpcRiskForm({ ...epiEpcRiskForm, epi_atenuacao: e.target.value })} />
+                      </div>
+                    )}
+
+                    <div>
+                      <Label>É eficaz?</Label>
+                      <Select value={epiEpcRiskForm.epi_eficaz} onValueChange={(v) => setEpiEpcRiskForm({ ...epiEpcRiskForm, epi_eficaz: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Sim">Sim</SelectItem>
+                          <SelectItem value="Não">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* --- EPC block --- */}
+                  <div className="space-y-3 pt-2 border-t">
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">EPC — Equipamento de Proteção Coletiva</p>
+
+                    <div>
+                      <Label>EPC</Label>
+                      <Select value={epiEpcRiskForm.epc_id} onValueChange={(v) => setEpiEpcRiskForm({ ...epiEpcRiskForm, epc_id: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o EPC" /></SelectTrigger>
+                        <SelectContent>
+                          {epcsFiltrados.length === 0 ? (
+                            <SelectItem value="__none" disabled>Nenhum EPC vinculado a este agente</SelectItem>
+                          ) : (
+                            epcsFiltrados.map((item: any) => (
+                              <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label>É eficaz?</Label>
+                      <Select value={epiEpcRiskForm.epc_eficaz} onValueChange={(v) => setEpiEpcRiskForm({ ...epiEpcRiskForm, epc_eficaz: v })}>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Sim">Sim</SelectItem>
+                          <SelectItem value="Não">Não</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
                 </section>
               );
             })()}

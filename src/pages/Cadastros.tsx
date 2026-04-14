@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,20 +8,24 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
 
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [riscoModalOpen, setRiscoModalOpen] = useState(false);
+  const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
+  const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
+  const [epiEpcSaving, setEpiEpcSaving] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: riscos = [] } = useQuery({
@@ -61,9 +65,64 @@ export default function Cadastros() {
   });
 
 
+  const { data: epiEpcList = [] } = useQuery({
+    queryKey: ["epi_epc"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("epi_epc")
+        .select("*, epi_epc_riscos(risco_id, riscos(nome))")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleSaveEpiEpc = async () => {
+    if (!epiEpcForm.nome.trim()) {
+      toast.error("Informe o nome do EPI/EPC");
+      return;
+    }
+    setEpiEpcSaving(true);
+    try {
+      const { data: inserted, error } = await supabase
+        .from("epi_epc")
+        .insert({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
+        .select("id")
+        .single();
+      if (error) throw error;
+
+      if (epiEpcForm.risco_ids.length > 0) {
+        const links = epiEpcForm.risco_ids.map((risco_id) => ({ epi_epc_id: inserted.id, risco_id }));
+        const { error: linkError } = await supabase.from("epi_epc_riscos").insert(links);
+        if (linkError) throw linkError;
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
+      toast.success("EPI/EPC cadastrado com sucesso!");
+      setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
+      setEpiEpcModalOpen(false);
+    } catch (err: any) {
+      toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+    } finally {
+      setEpiEpcSaving(false);
+    }
+  };
+
+  const toggleRiscoSelection = (riscoId: string) => {
+    setEpiEpcForm((prev) => ({
+      ...prev,
+      risco_ids: prev.risco_ids.includes(riscoId)
+        ? prev.risco_ids.filter((id) => id !== riscoId)
+        : [...prev.risco_ids, riscoId],
+    }));
+  };
+
   const handleNovo = () => {
     if (tab === "riscos") {
       setRiscoModalOpen(true);
+    } else if (tab === "epi_epc") {
+      setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
+      setEpiEpcModalOpen(true);
     } else {
       setDialogOpen(true);
     }
@@ -83,6 +142,7 @@ export default function Cadastros() {
             <TabsTrigger value="tecnicas" className="gap-2"><FlaskConical className="w-3.5 h-3.5" />Técnicas</TabsTrigger>
             <TabsTrigger value="equipamentos" className="gap-2"><Wrench className="w-3.5 h-3.5" />Equipamentos</TabsTrigger>
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
+            <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
           </TabsList>
           <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="w-4 h-4 mr-2" />Novo
@@ -182,6 +242,35 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="epi_epc" className="m-0">
+            <Table>
+              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Riscos Associados</TableHead></TableRow></TableHeader>
+              <TableBody>
+                {epiEpcList.length === 0 ? (
+                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhum EPI/EPC cadastrado. Clique em "Cadastrar EPI/EPC" para começar.</TableCell></TableRow>
+                ) : (
+                  epiEpcList.map((item: any) => (
+                    <TableRow key={item.id}>
+                      <TableCell className="font-medium">{item.nome}</TableCell>
+                      <TableCell>
+                        <Badge variant={item.tipo === 'EPI' ? 'default' : 'secondary'}>{item.tipo}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap gap-1">
+                          {item.epi_epc_riscos?.length > 0
+                            ? item.epi_epc_riscos.map((r: any) => (
+                                <Badge key={r.risco_id} variant="outline" className="text-xs">{r.riscos?.nome}</Badge>
+                              ))
+                            : <span className="text-muted-foreground text-xs">—</span>}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
 
@@ -191,6 +280,91 @@ export default function Cadastros() {
         onOpenChange={setRiscoModalOpen}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["riscos"] })}
       />
+
+      {/* Modal EPI/EPC */}
+      <Dialog open={epiEpcModalOpen} onOpenChange={setEpiEpcModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Cadastro de EPI / EPC</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            {/* 1. Tipo */}
+            <div>
+              <Label>Tipo <span className="text-destructive">*</span></Label>
+              <Select value={epiEpcForm.tipo} onValueChange={(v) => setEpiEpcForm({ ...epiEpcForm, tipo: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EPI">EPI</SelectItem>
+                  <SelectItem value="EPC">EPC</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 2. Nome */}
+            <div>
+              <Label>Nome <span className="text-destructive">*</span></Label>
+              <Input
+                className="mt-1"
+                placeholder="Ex: Protetor Auricular Tipo Concha"
+                value={epiEpcForm.nome}
+                onChange={(e) => setEpiEpcForm({ ...epiEpcForm, nome: e.target.value })}
+              />
+            </div>
+
+            {/* 3. Riscos (multi-select) */}
+            <div>
+              <Label>Riscos Associados</Label>
+              <div className="mt-2 border rounded-lg max-h-48 overflow-y-auto">
+                {riscos.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-3">Nenhum risco cadastrado em Cadastros &gt; Riscos/Agentes.</p>
+                ) : (
+                  riscos.map((r: any) => {
+                    const selected = epiEpcForm.risco_ids.includes(r.id);
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        className={`w-full flex items-center justify-between px-3 py-2 text-sm text-left transition-colors hover:bg-accent/10 ${
+                          selected ? "bg-accent/10 font-medium" : ""
+                        }`}
+                        onClick={() => toggleRiscoSelection(r.id)}
+                      >
+                        <span>{r.nome}</span>
+                        {selected && <Check className="w-4 h-4 text-accent shrink-0" />}
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+              {epiEpcForm.risco_ids.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mt-2">
+                  {epiEpcForm.risco_ids.map((id) => {
+                    const risco = riscos.find((r: any) => r.id === id);
+                    return (
+                      <Badge key={id} variant="secondary" className="text-xs gap-1">
+                        {risco?.nome}
+                        <button type="button" onClick={() => toggleRiscoSelection(id)}>
+                          <X className="w-3 h-3" />
+                        </button>
+                      </Badge>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEpiEpcModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={handleSaveEpiEpc}
+              disabled={epiEpcSaving}
+            >
+              {epiEpcSaving ? "Salvando..." : "OK"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal genérico para outras abas */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
