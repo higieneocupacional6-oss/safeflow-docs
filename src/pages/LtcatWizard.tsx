@@ -1060,168 +1060,8 @@ export default function LtcatWizard() {
               );
             })()}
 
-            {/* SEÇÃO 5: RESULTADOS */}
+            {/* SEÇÃO 5: EPI / EPC — Always here, either as the last section (qualitative) or before results (quantitative) */}
             {(() => {
-              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
-              const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-              const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
-              
-              const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" || 
-                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
-                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
-                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
-                tipoAgenteStr.includes("frio"));
-
-              if (isQualitative) return null;
-
-              return (
-                <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                  <div className="flex items-center gap-2 border-b pb-2">
-                    <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
-                  </div>
-
-                  {/* AGENTE VIBRAÇÃO VCI/VMB */}
-                  {isAgentVibracao(riskForm.agente_nome || "") && (
-                    <div className="space-y-4">
-                      <Button
-                        variant="outline"
-                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
-                        onClick={openVibracaoModal}
-                      >
-                        <Plus className="w-4 h-4" /> + Resultado
-                      </Button>
-                      {riskForm.resultados_vibracao && riskForm.resultados_vibracao.length > 0 && (
-                        <div className="space-y-2">
-                          {riskForm.resultados_vibracao.map((row: any, ri: number) => (
-                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
-                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
-                              {row.equipamento_avaliado && <div className="text-xs text-muted-foreground">Equip.: {row.equipamento_avaliado}</div>}
-                              {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</div>}
-                              {row.vdvr_resultado && <div className="text-xs ml-2">VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* AGENTE CALOR */}
-                  {isAgentCalor(riskForm.agente_nome || "") && (
-                    <div className="space-y-4">
-                      <Button
-                        variant="outline"
-                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
-                        onClick={openCalorModal}
-                      >
-                        <Plus className="w-4 h-4" /> + Resultado
-                      </Button>
-                      {riskForm.resultados_calor && riskForm.resultados_calor.length > 0 && (
-                        <div className="space-y-2">
-                          {riskForm.resultados_calor.map((row: any, ri: number) => (
-                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
-                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
-                              {row.resultado && <div className="text-xs ml-2">Res: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</div>}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}
-                  {isCompAgent && (
-                    <div className="space-y-4">
-                      <Button
-                        variant="outline"
-                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
-                        onClick={openComponentesModal}
-                      >
-                        <Plus className="w-4 h-4" /> + Resultado
-                      </Button>
-                      {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (
-                        <div className="space-y-2">
-                          {riskForm.resultados_componentes.map((row: any, ri: number) => (
-                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
-                              <div className="font-bold text-sm">{row.funcao_nome || "Função"} — {row.colaborador}</div>
-                              {row.componentes?.map((c: any, ci: number) => (
-                                <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo}</div>
-                              ))}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* AGENTE FÍSICO padrão */}
-                  {!isCompAgent && !isFisico && (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label>Resultado</Label>
-                        <div className="flex gap-2">
-                          <Input type="number" step="0.01" value={riskForm.resultado} onChange={e => setRiskForm({...riskForm, resultado: e.target.value})} />
-                          <Select value={riskForm.unidade_resultado_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_resultado_id: v })}>
-                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                            <SelectContent>
-                              {unidades.map((u: any) => (
-                                <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                      <div className="space-y-2">
-                        <Label>Limite de Tolerância</Label>
-                        <div className="flex gap-2">
-                          <Input type="number" step="0.01" value={riskForm.limite_tolerancia} onChange={e => setRiskForm({...riskForm, limite_tolerancia: e.target.value})} />
-                          <Select value={riskForm.unidade_limite_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_limite_id: v })}>
-                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                            <SelectContent>
-                              {unidades.map((u: any) => (
-                                <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* AGENTE FÍSICO com medições múltiplas */}
-                  {!isCompAgent && isFisico && (
-                    <div className="space-y-4">
-                      <Button 
-                        variant="outline" 
-                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2" 
-                        onClick={() => {
-                          setTempResultados(riskForm.resultados_detalhados?.length ? riskForm.resultados_detalhados : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
-                          setResultsModalOpen(true);
-                        }}
-                      >
-                        <Plus className="w-4 h-4" /> + Resultados
-                      </Button>
-                      {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
-                        <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
-                          <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s). Clique no botão acima para editar.
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </section>
-              );
-            })()}
-
-            {/* SEÇÃO EPI/EPC — Section 6 for quantitative, Section 5 for qualitative */}
-            {(() => {
-              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
-              const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
-              const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" ||
-                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
-                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
-                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
-                tipoAgenteStr.includes("frio"));
-              const sectionNum = isQualitative ? 5 : 6;
               const isRuido = (riskForm.agente_nome || "").toLowerCase().includes("ruído") ||
                 (riskForm.agente_nome || "").toLowerCase().includes("ruido");
 
@@ -1229,10 +1069,10 @@ export default function LtcatWizard() {
                 <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
                   <div className="flex items-center gap-2 border-b pb-2">
                     <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO {sectionNum}: EPI / EPC</h3>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: EPI / EPC</h3>
                   </div>
 
-                  {/* --- EPI block --- */}
+                  {/* EPI block */}
                   <div className="space-y-3">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">EPI — Equipamento de Proteção Individual</p>
 
@@ -1276,7 +1116,7 @@ export default function LtcatWizard() {
                     </div>
                   </div>
 
-                  {/* --- EPC block --- */}
+                  {/* EPC block */}
                   <div className="space-y-3 pt-2 border-t">
                     <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">EPC — Equipamento de Proteção Coletiva</p>
 
@@ -1307,6 +1147,128 @@ export default function LtcatWizard() {
                       </Select>
                     </div>
                   </div>
+                </section>
+              );
+            })()}
+
+            {/* SEÇÃO 6: RESULTADOS — Only for quantitative evaluations */}
+            {(() => {
+              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
+              const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
+              const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
+              const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" || 
+                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
+                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
+                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
+                tipoAgenteStr.includes("frio"));
+
+              if (isQualitative) return null;
+
+              return (
+                <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 6: RESULTADOS</h3>
+                  </div>
+
+                  {/* VIBRAÇÃO */}
+                  {isAgentVibracao(riskForm.agente_nome || "") && (
+                    <div className="space-y-4">
+                      <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openVibracaoModal}>
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_vibracao && riskForm.resultados_vibracao.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_vibracao.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
+                              {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find((u: any) => u.id === row.aren_unidade_id)?.simbolo}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* CALOR */}
+                  {isAgentCalor(riskForm.agente_nome || "") && (
+                    <div className="space-y-4">
+                      <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openCalorModal}>
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_calor && riskForm.resultados_calor.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_calor.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
+                              {row.resultado && <div className="text-xs ml-2">Res: {row.resultado} {unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* COMPONENTES QUÍMICOS */}
+                  {isCompAgent && (
+                    <div className="space-y-4">
+                      <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openComponentesModal}>
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_componentes.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
+                              {row.componentes?.map((c: any, ci: number) => (
+                                <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado}</div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* FÍSICO PADRÃO */}
+                  {!isCompAgent && !isFisico && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label>Resultado</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" step="0.01" value={riskForm.resultado} onChange={e => setRiskForm({...riskForm, resultado: e.target.value})} />
+                          <Select value={riskForm.unidade_resultado_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_resultado_id: v })}>
+                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                            <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Limite (LT)</Label>
+                        <div className="flex gap-2">
+                          <Input type="number" step="0.01" value={riskForm.limite_tolerancia} onChange={e => setRiskForm({...riskForm, limite_tolerancia: e.target.value})} />
+                          <Select value={riskForm.unidade_limite_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_limite_id: v })}>
+                            <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                            <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* FÍSICO COM MÚLTIPLAS MEDIÇÕES */}
+                  {!isCompAgent && isFisico && (
+                    <div className="space-y-4">
+                      <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
+                        <Plus className="w-4 h-4" /> + Resultados
+                      </Button>
+                      {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
+                        <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
+                          <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s).
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </section>
               );
             })()}
