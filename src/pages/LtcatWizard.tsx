@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -70,6 +70,22 @@ interface RiscoEntry {
       unidade_limite_id: string;
     }[];
   }[];
+  resultados_vibracao?: {
+    id: string;
+    colaborador: string;
+    funcao_id: string;
+    funcao_nome: string;
+    equipamento_avaliado: string;
+    // VCI fields
+    aren_resultado?: string;
+    aren_unidade_id?: string;
+    aren_limite?: string;
+    aren_limite_unidade_id?: string;
+    vdvr_resultado?: string;
+    vdvr_unidade_id?: string;
+    vdvr_limite?: string;
+    vdvr_limite_unidade_id?: string;
+  }[];
 }
 
 // Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
@@ -90,6 +106,19 @@ const isAgentComponentes = (agentNome: string) => {
   return AGENTES_COMPONENTES.some(k => n.includes(k));
 };
 
+// Vibração helpers
+const isAgentVCI = (agentNome: string) => {
+  const n = agentNome.toLowerCase();
+  return n.includes("corpo inteiro") || n.includes("vci");
+};
+
+const isAgentVMB = (agentNome: string) => {
+  const n = agentNome.toLowerCase();
+  return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
+};
+
+const isAgentVibracao = (agentNome: string) => isAgentVCI(agentNome) || isAgentVMB(agentNome);
+
 export default function LtcatWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -103,6 +132,13 @@ export default function LtcatWizard() {
   const [amostraModalOpen, setAmostraModalOpen] = useState(false);
   const [currentAmostraIndex, setCurrentAmostraIndex] = useState<number>(-1);
   const [tempComponentes, setTempComponentes] = useState<any[]>([]); // Nivel 2
+
+  // Vibração flow VCI/VMB (Nivel 1 + Nivel 2)
+  const [vibracaoModalOpen, setVibracaoModalOpen] = useState(false);
+  const [tempVibracaoRows, setTempVibracaoRows] = useState<any[]>([]);
+  const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = useState(false);
+  const [currentVibracaoIndex, setCurrentVibracaoIndex] = useState<number>(-1);
+  const [tempVibAmostra, setTempVibAmostra] = useState<any>({});
   const [generating, setGenerating] = useState(false);
 
   // Step 1
@@ -308,8 +344,28 @@ export default function LtcatWizard() {
     let finalItems = riskForm.items;
     let finalResultados = riskForm.resultados_detalhados;
     let finalComponentes = riskForm.resultados_componentes || [];
+    let finalVibracao = riskForm.resultados_vibracao || [];
 
-    if (isComponentes) {
+    const isVib = isAgentVibracao(riskForm.agente_nome || "");
+
+    if (isVib) {
+      const inlineVib = arguments[2] as any[] | undefined;
+      if (inlineVib) finalVibracao = inlineVib;
+      if (!finalVibracao || finalVibracao.length === 0) {
+        toast.error("Adicione ao menos um resultado de vibração");
+        return;
+      }
+      if (finalVibracao.some(r => !r.colaborador || !r.funcao_id)) {
+        toast.error("Preencha colaborador e função em todos os registros");
+        return;
+      }
+      finalItems = finalVibracao.map(r => ({
+        id: crypto.randomUUID(),
+        colaborador: r.colaborador,
+        funcao_id: r.funcao_id,
+        funcao_nome: r.funcao_nome,
+      }));
+    } else if (isComponentes) {
       if (inlineComponentes) finalComponentes = inlineComponentes;
       if (!finalComponentes || finalComponentes.length === 0) {
         toast.error("Adicione ao menos uma função com componentes avaliados");
@@ -387,6 +443,7 @@ export default function LtcatWizard() {
       unidade_limite_id: riskForm.unidade_limite_id,
       resultados_detalhados: finalResultados,
       resultados_componentes: finalComponentes,
+      resultados_vibracao: finalVibracao,
     };
 
     try {
@@ -395,6 +452,7 @@ export default function LtcatWizard() {
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
       setComponentesModalOpen(false);
+      setVibracaoModalOpen(false);
       setStep(2); 
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
@@ -413,6 +471,14 @@ export default function LtcatWizard() {
       : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }];
     setTempFuncaoRows(initial);
     setComponentesModalOpen(true);
+  };
+
+  const openVibracaoModal = () => {
+    const initial = riskForm.resultados_vibracao?.length
+      ? riskForm.resultados_vibracao
+      : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
+    setTempVibracaoRows(initial);
+    setVibracaoModalOpen(true);
   };
 
   const handleGenerateDocument = async () => {
@@ -634,7 +700,15 @@ export default function LtcatWizard() {
                     <TableCell className="font-medium">{r.agente_nome}</TableCell>
                     <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
                     <TableCell className="font-mono text-sm leading-tight">
-                      {r.resultados_componentes && r.resultados_componentes.length > 0 ? (
+                      {r.resultados_vibracao && r.resultados_vibracao.length > 0 ? (
+                        r.resultados_vibracao.map((row: any, ri: number) => (
+                          <div key={ri} className="mb-2">
+                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome} {row.equipamento_avaliado && <span className="font-normal text-muted-foreground">— {row.equipamento_avaliado}</span>}</div>
+                            {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo} {row.aren_limite && `(LT: ${row.aren_limite})`}</div>}
+                            {row.vdvr_resultado && <div className="text-xs ml-2">VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo} {row.vdvr_limite && `(LT: ${row.vdvr_limite})`}</div>}
+                          </div>
+                        ))
+                      ) : r.resultados_componentes && r.resultados_componentes.length > 0 ? (
                         r.resultados_componentes.map((row: any, ri: number) => (
                           <div key={ri} className="mb-2">
                             <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome || "Função"}</div>
@@ -906,7 +980,32 @@ export default function LtcatWizard() {
                     <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
                   </div>
 
-                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}
+                  {/* AGENTE VIBRAÇÃO VCI/VMB */}
+                  {isAgentVibracao(riskForm.agente_nome || "") && (
+                    <div className="space-y-4">
+                      <Button
+                        variant="outline"
+                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
+                        onClick={openVibracaoModal}
+                      >
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_vibracao && riskForm.resultados_vibracao.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_vibracao.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
+                              {row.equipamento_avaliado && <div className="text-xs text-muted-foreground">Equip.: {row.equipamento_avaliado}</div>}
+                              {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</div>}
+                              {row.vdvr_resultado && <div className="text-xs ml-2">VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}}
                   {isCompAgent && (
                     <div className="space-y-4">
                       <Button
@@ -1346,6 +1445,229 @@ export default function LtcatWizard() {
              }}>
                Salvar Resultados
              </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 1: RESULTADO DE VIBRAÇÃO (VCI / VMB)             */}
+      {/* ============================================================ */}
+      <Dialog open={vibracaoModalOpen} onOpenChange={setVibracaoModalOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase">Cadastro de Resultados — {isAgentVCI(riskForm.agente_nome || "") ? "Vibração de Corpo Inteiro (VCI)" : "Vibração de Mãos e Braços (VMB)"}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {tempVibracaoRows.map((row, ri) => (
+              <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                <div className="flex gap-3 items-end">
+                  <div className="flex-[2]">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
+                    <Input 
+                      className="mt-1 h-8 text-sm" placeholder="Nome" value={row.colaborador}
+                      onChange={e => {
+                        const updated = [...tempVibracaoRows];
+                        updated[ri].colaborador = e.target.value;
+                        setTempVibracaoRows(updated);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-[2]">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
+                    <Select
+                      value={row.funcao_id}
+                      onValueChange={v => {
+                        const updated = [...tempVibracaoRows];
+                        updated[ri].funcao_id = v;
+                        const fn = funcoes.find((f: any) => f.id === v);
+                        updated[ri].funcao_nome = fn?.nome_funcao || "";
+                        setTempVibracaoRows(updated);
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                          <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex-[2]">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Equipamento Avaliado</Label>
+                    <Input 
+                      className="mt-1 h-8 text-sm" placeholder="Ex: Empilhadeira" value={row.equipamento_avaliado}
+                      onChange={e => {
+                        const updated = [...tempVibracaoRows];
+                        updated[ri].equipamento_avaliado = e.target.value;
+                        setTempVibracaoRows(updated);
+                      }}
+                    />
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0 h-8"
+                    onClick={() => {
+                      setCurrentVibracaoIndex(ri);
+                      setTempVibAmostra({ ...row });
+                      setVibracaoAmostraModalOpen(true);
+                    }}
+                  >
+                    {isAgentVCI(riskForm.agente_nome || "") ? (
+                      <><FileText className="w-4 h-4" /> Amostra VCI</>
+                    ) : (
+                      <><Settings className="w-4 h-4" /> Amostra VMB</>
+                    )}
+                  </Button>
+                  {ri > 0 && (
+                    <Button
+                      variant="ghost" size="icon" className="text-destructive shrink-0 h-8 w-8"
+                      onClick={() => setTempVibracaoRows(tempVibracaoRows.filter((_, i) => i !== ri))}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Preview VCI / VMB */}
+                {(row.aren_resultado || row.vdvr_resultado) && (
+                  <div className="pl-3 border-l-2 border-accent/30 space-y-0.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">{row.funcao_nome || "Função"}</p>
+                    {row.aren_resultado && (
+                      <div className="text-sm">
+                        <span className="font-medium">AREN</span>:{" "}
+                        <span className="font-mono">{row.aren_resultado} {unidades.find((u: any) => u.id === row.aren_unidade_id)?.simbolo}</span>
+                        {row.aren_limite && (
+                          <span className="text-muted-foreground text-xs ml-2">(LT: {row.aren_limite} {unidades.find((u: any) => u.id === row.aren_limite_unidade_id)?.simbolo})</span>
+                        )}
+                      </div>
+                    )}
+                    {row.vdvr_resultado && (
+                      <div className="text-sm">
+                        <span className="font-medium">VDVR</span>:{" "}
+                        <span className="font-mono">{row.vdvr_resultado} {unidades.find((u: any) => u.id === row.vdvr_unidade_id)?.simbolo}</span>
+                        {row.vdvr_limite && (
+                          <span className="text-muted-foreground text-xs ml-2">(LT: {row.vdvr_limite} {unidades.find((u: any) => u.id === row.vdvr_limite_unidade_id)?.simbolo})</span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <Button
+              variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
+              onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
+            >
+              <Plus className="w-4 h-4" /> Adicionar Função
+            </Button>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setVibracaoModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                setRiskForm(prev => ({ ...prev, resultados_vibracao: tempVibracaoRows }));
+                handleSaveRisk(undefined, undefined, tempVibracaoRows);
+              }}
+            >
+              Salvar Resultados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 2: DADOS DA AMOSTRA DE VIBRAÇÃO                  */}
+      {/* ============================================================ */}
+      <Dialog open={vibracaoAmostraModalOpen} onOpenChange={setVibracaoAmostraModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg uppercase">
+              Dados da Amostra — {isAgentVCI(riskForm.agente_nome || "") ? "VCI" : "VMB"}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            {/* AREN */}
+            <div className="space-y-3">
+              <h4 className="font-bold border-b pb-1">Medição: AREN</h4>
+              <div className="grid grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado AREN</Label>
+                  <Input type="number" step="0.01" className="mt-1" value={tempVibAmostra.aren_resultado || ""} onChange={e => setTempVibAmostra({ ...tempVibAmostra, aren_resultado: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                  <Select value={tempVibAmostra.aren_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, aren_unidade_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
+                  <Input type="number" step="0.01" className="mt-1" value={tempVibAmostra.aren_limite || ""} onChange={e => setTempVibAmostra({ ...tempVibAmostra, aren_limite: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
+                  <Select value={tempVibAmostra.aren_limite_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, aren_limite_unidade_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+
+            {/* VDVR (Apenas VCI) */}
+            {isAgentVCI(riskForm.agente_nome || "") && (
+              <div className="space-y-3">
+                <h4 className="font-bold border-b pb-1">Medição: VDVR</h4>
+                <div className="grid grid-cols-4 gap-3 items-end">
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado VDVR</Label>
+                    <Input type="number" step="0.01" className="mt-1" value={tempVibAmostra.vdvr_resultado || ""} onChange={e => setTempVibAmostra({ ...tempVibAmostra, vdvr_resultado: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                    <Select value={tempVibAmostra.vdvr_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, vdvr_unidade_id: v })}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                      <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
+                    <Input type="number" step="0.01" className="mt-1" value={tempVibAmostra.vdvr_limite || ""} onChange={e => setTempVibAmostra({ ...tempVibAmostra, vdvr_limite: e.target.value })} />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
+                    <Select value={tempVibAmostra.vdvr_limite_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, vdvr_limite_unidade_id: v })}>
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                      <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setVibracaoAmostraModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                if (currentVibracaoIndex >= 0) {
+                  const updated = [...tempVibracaoRows];
+                  updated[currentVibracaoIndex] = { ...tempVibAmostra };
+                  setTempVibracaoRows(updated);
+                }
+                setVibracaoAmostraModalOpen(false);
+              }}
+            >
+              OK — Salvar Amostra
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

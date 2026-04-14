@@ -58,6 +58,13 @@ const variableGroups = [
     ],
   },
   {
+    title: "VARIÁVEIS DE VIBRAÇÃO (LTCAT)",
+    vars: [
+      "{{equipamento_avaliado}}", "{{aren_resultado}}", "{{aren_unidade}}", "{{aren_limite}}", "{{aren_limite_unidade}}",
+      "{{vdvr_resultado}}", "{{vdvr_unidade}}", "{{vdvr_limite}}", "{{vdvr_limite_unidade}}"
+    ],
+  },
+  {
     title: "VARIÁVEIS DE RISCOS (LTCAT)",
     vars: [
       "{{empresa}}", "{{setor}}", "{{ghe_ges}}", "{{funcao}}", "{{colaborador}}",
