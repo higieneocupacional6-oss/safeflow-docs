@@ -46,7 +46,9 @@ interface RiscoEntry {
   unidade_limite_id: string;
   resultados_detalhados?: {
     id: string;
-    item_id: string;
+    colaborador: string;
+    funcao_id: string;
+    funcao_nome: string;
     resultado: string;
     unidade_resultado_id: string;
     limite_tolerancia: string;
@@ -58,6 +60,8 @@ export default function LtcatWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
+  const [resultsModalOpen, setResultsModalOpen] = useState(false);
+  const [tempResultados, setTempResultados] = useState<any[]>([]);
   const [generating, setGenerating] = useState(false);
 
   // Step 1
@@ -241,37 +245,49 @@ export default function LtcatWizard() {
     setRiskForm({ ...riskForm, items: newItems });
   };
 
-  const handleSaveRisk = async () => {
+  const handleSaveRisk = async (inlineResults?: any[]) => {
     if (!riskForm.agente_id) {
       toast.error("Selecione um agente");
       return;
     }
-    
-    if (riskForm.items.some(item => !item.colaborador || !item.funcao_id)) {
-      toast.error("Preencha todos os colaboradores e funções");
-      return;
-    }
 
     const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
-    const isFisico = riskForm.tipo_agente?.toLowerCase() === "físico";
-    const isRuido = agent?.nome?.toLowerCase().includes("ruído");
-    const showCompleta = isFisico && isRuido;
+    const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
+    const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
 
-    if (showCompleta) {
-      if (riskForm.resultados_detalhados.length === 0) {
+    let finalItems = riskForm.items;
+    let finalResultados = riskForm.resultados_detalhados;
+
+    if (isFisico) {
+      if (inlineResults) {
+        finalResultados = inlineResults;
+      }
+      if (!finalResultados || finalResultados.length === 0) {
         toast.error("Adicione ao menos um resultado");
         return;
       }
-      if (riskForm.resultados_detalhados.some(r => !r.item_id || !r.resultado || !r.unidade_resultado_id)) {
+      if (finalResultados.some(r => !r.colaborador || !r.funcao_id || !r.resultado || !r.unidade_resultado_id)) {
         toast.error("Preencha todos os campos obrigatórios nos resultados");
         return;
       }
+      finalItems = finalResultados.map(r => ({
+        id: crypto.randomUUID(), 
+        colaborador: r.colaborador, 
+        funcao_id: r.funcao_id, 
+        funcao_nome: r.funcao_nome
+      }));
+    } else {
+      if (riskForm.items.some(item => !item.colaborador || !item.funcao_id)) {
+        toast.error("Preencha todos os colaboradores e funções");
+        return;
+      }
     }
+
     const newRisk: RiscoEntry = {
       id: Date.now().toString(),
       setor_id: currentRiskSetor.id,
       setor_nome: currentRiskSetor.nome_setor,
-      items: riskForm.items,
+      items: finalItems,
       tipo_avaliacao: riskForm.tipo_avaliacao,
       tipo_agente: riskForm.tipo_agente,
       agente_id: riskForm.agente_id,
@@ -289,17 +305,17 @@ export default function LtcatWizard() {
       unidade_resultado_id: riskForm.unidade_resultado_id,
       limite_tolerancia: riskForm.limite_tolerancia,
       unidade_limite_id: riskForm.unidade_limite_id,
-      resultados_detalhados: riskForm.resultados_detalhados,
+      resultados_detalhados: finalResultados,
     };
 
-    // Persistence attempt (optional since user has to run SQL, but good to have)
     try {
-      // In a real scenario, we would insert into public.ltcat_avaliacoes here
-      // For now, we update local state for the listing
       setRiscos((prev) => [...prev, newRisk]);
       toast.success("Risco avaliado com sucesso!");
       setRiskDialogOpen(false);
-      setStep(2); // Go to Listagem directly upon saving as requested ("PÓS-SALVAMENTO: Exibir a pagina da etapa 3 - Listagem")
+      if (inlineResults) {
+        setResultsModalOpen(false);
+      }
+      setStep(2); 
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
     }
@@ -535,8 +551,17 @@ export default function LtcatWizard() {
                     </TableCell>
                     <TableCell className="font-medium">{r.agente_nome}</TableCell>
                     <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
-                    <TableCell className="font-mono text-sm">
-                      {r.resultado} {unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo}
+                    <TableCell className="font-mono text-sm leading-tight">
+                      {r.resultados_detalhados && r.resultados_detalhados.length > 0 ? (
+                        r.resultados_detalhados.map((res: any, idx: number) => (
+                          <div key={idx} className="mb-0.5 whitespace-nowrap">
+                            {res.resultado} {unidades.find(u => u.id === res.unidade_resultado_id)?.simbolo} 
+                            {res.limite_tolerancia && ` (LT: ${res.limite_tolerancia} ${unidades.find(u => u.id === res.unidade_limite_id)?.simbolo})`}
+                          </div>
+                        ))
+                      ) : (
+                        <>{r.resultado} {unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo}</>
+                      )}
                     </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setRiscos((prev) => prev.filter((x) => x.id !== r.id))}>
@@ -745,13 +770,7 @@ export default function LtcatWizard() {
             {/* SEÇÃO 5: RESULTADOS */}
             {(() => {
               const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
-              const agenteNomeStr = (riskForm.agente_nome || "").toLowerCase();
-              
               const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-              const isRuido = agenteNomeStr.includes("ruí") || agenteNomeStr.includes("rui");
-              
-              const showCompleta = isFisico && isRuido;
-              const showSimplificada = !showCompleta;
 
               return (
                 <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
@@ -760,7 +779,7 @@ export default function LtcatWizard() {
                     <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
                   </div>
 
-                  {showSimplificada && (
+                  {!isFisico && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Resultado</Label>
@@ -793,99 +812,24 @@ export default function LtcatWizard() {
                     </div>
                   )}
 
-                  {showCompleta && (
+                  {isFisico && (
                     <div className="space-y-4">
-                      {riskForm.resultados_detalhados.map((res, index) => (
-                        <div key={res.id} className="p-4 border rounded-xl bg-muted/10 relative space-y-4 group">
-                          <div className="grid grid-cols-1 gap-4">
-                            <div>
-                              <Label>Colaborador <span className="text-destructive">*</span></Label>
-                              <Select value={res.item_id} onValueChange={(v) => {
-                                const newRes = [...riskForm.resultados_detalhados];
-                                newRes[index] = { ...newRes[index], item_id: v };
-                                setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                              }}>
-                                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o colaborador" /></SelectTrigger>
-                                <SelectContent>
-                                  {riskForm.items.map((it: any) => (
-                                    <SelectItem key={it.id} value={it.id}>
-                                      {it.colaborador ? `${it.colaborador} - ${it.funcao_nome}` : 'Colaborador não preenchido'}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <div className="space-y-2">
-                                <Label>Resultado <span className="text-destructive">*</span></Label>
-                                <div className="flex gap-2">
-                                  <Input type="number" step="0.01" value={res.resultado} onChange={e => {
-                                    const newRes = [...riskForm.resultados_detalhados];
-                                    newRes[index] = { ...newRes[index], resultado: e.target.value };
-                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                                  }} />
-                                  <Select value={res.unidade_resultado_id} onValueChange={(v) => {
-                                    const newRes = [...riskForm.resultados_detalhados];
-                                    newRes[index] = { ...newRes[index], unidade_resultado_id: v };
-                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                                  }}>
-                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                                    <SelectContent>
-                                      {unidades.map((u: any) => (
-                                        <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                              <div className="space-y-2">
-                                <Label>Limite de Tolerância</Label>
-                                <div className="flex gap-2">
-                                  <Input type="number" step="0.01" value={res.limite_tolerancia} onChange={e => {
-                                    const newRes = [...riskForm.resultados_detalhados];
-                                    newRes[index] = { ...newRes[index], limite_tolerancia: e.target.value };
-                                    setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                                  }} />
-                                  <Select value={res.unidade_limite_id} onValueChange={(v) => {
-                                     const newRes = [...riskForm.resultados_detalhados];
-                                     newRes[index] = { ...newRes[index], unidade_limite_id: v };
-                                     setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                                  }}>
-                                    <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
-                                    <SelectContent>
-                                      {unidades.map((u: any) => (
-                                        <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
-                                      ))}
-                                    </SelectContent>
-                                  </Select>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="absolute top-2 right-2 text-destructive opacity-0 group-hover:opacity-100 transition-opacity" 
-                            onClick={() => {
-                              const newRes = riskForm.resultados_detalhados.filter((_, i) => i !== index);
-                              setRiskForm({ ...riskForm, resultados_detalhados: newRes });
-                            }}
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </div>
-                      ))}
-                      <Button variant="outline" size="sm" onClick={() => {
-                         setRiskForm({
-                            ...riskForm,
-                            resultados_detalhados: [
-                               ...riskForm.resultados_detalhados,
-                               { id: crypto.randomUUID(), item_id: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }
-                            ]
-                         })
-                      }} className="text-accent border-accent/20 hover:bg-accent/5">
-                        <Plus className="w-4 h-4 mr-2" />Adicionar Resultado para Colaborador
+                      <Button 
+                        variant="outline" 
+                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2" 
+                        onClick={() => {
+                          setTempResultados(riskForm.resultados_detalhados?.length ? riskForm.resultados_detalhados : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
+                          setResultsModalOpen(true);
+                        }}
+                      >
+                        <Plus className="w-4 h-4" /> + Resultados
                       </Button>
+                      
+                      {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
+                        <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
+                          <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s). Clique no botão acima para editar.
+                        </div>
+                      )}
                     </div>
                   )}
                 </section>
@@ -895,7 +839,118 @@ export default function LtcatWizard() {
 
           <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
             <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleSaveRisk}>Salvar Risco</Button>
+            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleSaveRisk()}>Salvar Risco</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Nested Results Dialog */}
+      <Dialog open={resultsModalOpen} onOpenChange={setResultsModalOpen}>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase">CADASTRO DE RESULTADOS</DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4 overflow-x-auto">
+            <div className="min-w-[800px] space-y-4">
+              {tempResultados.map((res, index) => (
+                 <div key={res.id} className="flex gap-3 items-end group animate-in fade-in slide-in-from-top-1 bg-muted/10 p-3 rounded-lg border">
+                    <div className="flex-1">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Colaborador</Label>
+                       <Input placeholder="Nome do colaborador" value={res.colaborador} onChange={e => {
+                         const updated = [...tempResultados];
+                         updated[index].colaborador = e.target.value;
+                         setTempResultados(updated);
+                       }} />
+                    </div>
+                    <div className="flex-1 max-w-[220px]">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Função Avaliada</Label>
+                       <Select value={res.funcao_id} onValueChange={v => {
+                         const updated = [...tempResultados];
+                         updated[index].funcao_id = v;
+                         const fn = funcoes.find((f: any) => f.id === v);
+                         updated[index].funcao_nome = fn?.nome_funcao || "";
+                         setTempResultados(updated);
+                       }}>
+                         <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                         <SelectContent>
+                           {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                             <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="w-[110px]">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Resultado</Label>
+                       <Input type="number" placeholder="0.00" step="0.01" value={res.resultado} onChange={e => {
+                         const updated = [...tempResultados];
+                         updated[index].resultado = e.target.value;
+                         setTempResultados(updated);
+                       }} />
+                    </div>
+                    <div className="w-[100px]">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Unidade</Label>
+                       <Select value={res.unidade_resultado_id} onValueChange={v => {
+                         const updated = [...tempResultados];
+                         updated[index].unidade_resultado_id = v;
+                         setTempResultados(updated);
+                       }}>
+                         <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
+                         <SelectContent>
+                           {unidades.map((u: any) => (
+                             <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div className="w-[110px]">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Limite (LT)</Label>
+                       <Input type="number" placeholder="0.00" step="0.01" value={res.limite_tolerancia} onChange={e => {
+                         const updated = [...tempResultados];
+                         updated[index].limite_tolerancia = e.target.value;
+                         setTempResultados(updated);
+                       }} />
+                    </div>
+                    <div className="w-[100px]">
+                       <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Unidade</Label>
+                       <Select value={res.unidade_limite_id} onValueChange={v => {
+                         const updated = [...tempResultados];
+                         updated[index].unidade_limite_id = v;
+                         setTempResultados(updated);
+                       }}>
+                         <SelectTrigger><SelectValue placeholder="Unid." /></SelectTrigger>
+                         <SelectContent>
+                           {unidades.map((u: any) => (
+                             <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                    </div>
+                    <div>
+                       <Button variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => {
+                         setTempResultados(tempResultados.filter((_, i) => i !== index));
+                       }}>
+                         <Trash2 className="w-4 h-4" />
+                       </Button>
+                    </div>
+                 </div>
+              ))}
+            </div>
+            
+            <Button variant="outline" size="sm" onClick={() => {
+              setTempResultados([...tempResultados, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
+            }} className="mt-2 text-accent border-accent/20 hover:bg-accent/5">
+              <Plus className="w-4 h-4 mr-2" /> Adicionar Linha
+            </Button>
+          </div>
+          
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+             <Button variant="outline" onClick={() => setResultsModalOpen(false)}>Cancelar</Button>
+             <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
+                handleSaveRisk(tempResultados);
+             }}>
+               Salvar Resultados
+             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
