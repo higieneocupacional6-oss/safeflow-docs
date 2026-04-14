@@ -13,23 +13,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
 
-const mockTecnicas = [
-  { id: "1", nome: "Dosimetria de Ruído", descricao: "NHO-01" },
-  { id: "2", nome: "Gravimetria", descricao: "NIOSH 0600" },
-];
+// Mock data removed in favor of real database queries
 
-const mockEquipamentos = [
-  { id: "1", nome: "Dosímetro DOS-500", marca: "Instrutherm", certificado: "RBC 2024" },
-  { id: "2", nome: "Bomba Gravimétrica", marca: "SKC", certificado: "Cal. 2024" },
-];
-
-const mockUnidades = [
-  { id: "1", simbolo: "dB(A)", nome: "Decibéis ponderados em A" },
-  { id: "2", simbolo: "mg/m³", nome: "Miligrama por metro cúbico" },
-  { id: "3", simbolo: "ppm", nome: "Partes por milhão" },
-  { id: "4", simbolo: "m/s²", nome: "Metro por segundo ao quadrado" },
-  { id: "5", simbolo: "°C", nome: "Graus Celsius (IBUTG)" },
-];
 
 type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades";
 
@@ -47,6 +32,34 @@ export default function Cadastros() {
       return data;
     },
   });
+
+  const { data: tecnicas = [] } = useQuery({
+    queryKey: ["tecnicas_amostragem"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tecnicas_amostragem").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: equipamentos_ho = [] } = useQuery({
+    queryKey: ["equipamentos_ho"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipamentos_ho").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: unidades = [] } = useQuery({
+    queryKey: ["unidades"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unidades").select("*").order("simbolo");
+      if (error) throw error;
+      return data;
+    },
+  });
+
 
   const handleNovo = () => {
     if (tab === "riscos") {
@@ -119,12 +132,16 @@ export default function Cadastros() {
             <Table>
               <TableHeader><TableRow><TableHead>Técnica</TableHead><TableHead>Referência</TableHead></TableRow></TableHeader>
               <TableBody>
-                {mockTecnicas.map((t) => (
-                  <TableRow key={t.id}>
-                    <TableCell className="font-medium">{t.nome}</TableCell>
-                    <TableCell className="text-muted-foreground">{t.descricao}</TableCell>
-                  </TableRow>
-                ))}
+                {tecnicas.length === 0 ? (
+                  <TableRow><TableCell colSpan={2} className="text-center py-8">Nenhuma técnica cadastrada</TableCell></TableRow>
+                ) : (
+                  tecnicas.map((t: any) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.nome}</TableCell>
+                      <TableCell className="text-muted-foreground">{t.referencia}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TabsContent>
@@ -133,13 +150,17 @@ export default function Cadastros() {
             <Table>
               <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado</TableHead></TableRow></TableHeader>
               <TableBody>
-                {mockEquipamentos.map((e) => (
-                  <TableRow key={e.id}>
-                    <TableCell className="font-medium">{e.nome}</TableCell>
-                    <TableCell>{e.marca}</TableCell>
-                    <TableCell><Badge variant="secondary">{e.certificado}</Badge></TableCell>
-                  </TableRow>
-                ))}
+                {equipamentos_ho.length === 0 ? (
+                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
+                ) : (
+                  equipamentos_ho.map((e: any) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.nome}</TableCell>
+                      <TableCell>{e.marca}</TableCell>
+                      <TableCell><Badge variant="secondary">{e.certificado}</Badge></TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TabsContent>
@@ -148,12 +169,16 @@ export default function Cadastros() {
             <Table>
               <TableHeader><TableRow><TableHead>Símbolo</TableHead><TableHead>Descrição</TableHead></TableRow></TableHeader>
               <TableBody>
-                {mockUnidades.map((u) => (
-                  <TableRow key={u.id}>
-                    <TableCell><Badge variant="outline" className="font-mono">{u.simbolo}</Badge></TableCell>
-                    <TableCell>{u.nome}</TableCell>
-                  </TableRow>
-                ))}
+                {unidades.length === 0 ? (
+                  <TableRow><TableCell colSpan={2} className="text-center py-8">Nenhuma unidade cadastrada</TableCell></TableRow>
+                ) : (
+                  unidades.map((u: any) => (
+                    <TableRow key={u.id}>
+                      <TableCell><Badge variant="outline" className="font-mono">{u.simbolo}</Badge></TableCell>
+                      <TableCell>{u.nome}</TableCell>
+                    </TableRow>
+                  ))
+                )}
               </TableBody>
             </Table>
           </TabsContent>

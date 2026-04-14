@@ -20,15 +20,30 @@ const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
 interface RiscoEntry {
   id: string;
-  setor: string;
-  funcao: string;
-  tipoAvaliacao: string;
-  tipoAgente: string;
-  agente: string;
-  exposicao: string;
+  setor_id: string;
+  setor_nome: string;
+  items: {
+    colaborador: string;
+    funcao_id: string;
+    funcao_nome: string;
+  }[];
+  tipo_avaliacao: string;
+  tipo_agente: string;
+  agente_id: string;
+  agente_nome: string;
+  codigo_esocial: string;
+  descricao_esocial: string;
+  propagacao: string;
+  tipo_exposicao: string;
+  fonte_geradora: string;
+  danos_saude: string;
+  medidas_controle: string;
+  tecnica_id: string;
+  equipamento_id: string;
   resultado: string;
-  unidade: string;
-  lt: string;
+  unidade_resultado_id: string;
+  limite_tolerancia: string;
+  unidade_limite_id: string;
 }
 
 export default function LtcatWizard() {
@@ -47,12 +62,28 @@ export default function LtcatWizard() {
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
 
-  // Step 3
+  // Risk Management
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
   const [riskForm, setRiskForm] = useState({
-    tipoAvaliacao: "", tipoAgente: "", agente: "", viaAbsorcao: "", exposicao: "",
-    tecnica: "", equipamento: "", resultado: "", unidade: "", lt: "", ltUnidade: "",
+    items: [{ colaborador: "", funcao_id: "", funcao_nome: "" }],
+    tipo_avaliacao: "qualitativa",
+    tipo_agente: "",
+    agente_id: "",
+    codigo_esocial: "",
+    descricao_esocial: "",
+    propagacao: "",
+    tipo_exposicao: "",
+    fonte_geradora: "",
+    danos_saude: "",
+    medidas_controle: "",
+    tecnica_id: "",
+    equipamento_id: "",
+    resultado: "",
+    unidade_resultado_id: "",
+    limite_tolerancia: "",
+    unidade_limite_id: "",
   });
+
 
   // Step 4
   const [selectedTemplate, setSelectedTemplate] = useState("");
@@ -98,45 +129,138 @@ export default function LtcatWizard() {
     enabled: setores.length > 0,
   });
 
-  const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
+  const { data: catRiscos = [] } = useQuery({
+    queryKey: ["riscos-catalog"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("riscos").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const empresa = empresas.find((e: any) => e.id === empresaId);
+  const { data: tecnicas = [] } = useQuery({
+    queryKey: ["tecnicas_amostragem"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("tecnicas_amostragem").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: equipamentos = [] } = useQuery({
+    queryKey: ["equipamentos_ho"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("equipamentos_ho").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: unidades = [] } = useQuery({
+    queryKey: ["unidades"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("unidades").select("*").order("simbolo");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
 
   const openRiskModal = (setor: any) => {
     setCurrentRiskSetor(setor);
+    setRiskForm({
+      ...riskForm,
+      items: [{ colaborador: "", funcao_id: "", funcao_nome: "" }]
+    });
     setRiskDialogOpen(true);
   };
 
-  const handleSaveRisk = () => {
-    if (!riskForm.agente || !riskForm.resultado) {
-      toast.error("Preencha os campos obrigatórios");
-      return;
+  const handleAgentSelect = (agentId: string) => {
+    const agent = catRiscos.find((r: any) => r.id === agentId);
+    if (agent) {
+      setRiskForm({
+        ...riskForm,
+        agente_id: agentId,
+        tipo_agente: agent.tipo || "",
+        codigo_esocial: agent.codigo_esocial || "",
+        descricao_esocial: agent.descricao_esocial || "",
+        propagacao: agent.propagacao?.join(", ") || "",
+        tipo_exposicao: agent.tipo_exposicao || "",
+        fonte_geradora: agent.fonte_geradora || "",
+        danos_saude: agent.danos_saude || "",
+        medidas_controle: agent.medidas_controle || "",
+      });
     }
-    const setorNome = currentRiskSetor?.nome_setor || "";
-    const funcaoNomes = funcoesBySetor(currentRiskSetor?.id).map((f: any) => f.nome_funcao) || [];
-
-    if (funcaoNomes.length === 0) {
-      toast.error("Este setor não possui funções cadastradas. Cadastre funções antes de avaliar os riscos.");
-      return;
-    }
-
-    funcaoNomes.forEach((fn: string) => {
-      setRiscos((prev) => [
-        ...prev,
-        {
-          id: Date.now().toString() + fn,
-          setor: setorNome, funcao: fn,
-          tipoAvaliacao: riskForm.tipoAvaliacao, tipoAgente: riskForm.tipoAgente,
-          agente: riskForm.agente, exposicao: riskForm.exposicao,
-          resultado: riskForm.resultado, unidade: riskForm.unidade, lt: riskForm.lt,
-        },
-      ]);
-    });
-
-    setRiskDialogOpen(false);
-    setRiskForm({ tipoAvaliacao: "", tipoAgente: "", agente: "", viaAbsorcao: "", exposicao: "", tecnica: "", equipamento: "", resultado: "", unidade: "", lt: "", ltUnidade: "" });
-    toast.success("Risco cadastrado para todas as funções do setor!");
   };
+
+  const addItemBlock = () => {
+    setRiskForm({
+      ...riskForm,
+      items: [...riskForm.items, { colaborador: "", funcao_id: "", funcao_nome: "" }]
+    });
+  };
+
+  const updateItemBlock = (index: number, field: string, value: string) => {
+    const newItems = [...riskForm.items];
+    if (field === "funcao_id") {
+      const fn = funcoes.find((f: any) => f.id === value);
+      newItems[index] = { ...newItems[index], [field]: value, funcao_nome: fn?.nome_funcao || "" };
+    } else {
+      newItems[index] = { ...newItems[index], [field]: value };
+    }
+    setRiskForm({ ...riskForm, items: newItems });
+  };
+
+  const handleSaveRisk = async () => {
+    if (!riskForm.agente_id) {
+      toast.error("Selecione um agente");
+      return;
+    }
+    
+    if (riskForm.items.some(item => !item.colaborador || !item.funcao_id)) {
+      toast.error("Preencha todos os colaboradores e funções");
+      return;
+    }
+
+    const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
+    const newRisk: RiscoEntry = {
+      id: Date.now().toString(),
+      setor_id: currentRiskSetor.id,
+      setor_nome: currentRiskSetor.nome_setor,
+      items: riskForm.items,
+      tipo_avaliacao: riskForm.tipo_avaliacao,
+      tipo_agente: riskForm.tipo_agente,
+      agente_id: riskForm.agente_id,
+      agente_nome: agent?.nome || "",
+      codigo_esocial: riskForm.codigo_esocial,
+      descricao_esocial: riskForm.descricao_esocial,
+      propagacao: riskForm.propagacao,
+      tipo_exposicao: riskForm.tipo_exposicao,
+      fonte_geradora: riskForm.fonte_geradora,
+      danos_saude: riskForm.danos_saude,
+      medidas_controle: riskForm.medidas_controle,
+      tecnica_id: riskForm.tecnica_id,
+      equipamento_id: riskForm.equipamento_id,
+      resultado: riskForm.resultado,
+      unidade_resultado_id: riskForm.unidade_resultado_id,
+      limite_tolerancia: riskForm.limite_tolerancia,
+      unidade_limite_id: riskForm.unidade_limite_id,
+    };
+
+    // Persistence attempt (optional since user has to run SQL, but good to have)
+    try {
+      // In a real scenario, we would insert into public.ltcat_avaliacoes here
+      // For now, we update local state for the listing
+      setRiscos((prev) => [...prev, newRisk]);
+      toast.success("Risco avaliado com sucesso!");
+      setRiskDialogOpen(false);
+      setStep(2); // Go to Listagem directly upon saving as requested ("PÓS-SALVAMENTO: Exibir a pagina da etapa 3 - Listagem")
+    } catch (err) {
+      toast.error("Erro ao salvar avaliação");
+    }
+  };
+
 
   const canAdvance = () => {
     if (step === 0) return !!empresaId;
@@ -357,11 +481,19 @@ export default function LtcatWizard() {
               ) : (
                 riscos.map((r) => (
                   <TableRow key={r.id}>
-                    <TableCell>{r.setor}</TableCell>
-                    <TableCell>{r.funcao}</TableCell>
-                    <TableCell className="font-medium">{r.agente}</TableCell>
-                    <TableCell><Badge variant="outline">{r.tipoAgente}</Badge></TableCell>
-                    <TableCell className="font-mono text-sm">{r.resultado} {r.unidade}</TableCell>
+                    <TableCell>{r.setor_nome}</TableCell>
+                    <TableCell>
+                      {r.items.map((item, idx) => (
+                        <div key={idx} className="text-xs">
+                          <span className="font-semibold">{item.funcao_nome}</span> ({item.colaborador})
+                        </div>
+                      ))}
+                    </TableCell>
+                    <TableCell className="font-medium">{r.agente_nome}</TableCell>
+                    <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {r.resultado} {unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo}
+                    </TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setRiscos((prev) => prev.filter((x) => x.id !== r.id))}>
                         <Trash2 className="w-4 h-4" />
@@ -414,125 +546,198 @@ export default function LtcatWizard() {
 
       {/* Risk Dialog */}
       <Dialog open={riskDialogOpen} onOpenChange={setRiskDialogOpen}>
-        <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-heading">Cadastro de Risco</DialogTitle>
+            <DialogTitle className="font-heading text-xl">AVALIAÇÃO DE RISCO POR SETOR</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Tipo de Avaliação</Label>
-                <Select value={riskForm.tipoAvaliacao} onValueChange={(v) => setRiskForm({ ...riskForm, tipoAvaliacao: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="qualitativa">Qualitativa</SelectItem>
-                    <SelectItem value="quantitativa">Quantitativa</SelectItem>
-                  </SelectContent>
-                </Select>
+          
+          <div className="space-y-8 py-4">
+            {/* SEÇÃO 1: IDENTIFICAÇÃO */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 1: IDENTIFICAÇÃO</h3>
               </div>
-              <div>
-                <Label>Tipo de Agente</Label>
-                <Select value={riskForm.tipoAgente} onValueChange={(v) => setRiskForm({ ...riskForm, tipoAgente: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Físico">Físico</SelectItem>
-                    <SelectItem value="Químico">Químico</SelectItem>
-                    <SelectItem value="Biológico">Biológico</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div>
-              <Label>Agente</Label>
-              <Input className="mt-1" value={riskForm.agente} onChange={(e) => setRiskForm({ ...riskForm, agente: e.target.value })} placeholder="Ex: Ruído Contínuo, Poeira de Sílica..." />
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Via de Absorção</Label>
-                <Select value={riskForm.viaAbsorcao} onValueChange={(v) => setRiskForm({ ...riskForm, viaAbsorcao: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aerea">Aérea</SelectItem>
-                    <SelectItem value="contato">Contato</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Exposição</Label>
-                <Select value={riskForm.exposicao} onValueChange={(v) => setRiskForm({ ...riskForm, exposicao: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="habitual">Habitual</SelectItem>
-                    <SelectItem value="intermitente">Intermitente</SelectItem>
-                    <SelectItem value="eventual">Eventual</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>Técnica de Amostragem</Label>
-                <Select value={riskForm.tecnica} onValueChange={(v) => setRiskForm({ ...riskForm, tecnica: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dosimetria">Dosimetria de Ruído</SelectItem>
-                    <SelectItem value="gravimetria">Gravimetria</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>Equipamento</Label>
-                <Select value={riskForm.equipamento} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento: v })}>
-                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="dosimetro">Dosímetro DOS-500</SelectItem>
-                    <SelectItem value="bomba">Bomba Gravimétrica</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {/* Dynamic fields */}
-            {(() => {
-              const fieldType = getAgentFields();
-              if (fieldType === "vibracao_corpo") return (
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>A(ren)</Label><Input className="mt-1" value={riskForm.resultado} onChange={(e) => setRiskForm({ ...riskForm, resultado: e.target.value })} /></div>
-                  <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.unidade} onChange={(e) => setRiskForm({ ...riskForm, unidade: e.target.value })} placeholder="m/s²" /></div>
-                  <div><Label>VDVR</Label><Input className="mt-1" value={riskForm.lt} onChange={(e) => setRiskForm({ ...riskForm, lt: e.target.value })} /></div>
-                  <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.ltUnidade} onChange={(e) => setRiskForm({ ...riskForm, ltUnidade: e.target.value })} placeholder="m/s^1.75" /></div>
+              <div className="grid grid-cols-1 gap-4">
+                <div>
+                  <Label>Setor Avaliado</Label>
+                  <Input value={currentRiskSetor?.nome_setor || ""} readOnly className="mt-1 bg-muted/30" />
                 </div>
-              );
-              if (fieldType === "vibracao_maos") return (
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>A(ren)</Label><Input className="mt-1" value={riskForm.resultado} onChange={(e) => setRiskForm({ ...riskForm, resultado: e.target.value })} /></div>
-                  <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.unidade} onChange={(e) => setRiskForm({ ...riskForm, unidade: e.target.value })} placeholder="m/s²" /></div>
-                </div>
-              );
-              if (fieldType === "calor") return (
+                
                 <div className="space-y-3">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Resultado</Label><Input className="mt-1" value={riskForm.resultado} onChange={(e) => setRiskForm({ ...riskForm, resultado: e.target.value })} /></div>
-                    <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.unidade} onChange={(e) => setRiskForm({ ...riskForm, unidade: e.target.value })} placeholder="°C" /></div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div><Label>Limite de Tolerância</Label><Input className="mt-1" value={riskForm.lt} onChange={(e) => setRiskForm({ ...riskForm, lt: e.target.value })} /></div>
-                    <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.ltUnidade} onChange={(e) => setRiskForm({ ...riskForm, ltUnidade: e.target.value })} placeholder="°C" /></div>
-                  </div>
-                  <div><Label>Taxa Metabólica</Label><Input className="mt-1" placeholder="kcal/h" /></div>
+                  <Label>Colaborador e Função</Label>
+                  {riskForm.items.map((item, index) => (
+                    <div key={index} className="flex gap-2 items-end group animate-in fade-in slide-in-from-top-1">
+                      <div className="flex-1">
+                        <Input 
+                          placeholder="Nome do Colaborador" 
+                          value={item.colaborador} 
+                          onChange={(e) => updateItemBlock(index, "colaborador", e.target.value)}
+                        />
+                      </div>
+                      <div className="flex-1">
+                        <Select value={item.funcao_id} onValueChange={(v) => updateItemBlock(index, "funcao_id", v)}>
+                          <SelectTrigger><SelectValue placeholder="Selecione a Função" /></SelectTrigger>
+                          <SelectContent>
+                            {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                              <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {index > 0 && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-destructive h-10 w-10 shrink-0" 
+                          onClick={() => {
+                            const newItems = riskForm.items.filter((_, i) => i !== index);
+                            setRiskForm({ ...riskForm, items: newItems });
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
+                  ))}
+                  <Button variant="outline" size="sm" onClick={addItemBlock} className="mt-1 text-accent border-accent/20 hover:bg-accent/5">
+                    <Plus className="w-4 h-4 mr-2" />Adicionar Colaborador/Função
+                  </Button>
                 </div>
-              );
-              return (
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Resultado</Label><Input className="mt-1" value={riskForm.resultado} onChange={(e) => setRiskForm({ ...riskForm, resultado: e.target.value })} /></div>
-                  <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.unidade} onChange={(e) => setRiskForm({ ...riskForm, unidade: e.target.value })} placeholder="dB(A)" /></div>
-                  <div><Label>Limite de Tolerância</Label><Input className="mt-1" value={riskForm.lt} onChange={(e) => setRiskForm({ ...riskForm, lt: e.target.value })} /></div>
-                  <div><Label>Unidade</Label><Input className="mt-1" value={riskForm.ltUnidade} onChange={(e) => setRiskForm({ ...riskForm, ltUnidade: e.target.value })} /></div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 2: CLASSIFICAÇÃO */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 2: CLASSIFICAÇÃO DA AVALIAÇÃO</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Tipo de Avaliação</Label>
+                  <Select value={riskForm.tipo_avaliacao} onValueChange={(v) => setRiskForm({ ...riskForm, tipo_avaliacao: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="qualitativa">Qualitativa</SelectItem>
+                      <SelectItem value="quantitativa">Quantitativa</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
-              );
-            })()}
+                <div>
+                  <Label>Tipo de Agente</Label>
+                  <Input value={riskForm.tipo_agente} readOnly className="mt-1 bg-muted/30" placeholder="Auto-preenchido" />
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 3: AGENTE */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 3: AGENTE</h3>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label>Agente</Label>
+                  <Select value={riskForm.agente_id} onValueChange={handleAgentSelect}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o Agente" /></SelectTrigger>
+                    <SelectContent>
+                      {catRiscos.map((r: any) => (
+                        <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>Código eSocial</Label><Input value={riskForm.codigo_esocial} onChange={e => setRiskForm({...riskForm, codigo_esocial: e.target.value})} className="mt-1" /></div>
+                  <div><Label>Descrição eSocial</Label><Input value={riskForm.descricao_esocial} onChange={e => setRiskForm({...riskForm, descricao_esocial: e.target.value})} className="mt-1" /></div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>Propagação</Label><Input value={riskForm.propagacao} onChange={e => setRiskForm({...riskForm, propagacao: e.target.value})} className="mt-1" /></div>
+                  <div><Label>Tipo de Exposição</Label><Input value={riskForm.tipo_exposicao} onChange={e => setRiskForm({...riskForm, tipo_exposicao: e.target.value})} className="mt-1" /></div>
+                </div>
+
+                <div><Label>Fonte Geradora</Label><Input value={riskForm.fonte_geradora} onChange={e => setRiskForm({...riskForm, fonte_geradora: e.target.value})} className="mt-1" /></div>
+                <div><Label>Danos à Saúde</Label><Input value={riskForm.danos_saude} onChange={e => setRiskForm({...riskForm, danos_saude: e.target.value})} className="mt-1" /></div>
+                <div><Label>Medidas de Controle Existentes</Label><Input value={riskForm.medidas_controle} onChange={e => setRiskForm({...riskForm, medidas_controle: e.target.value})} className="mt-1" /></div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 4: AVALIAÇÃO TÉCNICA */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 4: AVALIAÇÃO TÉCNICA</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label>Técnica de Amostragem</Label>
+                  <Select value={riskForm.tecnica_id} onValueChange={(v) => setRiskForm({ ...riskForm, tecnica_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {tecnicas.map((t: any) => (
+                        <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Equipamento</Label>
+                  <Select value={riskForm.equipamento_id} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {equipamentos.map((e: any) => (
+                        <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 5: RESULTADOS */}
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 border-b pb-2">
+                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Resultado</Label>
+                  <div className="flex gap-2">
+                    <Input type="number" step="0.01" value={riskForm.resultado} onChange={e => setRiskForm({...riskForm, resultado: e.target.value})} />
+                    <Select value={riskForm.unidade_resultado_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_resultado_id: v })}>
+                      <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                      <SelectContent>
+                        {unidades.map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Limite de Tolerância</Label>
+                  <div className="flex gap-2">
+                    <Input type="number" step="0.01" value={riskForm.limite_tolerancia} onChange={e => setRiskForm({...riskForm, limite_tolerancia: e.target.value})} />
+                    <Select value={riskForm.unidade_limite_id} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_limite_id: v })}>
+                      <SelectTrigger className="w-[120px]"><SelectValue placeholder="Unid." /></SelectTrigger>
+                      <SelectContent>
+                        {unidades.map((u: any) => (
+                          <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+            </section>
           </div>
-          <DialogFooter>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
             <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={handleSaveRisk}>Salvar Risco</Button>
           </DialogFooter>
