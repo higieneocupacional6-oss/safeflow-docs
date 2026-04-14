@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -56,7 +56,39 @@ interface RiscoEntry {
     limite_tolerancia: string;
     unidade_limite_id: string;
   }[];
+  resultados_componentes?: {
+    id: string;
+    colaborador: string;
+    funcao_id: string;
+    funcao_nome: string;
+    componentes: {
+      id: string;
+      componente: string;
+      resultado: string;
+      unidade_resultado_id: string;
+      limite_tolerancia: string;
+      unidade_limite_id: string;
+    }[];
+  }[];
 }
+
+// Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
+const AGENTES_COMPONENTES = [
+  "poeira respirável", "poeira respiravel",
+  "sílica", "silica",
+  "fumos metálicos", "fumos metalicos",
+  "poeira metálica", "poeira metalica",
+  "vapores orgânicos", "vapores organicos",
+  "varredura de metais",
+  "químicos quantitativos", "quimicos quantitativos",
+  "névoas e gases", "nevoas e gases",
+  "poeira total",
+];
+
+const isAgentComponentes = (agentNome: string) => {
+  const n = agentNome.toLowerCase();
+  return AGENTES_COMPONENTES.some(k => n.includes(k));
+};
 
 export default function LtcatWizard() {
   const navigate = useNavigate();
@@ -64,6 +96,13 @@ export default function LtcatWizard() {
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [tempResultados, setTempResultados] = useState<any[]>([]);
+
+  // Componentes flow (Nivel 1 + Nivel 2)
+  const [componentesModalOpen, setComponentesModalOpen] = useState(false);
+  const [tempFuncaoRows, setTempFuncaoRows] = useState<any[]>([]); // Nivel 1
+  const [amostraModalOpen, setAmostraModalOpen] = useState(false);
+  const [currentAmostraIndex, setCurrentAmostraIndex] = useState<number>(-1);
+  const [tempComponentes, setTempComponentes] = useState<any[]>([]); // Nivel 2
   const [generating, setGenerating] = useState(false);
 
   // Step 1
@@ -249,7 +288,7 @@ export default function LtcatWizard() {
     setRiskForm({ ...riskForm, items: newItems });
   };
 
-  const handleSaveRisk = async (inlineResults?: any[]) => {
+  const handleSaveRisk = async (inlineResults?: any[], inlineComponentes?: any[]) => {
     if (!riskForm.agente_id) {
       toast.error("Selecione um agente");
       return;
@@ -258,17 +297,35 @@ export default function LtcatWizard() {
     const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
     const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
     const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
+    const isComponentes = isAgentComponentes(riskForm.agente_nome || "");
 
-    const isQualitative = riskForm.tipo_avaliacao === "qualitativa" || 
+    const isQualitative = !isComponentes && (riskForm.tipo_avaliacao === "qualitativa" || 
       tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
       tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
       tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
-      tipoAgenteStr.includes("frio");
+      tipoAgenteStr.includes("frio"));
 
     let finalItems = riskForm.items;
     let finalResultados = riskForm.resultados_detalhados;
+    let finalComponentes = riskForm.resultados_componentes || [];
 
-    if (isQualitative) {
+    if (isComponentes) {
+      if (inlineComponentes) finalComponentes = inlineComponentes;
+      if (!finalComponentes || finalComponentes.length === 0) {
+        toast.error("Adicione ao menos uma função com componentes avaliados");
+        return;
+      }
+      if (finalComponentes.some(r => !r.colaborador || !r.funcao_id || !r.componentes?.length)) {
+        toast.error("Preencha colaborador, função e ao menos um componente em cada linha");
+        return;
+      }
+      finalItems = finalComponentes.map(r => ({
+        id: crypto.randomUUID(),
+        colaborador: r.colaborador,
+        funcao_id: r.funcao_id,
+        funcao_nome: r.funcao_nome,
+      }));
+    } else if (isQualitative) {
       if (!riskForm.descricao_tecnica?.trim()) {
         toast.error("Preencha a Descrição da Avaliação Técnica");
         return;
@@ -329,15 +386,15 @@ export default function LtcatWizard() {
       limite_tolerancia: riskForm.limite_tolerancia,
       unidade_limite_id: riskForm.unidade_limite_id,
       resultados_detalhados: finalResultados,
+      resultados_componentes: finalComponentes,
     };
 
     try {
       setRiscos((prev) => [...prev, newRisk]);
       toast.success("Risco avaliado com sucesso!");
       setRiskDialogOpen(false);
-      if (inlineResults) {
-        setResultsModalOpen(false);
-      }
+      setResultsModalOpen(false);
+      setComponentesModalOpen(false);
       setStep(2); 
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
@@ -350,13 +407,12 @@ export default function LtcatWizard() {
     return true;
   };
 
-  const getAgentFields = () => {
-    const agent = riskForm.agente.toLowerCase();
-    if (agent.includes("vibração") && agent.includes("corpo")) return "vibracao_corpo";
-    if (agent.includes("vibração") && (agent.includes("mão") || agent.includes("braço"))) return "vibracao_maos";
-    if (agent.includes("calor")) return "calor";
-    if (agent.includes("poeira") || agent.includes("fumo") || agent.includes("vapor")) return "componentes";
-    return "padrao";
+  const openComponentesModal = () => {
+    const initial = riskForm.resultados_componentes?.length
+      ? riskForm.resultados_componentes
+      : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }];
+    setTempFuncaoRows(initial);
+    setComponentesModalOpen(true);
   };
 
   const handleGenerateDocument = async () => {
@@ -578,7 +634,16 @@ export default function LtcatWizard() {
                     <TableCell className="font-medium">{r.agente_nome}</TableCell>
                     <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
                     <TableCell className="font-mono text-sm leading-tight">
-                      {r.resultados_detalhados && r.resultados_detalhados.length > 0 ? (
+                      {r.resultados_componentes && r.resultados_componentes.length > 0 ? (
+                        r.resultados_componentes.map((row: any, ri: number) => (
+                          <div key={ri} className="mb-2">
+                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome || "Função"}</div>
+                            {row.componentes?.map((c: any, ci: number) => (
+                              <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo} {c.limite_tolerancia && `(LT: ${c.limite_tolerancia} ${unidades.find(u => u.id === c.unidade_limite_id)?.simbolo})`}</div>
+                            ))}
+                          </div>
+                        ))
+                      ) : r.resultados_detalhados && r.resultados_detalhados.length > 0 ? (
                         r.resultados_detalhados.map((res: any, idx: number) => (
                           <div key={idx} className="mb-0.5 whitespace-nowrap">
                             {res.resultado} {unidades.find(u => u.id === res.unidade_resultado_id)?.simbolo} 
@@ -824,12 +889,13 @@ export default function LtcatWizard() {
             {(() => {
               const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
               const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
+              const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
               
-              const isQualitative = riskForm.tipo_avaliacao === "qualitativa" || 
+              const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" || 
                 tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
                 tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
                 tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
-                tipoAgenteStr.includes("frio");
+                tipoAgenteStr.includes("frio"));
 
               if (isQualitative) return null;
 
@@ -840,7 +906,33 @@ export default function LtcatWizard() {
                     <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 5: RESULTADOS</h3>
                   </div>
 
-                  {!isFisico && (
+                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}
+                  {isCompAgent && (
+                    <div className="space-y-4">
+                      <Button
+                        variant="outline"
+                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
+                        onClick={openComponentesModal}
+                      >
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_componentes.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome || "Função"} — {row.colaborador}</div>
+                              {row.componentes?.map((c: any, ci: number) => (
+                                <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo}</div>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AGENTE FÍSICO padrão */}
+                  {!isCompAgent && !isFisico && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Resultado</Label>
@@ -873,7 +965,8 @@ export default function LtcatWizard() {
                     </div>
                   )}
 
-                  {isFisico && (
+                  {/* AGENTE FÍSICO com medições múltiplas */}
+                  {!isCompAgent && isFisico && (
                     <div className="space-y-4">
                       <Button 
                         variant="outline" 
@@ -885,7 +978,6 @@ export default function LtcatWizard() {
                       >
                         <Plus className="w-4 h-4" /> + Resultados
                       </Button>
-                      
                       {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
                         <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
                           <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s). Clique no botão acima para editar.
@@ -901,6 +993,248 @@ export default function LtcatWizard() {
           <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
             <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
             <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleSaveRisk()}>Salvar Risco</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 1: RESULTADOS POR FUNÇÃO (Componentes)           */}
+      {/* ============================================================ */}
+      <Dialog open={componentesModalOpen} onOpenChange={setComponentesModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase">RESULTADOS — {riskForm.agente_nome}</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {tempFuncaoRows.map((row, ri) => (
+              <div key={row.id} className="border rounded-xl p-4 bg-muted/10 space-y-3">
+                {/* Cabeçalho da linha */}
+                <div className="flex gap-3 items-end">
+                  <div className="flex-1">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Nome do colaborador"
+                      value={row.colaborador}
+                      onChange={e => {
+                        const updated = [...tempFuncaoRows];
+                        updated[ri] = { ...updated[ri], colaborador: e.target.value };
+                        setTempFuncaoRows(updated);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
+                    <Select
+                      value={row.funcao_id}
+                      onValueChange={v => {
+                        const fn = funcoes.find((f: any) => f.id === v);
+                        const updated = [...tempFuncaoRows];
+                        updated[ri] = { ...updated[ri], funcao_id: v, funcao_nome: fn?.nome_funcao || "" };
+                        setTempFuncaoRows(updated);
+                      }}
+                    >
+                      <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a função" /></SelectTrigger>
+                      <SelectContent>
+                        {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                          <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0"
+                    onClick={() => {
+                      setCurrentAmostraIndex(ri);
+                      setTempComponentes(row.componentes?.length ? row.componentes : [{ id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
+                      setAmostraModalOpen(true);
+                    }}
+                  >
+                    <FileText className="w-4 h-4" /> Amostra
+                  </Button>
+                  {ri > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="text-destructive shrink-0"
+                      onClick={() => setTempFuncaoRows(tempFuncaoRows.filter((_, i) => i !== ri))}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Preview dos componentes cadastrados para esta função */}
+                {row.componentes && row.componentes.length > 0 && (
+                  <div className="pl-3 border-l-2 border-accent/30 space-y-0.5">
+                    <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-1">{row.funcao_nome || "Função"}</p>
+                    {row.componentes.map((c: any, ci: number) => (
+                      <div key={ci} className="text-sm">
+                        <span className="font-medium">{c.componente}</span>:{" "}
+                        <span className="font-mono">{c.resultado} {unidades.find((u: any) => u.id === c.unidade_resultado_id)?.simbolo}</span>
+                        {c.limite_tolerancia && (
+                          <span className="text-muted-foreground text-xs ml-2">(LT: {c.limite_tolerancia} {unidades.find((u: any) => u.id === c.unidade_limite_id)?.simbolo})</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
+              onClick={() => setTempFuncaoRows([...tempFuncaoRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }])}
+            >
+              <Plus className="w-4 h-4" /> Adicionar Função
+            </Button>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setComponentesModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                setRiskForm(prev => ({ ...prev, resultados_componentes: tempFuncaoRows }));
+                handleSaveRisk(undefined, tempFuncaoRows);
+              }}
+            >
+              Salvar Resultados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 2: CADASTRO DE COMPONENTES DA AMOSTRA           */}
+      {/* ============================================================ */}
+      <Dialog open={amostraModalOpen} onOpenChange={setAmostraModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg uppercase">Cadastro de Componentes — Amostra</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-3 py-4">
+            {tempComponentes.map((comp, ci) => (
+              <div key={comp.id} className="grid grid-cols-12 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
+                <div className="col-span-4">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Componente Avaliado</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: Sílica Livre, Poeira Respirável"
+                    value={comp.componente}
+                    onChange={e => {
+                      const updated = [...tempComponentes];
+                      updated[ci] = { ...updated[ci], componente: e.target.value };
+                      setTempComponentes(updated);
+                    }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado</Label>
+                  <Input
+                    className="mt-1"
+                    type="number"
+                    step="0.001"
+                    placeholder="0.00"
+                    value={comp.resultado}
+                    onChange={e => {
+                      const updated = [...tempComponentes];
+                      updated[ci] = { ...updated[ci], resultado: e.target.value };
+                      setTempComponentes(updated);
+                    }}
+                  />
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                  <Select
+                    value={comp.unidade_resultado_id}
+                    onValueChange={v => {
+                      const updated = [...tempComponentes];
+                      updated[ci] = { ...updated[ci], unidade_resultado_id: v };
+                      setTempComponentes(updated);
+                    }}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                    <SelectContent>
+                      {unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
+                  <Input
+                    className="mt-1"
+                    type="number"
+                    step="0.001"
+                    placeholder="0.00"
+                    value={comp.limite_tolerancia}
+                    onChange={e => {
+                      const updated = [...tempComponentes];
+                      updated[ci] = { ...updated[ci], limite_tolerancia: e.target.value };
+                      setTempComponentes(updated);
+                    }}
+                  />
+                </div>
+                <div className="col-span-1">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                  <Select
+                    value={comp.unidade_limite_id}
+                    onValueChange={v => {
+                      const updated = [...tempComponentes];
+                      updated[ci] = { ...updated[ci], unidade_limite_id: v };
+                      setTempComponentes(updated);
+                    }}
+                  >
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="U." /></SelectTrigger>
+                    <SelectContent>
+                      {unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-1 flex justify-end">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-destructive mt-5"
+                    onClick={() => setTempComponentes(tempComponentes.filter((_, i) => i !== ci))}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              </div>
+            ))}
+
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 text-accent border-accent/20 hover:bg-accent/5 mt-2"
+              onClick={() => setTempComponentes([...tempComponentes, { id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }])}
+            >
+              <Plus className="w-4 h-4" /> Adicionar Componente
+            </Button>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setAmostraModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                if (currentAmostraIndex >= 0) {
+                  const updated = [...tempFuncaoRows];
+                  updated[currentAmostraIndex] = { ...updated[currentAmostraIndex], componentes: tempComponentes };
+                  setTempFuncaoRows(updated);
+                }
+                setAmostraModalOpen(false);
+              }}
+            >
+              OK — Salvar Componentes
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
