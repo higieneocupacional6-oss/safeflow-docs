@@ -52,12 +52,22 @@ const variableGroups = [
     ],
   },
   {
-    title: "Variáveis do Documento",
+    title: "VARIÁVEIS DE RISCOS (LTCAT)",
     vars: [
-      "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
-      "{{setor}}", "{{funcao}}", "{{agente}}", "{{resultado}}", "{{unidade}}", "{{limite_tolerancia}}",
+      "{{empresa}}", "{{setor}}", "{{ghe_ges}}", "{{funcao}}", "{{colaborador}}",
+      "{{tipo_avaliacao}}", "{{tipo_agente}}", "{{agente_nome}}", "{{codigo_esocial}}", 
+      "{{descricao_esocial}}", "{{propagacao}}", "{{tipo_exposicao}}", "{{fonte_geradora}}", 
+      "{{danos_saude}}", "{{medidas_controle}}", "{{tecnica_amostragem}}", "{{equipamento}}", 
+      "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}",
     ],
   },
+  {
+    title: "Variáveis do Documento",
+    vars: [
+      "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
+    ],
+  },
+
 ];
 
 export function TemplateVariables() {
@@ -84,9 +94,15 @@ export function TemplateVariables() {
             <DialogTitle className="font-heading">Variáveis Disponíveis</DialogTitle>
           </DialogHeader>
 
-          <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
-            <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Essas variáveis são provenientes do cadastro de empresa, contrato, setores/funções e riscos/agentes. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de setor, função e risco permitem repetição dinâmica (loop) para empresas com múltiplos registros.
+          <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4 space-y-2">
+            <p>
+              <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+              Essas variáveis são provenientes do cadastro de empresa, contrato, setores/funções e riscos/agentes. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de setor, função e risco permitem repetição dinâmica (loop) para empresas com múltiplos registros.
+            </p>
+            <p className="text-accent font-medium text-xs">
+              <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
+              As variáveis de riscos do LTCAT são provenientes da etapa de avaliação de riscos por setor. Utilize essas variáveis para montar seus templates (.docx), e o sistema fará o preenchimento automático ao gerar o documento.
+            </p>
           </div>
 
           <div className="space-y-5">
