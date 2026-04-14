@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { TemplateVariables } from "@/components/TemplateVariables";
 import { Plus, FileText, Upload, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
