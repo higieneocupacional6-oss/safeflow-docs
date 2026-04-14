@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, FlaskConical, Gauge, Ruler, Wrench, AlertTriangle } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,14 +8,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-
-const mockRiscos = [
-  { id: "1", nome: "Ruído Contínuo", tipo: "Físico", unidade: "dB(A)", lt: "85" },
-  { id: "2", nome: "Poeira Respirável", tipo: "Químico", unidade: "mg/m³", lt: "3" },
-  { id: "3", nome: "Vibração Corpo Inteiro", tipo: "Físico", unidade: "m/s²", lt: "1.1" },
-];
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { RiscoModal } from "@/components/RiscoModal";
 
 const mockTecnicas = [
   { id: "1", nome: "Dosimetria de Ruído", descricao: "NHO-01" },
@@ -40,6 +36,25 @@ type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades";
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [riscoModalOpen, setRiscoModalOpen] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: riscos = [] } = useQuery({
+    queryKey: ["riscos"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("riscos").select("*").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleNovo = () => {
+    if (tab === "riscos") {
+      setRiscoModalOpen(true);
+    } else {
+      setDialogOpen(true);
+    }
+  };
 
   return (
     <div>
@@ -56,7 +71,7 @@ export default function Cadastros() {
             <TabsTrigger value="equipamentos" className="gap-2"><Wrench className="w-3.5 h-3.5" />Equipamentos</TabsTrigger>
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
           </TabsList>
-          <Button onClick={() => { setDialogOpen(true); }} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="w-4 h-4 mr-2" />Novo
           </Button>
         </div>
@@ -68,17 +83,32 @@ export default function Cadastros() {
                 <TableRow>
                   <TableHead>Agente</TableHead>
                   <TableHead>Tipo</TableHead>
-                  <TableHead>Unidade</TableHead>
-                  <TableHead>Limite Tolerância</TableHead>
+                  <TableHead>eSocial</TableHead>
+                  <TableHead>Exposição</TableHead>
+                  <TableHead>EPI</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {mockRiscos.map((r) => (
+                {riscos.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                      Nenhum risco cadastrado. Clique em "+ Novo" para começar.
+                    </TableCell>
+                  </TableRow>
+                )}
+                {riscos.map((r: any) => (
                   <TableRow key={r.id}>
                     <TableCell className="font-medium">{r.nome}</TableCell>
                     <TableCell><Badge variant="outline">{r.tipo}</Badge></TableCell>
-                    <TableCell className="font-mono text-sm">{r.unidade}</TableCell>
-                    <TableCell className="font-mono text-sm">{r.lt}</TableCell>
+                    <TableCell className="font-mono text-xs">{r.codigo_esocial || "—"}</TableCell>
+                    <TableCell className="text-sm">{r.tipo_exposicao || "—"}</TableCell>
+                    <TableCell>
+                      {r.epi_eficaz ? (
+                        <Badge variant={r.epi_eficaz === "Sim" ? "default" : "destructive"} className="text-xs">
+                          {r.epi_eficaz}
+                        </Badge>
+                      ) : "—"}
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -87,12 +117,7 @@ export default function Cadastros() {
 
           <TabsContent value="tecnicas" className="m-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Técnica</TableHead>
-                  <TableHead>Referência</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Técnica</TableHead><TableHead>Referência</TableHead></TableRow></TableHeader>
               <TableBody>
                 {mockTecnicas.map((t) => (
                   <TableRow key={t.id}>
@@ -106,13 +131,7 @@ export default function Cadastros() {
 
           <TabsContent value="equipamentos" className="m-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Equipamento</TableHead>
-                  <TableHead>Marca</TableHead>
-                  <TableHead>Certificado</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado</TableHead></TableRow></TableHeader>
               <TableBody>
                 {mockEquipamentos.map((e) => (
                   <TableRow key={e.id}>
@@ -127,12 +146,7 @@ export default function Cadastros() {
 
           <TabsContent value="unidades" className="m-0">
             <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Símbolo</TableHead>
-                  <TableHead>Descrição</TableHead>
-                </TableRow>
-              </TableHeader>
+              <TableHeader><TableRow><TableHead>Símbolo</TableHead><TableHead>Descrição</TableHead></TableRow></TableHeader>
               <TableBody>
                 {mockUnidades.map((u) => (
                   <TableRow key={u.id}>
@@ -146,34 +160,22 @@ export default function Cadastros() {
         </div>
       </Tabs>
 
+      {/* Modal de Riscos */}
+      <RiscoModal
+        open={riscoModalOpen}
+        onOpenChange={setRiscoModalOpen}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ["riscos"] })}
+      />
+
+      {/* Modal genérico para outras abas */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-heading">
-              Novo {tab === "riscos" ? "Risco / Agente" : tab === "tecnicas" ? "Técnica" : tab === "equipamentos" ? "Equipamento" : "Unidade"}
+              Novo {tab === "tecnicas" ? "Técnica" : tab === "equipamentos" ? "Equipamento" : "Unidade"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
-            {tab === "riscos" && (
-              <>
-                <div><Label>Nome do Agente</Label><Input className="mt-1" placeholder="Ex: Ruído Contínuo" /></div>
-                <div>
-                  <Label>Tipo</Label>
-                  <Select>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="fisico">Físico</SelectItem>
-                      <SelectItem value="quimico">Químico</SelectItem>
-                      <SelectItem value="biologico">Biológico</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div><Label>Unidade</Label><Input className="mt-1" placeholder="dB(A)" /></div>
-                  <div><Label>Limite de Tolerância</Label><Input className="mt-1" placeholder="85" /></div>
-                </div>
-              </>
-            )}
             {tab === "tecnicas" && (
               <>
                 <div><Label>Nome da Técnica</Label><Input className="mt-1" placeholder="Ex: Dosimetria de Ruído" /></div>

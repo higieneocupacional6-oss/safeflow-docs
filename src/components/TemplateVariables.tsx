@@ -44,6 +44,14 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis de Risco / Agente",
+    vars: [
+      "{{agente_nome}}", "{{tipo_agente}}", "{{codigo_esocial}}", "{{descricao_esocial}}",
+      "{{propagacao}}", "{{tipo_exposicao}}", "{{fonte_geradora}}", "{{danos_saude}}",
+      "{{medidas_controle}}", "{{tipo_epi}}", "{{epi_eficaz}}",
+    ],
+  },
+  {
     title: "Variáveis do Documento",
     vars: [
       "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
