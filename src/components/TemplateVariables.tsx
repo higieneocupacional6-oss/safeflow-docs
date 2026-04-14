@@ -32,6 +32,18 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis de Setor",
+    vars: [
+      "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}",
+    ],
+  },
+  {
+    title: "Variáveis de Função",
+    vars: [
+      "{{nome_funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}",
+    ],
+  },
+  {
     title: "Variáveis do Documento",
     vars: [
       "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",

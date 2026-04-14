@@ -10,6 +10,7 @@ import Cadastros from "./pages/Cadastros";
 import Templates from "./pages/Templates";
 import Documentos from "./pages/Documentos";
 import LtcatWizard from "./pages/LtcatWizard";
+import SetoresFuncoes from "./pages/SetoresFuncoes";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/empresas" element={<AppLayout><Empresas /></AppLayout>} />
           <Route path="/cadastros" element={<AppLayout><Cadastros /></AppLayout>} />
           <Route path="/templates" element={<AppLayout><Templates /></AppLayout>} />
+          <Route path="/setores-funcoes" element={<AppLayout><SetoresFuncoes /></AppLayout>} />
           <Route path="/documentos" element={<AppLayout><Documentos /></AppLayout>} />
           <Route path="/documentos/ltcat/novo" element={<AppLayout><LtcatWizard /></AppLayout>} />
           <Route path="*" element={<NotFound />} />
