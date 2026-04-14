@@ -137,13 +137,12 @@ export default function Templates() {
         </div>
       )}
 
-      <div className="glass-card rounded-xl p-5 mt-8">
-        <h3 className="font-heading font-semibold mb-3">Variáveis Disponíveis</h3>
-        <div className="flex flex-wrap gap-2">
-          {["{empresa}", "{cnpj}", "{endereco}", "{cnae}", "{setor}", "{funcao}", "{agente}", "{resultado}", "{unidade}", "{limite_tolerancia}", "{tecnica}", "{equipamento}", "{responsavel}", "{crea}", "{cargo}", "{data}"].map((v) => (
-            <Badge key={v} variant="outline" className="font-mono text-xs py-1">{v}</Badge>
-          ))}
+      <div className="glass-card rounded-xl p-5 mt-8 flex items-center justify-between">
+        <div>
+          <h3 className="font-heading font-semibold mb-1">Variáveis para Templates</h3>
+          <p className="text-xs text-muted-foreground">Clique para ver e copiar as variáveis disponíveis</p>
         </div>
+        <TemplateVariables />
       </div>
 
       {/* Upload Modal */}

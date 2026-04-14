@@ -163,7 +163,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div><Label>CNAE Principal</Label><Input className="mt-1" value={form.cnae_principal} onChange={e => update("cnae_principal", e.target.value)} /></div>
-                <div><Label>Grau de Risco (NR-04)</Label><Input className="mt-1" value={form.grau_risco} onChange={e => update("grau_risco", e.target.value)} readOnly className="mt-1 bg-muted/50" /></div>
+                <div><Label>Grau de Risco (NR-04)</Label><Input value={form.grau_risco} onChange={e => update("grau_risco", e.target.value)} readOnly className="mt-1 bg-muted/50" /></div>
               </div>
               <div><Label>Endereço Completo</Label><Input className="mt-1" value={form.endereco} onChange={e => update("endereco", e.target.value)} /></div>
               <div className="grid grid-cols-3 gap-3">
@@ -191,7 +191,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
                   </Button>
                 </div>
               </div>
-              <div><Label>Nome da Contratante</Label><Input className="mt-1" value={form.nome_contratante} onChange={e => update("nome_contratante", e.target.value)} readOnly className="mt-1 bg-muted/50" /></div>
+              <div><Label>Nome da Contratante</Label><Input value={form.nome_contratante} onChange={e => update("nome_contratante", e.target.value)} readOnly className="mt-1 bg-muted/50" /></div>
               <div className="grid grid-cols-2 gap-3">
                 <div><Label>Vigência Início</Label><Input type="date" className="mt-1" value={form.vigencia_inicio} onChange={e => update("vigencia_inicio", e.target.value)} /></div>
                 <div><Label>Vigência Fim</Label><Input type="date" className="mt-1" value={form.vigencia_fim} onChange={e => update("vigencia_fim", e.target.value)} /></div>
