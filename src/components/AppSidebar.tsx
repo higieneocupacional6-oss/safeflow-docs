@@ -1,4 +1,4 @@
-import { Building2, FileText, LayoutTemplate, Database, Shield, ChevronDown } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Shield, Users } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useLocation } from "react-router-dom";
 import {
@@ -15,6 +15,7 @@ import {
 
 const menuItems = [
   { title: "Empresas", url: "/empresas", icon: Building2 },
+  { title: "Setores e Funções", url: "/setores-funcoes", icon: Users },
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },

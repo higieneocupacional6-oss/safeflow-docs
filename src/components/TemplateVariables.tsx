@@ -32,6 +32,18 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis de Setor",
+    vars: [
+      "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}",
+    ],
+  },
+  {
+    title: "Variáveis de Função",
+    vars: [
+      "{{nome_funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}",
+    ],
+  },
+  {
     title: "Variáveis do Documento",
     vars: [
       "{{empresa}}", "{{data}}", "{{responsavel}}", "{{crea}}", "{{cargo}}",
@@ -66,7 +78,7 @@ export function TemplateVariables() {
 
           <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
             <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Essas variáveis são provenientes da etapa de cadastro de empresa e contrato. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento.
+            Essas variáveis são provenientes da etapa de cadastro de empresa, contrato e setores/funções. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de setor e função permitem repetição dinâmica (loop) para empresas com múltiplos setores e funções.
           </div>
 
           <div className="space-y-5">
