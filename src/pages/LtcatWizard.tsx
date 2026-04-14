@@ -83,8 +83,20 @@ interface RiscoEntry {
     aren_limite_unidade_id?: string;
     vdvr_resultado?: string;
     vdvr_unidade_id?: string;
-    vdvr_limite?: string;
     vdvr_limite_unidade_id?: string;
+  }[];
+  resultados_calor?: {
+    id: string;
+    colaborador: string;
+    funcao_id: string;
+    funcao_nome: string;
+    local_avaliado: string;
+    atividade_avaliada: string;
+    taxa_metabolica: string;
+    resultado: string;
+    unidade_resultado_id: string;
+    limite_tolerancia: string;
+    unidade_limite_id: string;
   }[];
 }
 
@@ -119,6 +131,11 @@ const isAgentVMB = (agentNome: string) => {
 
 const isAgentVibracao = (agentNome: string) => isAgentVCI(agentNome) || isAgentVMB(agentNome);
 
+// Calor helpers
+const isAgentCalor = (agentNome: string) => {
+  return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
+};
+
 export default function LtcatWizard() {
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
@@ -139,6 +156,14 @@ export default function LtcatWizard() {
   const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = useState(false);
   const [currentVibracaoIndex, setCurrentVibracaoIndex] = useState<number>(-1);
   const [tempVibAmostra, setTempVibAmostra] = useState<any>({});
+
+  // Calor flow (Nivel 1 + Nivel 2)
+  const [calorModalOpen, setCalorModalOpen] = useState(false);
+  const [tempCalorRows, setTempCalorRows] = useState<any[]>([]);
+  const [calorAmostraModalOpen, setCalorAmostraModalOpen] = useState(false);
+  const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
+  const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
+
   const [generating, setGenerating] = useState(false);
 
   // Step 1
@@ -345,10 +370,29 @@ export default function LtcatWizard() {
     let finalResultados = riskForm.resultados_detalhados;
     let finalComponentes = riskForm.resultados_componentes || [];
     let finalVibracao = riskForm.resultados_vibracao || [];
+    let finalCalor = riskForm.resultados_calor || [];
 
     const isVib = isAgentVibracao(riskForm.agente_nome || "");
+    const isCalor = isAgentCalor(riskForm.agente_nome || "");
 
-    if (isVib) {
+    if (isCalor) {
+      const inlineCalor = arguments[3] as any[] | undefined;
+      if (inlineCalor) finalCalor = inlineCalor;
+      if (!finalCalor || finalCalor.length === 0) {
+        toast.error("Adicione ao menos um resultado de calor");
+        return;
+      }
+      if (finalCalor.some(r => !r.colaborador || !r.funcao_id)) {
+        toast.error("Preencha colaborador e função em todos os registros");
+        return;
+      }
+      finalItems = finalCalor.map(r => ({
+        id: crypto.randomUUID(),
+        colaborador: r.colaborador,
+        funcao_id: r.funcao_id,
+        funcao_nome: r.funcao_nome,
+      }));
+    } else if (isVib) {
       const inlineVib = arguments[2] as any[] | undefined;
       if (inlineVib) finalVibracao = inlineVib;
       if (!finalVibracao || finalVibracao.length === 0) {
@@ -444,6 +488,7 @@ export default function LtcatWizard() {
       resultados_detalhados: finalResultados,
       resultados_componentes: finalComponentes,
       resultados_vibracao: finalVibracao,
+      resultados_calor: finalCalor,
     };
 
     try {
@@ -453,6 +498,7 @@ export default function LtcatWizard() {
       setResultsModalOpen(false);
       setComponentesModalOpen(false);
       setVibracaoModalOpen(false);
+      setCalorModalOpen(false);
       setStep(2); 
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
@@ -479,6 +525,14 @@ export default function LtcatWizard() {
       : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
     setTempVibracaoRows(initial);
     setVibracaoModalOpen(true);
+  };
+
+  const openCalorModal = () => {
+    const initial = riskForm.resultados_calor?.length
+      ? riskForm.resultados_calor
+      : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }];
+    setTempCalorRows(initial);
+    setCalorModalOpen(true);
   };
 
   const handleGenerateDocument = async () => {
@@ -700,7 +754,17 @@ export default function LtcatWizard() {
                     <TableCell className="font-medium">{r.agente_nome}</TableCell>
                     <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
                     <TableCell className="font-mono text-sm leading-tight">
-                      {r.resultados_vibracao && r.resultados_vibracao.length > 0 ? (
+                      {r.resultados_calor && r.resultados_calor.length > 0 ? (
+                        r.resultados_calor.map((row: any, ri: number) => (
+                          <div key={ri} className="mb-2">
+                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome}</div>
+                            {row.local_avaliado && <div className="text-xs ml-2 text-muted-foreground">Local: <span className="text-foreground">{row.local_avaliado}</span></div>}
+                            {row.atividade_avaliada && <div className="text-xs ml-2 text-muted-foreground">Ativ.: <span className="text-foreground">{row.atividade_avaliada}</span></div>}
+                            {row.taxa_metabolica && <div className="text-xs ml-2 text-muted-foreground">Tx. Met.: <span className="text-foreground">{row.taxa_metabolica}</span></div>}
+                            {row.resultado && <div className="text-xs ml-2 text-muted-foreground mt-0.5">Res.: <span className="text-foreground">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span> {row.limite_tolerancia && `(LT: ${row.limite_tolerancia} ${unidades.find(u => u.id === row.unidade_limite_id)?.simbolo})`}</div>}
+                          </div>
+                        ))
+                      ) : r.resultados_vibracao && r.resultados_vibracao.length > 0 ? (
                         r.resultados_vibracao.map((row: any, ri: number) => (
                           <div key={ri} className="mb-2">
                             <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome} {row.equipamento_avaliado && <span className="font-normal text-muted-foreground">— {row.equipamento_avaliado}</span>}</div>
@@ -1005,7 +1069,30 @@ export default function LtcatWizard() {
                     </div>
                   )}
 
-                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}}
+                  {/* AGENTE CALOR */}
+                  {isAgentCalor(riskForm.agente_nome || "") && (
+                    <div className="space-y-4">
+                      <Button
+                        variant="outline"
+                        className="text-accent border-accent/20 hover:bg-accent/5 gap-2"
+                        onClick={openCalorModal}
+                      >
+                        <Plus className="w-4 h-4" /> + Resultado
+                      </Button>
+                      {riskForm.resultados_calor && riskForm.resultados_calor.length > 0 && (
+                        <div className="space-y-2">
+                          {riskForm.resultados_calor.map((row: any, ri: number) => (
+                            <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                              <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
+                              {row.resultado && <div className="text-xs ml-2">Res: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* AGENTE COMPONENTES: Poeira, Fumos, Sílica, Vapores... */}
                   {isCompAgent && (
                     <div className="space-y-4">
                       <Button
@@ -1664,6 +1751,191 @@ export default function LtcatWizard() {
                   setTempVibracaoRows(updated);
                 }
                 setVibracaoAmostraModalOpen(false);
+              }}
+            >
+              OK — Salvar Amostra
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 1: RESULTADO DE CALOR                            */}
+      {/* ============================================================ */}
+      <Dialog open={calorModalOpen} onOpenChange={setCalorModalOpen}>
+        <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl uppercase">Cadastro de Resultados — Calor</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {tempCalorRows.map((row, ri) => (
+              <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                <div className="flex gap-3 items-end">
+                  <div className="flex-[2]">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
+                    <Input 
+                      className="mt-1 h-8 text-sm" placeholder="Nome" value={row.colaborador}
+                      onChange={e => {
+                        const updated = [...tempCalorRows];
+                        updated[ri].colaborador = e.target.value;
+                        setTempCalorRows(updated);
+                      }}
+                    />
+                  </div>
+                  <div className="flex-[2]">
+                    <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
+                    <Select
+                      value={row.funcao_id}
+                      onValueChange={v => {
+                        const updated = [...tempCalorRows];
+                        updated[ri].funcao_id = v;
+                        const fn = funcoes.find((f: any) => f.id === v);
+                        updated[ri].funcao_nome = fn?.nome_funcao || "";
+                        setTempCalorRows(updated);
+                      }}
+                    >
+                      <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                      <SelectContent>
+                        {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                          <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0 h-8"
+                    onClick={() => {
+                      setCurrentCalorIndex(ri);
+                      setTempCalorAmostra({ ...row });
+                      setCalorAmostraModalOpen(true);
+                    }}
+                  >
+                    <FileText className="w-4 h-4" /> Amostra
+                  </Button>
+                  {ri > 0 && (
+                    <Button
+                      variant="ghost" size="icon" className="text-destructive shrink-0 h-8 w-8"
+                      onClick={() => setTempCalorRows(tempCalorRows.filter((_, i) => i !== ri))}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+
+                {/* Preview Calor */}
+                {(row.resultado) && (
+                  <div className="pl-3 border-l-2 border-accent/30 space-y-0.5">
+                    <p className="text-2xl font-bold uppercase tracking-wider text-foreground mb-1">{currentRiskSetor?.nome_setor}</p>
+                    <p className="text-base font-bold uppercase tracking-wider text-muted-foreground mb-1">{row.funcao_nome || "Função"}</p>
+                    
+                    <div className="text-sm mt-1">
+                      <span className="font-medium">Res:</span>{" "}
+                      <span className="font-mono">{row.resultado} {unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo}</span>
+                    </div>
+                    {row.limite_tolerancia && (
+                      <div className="text-sm">
+                        <span className="font-medium">LT:</span>{" "}
+                        <span className="font-mono">{row.limite_tolerancia} {unidades.find((u: any) => u.id === row.unidade_limite_id)?.simbolo}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <Button
+              variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
+              onClick={() => setTempCalorRows([...tempCalorRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }])}
+            >
+              <Plus className="w-4 h-4" /> Adicionar Função
+            </Button>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setCalorModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                setRiskForm(prev => ({ ...prev, resultados_calor: tempCalorRows }));
+                handleSaveRisk(undefined, undefined, undefined, tempCalorRows);
+              }}
+            >
+              Salvar Resultados
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* ============================================================ */}
+      {/* MODAL NÍVEL 2: DADOS DA AMOSTRA DE CALOR                     */}
+      {/* ============================================================ */}
+      <Dialog open={calorAmostraModalOpen} onOpenChange={setCalorAmostraModalOpen}>
+        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-lg uppercase">
+              Dados da Amostra — Calor
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-6 py-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Local Avaliado</Label>
+                <Input className="mt-1" placeholder="Ex: Forno 1" value={tempCalorAmostra.local_avaliado || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, local_avaliado: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atividade Avaliada</Label>
+                <Input className="mt-1" placeholder="Ex: Alimentação do Forno" value={tempCalorAmostra.atividade_avaliada || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, atividade_avaliada: e.target.value })} />
+              </div>
+              <div className="md:col-span-2">
+                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Taxa Metabólica</Label>
+                <Input className="mt-1" placeholder="Ex: 250 W" value={tempCalorAmostra.taxa_metabolica || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, taxa_metabolica: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              <h4 className="font-bold border-b pb-1">Resultados (Ex: IBUTG)</h4>
+              <div className="grid grid-cols-4 gap-3 items-end">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado</Label>
+                  <Input type="number" step="0.01" className="mt-1" placeholder="0.00" value={tempCalorAmostra.resultado || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, resultado: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                  <Select value={tempCalorAmostra.unidade_resultado_id || ""} onValueChange={v => setTempCalorAmostra({ ...tempCalorAmostra, unidade_resultado_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
+                  <Input type="number" step="0.01" className="mt-1" placeholder="0.00" value={tempCalorAmostra.limite_tolerancia || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, limite_tolerancia: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
+                  <Select value={tempCalorAmostra.unidade_limite_id || ""} onValueChange={v => setTempCalorAmostra({ ...tempCalorAmostra, unidade_limite_id: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+            <Button variant="outline" onClick={() => setCalorAmostraModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => {
+                if (currentCalorIndex >= 0) {
+                  const updated = [...tempCalorRows];
+                  updated[currentCalorIndex] = { ...tempCalorAmostra };
+                  setTempCalorRows(updated);
+                }
+                setCalorAmostraModalOpen(false);
               }}
             >
               OK — Salvar Amostra

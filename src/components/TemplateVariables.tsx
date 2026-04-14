@@ -58,6 +58,13 @@ const variableGroups = [
     ],
   },
   {
+    title: "VARIÁVEIS DE CALOR",
+    vars: [
+      "{{setor}}", "{{funcao}}", "{{colaborador}}", "{{local_avaliado}}", "{{atividade_avaliada}}",
+      "{{taxa_metabolica}}", "{{resultado_calor}}", "{{unidade_resultado_calor}}", "{{limite_tolerancia_calor}}", "{{unidade_limite_calor}}"
+    ],
+  },
+  {
     title: "VARIÁVEIS DE VIBRAÇÃO (LTCAT)",
     vars: [
       "{{equipamento_avaliado}}", "{{aren_resultado}}", "{{aren_unidade}}", "{{aren_limite}}", "{{aren_limite_unidade}}",
@@ -114,7 +121,7 @@ export function TemplateVariables() {
             </p>
             <p className="text-accent font-medium text-xs">
               <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
-              As variáveis de riscos do LTCAT são provenientes da etapa de avaliação de riscos por setor. Utilize essas variáveis para montar seus templates (.docx), e o sistema fará o preenchimento automático ao gerar o documento.
+              As variáveis de riscos do LTCAT são provenientes da etapa de avaliação de riscos por setor. Utilize essas variáveis para montar seus templates (.docx), e o sistema fará o preenchimento automático ao gerar o documento. As variáveis de avaliação de calor e vibração também são provenientes do cadastro de riscos (LTCAT) e permitem repetição dinâmica (um setor pode ter várias funções e uma função pode ter várias avaliações).
             </p>
           </div>
 
