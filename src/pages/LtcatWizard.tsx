@@ -401,10 +401,13 @@ export default function LtcatWizard() {
       // Add first risk data as simple variables
       if (riscos.length > 0) {
         const r = riscos[0];
-        templateData.agente = r.agente;
-        templateData.resultado = r.resultado;
-        templateData.unidade = r.unidade;
-        templateData.limite_tolerancia = r.lt;
+        templateData.agente_nome = r.agente_nome || "";
+        templateData.tipo_agente = r.tipo_agente || "";
+        templateData.tipo_avaliacao = r.tipo_avaliacao || "";
+        templateData.descricao_tecnica = r.descricao_tecnica || "";
+        templateData.resultado = r.resultado || "";
+        templateData.unidade = r.unidade_resultado_id || "";
+        templateData.limite_tolerancia = r.limite_tolerancia || "";
       }
 
       doc.render(templateData);

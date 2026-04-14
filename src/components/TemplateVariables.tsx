@@ -52,6 +52,12 @@ const variableGroups = [
     ],
   },
   {
+    title: "VARIÁVEIS DE AVALIAÇÃO QUALITATIVA (LTCAT)",
+    vars: [
+      "{{descricao_tecnica}}", "{{tipo_avaliacao}}", "{{agente_nome}}", "{{tipo_agente}}"
+    ],
+  },
+  {
     title: "VARIÁVEIS DE RISCOS (LTCAT)",
     vars: [
       "{{empresa}}", "{{setor}}", "{{ghe_ges}}", "{{funcao}}", "{{colaborador}}",
