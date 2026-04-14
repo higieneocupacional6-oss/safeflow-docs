@@ -110,6 +110,85 @@ export type Database = {
         }
         Relationships: []
       }
+      funcoes: {
+        Row: {
+          cbo_codigo: string | null
+          cbo_descricao: string | null
+          created_at: string
+          descricao_atividades: string | null
+          id: string
+          nome_funcao: string
+          setor_id: string
+          updated_at: string
+        }
+        Insert: {
+          cbo_codigo?: string | null
+          cbo_descricao?: string | null
+          created_at?: string
+          descricao_atividades?: string | null
+          id?: string
+          nome_funcao: string
+          setor_id: string
+          updated_at?: string
+        }
+        Update: {
+          cbo_codigo?: string | null
+          cbo_descricao?: string | null
+          created_at?: string
+          descricao_atividades?: string | null
+          id?: string
+          nome_funcao?: string
+          setor_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "funcoes_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      setores: {
+        Row: {
+          created_at: string
+          descricao_ambiente: string | null
+          empresa_id: string
+          ghe_ges: string | null
+          id: string
+          nome_setor: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          descricao_ambiente?: string | null
+          empresa_id: string
+          ghe_ges?: string | null
+          id?: string
+          nome_setor: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          descricao_ambiente?: string | null
+          empresa_id?: string
+          ghe_ges?: string | null
+          id?: string
+          nome_setor?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "setores_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       templates: {
         Row: {
           created_at: string
