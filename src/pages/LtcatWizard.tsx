@@ -5,6 +5,7 @@ import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -38,6 +39,7 @@ interface RiscoEntry {
   fonte_geradora: string;
   danos_saude: string;
   medidas_controle: string;
+  descricao_tecnica: string;
   tecnica_id: string;
   equipamento_id: string;
   resultado: string;
@@ -89,6 +91,7 @@ export default function LtcatWizard() {
     fonte_geradora: "",
     danos_saude: "",
     medidas_controle: "",
+    descricao_tecnica: "",
     tecnica_id: "",
     equipamento_id: "",
     resultado: "",
@@ -197,6 +200,7 @@ export default function LtcatWizard() {
       fonte_geradora: "",
       danos_saude: "",
       medidas_controle: "",
+      descricao_tecnica: "",
       tecnica_id: "",
       equipamento_id: "",
       resultado: "",
@@ -255,31 +259,49 @@ export default function LtcatWizard() {
     const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
     const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
 
+    const isQualitative = riskForm.tipo_avaliacao === "qualitativa" || 
+      tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
+      tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
+      tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
+      tipoAgenteStr.includes("frio");
+
     let finalItems = riskForm.items;
     let finalResultados = riskForm.resultados_detalhados;
 
-    if (isFisico) {
-      if (inlineResults) {
-        finalResultados = inlineResults;
-      }
-      if (!finalResultados || finalResultados.length === 0) {
-        toast.error("Adicione ao menos um resultado");
+    if (isQualitative) {
+      if (!riskForm.descricao_tecnica?.trim()) {
+        toast.error("Preencha a Descrição da Avaliação Técnica");
         return;
       }
-      if (finalResultados.some(r => !r.colaborador || !r.funcao_id || !r.resultado || !r.unidade_resultado_id)) {
-        toast.error("Preencha todos os campos obrigatórios nos resultados");
-        return;
-      }
-      finalItems = finalResultados.map(r => ({
-        id: crypto.randomUUID(), 
-        colaborador: r.colaborador, 
-        funcao_id: r.funcao_id, 
-        funcao_nome: r.funcao_nome
-      }));
-    } else {
       if (riskForm.items.some(item => !item.colaborador || !item.funcao_id)) {
-        toast.error("Preencha todos os colaboradores e funções");
+        toast.error("Preencha todos os colaboradores e funções na Seção 1");
         return;
+      }
+      finalResultados = []; 
+    } else {
+      if (isFisico) {
+        if (inlineResults) {
+          finalResultados = inlineResults;
+        }
+        if (!finalResultados || finalResultados.length === 0) {
+          toast.error("Adicione ao menos um resultado");
+          return;
+        }
+        if (finalResultados.some(r => !r.colaborador || !r.funcao_id || !r.resultado || !r.unidade_resultado_id)) {
+          toast.error("Preencha todos os campos obrigatórios nos resultados");
+          return;
+        }
+        finalItems = finalResultados.map(r => ({
+          id: crypto.randomUUID(), 
+          colaborador: r.colaborador, 
+          funcao_id: r.funcao_id, 
+          funcao_nome: r.funcao_nome
+        }));
+      } else {
+        if (riskForm.items.some(item => !item.colaborador || !item.funcao_id)) {
+          toast.error("Preencha todos os colaboradores e funções na Seção 1");
+          return;
+        }
       }
     }
 
@@ -299,6 +321,7 @@ export default function LtcatWizard() {
       fonte_geradora: riskForm.fonte_geradora,
       danos_saude: riskForm.danos_saude,
       medidas_controle: riskForm.medidas_controle,
+      descricao_tecnica: riskForm.descricao_tecnica,
       tecnica_id: riskForm.tecnica_id,
       equipamento_id: riskForm.equipamento_id,
       resultado: riskForm.resultado,
@@ -559,6 +582,10 @@ export default function LtcatWizard() {
                             {res.limite_tolerancia && ` (LT: ${res.limite_tolerancia} ${unidades.find(u => u.id === res.unidade_limite_id)?.simbolo})`}
                           </div>
                         ))
+                      ) : r.descricao_tecnica ? (
+                        <div className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]" title={r.descricao_tecnica}>
+                          {r.descricao_tecnica}
+                        </div>
                       ) : (
                         <>{r.resultado} {unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo}</>
                       )}
@@ -736,41 +763,72 @@ export default function LtcatWizard() {
             </section>
 
             {/* SEÇÃO 4: AVALIAÇÃO TÉCNICA */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 border-b pb-2">
-                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 4: AVALIAÇÃO TÉCNICA</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Técnica de Amostragem</Label>
-                  <Select value={riskForm.tecnica_id} onValueChange={(v) => setRiskForm({ ...riskForm, tecnica_id: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {tecnicas.map((t: any) => (
-                        <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label>Equipamento</Label>
-                  <Select value={riskForm.equipamento_id} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                    <SelectContent>
-                      {equipamentos.map((e: any) => (
-                        <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </section>
+            {(() => {
+              const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
+              const isQualitative = riskForm.tipo_avaliacao === "qualitativa" || 
+                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
+                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
+                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
+                tipoAgenteStr.includes("frio");
+
+              return (
+                <section className="space-y-4">
+                  <div className="flex items-center gap-2 border-b pb-2">
+                    <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
+                    <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 4: AVALIAÇÃO TÉCNICA</h3>
+                  </div>
+                  {isQualitative ? (
+                    <div>
+                      <Label>Descrição da Avaliação Técnica <span className="text-destructive">*</span></Label>
+                      <Textarea 
+                        className="mt-1"
+                        placeholder="Descreva tecnicamente a avaliação qualitativa do agente..."
+                        value={riskForm.descricao_tecnica}
+                        onChange={(e) => setRiskForm({ ...riskForm, descricao_tecnica: e.target.value })}
+                      />
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Técnica de Amostragem</Label>
+                        <Select value={riskForm.tecnica_id} onValueChange={(v) => setRiskForm({ ...riskForm, tecnica_id: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {tecnicas.map((t: any) => (
+                              <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label>Equipamento</Label>
+                        <Select value={riskForm.equipamento_id} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
+                          <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {equipamentos.map((e: any) => (
+                              <SelectItem key={e.id} value={e.id}>{e.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+                </section>
+              );
+            })()}
 
             {/* SEÇÃO 5: RESULTADOS */}
             {(() => {
               const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
               const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
+              
+              const isQualitative = riskForm.tipo_avaliacao === "qualitativa" || 
+                tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") || 
+                tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
+                tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
+                tipoAgenteStr.includes("frio");
+
+              if (isQualitative) return null;
 
               return (
                 <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
