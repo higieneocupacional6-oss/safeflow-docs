@@ -46,29 +46,52 @@ interface RiscoEntry {
   unidade_resultado_id: string;
   limite_tolerancia: string;
   unidade_limite_id: string;
-  resultados_detalhados?: {
-    id: string;
+  parecer_tecnico?: string;
+  aposentadoria_especial?: string;
+}
+
+interface RiscoEntry {
+  id: string;
+  setor_id: string;
+  setor_nome: string;
+  items: {
     colaborador: string;
     funcao_id: string;
     funcao_nome: string;
-    resultado: string;
-    unidade_resultado_id: string;
-    limite_tolerancia: string;
-    unidade_limite_id: string;
   }[];
+  tipo_avaliacao: string;
+  tipo_agente: string;
+  agente_id: string;
+  agente_nome: string;
+  codigo_esocial: string;
+  descricao_esocial: string;
+  propagacao: string;
+  tipo_exposicao: string;
+  fonte_geradora: string;
+  danos_saude: string;
+  medidas_controle: string;
+  descricao_tecnica: string;
+  tecnica_id: string;
+  equipamento_id: string;
+  resultado: string;
+  unidade_resultado_id: string;
+  limite_tolerancia: string;
+  unidade_limite_id: string;
+  parecer_tecnico?: string; // Parecer for solo risk
+  aposentadoria_especial?: string;
+  resultados_detalhados?: (ResultadoBase & { 
+    colaborador: string; 
+    funcao_id: string; 
+    funcao_nome: string;
+  })[];
   resultados_componentes?: {
     id: string;
     colaborador: string;
     funcao_id: string;
     funcao_nome: string;
-    componentes: {
-      id: string;
-      componente: string;
-      resultado: string;
-      unidade_resultado_id: string;
-      limite_tolerancia: string;
-      unidade_limite_id: string;
-    }[];
+    parecer_tecnico?: string;
+    aposentadoria_especial?: string;
+    componentes: ResultadoBase[];
   }[];
   resultados_vibracao?: {
     id: string;
@@ -76,7 +99,8 @@ interface RiscoEntry {
     funcao_id: string;
     funcao_nome: string;
     equipamento_avaliado: string;
-    // VCI fields
+    parecer_tecnico?: string;
+    aposentadoria_especial?: string;
     aren_resultado?: string;
     aren_unidade_id?: string;
     aren_limite?: string;
@@ -97,7 +121,18 @@ interface RiscoEntry {
     unidade_resultado_id: string;
     limite_tolerancia: string;
     unidade_limite_id: string;
+    parecer_tecnico?: string;
+    aposentadoria_especial?: string;
   }[];
+}
+
+interface ResultadoBase {
+  id: string;
+  resultado: string;
+  unidade_resultado_id: string;
+  limite_tolerancia: string;
+  unidade_limite_id: string;
+  componente?: string;
 }
 
 // Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
@@ -175,6 +210,34 @@ export default function LtcatWizard() {
   });
 
   const [generating, setGenerating] = useState(false);
+
+  // Parecer Técnico Modal State
+  const [parecerModalOpen, setParecerModalOpen] = useState(false);
+  const [currentParecerTarget, setCurrentParecerTarget] = useState<{
+    riskId: string;
+    resultId?: string;
+    colaborador: string;
+    funcao_nome: string;
+    agente_nome: string;
+    results_display: React.ReactNode;
+  } | null>(null);
+  const [tempParecer, setTempParecer] = useState("");
+  const [tempAposentadoria, setTempAposentadoria] = useState("");
+
+  const { data: cachedPareceres = [] } = useQuery({
+    queryKey: ["ltcat_pareceres", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("ltcat_pareceres")
+        .select("*")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!empresaId,
+  });
 
   // Step 1
   const [empresaId, setEmpresaId] = useState("");
@@ -542,6 +605,86 @@ export default function LtcatWizard() {
     }
   };
 
+  const openParecerModal = (risk: RiscoEntry, result: any, display: React.ReactNode) => {
+    setCurrentParecerTarget({
+      riskId: risk.id,
+      resultId: result?.id,
+      colaborador: result?.colaborador || "Geral",
+      funcao_nome: result?.funcao_nome || risk.setor_nome,
+      agente_nome: risk.agente_nome,
+      results_display: display
+    });
+    setTempParecer(result?.parecer_tecnico || risk.parecer_tecnico || "");
+    setTempAposentadoria(result?.aposentadoria_especial || risk.aposentadoria_especial || "");
+    setParecerModalOpen(true);
+  };
+
+  const handleSaveParecer = async () => {
+    if (!currentParecerTarget) return;
+
+    const { riskId, resultId } = currentParecerTarget;
+
+    // Local Update
+    setRiscos(prev => prev.map(r => {
+      if (r.id === riskId) {
+        if (!resultId) {
+          return { ...r, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria };
+        }
+        const updatedRisk = { ...r };
+        if (updatedRisk.resultados_calor) {
+          updatedRisk.resultados_calor = updatedRisk.resultados_calor.map(row => 
+            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
+          );
+        }
+        if (updatedRisk.resultados_vibracao) {
+          updatedRisk.resultados_vibracao = updatedRisk.resultados_vibracao.map(row => 
+            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
+          );
+        }
+        if (updatedRisk.resultados_componentes) {
+          updatedRisk.resultados_componentes = updatedRisk.resultados_componentes.map(row => 
+            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
+          );
+        }
+        if (updatedRisk.resultados_detalhados) {
+          updatedRisk.resultados_detalhados = updatedRisk.resultados_detalhados.map(row => 
+            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
+          );
+        }
+        return updatedRisk;
+      }
+      return r;
+    }));
+
+    // DB Upsert
+    try {
+      const riskObj = riscos.find(r => r.id === riskId);
+      const { error } = await supabase
+        .from("ltcat_pareceres")
+        .upsert({
+          empresa_id: empresaId,
+          setor_id: riskObj?.setor_id || "",
+          funcao_id: resultId ? 
+            (riskObj?.resultados_calor?.find(x => x.id === resultId)?.funcao_id || 
+             riskObj?.resultados_vibracao?.find(x => x.id === resultId)?.funcao_id ||
+             riskObj?.resultados_componentes?.find(x => x.id === resultId)?.funcao_id ||
+             riskObj?.resultados_detalhados?.find(x => x.id === resultId)?.funcao_id || "") : "",
+          agente_id: riskObj?.agente_id || "", // The actual Agente UUID
+          colaborador_nome: currentParecerTarget.colaborador,
+          parecer_tecnico: tempParecer,
+          aposentadoria_especial: tempAposentadoria
+        });
+      
+      if (error) throw error;
+
+      toast.success("Parecer Técnico registrado com sucesso!");
+      setParecerModalOpen(false);
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro ao persistir parecer.");
+    }
+  };
+
 
   const canAdvance = () => {
     if (step === 0) return !!empresaId;
@@ -597,8 +740,8 @@ export default function LtcatWizard() {
         delimiters: { start: "{", end: "}" },
       });
 
-      // Build template data from wizard state
-      const templateData: Record<string, string> = {
+      // Build template data with loops and pareceres
+      const templateData = {
         empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
         cnpj: empresa?.cnpj || "",
         endereco: empresa?.endereco || "",
@@ -607,21 +750,40 @@ export default function LtcatWizard() {
         crea,
         cargo,
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setor: funcoes.length > 0 ? funcoes[0].nome_setor || "Vários Setores" : "", // Temporary fallback
+        setor: funcoes.length > 0 ? funcoes[0].nome_setor || "Vários Setores" : "",
         funcao: funcoes.map((f: any) => f.nome_funcao).join(", ") || "",
-      };
+        
+        // Loop: Riscos
+        riscos: riscos.map(r => ({
+           setor: r.setor_nome,
+           agente_nome: r.agente_nome,
+           tipo_agente: r.tipo_agente,
+           tipo_avaliacao: r.tipo_avaliacao,
+           descricao_tecnica: r.descricao_tecnica,
+           resultado: r.resultado,
+           unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
+           limite_tolerancia: r.limite_tolerancia,
+           unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
+           esocial_codigo: r.codigo_esocial,
+           esocial_desc: r.descricao_esocial
+        })),
 
-      // Add first risk data as simple variables
-      if (riscos.length > 0) {
-        const r = riscos[0];
-        templateData.agente_nome = r.agente_nome || "";
-        templateData.tipo_agente = r.tipo_agente || "";
-        templateData.tipo_avaliacao = r.tipo_avaliacao || "";
-        templateData.descricao_tecnica = r.descricao_tecnica || "";
-        templateData.resultado = r.resultado || "";
-        templateData.unidade = r.unidade_resultado_id || "";
-        templateData.limite_tolerancia = r.limite_tolerancia || "";
-      }
+        // Loop: Pareceres (detailed conclusions)
+        pareceres: riscos.flatMap(r => {
+           const base = {
+             setor: r.setor_nome,
+             agente: r.agente_nome,
+             tipo: r.tipo_agente
+           };
+           
+           if (r.resultados_calor?.length) return r.resultados_calor.map(rc => ({ ...base, colaborador: rc.colaborador, funcao: rc.funcao_nome, resultado: rc.resultado, parecer_tecnico: rc.parecer_tecnico, aposentadoria_especial: rc.aposentadoria_especial }));
+           if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(rv => ({ ...base, colaborador: rv.colaborador, funcao: rv.funcao_nome, resultado: rv.aren_resultado, parecer_tecnico: rv.parecer_tecnico, aposentadoria_especial: rv.aposentadoria_especial }));
+           if (r.resultados_componentes?.length) return r.resultados_componentes.map(rc => ({ ...base, colaborador: rc.colaborador, funcao: rc.funcao_nome, resultado: "Amostra Comp.", parecer_tecnico: rc.parecer_tecnico, aposentadoria_especial: rc.aposentadoria_especial }));
+           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(rd => ({ ...base, colaborador: rd.colaborador, funcao: rd.funcao_nome, resultado: rd.resultado, parecer_tecnico: rd.parecer_tecnico, aposentadoria_especial: rd.aposentadoria_especial }));
+           
+           return [{ ...base, colaborador: "Geral", funcao: "Geral", resultado: r.resultado, parecer_tecnico: r.parecer_tecnico, aposentadoria_especial: r.aposentadoria_especial }];
+        })
+      };
 
       doc.render(templateData);
 
@@ -758,93 +920,204 @@ export default function LtcatWizard() {
         </div>
       )}
 
-      {/* Step 3: Listagem */}
+      {/* Step 3: Listagem Refatorada */}
       {step === 2 && (
-        <div className="glass-card rounded-xl overflow-hidden">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Setor</TableHead>
-                <TableHead>Função</TableHead>
-                <TableHead>Agente</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead>Resultado</TableHead>
-                <TableHead className="w-12"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {riscos.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">Nenhum risco cadastrado</TableCell>
-                </TableRow>
-              ) : (
-                riscos.map((r) => (
-                  <TableRow key={r.id}>
-                    <TableCell>{r.setor_nome}</TableCell>
-                    <TableCell>
-                      {r.items.map((item, idx) => (
-                        <div key={idx} className="text-xs">
-                          <span className="font-semibold">{item.funcao_nome}</span> ({item.colaborador})
+        <div className="space-y-8 animate-in fade-in duration-500">
+          {(() => {
+            const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)));
+            
+            if (riscos.length === 0) {
+              return (
+                <div className="glass-card rounded-xl p-16 text-center text-muted-foreground border-dashed border-2 flex flex-col items-center">
+                  <FileText className="w-16 h-16 mb-4 opacity-10" />
+                  <p className="text-xl font-heading font-medium">Nenhum risco com avaliação finalizada.</p>
+                  <p className="text-sm max-w-xs mx-auto mb-6">Mapeie os riscos nos setores da empresa na etapa anterior para visualizá-los aqui.</p>
+                  <Button variant="outline" size="sm" onClick={() => setStep(1)} className="gap-2">
+                    <ArrowLeft className="w-4 h-4" /> Voltar para Avaliação
+                  </Button>
+                </div>
+              );
+            }
+
+            return sectorsWithRisks.map(setorId => {
+              const setorRiscos = riscos.filter(r => r.setor_id === setorId);
+              const setorNome = setorRiscos[0]?.setor_nome || "Setor Não Identificado";
+
+              return (
+                <div key={setorId} className="space-y-6">
+                  <div className="flex items-end gap-4 border-b-2 border-accent/20 pb-2 mb-2">
+                    <h2 className="text-4xl font-heading font-black text-foreground uppercase tracking-tighter leading-none">
+                      {setorNome}
+                    </h2>
+                    <Badge className="mb-1 bg-accent/10 text-accent hover:bg-accent/10 border-accent/20">
+                      {setorRiscos.length} RISCO(S)
+                    </Badge>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-6">
+                    {setorRiscos.map(risk => (
+                      <div key={risk.id} className="glass-card rounded-2xl p-6 border border-border/50 hover:border-accent/30 transition-all bg-background/60 shadow-sm hover:shadow-md group relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-1 h-full bg-accent opacity-30"></div>
+                        
+                        <div className="flex justify-between items-start mb-6">
+                          <div>
+                            <div className="flex items-center gap-3 mb-2">
+                              <h3 className="text-2xl font-heading font-bold text-foreground uppercase tracking-wide group-hover:text-accent transition-colors">{risk.agente_nome}</h3>
+                              <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-muted/50">
+                                {risk.tipo_agente}
+                              </Badge>
+                            </div>
+                            <div className="flex gap-4 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
+                               <span>Modo: <span className="text-foreground">{risk.tipo_avaliacao}</span></span>
+                               {risk.fonte_geradora && <span>Fonte: <span className="text-foreground">{risk.fonte_geradora}</span></span>}
+                            </div>
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-destructive h-9 w-9 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" onClick={() => setRiscos(prev => prev.filter(x => x.id !== risk.id))}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
-                      ))}
-                    </TableCell>
-                    <TableCell className="font-medium">{r.agente_nome}</TableCell>
-                    <TableCell><Badge variant="outline">{r.tipo_agente}</Badge></TableCell>
-                    <TableCell className="font-mono text-sm leading-tight">
-                      {r.resultados_calor && r.resultados_calor.length > 0 ? (
-                        r.resultados_calor.map((row: any, ri: number) => (
-                          <div key={ri} className="mb-2">
-                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome}</div>
-                            {row.local_avaliado && <div className="text-xs ml-2 text-muted-foreground">Local: <span className="text-foreground">{row.local_avaliado}</span></div>}
-                            {row.atividade_avaliada && <div className="text-xs ml-2 text-muted-foreground">Ativ.: <span className="text-foreground">{row.atividade_avaliada}</span></div>}
-                            {row.taxa_metabolica && <div className="text-xs ml-2 text-muted-foreground">Tx. Met.: <span className="text-foreground">{row.taxa_metabolica}</span></div>}
-                            {row.resultado && <div className="text-xs ml-2 text-muted-foreground mt-0.5">Res.: <span className="text-foreground">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span> {row.limite_tolerancia && `(LT: ${row.limite_tolerancia} ${unidades.find(u => u.id === row.unidade_limite_id)?.simbolo})`}</div>}
-                          </div>
-                        ))
-                      ) : r.resultados_vibracao && r.resultados_vibracao.length > 0 ? (
-                        r.resultados_vibracao.map((row: any, ri: number) => (
-                          <div key={ri} className="mb-2">
-                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome} {row.equipamento_avaliado && <span className="font-normal text-muted-foreground">— {row.equipamento_avaliado}</span>}</div>
-                            {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo} {row.aren_limite && `(LT: ${row.aren_limite})`}</div>}
-                            {row.vdvr_resultado && <div className="text-xs ml-2">VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo} {row.vdvr_limite && `(LT: ${row.vdvr_limite})`}</div>}
-                          </div>
-                        ))
-                      ) : r.resultados_componentes && r.resultados_componentes.length > 0 ? (
-                        r.resultados_componentes.map((row: any, ri: number) => (
-                          <div key={ri} className="mb-2">
-                            <div className="font-bold text-foreground text-xs uppercase tracking-wide">{row.funcao_nome || "Função"}</div>
-                            {row.componentes?.map((c: any, ci: number) => (
-                              <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo} {c.limite_tolerancia && `(LT: ${c.limite_tolerancia} ${unidades.find(u => u.id === c.unidade_limite_id)?.simbolo})`}</div>
-                            ))}
-                          </div>
-                        ))
-                      ) : r.resultados_detalhados && r.resultados_detalhados.length > 0 ? (
-                        r.resultados_detalhados.map((res: any, idx: number) => (
-                          <div key={idx} className="mb-0.5 whitespace-nowrap">
-                            {res.resultado} {unidades.find(u => u.id === res.unidade_resultado_id)?.simbolo} 
-                            {res.limite_tolerancia && ` (LT: ${res.limite_tolerancia} ${unidades.find(u => u.id === res.unidade_limite_id)?.simbolo})`}
-                          </div>
-                        ))
-                      ) : r.descricao_tecnica ? (
-                        <div className="text-xs text-muted-foreground line-clamp-2 max-w-[200px]" title={r.descricao_tecnica}>
-                          {r.descricao_tecnica}
+
+                        <div className="grid grid-cols-1 gap-3">
+                          {/* Render based on risk evaluation results */}
+                          {risk.resultados_calor && risk.resultados_calor.length > 0 ? (
+                            risk.resultados_calor.map((row) => (
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
+                                  <div className="flex gap-4 text-xs font-mono text-accent font-semibold">
+                                     <span>VALOR: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span>
+                                     {row.limite_tolerancia && <span className="opacity-60">LT: {row.limite_tolerancia} {unidades.find(u => u.id === row.unidade_limite_id)?.simbolo}</span>}
+                                  </div>
+                                </div>
+                                <Button 
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  onClick={() => openParecerModal(risk, row, (
+                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
+                                      <p className="font-bold border-b border-border/50 pb-1 mb-1 opacity-50">DADOS DE MEDIÇÃO</p>
+                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                                        <p>LOCAL: <span className="text-foreground">{row.local_avaliado}</span></p>
+                                        <p>ATIVIDADE: <span className="text-foreground">{row.atividade_avaliada}</span></p>
+                                        <p>TAXA MET.: <span className="text-foreground">{row.taxa_metabolica}</span></p>
+                                        <p>RESULTADO: <span className="text-accent font-bold">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span></p>
+                                      </div>
+                                    </div>
+                                  ))}
+                                >
+                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <FileText className="w-3.5 h-3.5" />} 
+                                  {row.parecer_tecnico ? "Parecer Concluído" : "Parecer Técnico"}
+                                </Button>
+                              </div>
+                            ))
+                          ) : risk.resultados_vibracao && risk.resultados_vibracao.length > 0 ? (
+                            risk.resultados_vibracao.map((row) => (
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
+                                  <div className="flex gap-4 text-xs font-mono text-accent font-semibold">
+                                     {row.aren_resultado && <span>AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</span>}
+                                     {row.vdvr_resultado && <span>VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</span>}
+                                  </div>
+                                </div>
+                                <Button 
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  onClick={() => openParecerModal(risk, row, (
+                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
+                                      <p className="font-bold border-b border-border/50 pb-1 mb-1 opacity-50">DADOS DE MEDIÇÃO</p>
+                                      <p>EQUIPAMENTO: <span className="text-foreground">{row.equipamento_avaliado}</span></p>
+                                      <div className="grid grid-cols-2 gap-4 mt-1">
+                                         {row.aren_resultado && <div><p className="opacity-50 text-[9px]">AREN</p><p className="font-bold text-accent">{row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</p></div>}
+                                         {row.vdvr_resultado && <div><p className="opacity-50 text-[9px]">VDVR</p><p className="font-bold text-accent">{row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</p></div>}
+                                      </div>
+                                    </div>
+                                  ))}
+                                >
+                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                </Button>
+                              </div>
+                            ))
+                          ) : risk.resultados_componentes && risk.resultados_componentes.length > 0 ? (
+                            risk.resultados_componentes.map((row) => (
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
+                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-muted-foreground mt-1">
+                                     {row.componentes.slice(0, 3).map((c, i) => (
+                                       <span key={i} className="bg-muted px-1.5 py-0.5 rounded border border-border/30">• {c.componente}: {c.resultado}</span>
+                                     ))}
+                                     {row.componentes.length > 3 && <span>... (+{row.componentes.length - 3} itens)</span>}
+                                  </div>
+                                </div>
+                                <Button 
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  onClick={() => openParecerModal(risk, row, (
+                                    <div className="space-y-3">
+                                      <p className="text-[10px] font-bold uppercase text-muted-foreground border-b border-border/50 pb-1">Composição da Amostra:</p>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {row.componentes.map((c, i) => (
+                                          <div key={i} className="text-[10px] bg-muted/50 p-2 rounded-lg border border-border/50">
+                                            <p className="font-bold truncate text-foreground">{c.componente}</p>
+                                            <p className="font-mono text-accent font-semibold">{c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo}</p>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  ))}
+                                >
+                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                </Button>
+                              </div>
+                            ))
+                          ) : risk.resultados_detalhados && risk.resultados_detalhados.length > 0 ? (
+                            risk.resultados_detalhados.map((row) => (
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
+                                  <p className="text-xs font-mono font-bold text-accent">VALOR: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</p>
+                                </div>
+                                <Button 
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  onClick={() => openParecerModal(risk, row, (
+                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1">
+                                      <p className="font-bold text-accent">RESULTADO: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</p>
+                                      {row.limite_tolerancia && <p className="opacity-60 italic">LIMITE (LT): {row.limite_tolerancia} {unidades.find(u => u.id === row.unidade_limite_id)?.simbolo}</p>}
+                                    </div>
+                                  ))}
+                                >
+                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                </Button>
+                              </div>
+                            ))
+                          ) : (
+                            // Solo risk evaluation (qualitative)
+                            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-border/50 group/item">
+                                <div className="space-y-1">
+                                  <p className="text-sm font-bold text-foreground uppercase">Avaliação Global do Setor</p>
+                                  <p className="text-xs text-muted-foreground font-medium italic">Contexto: {risk.setor_nome}</p>
+                                </div>
+                                <Button 
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${risk.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  onClick={() => openParecerModal(risk, null, (
+                                    <div className="text-[11px] p-4 bg-muted/30 rounded-xl border border-border/50">
+                                      <p className="font-bold uppercase text-muted-foreground mb-2 text-[9px] tracking-widest">Descrição Técnica Vinculada:</p>
+                                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">{risk.descricao_tecnica || "Nenhuma descrição técnica informada para este agente."}</p>
+                                    </div>
+                                  ))}
+                                >
+                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                </Button>
+                              </div>
+                          )}
                         </div>
-                      ) : (
-                        <>{r.resultado} {unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo}</>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setRiscos((prev) => prev.filter((x) => x.id !== r.id))}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            });
+          })()}
         </div>
       )}
+
 
       {/* Step 4: Generate */}
       {step === 3 && (
@@ -1968,77 +2241,108 @@ export default function LtcatWizard() {
       </Dialog>
 
       {/* ============================================================ */}
-      {/* MODAL NÍVEL 2: DADOS DA AMOSTRA DE CALOR                     */}
+      {/* MODAL: PARECER TÉCNICO E APOSENTADORIA ESPECIAL              */}
       {/* ============================================================ */}
-      <Dialog open={calorAmostraModalOpen} onOpenChange={setCalorAmostraModalOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-lg uppercase">
-              Dados da Amostra — Calor
-            </DialogTitle>
-          </DialogHeader>
+      <Dialog open={parecerModalOpen} onOpenChange={setParecerModalOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-none bg-transparent shadow-2xl">
+          <div className="glass-card !bg-background w-full rounded-2xl overflow-hidden flex flex-col border border-border/50">
+            <DialogHeader className="p-6 bg-accent/[0.03] border-b border-border/50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
+                  <FileText className="w-5 h-5 text-accent" />
+                </div>
+                <div>
+                  <DialogTitle className="font-heading text-xl font-black uppercase tracking-tight">Parecer Técnico</DialogTitle>
+                  <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Conclusão Técnica das Condições Ambientais</p>
+                </div>
+              </div>
+            </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Local Avaliado</Label>
-                <Input className="mt-1" placeholder="Ex: Forno 1" value={tempCalorAmostra.local_avaliado || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, local_avaliado: e.target.value })} />
+            <div className="px-6 py-8 space-y-8">
+              {/* SEÇÃO 1: VISUALIZAÇÃO DOS DADOS */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                  Dados de Diagnóstico
+                </h4>
+                <div className="grid grid-cols-2 gap-4">
+                   <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
+                      <Label className="text-[9px] font-black uppercase tracking-wider opacity-50 block mb-1">Colaborador Avaliado</Label>
+                      <p className="text-sm font-bold text-foreground truncate uppercase">{currentParecerTarget?.colaborador}</p>
+                   </div>
+                   <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
+                      <Label className="text-[9px] font-black uppercase tracking-wider opacity-50 block mb-1">Função / Setor</Label>
+                      <p className="text-sm font-bold text-foreground truncate uppercase">{currentParecerTarget?.funcao_nome}</p>
+                   </div>
+                </div>
+                {currentParecerTarget?.results_display}
               </div>
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Atividade Avaliada</Label>
-                <Input className="mt-1" placeholder="Ex: Alimentação do Forno" value={tempCalorAmostra.atividade_avaliada || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, atividade_avaliada: e.target.value })} />
+
+              {/* SEÇÃO 2: DESCRIÇÃO DO PARECER TÉCNICO */}
+              <div className="space-y-4">
+                 <div className="flex justify-between items-center">
+                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                      Parecer do Engenheiro
+                    </h4>
+                    <Button 
+                      variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent/10"
+                      onClick={() => {
+                        // Logic to find similar parecer for the same agente
+                        const similar = cachedPareceres.find(p => p.agente_id === currentParecerTarget?.riskId && p.parecer_tecnico);
+                        if (similar) {
+                          setTempParecer(similar.parecer_tecnico || "");
+                          toast.success("Parecer duplicado com sucesso!");
+                        } else {
+                          toast.info("Nenhum parecer técnico prévio encontrado para este agente.");
+                        }
+                      }}
+                    >
+                      <Copy className="w-3 h-3" /> Duplicar Parecer
+                    </Button>
+                 </div>
+                 <div className="relative group">
+                   <div className="absolute inset-0 bg-accent/5 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
+                   <Textarea 
+                      placeholder="Descreva aqui sua conclusão técnica detalhada sobre a exposição..."
+                      className="min-h-[160px] relative bg-background/50 border-border/50 focus:border-accent/40 rounded-2xl p-5 text-sm leading-relaxed"
+                      value={tempParecer}
+                      onChange={(e) => setTempParecer(e.target.value)}
+                   />
+                 </div>
               </div>
-              <div className="md:col-span-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Taxa Metabólica</Label>
-                <Input className="mt-1" placeholder="Ex: 250 W" value={tempCalorAmostra.taxa_metabolica || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, taxa_metabolica: e.target.value })} />
+
+              {/* SEÇÃO 3: APOSENTADORIA ESPECIAL */}
+              <div className="space-y-4">
+                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
+                  Conclusão Previdenciária
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
+                   <Label className="text-sm font-bold text-foreground">Ensejador de Aposentadoria Especial?</Label>
+                   <Select value={tempAposentadoria} onValueChange={setTempAposentadoria}>
+                      <SelectTrigger className="rounded-xl border-border/50 bg-background/50 h-11 font-medium">
+                        <SelectValue placeholder="Selecione a conclusão" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Sim, Caracterizado" className="font-medium text-destructive">Sim, Caracterizado</SelectItem>
+                        <SelectItem value="Não Caracterizado" className="font-medium text-success">Não Caracterizado</SelectItem>
+                      </SelectContent>
+                   </Select>
+                </div>
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="font-bold border-b pb-1">Resultados (Ex: IBUTG)</h4>
-              <div className="grid grid-cols-4 gap-3 items-end">
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado</Label>
-                  <Input type="number" step="0.01" className="mt-1" placeholder="0.00" value={tempCalorAmostra.resultado || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, resultado: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
-                  <Select value={tempCalorAmostra.unidade_resultado_id || ""} onValueChange={v => setTempCalorAmostra({ ...tempCalorAmostra, unidade_resultado_id: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
-                  <Input type="number" step="0.01" className="mt-1" placeholder="0.00" value={tempCalorAmostra.limite_tolerancia || ""} onChange={e => setTempCalorAmostra({ ...tempCalorAmostra, limite_tolerancia: e.target.value })} />
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
-                  <Select value={tempCalorAmostra.unidade_limite_id || ""} onValueChange={v => setTempCalorAmostra({ ...tempCalorAmostra, unidade_limite_id: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                    <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
+            <DialogFooter className="p-6 bg-accent/[0.03] border-t border-border/50">
+               <Button variant="ghost" onClick={() => setParecerModalOpen(false)} className="rounded-xl font-bold uppercase tracking-widest text-[10px]">Descartar</Button>
+               <Button 
+                onClick={handleSaveParecer}
+                className="bg-accent text-accent-foreground hover:bg-black rounded-xl px-10 font-black uppercase tracking-widest text-[10px] h-11 shadow-lg shadow-accent/20"
+               >
+                 Salvar Parecer
+               </Button>
+            </DialogFooter>
           </div>
-
-          <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
-            <Button variant="outline" onClick={() => setCalorAmostraModalOpen(false)}>Cancelar</Button>
-            <Button
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
-              onClick={() => {
-                if (currentCalorIndex >= 0) {
-                  const updated = [...tempCalorRows];
-                  updated[currentCalorIndex] = { ...tempCalorAmostra };
-                  setTempCalorRows(updated);
-                }
-                setCalorAmostraModalOpen(false);
-              }}
-            >
-              OK — Salvar Amostra
-            </Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

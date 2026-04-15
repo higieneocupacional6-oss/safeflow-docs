@@ -99,6 +99,12 @@ const variableGroups = [
       "{{epc_nome}}", "{{epc_eficaz}}",
     ],
   },
+  {
+    title: "PARECER TÉCNICO (LTCAT)",
+    vars: [
+      "{{parecer_tecnico}}", "{{aposentadoria_especial}}",
+    ],
+  },
 
 ];
 
@@ -138,6 +144,10 @@ export function TemplateVariables() {
             <p className="text-accent font-medium text-xs">
               <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
               As variáveis de EPI/EPC são provenientes da avaliação de riscos no LTCAT. Utilize essas variáveis para montagem dos templates (.docx), e o sistema fará o preenchimento automático. Suportam uso em loop (múltiplos EPIs/EPCs por risco).
+            </p>
+            <p className="text-accent font-medium text-xs">
+              <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
+              As variáveis de Parecer Técnico (`parecer_tecnico` e `aposentadoria_especial`) são preenchidas na etapa de Listagem de Riscos do LTCAT. Elas permitem que você insira a conclusão técnica para cada avaliação realizada.
             </p>
           </div>
 

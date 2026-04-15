@@ -151,6 +151,45 @@ export type Database = {
           },
         ]
       }
+      ltcat_pareceres: {
+        Row: {
+          id: string
+          empresa_id: string
+          setor_id: string
+          funcao_id: string
+          agente_id: string
+          colaborador_nome: string
+          parecer_tecnico: string | null
+          aposentadoria_especial: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          empresa_id: string
+          setor_id: string
+          funcao_id: string
+          agente_id: string
+          colaborador_nome: string
+          parecer_tecnico?: string | null
+          aposentadoria_especial?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          empresa_id?: string
+          setor_id?: string
+          funcao_id?: string
+          agente_id?: string
+          colaborador_nome?: string
+          parecer_tecnico?: string | null
+          aposentadoria_especial?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       riscos: {
         Row: {
           codigo_esocial: string | null
