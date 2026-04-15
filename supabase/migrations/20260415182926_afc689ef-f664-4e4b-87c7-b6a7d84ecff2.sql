@@ -1,0 +1,5 @@
+
+ALTER TABLE public.equipamentos_ho ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tecnicas_amostragem ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.unidades ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ltcat_avaliacoes ENABLE ROW LEVEL SECURITY;
