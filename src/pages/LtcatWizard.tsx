@@ -1485,26 +1485,80 @@ export default function LtcatWizard() {
 
       {/* Step 4: Generate */}
       {step === 3 && (
-        <div className="glass-card rounded-xl p-8 max-w-2xl text-center">
-          <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
-          <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
-          <p className="text-muted-foreground mb-6">Selecione o template e gere o documento final</p>
-          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-            <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
-            <SelectContent>
-              {templates.map((t: any) => (
-                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={handleGenerateDocument}
-            disabled={generating || !selectedTemplate}
-          >
-            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
-            Gerar Documento
-          </Button>
+        <div className="space-y-6 max-w-2xl">
+          <div className="glass-card rounded-xl p-8 text-center">
+            <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
+            <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
+            <p className="text-muted-foreground mb-6">Selecione o template, valide e gere o documento final</p>
+            <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); }}>
+              <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
+              <SelectContent>
+                {templates.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={handleValidateTemplate}
+                disabled={validating || !selectedTemplate}
+              >
+                {validating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                Validar Template
+              </Button>
+              <Button
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                onClick={handleGenerateDocument}
+                disabled={generating || !selectedTemplate}
+              >
+                {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                Gerar Documento
+              </Button>
+            </div>
+          </div>
+
+          {/* Template Errors Display (inline) */}
+          {templateErrors.length > 0 && (
+            <div className="glass-card rounded-xl p-6 border-destructive/30 border">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <h3 className="font-heading font-bold text-destructive">
+                  {templateErrors.length} erro(s) encontrado(s) no template
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Corrija esses erros no arquivo .docx e faça upload novamente em Templates.
+                O docxtemplater usa a sintaxe <code className="bg-muted px-1 rounded">{"{{variavel}}"}</code> (chaves duplas).
+              </p>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {templateErrors.map((err, i) => (
+                  <div key={i} className="bg-muted/50 rounded-lg p-4 border border-border text-left">
+                    <div className="flex items-start gap-2">
+                      <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded px-2 py-0.5 shrink-0">
+                        ERRO {i + 1}
+                      </span>
+                      <div className="space-y-1 text-sm min-w-0">
+                        <p><span className="font-semibold">Tipo:</span> {err.tipo}</p>
+                        {err.variavel && (
+                          <p><span className="font-semibold">Variável/Tag:</span> <code className="bg-muted px-1 rounded">{err.variavel}</code></p>
+                        )}
+                        <p><span className="font-semibold">Detalhe:</span> {err.explicacao}</p>
+                        {err.arquivo && (
+                          <p><span className="font-semibold">Arquivo:</span> {err.arquivo}</p>
+                        )}
+                        {err.correcao && (
+                          <p className="text-accent font-medium">
+                            <span className="font-semibold">✏️ Correção:</span> {err.correcao}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
