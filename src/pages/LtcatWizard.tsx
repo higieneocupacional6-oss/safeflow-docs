@@ -247,6 +247,9 @@ export default function LtcatWizard() {
 
   // Step 4
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [templateErrors, setTemplateErrors] = useState<any[]>([]);
+  const [templateErrorsOpen, setTemplateErrorsOpen] = useState(false);
+  const [validating, setValidating] = useState(false);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
