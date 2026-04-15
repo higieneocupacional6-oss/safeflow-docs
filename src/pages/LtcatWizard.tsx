@@ -224,6 +224,9 @@ export default function LtcatWizard() {
   const [tempParecer, setTempParecer] = useState("");
   const [tempAposentadoria, setTempAposentadoria] = useState("");
 
+  // Step 1
+  const [empresaId, setEmpresaId] = useState("");
+
   const { data: cachedPareceres = [] } = useQuery({
     queryKey: ["ltcat_pareceres", empresaId],
     queryFn: async () => {
@@ -238,9 +241,6 @@ export default function LtcatWizard() {
     },
     enabled: !!empresaId,
   });
-
-  // Step 1
-  const [empresaId, setEmpresaId] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
