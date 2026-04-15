@@ -868,8 +868,142 @@ export default function LtcatWizard() {
         delimiters: { start: "{", end: "}" },
       });
 
-      // Build template data with loops and pareceres
+      // 1. Group by Sector
+      const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
       const empresa = empresas.find((e: any) => e.id === empresaId);
+
+      const setoresData = activeSectors.map(sId => {
+        const sectorRisks = riscos.filter(r => r.setor_id === sId);
+        const sector = setores.find(s => s.id === sId);
+        
+        // 2. Group by Agent within Sector
+        const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
+        
+        const riscosLoop = uniqueAgents.map(aId => {
+          const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
+          const first = agentEntries[0];
+          
+          // 3. Evaluations (avaliacoes)
+          const avaliacoes = agentEntries.flatMap(r => {
+             const base = {
+               agente: r.agente_nome,
+               tipo: r.tipo_agente
+             };
+             
+             if (r.resultados_calor?.length) {
+               return r.resultados_calor.map(rc => ({ 
+                 ...base, 
+                 colaborador: rc.colaborador, 
+                 funcao: rc.funcao_nome, 
+                 resultado: rc.resultado, 
+                 unidade: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo,
+                 limite: rc.limite_tolerancia,
+                 unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo,
+                 parecer_tecnico: rc.parecer_tecnico, 
+                 aposentadoria_especial: rc.aposentadoria_especial 
+               }));
+             } 
+             if (r.resultados_vibracao?.length) {
+               return r.resultados_vibracao.map(rv => ({ 
+                 ...base, 
+                 colaborador: rv.colaborador, 
+                 funcao: rv.funcao_nome, 
+                 resultado: rv.aren_resultado, 
+                 unidade: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo,
+                 limite: rv.aren_limite,
+                 unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo,
+                 parecer_tecnico: rv.parecer_tecnico, 
+                 aposentadoria_especial: rv.aposentadoria_especial 
+               }));
+             } 
+             if (r.resultados_componentes?.length) {
+               return r.resultados_componentes.map(rc => ({ 
+                 ...base, 
+                 colaborador: rc.colaborador, 
+                 funcao: rc.funcao_nome, 
+                 resultado: "Amostra Comp.", 
+                 parecer_tecnico: rc.parecer_tecnico, 
+                 aposentadoria_especial: rc.aposentadoria_especial 
+               }));
+             } 
+             if (r.resultados_detalhados?.length) {
+               return r.resultados_detalhados.map(rd => ({ 
+                 ...base, 
+                 colaborador: rd.colaborador, 
+                 funcao: rd.funcao_nome, 
+                 resultado: rd.resultado, 
+                 unidade: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo,
+                 limite: rd.limite_tolerancia,
+                 unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo,
+                 parecer_tecnico: rd.parecer_tecnico, 
+                 aposentadoria_especial: rd.aposentadoria_especial 
+               }));
+             } 
+             
+             // Fallback to basic items if no quantitative results
+             return r.items.map(item => ({ 
+               ...base, 
+               colaborador: item.colaborador, 
+               funcao: item.funcao_nome, 
+               resultado: r.resultado, 
+               unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
+               limite: r.limite_tolerancia,
+               unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
+               parecer_tecnico: r.parecer_tecnico, 
+               aposentadoria_especial: r.aposentadoria_especial 
+             }));
+          });
+
+          // 4. EPIs and EPCs (collect unique ones)
+          const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
+          const epis = episIds.map(id => {
+            const e = epiEpcCatalog.find(item => item.id === id);
+            const entryWithDetails = agentEntries.find(r => r.epi_id === id);
+            return {
+              nome: e?.nome || "EPI",
+              ca: entryWithDetails?.epi_ca || "",
+              atenuacao: entryWithDetails?.epi_atenuacao || "",
+              eficaz: entryWithDetails?.epi_eficaz || ""
+            };
+          });
+
+          const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
+          const epcs = epcsIds.map(id => {
+            const e = epiEpcCatalog.find(item => item.id === id);
+            const entryWithDetails = agentEntries.find(r => r.epc_id === id);
+            return {
+              nome: e?.nome || "EPC",
+              eficaz: entryWithDetails?.epc_eficaz || ""
+            };
+          });
+
+          return {
+            agente_nome: first.agente_nome,
+            tipo_agente: first.tipo_agente,
+            tipo_avaliacao: first.tipo_avaliacao,
+            descricao_tecnica: first.descricao_tecnica,
+            propagacao: first.propagacao,
+            tipo_exposicao: first.tipo_exposicao,
+            fonte_geradora: first.fonte_geradora,
+            danos_saude: first.danos_saude,
+            medidas_controle: first.medidas_controle,
+            tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
+            equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
+            esocial_codigo: first.codigo_esocial,
+            esocial_desc: first.descricao_esocial,
+            avaliacoes,
+            epis,
+            epcs
+          };
+        });
+
+        return {
+          nome_setor: sector?.nome_setor || "Setor",
+          ghe_ges: sector?.ghe_ges || "",
+          riscos: riscosLoop
+        };
+      });
+
       const templateData = {
         empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
         cnpj: empresa?.cnpj || "",
@@ -879,40 +1013,9 @@ export default function LtcatWizard() {
         crea,
         cargo,
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setor: setores.length > 0 ? setores[0]?.nome_setor || "Vários Setores" : "",
-        funcao: funcoes.map((f: any) => f.nome_funcao).join(", ") || "",
-        
-        // Loop: Riscos
-        riscos: riscos.map(r => ({
-           setor: r.setor_nome,
-           agente_nome: r.agente_nome,
-           tipo_agente: r.tipo_agente,
-           tipo_avaliacao: r.tipo_avaliacao,
-           descricao_tecnica: r.descricao_tecnica,
-           resultado: r.resultado,
-           unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
-           limite_tolerancia: r.limite_tolerancia,
-           unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
-           esocial_codigo: r.codigo_esocial,
-           esocial_desc: r.descricao_esocial
-        })),
-
-        // Loop: Pareceres (detailed conclusions)
-        pareceres: riscos.flatMap(r => {
-           const base = {
-             setor: r.setor_nome,
-             agente: r.agente_nome,
-             tipo: r.tipo_agente
-           };
-           
-           if (r.resultados_calor?.length) return r.resultados_calor.map(rc => ({ ...base, colaborador: rc.colaborador, funcao: rc.funcao_nome, resultado: rc.resultado, parecer_tecnico: rc.parecer_tecnico, aposentadoria_especial: rc.aposentadoria_especial }));
-           if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(rv => ({ ...base, colaborador: rv.colaborador, funcao: rv.funcao_nome, resultado: rv.aren_resultado, parecer_tecnico: rv.parecer_tecnico, aposentadoria_especial: rv.aposentadoria_especial }));
-           if (r.resultados_componentes?.length) return r.resultados_componentes.map(rc => ({ ...base, colaborador: rc.colaborador, funcao: rc.funcao_nome, resultado: "Amostra Comp.", parecer_tecnico: rc.parecer_tecnico, aposentadoria_especial: rc.aposentadoria_especial }));
-           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(rd => ({ ...base, colaborador: rd.colaborador, funcao: rd.funcao_nome, resultado: rd.resultado, parecer_tecnico: rd.parecer_tecnico, aposentadoria_especial: rd.aposentadoria_especial }));
-           
-           return [{ ...base, colaborador: "Geral", funcao: "Geral", resultado: r.resultado, parecer_tecnico: r.parecer_tecnico, aposentadoria_especial: r.aposentadoria_especial }];
-        })
+        setores: setoresData
       };
+
 
       doc.render(templateData);
 
