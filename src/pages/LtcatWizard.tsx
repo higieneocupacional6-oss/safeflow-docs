@@ -182,6 +182,20 @@ export default function LtcatWizard() {
     },
     enabled: !!empresaId,
   });
+
+  const { data: dbEvaluations = [] } = useQuery({
+    queryKey: ["ltcat_avaliacoes", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("ltcat_avaliacoes")
+        .select("*")
+        .eq("empresa_id", empresaId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!empresaId,
+  });
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -872,129 +886,221 @@ export default function LtcatWizard() {
         delimiters: { start: "{", end: "}" },
       });
 
-      // 1. Group by Sector
-      const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
-      const empresa = empresas.find((e: any) => e.id === empresaId);
+      // 3b. Use database evaluations if local is empty for a sector/agent
+      const sectorsToUse = activeSectors.length > 0 ? activeSectors : Array.from(new Set(dbEvaluations.map(e => e.setor_id)));
 
-      const setoresData = activeSectors.map(sId => {
-        const sectorRisks = riscos.filter(r => r.setor_id === sId);
+      const setoresData = sectorsToUse.map(sId => {
         const sector = setores.find(s => s.id === sId);
+        const sectorRisksLocal = riscos.filter(r => r.setor_id === sId);
+        const sectorRisksDB = dbEvaluations.filter(e => e.setor_id === sId);
         
         // 2. Group by Agent within Sector
-        const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
+        const uniqueAgents = Array.from(new Set([
+          ...sectorRisksLocal.map(r => r.agente_id),
+          ...sectorRisksDB.map(e => e.agente_id)
+        ]));
         
         const riscosLoop = uniqueAgents.map(aId => {
-          const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
-          const first = agentEntries[0];
+          const agentEntries = sectorRisksLocal.filter(r => r.agente_id === aId);
+          const dbEntriesForAgent = sectorRisksDB.filter(e => e.agente_id === aId);
+          
+          const firstLocal = agentEntries[0];
+          const agentRef = catRiscos.find(r => r.id === aId);
+
+          // Helper to find technical opinion in database
+          const findDBParecer = (colab: string, funcId: string) => {
+             return cachedPareceres.find(p => 
+               p.setor_id === sId && 
+               p.agente_id === aId && 
+               p.funcao_id === funcId && 
+               (p.colaborador_nome === colab || !colab)
+             );
+          };
           
           // 3. Evaluations (avaliacoes)
-          const avaliacoes = agentEntries.flatMap(r => {
-             const base = {
-               agente: r.agente_nome,
-               tipo: r.tipo_agente
-             };
-             
-             if (r.resultados_calor?.length) {
-               return r.resultados_calor.map(rc => ({ 
-                 ...base, 
-                 colaborador: rc.colaborador, 
-                 funcao: rc.funcao_nome, 
-                 resultado: rc.resultado, 
-                 unidade: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo,
-                 limite: rc.limite_tolerancia,
-                 unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo,
-                 parecer_tecnico: rc.parecer_tecnico, 
-                 aposentadoria_especial: rc.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_vibracao?.length) {
-               return r.resultados_vibracao.map(rv => ({ 
-                 ...base, 
-                 colaborador: rv.colaborador, 
-                 funcao: rv.funcao_nome, 
-                 resultado: rv.aren_resultado, 
-                 unidade: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo,
-                 limite: rv.aren_limite,
-                 unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo,
-                 parecer_tecnico: rv.parecer_tecnico, 
-                 aposentadoria_especial: rv.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_componentes?.length) {
-               return r.resultados_componentes.map(rc => ({ 
-                 ...base, 
-                 colaborador: rc.colaborador, 
-                 funcao: rc.funcao_nome, 
-                 resultado: "Amostra Comp.", 
-                 parecer_tecnico: rc.parecer_tecnico, 
-                 aposentadoria_especial: rc.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_detalhados?.length) {
-               return r.resultados_detalhados.map(rd => ({ 
-                 ...base, 
-                 colaborador: rd.colaborador, 
-                 funcao: rd.funcao_nome, 
-                 resultado: rd.resultado, 
-                 unidade: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo,
-                 limite: rd.limite_tolerancia,
-                 unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo,
-                 parecer_tecnico: rd.parecer_tecnico, 
-                 aposentadoria_especial: rd.aposentadoria_especial 
-               }));
-             } 
-             
-             // Fallback to basic items if no quantitative results
-             return r.items.map(item => ({ 
-               ...base, 
-               colaborador: item.colaborador, 
-               funcao: item.funcao_nome, 
-               resultado: r.resultado, 
-               unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
-               limite: r.limite_tolerancia,
-               unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
-               parecer_tecnico: r.parecer_tecnico, 
-               aposentadoria_especial: r.aposentadoria_especial 
-             }));
-          });
+          // Priority: 1. Local results (step entries), 2. DB evaluations records
+          let avaliacoes = [];
+
+          const getEpiEpcNames = (epiId: string, epcId: string) => {
+               const epi = epiEpcCatalog.find(e => e.id === epiId)?.nome || "";
+               const epc = epiEpcCatalog.find(e => e.id === epcId)?.nome || "";
+               return { epi_nome: epi, epc_nome: epc };
+          };
+
+          if (agentEntries.length > 0) {
+            avaliacoes = agentEntries.flatMap(r => {
+               const baseValues = {
+                 setor: sector?.nome_setor || "",
+                 agente_nome: r.agente_nome || agentRef?.nome || "",
+                 tipo: r.tipo_agente || agentRef?.tipo || ""
+               };
+               
+               const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
+               
+               if (r.resultados_calor?.length) {
+                 return r.resultados_calor.map(rc => {
+                   const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id);
+                   return { 
+                     ...baseValues, 
+                     colaborador: rc.colaborador || "", 
+                     funcao: rc.funcao_nome || "", 
+                     resultado: rc.resultado || "", 
+                     unidade: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo || "",
+                     limite_tolerancia: rc.limite_tolerancia || "",
+                     unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo || "",
+                     parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "", 
+                     aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                     epi_nome,
+                     epc_nome
+                   };
+                 });
+               } 
+               // ... (vibracao, componentes, detalhados follow same pattern)
+               if (r.resultados_vibracao?.length) {
+                 return r.resultados_vibracao.map(rv => {
+                   const dbParecer = findDBParecer(rv.colaborador, rv.funcao_id);
+                   return { 
+                     ...baseValues, 
+                     colaborador: rv.colaborador || "", 
+                     funcao: rv.funcao_nome || "", 
+                     resultado: rv.aren_resultado || "", 
+                     unidade: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo || "",
+                     limite_tolerancia: rv.aren_limite || "",
+                     unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo || "",
+                     parecer_tecnico: rv.parecer_tecnico || dbParecer?.parecer_tecnico || "", 
+                     aposentadoria_especial: rv.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                     epi_nome,
+                     epc_nome
+                   };
+                 });
+               }
+               if (r.resultados_componentes?.length) {
+                 return r.resultados_componentes.map(rc => {
+                   const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id);
+                   return { 
+                     ...baseValues, 
+                     colaborador: rc.colaborador || "", 
+                     funcao: rc.funcao_nome || "", 
+                     resultado: "Amostra Comp.", 
+                     parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "", 
+                     aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                     limite_tolerancia: "",
+                     epi_nome,
+                     epc_nome
+                   };
+                 });
+               } 
+               if (r.resultados_detalhados?.length) {
+                 return r.resultados_detalhados.map(rd => {
+                   const dbParecer = findDBParecer(rd.colaborador, rd.funcao_id);
+                   return { 
+                     ...baseValues, 
+                     colaborador: rd.colaborador || "", 
+                     funcao: rd.funcao_nome || "", 
+                     resultado: rd.resultado || "", 
+                     unidade: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo || "",
+                     limite_tolerancia: rd.limite_tolerancia || "",
+                     unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo || "",
+                     parecer_tecnico: rd.parecer_tecnico || dbParecer?.parecer_tecnico || "", 
+                     aposentadoria_especial: rd.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                     epi_nome,
+                     epc_nome
+                   };
+                 });
+               }
+               
+               return r.items.map(item => {
+                 const dbParecer = findDBParecer(item.colaborador, item.funcao_id);
+                 return { 
+                   ...baseValues, 
+                   colaborador: item.colaborador || "", 
+                   funcao: item.funcao_nome || "", 
+                   resultado: r.resultado || "", 
+                   unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
+                   limite_tolerancia: r.limite_tolerancia || "",
+                   unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo || "",
+                   parecer_tecnico: r.parecer_tecnico || dbParecer?.parecer_tecnico || "", 
+                   aposentadoria_especial: r.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                   epi_nome,
+                   epc_nome
+                 };
+               });
+            });
+          } else {
+            // Fallback to database evaluations
+            avaliacoes = dbEntriesForAgent.map(e => {
+               const dbParecer = findDBParecer(e.colaborador_nome, e.funcao_id);
+               const func = funcoes.find(f => f.id === e.funcao_id);
+               const { epi_nome, epc_nome } = getEpiEpcNames(e.epi_id, e.epc_id);
+               return {
+                 setor: sector?.nome_setor || "",
+                 agente_nome: agentRef?.nome || "",
+                 tipo: agentRef?.tipo || "",
+                 colaborador: e.colaborador_nome || "",
+                 funcao: func?.nome_funcao || "",
+                 resultado: e.resultado || "",
+                 unidade: unidades.find(u => u.id === e.unidade_resultado_id)?.simbolo || "",
+                 limite_tolerancia: e.limite_tolerancia || "",
+                 unidade_limite: unidades.find(u => u.id === e.unidade_limite_id)?.simbolo || "",
+                 parecer_tecnico: e.parecer_tecnico || dbParecer?.parecer_tecnico || "",
+                 aposentadoria_especial: e.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                 epi_nome,
+                 epc_nome
+               };
+            });
+          }
 
           // 4. EPIs and EPCs (collect unique ones)
-          const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
+          const episIds = Array.from(new Set([
+            ...agentEntries.map(r => r.epi_id),
+            ...dbEntriesForAgent.map(e => e.epi_id)
+          ].filter(Boolean)));
+          
           const epis = episIds.map(id => {
             const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epi_id === id);
+            const localEntry = agentEntries.find(r => r.epi_id === id);
+            const dbEntry = dbEntriesForAgent.find(e => e.epi_id === id);
             return {
               nome: e?.nome || "EPI",
-              ca: entryWithDetails?.epi_ca || "",
-              atenuacao: entryWithDetails?.epi_atenuacao || "",
-              eficaz: entryWithDetails?.epi_eficaz || ""
+              ca: localEntry?.epi_ca || dbEntry?.epi_ca || "",
+              atenuacao: localEntry?.epi_atenuacao || dbEntry?.epi_atenuacao || "",
+              eficaz: localEntry?.epi_eficaz || dbEntry?.epi_eficaz || ""
             };
           });
 
-          const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
+          const epcsIds = Array.from(new Set([
+            ...agentEntries.map(r => r.epc_id),
+            ...dbEntriesForAgent.map(e => e.epc_id)
+          ].filter(Boolean)));
+          
           const epcs = epcsIds.map(id => {
             const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epc_id === id);
+            const localEntry = agentEntries.find(r => r.epc_id === id);
+            const dbEntry = dbEntriesForAgent.find(e => e.epc_id === id);
             return {
               nome: e?.nome || "EPC",
-              eficaz: entryWithDetails?.epc_eficaz || ""
+              eficaz: localEntry?.epc_eficaz || dbEntry?.epc_eficaz || ""
             };
           });
 
+          const globalParecer = cachedPareceres.find(p => p.setor_id === sId && p.agente_id === aId);
+
           return {
-            agente_nome: first.agente_nome,
-            tipo_agente: first.tipo_agente,
-            tipo_avaliacao: first.tipo_avaliacao,
-            descricao_tecnica: first.descricao_tecnica,
-            propagacao: first.propagacao,
-            tipo_exposicao: first.tipo_exposicao,
-            fonte_geradora: first.fonte_geradora,
-            danos_saude: first.danos_saude,
-            medidas_controle: first.medidas_controle,
-            tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
-            equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
-            esocial_codigo: first.codigo_esocial,
-            esocial_desc: first.descricao_esocial,
+            agente_nome: firstLocal?.agente_nome || agentRef?.nome || "",
+            tipo_agente: firstLocal?.tipo_agente || agentRef?.tipo || "",
+            tipo_avaliacao: firstLocal?.tipo_avaliacao || "qualitativa",
+            descricao_tecnica: firstLocal?.descricao_tecnica || "",
+            propagacao: firstLocal?.propagacao || "",
+            tipo_exposicao: firstLocal?.tipo_exposicao || "",
+            fonte_geradora: firstLocal?.fonte_geradora || "",
+            danos_saude: firstLocal?.danos_saude || "",
+            medidas_controle: firstLocal?.medidas_controle || "",
+            tecnica: tecnicas.find(t => t.id === firstLocal?.tecnica_id)?.nome || "",
+            equipamento: equipamentos.find(e => e.id === firstLocal?.equipamento_id)?.nome || "",
+            esocial_codigo: firstLocal?.codigo_esocial || agentRef?.codigo_esocial || "",
+            esocial_desc: firstLocal?.descricao_esocial || agentRef?.descricao_esocial || "",
+            parecer_tecnico: firstLocal?.parecer_tecnico || globalParecer?.parecer_tecnico || "",
+            aposentadoria_especial: firstLocal?.aposentadoria_especial || globalParecer?.aposentadoria_especial || "",
             avaliacoes,
             epis,
             epcs
@@ -1013,9 +1119,9 @@ export default function LtcatWizard() {
         cnpj: empresa?.cnpj || "",
         endereco: empresa?.endereco || "",
         cnae: empresa?.cnae_principal || "",
-        responsavel,
-        crea,
-        cargo,
+        responsavel: responsavel || "",
+        crea: crea || "",
+        cargo: cargo || "",
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
         setores: setoresData
       };
