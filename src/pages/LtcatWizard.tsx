@@ -24,6 +24,7 @@ interface RiscoEntry {
   setor_id: string;
   setor_nome: string;
   items: {
+    id: string;
     colaborador: string;
     funcao_id: string;
     funcao_nome: string;
@@ -46,84 +47,18 @@ interface RiscoEntry {
   unidade_resultado_id: string;
   limite_tolerancia: string;
   unidade_limite_id: string;
-  parecer_tecnico?: string;
+  parecer_tecnico?: string; 
   aposentadoria_especial?: string;
-}
-
-interface RiscoEntry {
-  id: string;
-  setor_id: string;
-  setor_nome: string;
-  items: {
-    colaborador: string;
-    funcao_id: string;
-    funcao_nome: string;
-  }[];
-  tipo_avaliacao: string;
-  tipo_agente: string;
-  agente_id: string;
-  agente_nome: string;
-  codigo_esocial: string;
-  descricao_esocial: string;
-  propagacao: string;
-  tipo_exposicao: string;
-  fonte_geradora: string;
-  danos_saude: string;
-  medidas_controle: string;
-  descricao_tecnica: string;
-  tecnica_id: string;
-  equipamento_id: string;
-  resultado: string;
-  unidade_resultado_id: string;
-  limite_tolerancia: string;
-  unidade_limite_id: string;
-  parecer_tecnico?: string; // Parecer for solo risk
-  aposentadoria_especial?: string;
-  resultados_detalhados?: (ResultadoBase & { 
-    colaborador: string; 
-    funcao_id: string; 
-    funcao_nome: string;
-  })[];
-  resultados_componentes?: {
-    id: string;
-    colaborador: string;
-    funcao_id: string;
-    funcao_nome: string;
-    parecer_tecnico?: string;
-    aposentadoria_especial?: string;
-    componentes: ResultadoBase[];
-  }[];
-  resultados_vibracao?: {
-    id: string;
-    colaborador: string;
-    funcao_id: string;
-    funcao_nome: string;
-    equipamento_avaliado: string;
-    parecer_tecnico?: string;
-    aposentadoria_especial?: string;
-    aren_resultado?: string;
-    aren_unidade_id?: string;
-    aren_limite?: string;
-    aren_limite_unidade_id?: string;
-    vdvr_resultado?: string;
-    vdvr_unidade_id?: string;
-    vdvr_limite_unidade_id?: string;
-  }[];
-  resultados_calor?: {
-    id: string;
-    colaborador: string;
-    funcao_id: string;
-    funcao_nome: string;
-    local_avaliado: string;
-    atividade_avaliada: string;
-    taxa_metabolica: string;
-    resultado: string;
-    unidade_resultado_id: string;
-    limite_tolerancia: string;
-    unidade_limite_id: string;
-    parecer_tecnico?: string;
-    aposentadoria_especial?: string;
-  }[];
+  resultados_detalhados?: any[];
+  resultados_componentes?: any[];
+  resultados_vibracao?: any[];
+  resultados_calor?: any[];
+  epi_id?: string;
+  epi_ca?: string;
+  epi_atenuacao?: string;
+  epi_eficaz?: string;
+  epc_id?: string;
+  epc_eficaz?: string;
 }
 
 interface ResultadoBase {
@@ -209,7 +144,10 @@ export default function LtcatWizard() {
     epc_eficaz: "",
   });
 
-  const [generating, setGenerating] = useState(false);
+  const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
+  const [deleteItemsModalOpen, setDeleteItemsModalOpen] = useState(false);
+  const [riskToDeleteItems, setRiskToDeleteItems] = useState<RiscoEntry | null>(null);
+  const [selectedItemsToDelete, setSelectedItemsToDelete] = useState<string[]>([]);
 
   // Parecer Técnico Modal State
   const [parecerModalOpen, setParecerModalOpen] = useState(false);
@@ -383,32 +321,79 @@ export default function LtcatWizard() {
 
   const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
 
-  const openRiskModal = (setor: any) => {
+  const openRiskModal = (setor: any, editRisk?: RiscoEntry) => {
     setCurrentRiskSetor(setor);
-    setRiskForm({
-      ...riskForm,
-      items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
-      tipo_avaliacao: "qualitativa",
-      tipo_agente: "",
-      agente_id: "",
-      agente_nome: "",
-      codigo_esocial: "",
-      descricao_esocial: "",
-      propagacao: "",
-      tipo_exposicao: "",
-      fonte_geradora: "",
-      danos_saude: "",
-      medidas_controle: "",
-      descricao_tecnica: "",
-      tecnica_id: "",
-      equipamento_id: "",
-      resultado: "",
-      unidade_resultado_id: "",
-      limite_tolerancia: "",
-      unidade_limite_id: "",
-      resultados_detalhados: [],
-    });
-    setEpiEpcRiskForm({ epi_id: "", epi_ca: "", epi_atenuacao: "", epi_eficaz: "", epc_id: "", epc_eficaz: "" });
+    if (editRisk) {
+      setEditingRiskId(editRisk.id);
+      setRiskForm({
+        items: editRisk.items.map(i => ({ id: i.id, colaborador: i.colaborador, funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
+        tipo_avaliacao: editRisk.tipo_avaliacao,
+        tipo_agente: editRisk.tipo_agente,
+        agente_id: editRisk.agente_id,
+        agente_nome: editRisk.agente_nome,
+        codigo_esocial: editRisk.codigo_esocial,
+        descricao_esocial: editRisk.descricao_esocial,
+        propagacao: editRisk.propagacao,
+        tipo_exposicao: editRisk.tipo_exposicao,
+        fonte_geradora: editRisk.fonte_geradora,
+        danos_saude: editRisk.danos_saude,
+        medidas_controle: editRisk.medidas_controle,
+        descricao_tecnica: editRisk.descricao_tecnica,
+        tecnica_id: editRisk.tecnica_id,
+        equipamento_id: editRisk.equipamento_id,
+        resultado: editRisk.resultado,
+        unidade_resultado_id: editRisk.unidade_resultado_id,
+        limite_tolerancia: editRisk.limite_tolerancia,
+        unidade_limite_id: editRisk.unidade_limite_id,
+        resultados_detalhados: editRisk.resultados_detalhados || [],
+      });
+      setEpiEpcRiskForm({
+        epi_id: editRisk.epi_id || "",
+        epi_ca: editRisk.epi_ca || "",
+        epi_atenuacao: editRisk.epi_atenuacao || "",
+        epi_eficaz: editRisk.epi_eficaz || "",
+        epc_id: editRisk.epc_id || "",
+        epc_eficaz: editRisk.epc_eficaz || "",
+      });
+      setTempCalorRows(editRisk.resultados_calor || []);
+      setTempVibracaoRows(editRisk.resultados_vibracao || []);
+      setTempFuncaoRows(editRisk.resultados_componentes || []);
+    } else {
+      setEditingRiskId(null);
+      setRiskForm({
+        items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
+        tipo_avaliacao: "qualitativa",
+        tipo_agente: "",
+        agente_id: "",
+        agente_nome: "",
+        codigo_esocial: "",
+        descricao_esocial: "",
+        propagacao: "",
+        tipo_exposicao: "",
+        fonte_geradora: "",
+        danos_saude: "",
+        medidas_controle: "",
+        descricao_tecnica: "",
+        tecnica_id: "",
+        equipamento_id: "",
+        resultado: "",
+        unidade_resultado_id: "",
+        limite_tolerancia: "",
+        unidade_limite_id: "",
+        resultados_detalhados: [],
+      });
+      setEpiEpcRiskForm({
+        epi_id: "",
+        epi_ca: "",
+        epi_atenuacao: "",
+        epi_eficaz: "",
+        epc_id: "",
+        epc_eficaz: "",
+      });
+      setTempCalorRows([]);
+      setTempVibracaoRows([]);
+      setTempFuncaoRows([]);
+    }
     setRiskDialogOpen(true);
   };
 
@@ -562,8 +547,41 @@ export default function LtcatWizard() {
       }
     }
 
+    // ------------------------------------------------------------
+    // REGRA DE DUPLICIDADE: Mesma Função + Mesmo Colaborador + Mesmo Risco
+    // ------------------------------------------------------------
+    const hasDuplicate = finalItems.some((newItem, idx) => {
+      // Check for same function+colab within the currently being saved items
+      const duplicatedInBatch = finalItems.some((otherItem, otherIdx) => 
+        idx !== otherIdx && 
+        otherItem.funcao_id === newItem.funcao_id && 
+        otherItem.colaborador === newItem.colaborador
+      );
+      if (duplicatedInBatch) return true;
+
+      // Check against existing database for this sector/risk
+      const existingInStore = riscos.find(r => 
+        r.id !== editingRiskId && // Important when editing
+        r.setor_id === currentRiskSetor.id && 
+        r.agente_id === riskForm.agente_id
+      );
+
+      if (existingInStore) {
+        return existingInStore.items.some(ei => 
+          ei.funcao_id === newItem.funcao_id && 
+          ei.colaborador === newItem.colaborador
+        );
+      }
+      return false;
+    });
+
+    if (hasDuplicate) {
+       toast.error("MESMO COLABORADOR JÁ CADASTRADO PARA ESTA FUNÇÃO NESTE RISCO");
+       return;
+    }
+
     const newRisk: RiscoEntry = {
-      id: Date.now().toString(),
+      id: editingRiskId || Date.now().toString(),
       setor_id: currentRiskSetor.id,
       setor_nome: currentRiskSetor.nome_setor,
       items: finalItems,
@@ -589,10 +607,20 @@ export default function LtcatWizard() {
       resultados_componentes: finalComponentes,
       resultados_vibracao: finalVibracao,
       resultados_calor: finalCalor,
+      epi_id: epiEpcRiskForm.epi_id,
+      epi_ca: epiEpcRiskForm.epi_ca,
+      epi_atenuacao: epiEpcRiskForm.epi_atenuacao,
+      epi_eficaz: epiEpcRiskForm.epi_eficaz,
+      epc_id: epiEpcRiskForm.epc_id,
+      epc_eficaz: epiEpcRiskForm.epc_eficaz,
     };
 
     try {
-      setRiscos((prev) => [...prev, newRisk]);
+      if (editingRiskId) {
+        setRiscos(prev => prev.map(r => r.id === editingRiskId ? newRisk : r));
+      } else {
+        setRiscos((prev) => [...prev, newRisk]);
+      }
       toast.success("Risco avaliado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
@@ -603,6 +631,38 @@ export default function LtcatWizard() {
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
     }
+  };
+
+  const openDeleteSelectiveModal = (risk: RiscoEntry) => {
+    setRiskToDeleteItems(risk);
+    setSelectedItemsToDelete([]);
+    setDeleteItemsModalOpen(true);
+  };
+
+  const handleConfirmSelectiveDelete = () => {
+    if (!riskToDeleteItems || selectedItemsToDelete.length === 0) return;
+
+    setRiscos(prev => prev.map(r => {
+      if (r.id === riskToDeleteItems.id) {
+        const remainingItems = r.items.filter(i => !selectedItemsToDelete.includes(i.id));
+        
+        // Also clean up detailed results if they exist for these items
+        const filterSubResults = (arr?: any[]) => arr?.filter(sub => !selectedItemsToDelete.includes(sub.id)) || [];
+
+        return {
+          ...r,
+          items: remainingItems,
+          resultados_calor: filterSubResults(r.resultados_calor),
+          resultados_vibracao: filterSubResults(r.resultados_vibracao),
+          resultados_componentes: filterSubResults(r.resultados_componentes),
+          resultados_detalhados: filterSubResults(r.resultados_detalhados),
+        };
+      }
+      return r;
+    }).filter(r => r.items.length > 0)); // Remove risk entry if no items left
+
+    setDeleteItemsModalOpen(false);
+    toast.success("Itens removidos com sucesso");
   };
 
   const openParecerModal = (risk: RiscoEntry, result: any, display: React.ReactNode) => {
@@ -956,82 +1016,101 @@ export default function LtcatWizard() {
                   
                   <div className="grid grid-cols-1 gap-6">
                     {setorRiscos.map(risk => (
-                      <div key={risk.id} className="glass-card rounded-2xl p-6 border border-border/50 hover:border-accent/30 transition-all bg-background/60 shadow-sm hover:shadow-md group relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-1 h-full bg-accent opacity-30"></div>
+                      <div key={risk.id} className="glass-card rounded-2xl p-8 border border-border/50 hover:border-accent/40 transition-all bg-background/80 shadow-sm hover:shadow-xl group relative overflow-hidden">
+                        <div className="absolute top-0 left-0 w-2 h-full bg-accent opacity-20"></div>
                         
-                        <div className="flex justify-between items-start mb-6">
-                          <div>
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-2xl font-heading font-bold text-foreground uppercase tracking-wide group-hover:text-accent transition-colors">{risk.agente_nome}</h3>
-                              <Badge variant="secondary" className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 bg-muted/50">
-                                {risk.tipo_agente}
-                              </Badge>
-                            </div>
-                            <div className="flex gap-4 text-[10px] uppercase font-bold text-muted-foreground tracking-wider">
-                               <span>Modo: <span className="text-foreground">{risk.tipo_avaliacao}</span></span>
-                               {risk.fonte_geradora && <span>Fonte: <span className="text-foreground">{risk.fonte_geradora}</span></span>}
+                        <div className="flex justify-between items-start mb-8">
+                          <div className="space-y-1">
+                            <h3 className="text-3xl font-heading font-black text-foreground uppercase tracking-tight group-hover:text-accent transition-colors">
+                              {risk.agente_nome}
+                            </h3>
+                            <div className="flex items-center gap-3">
+                               <Badge variant="outline" className="text-[10px] uppercase font-black tracking-[0.2em] px-2 py-0.5 border-accent/30 text-accent/80">
+                                 {risk.tipo_agente}
+                               </Badge>
+                               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest bg-muted/30 px-2 py-0.5 rounded">
+                                 MODO: {risk.tipo_avaliacao}
+                               </span>
                             </div>
                           </div>
-                          <Button variant="ghost" size="icon" className="text-destructive h-9 w-9 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-destructive/10" onClick={() => setRiscos(prev => prev.filter(x => x.id !== risk.id))}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
+                          
+                          <div className="flex items-center gap-2">
+                             <Button 
+                              variant="outline" size="sm" className="h-9 w-9 p-0 rounded-xl border-accent/20 hover:bg-accent hover:text-white transition-all shadow-sm"
+                              title="Editar Avaliação"
+                              onClick={() => openRiskModal(setores.find(s => s.id === risk.setor_id), risk)}
+                             >
+                               <Settings className="w-4 h-4" />
+                             </Button>
+                             <Button 
+                              variant="outline" size="sm" className="h-9 w-9 p-0 rounded-xl border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
+                              title="Excluir Colaboradores/Funções"
+                              onClick={() => openDeleteSelectiveModal(risk)}
+                             >
+                               <Trash2 className="w-4 h-4" />
+                             </Button>
+                          </div>
+                        </div>
+
+                        {/* Funções Vinculadas ao Risco em Linha */}
+                        <div className="mb-8">
+                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-3 flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-accent/40"></span>
+                              Funções Vinculadas
+                           </h4>
+                           <div className="p-4 rounded-xl bg-accent/[0.02] border border-accent/5 font-medium text-foreground tracking-tight">
+                              {risk.items.map((item, idx) => (
+                                <span key={item.id}>
+                                  <span className="font-bold">{item.funcao_nome}</span>
+                                  <span className="text-muted-foreground opacity-60"> ({item.colaborador})</span>
+                                  {idx < risk.items.length - 1 && <span className="mx-3 text-accent font-black opacity-30">—</span>}
+                                </span>
+                              ))}
+                           </div>
                         </div>
 
                         <div className="grid grid-cols-1 gap-3">
-                          {/* Render based on risk evaluation results */}
+                          {/* Render based on risk evaluation results (kept original logic but polished buttons) */}
                           {risk.resultados_calor && risk.resultados_calor.length > 0 ? (
                             risk.resultados_calor.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-black hover:text-white transition-all">
                                 <div className="space-y-1">
-                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
-                                  <div className="flex gap-4 text-xs font-mono text-accent font-semibold">
+                                  <p className="text-sm font-bold uppercase">{row.funcao_nome} <span className="opacity-60 font-normal italic pl-1">— {row.colaborador}</span></p>
+                                  <div className="flex gap-4 text-[10px] font-mono font-semibold uppercase tracking-widest opacity-80">
                                      <span>VALOR: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span>
-                                     {row.limite_tolerancia && <span className="opacity-60">LT: {row.limite_tolerancia} {unidades.find(u => u.id === row.unidade_limite_id)?.simbolo}</span>}
                                   </div>
                                 </div>
                                 <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all rounded-lg ${row.parecer_tecnico ? "border-success/50 bg-success/10 text-success hover:bg-success" : "border-accent/30 text-accent hover:bg-accent"}`}
                                   onClick={() => openParecerModal(risk, row, (
-                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
-                                      <p className="font-bold border-b border-border/50 pb-1 mb-1 opacity-50">DADOS DE MEDIÇÃO</p>
-                                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-                                        <p>LOCAL: <span className="text-foreground">{row.local_avaliado}</span></p>
-                                        <p>ATIVIDADE: <span className="text-foreground">{row.atividade_avaliada}</span></p>
-                                        <p>TAXA MET.: <span className="text-foreground">{row.taxa_metabolica}</span></p>
-                                        <p>RESULTADO: <span className="text-accent font-bold">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span></p>
-                                      </div>
+                                    <div className="text-xs font-mono p-4 bg-muted/30 rounded-xl space-y-1">
+                                      <p>RESULTADO: <span className="text-accent font-bold">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span></p>
                                     </div>
                                   ))}
                                 >
-                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <FileText className="w-3.5 h-3.5" />} 
-                                  {row.parecer_tecnico ? "Parecer Concluído" : "Parecer Técnico"}
+                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />} Parecer
                                 </Button>
                               </div>
                             ))
                           ) : risk.resultados_vibracao && risk.resultados_vibracao.length > 0 ? (
                             risk.resultados_vibracao.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
+                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-black hover:text-white transition-all">
                                 <div className="space-y-1">
-                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
-                                  <div className="flex gap-4 text-xs font-mono text-accent font-semibold">
-                                     {row.aren_resultado && <span>AREN: {row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</span>}
-                                     {row.vdvr_resultado && <span>VDVR: {row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</span>}
+                                  <p className="text-sm font-bold uppercase">{row.funcao_nome} <span className="opacity-60 font-normal italic pl-1">— {row.colaborador}</span></p>
+                                  <div className="flex gap-4 text-[10px] font-mono font-semibold uppercase tracking-widest opacity-80">
+                                     {row.aren_resultado && <span>AREN: {row.aren_resultado}</span>}
+                                     {row.vdvr_resultado && <span>VDVR: {row.vdvr_resultado}</span>}
                                   </div>
                                 </div>
                                 <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
+                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all rounded-lg ${row.parecer_tecnico ? "border-success/50 bg-success/10 text-success hover:bg-success" : "border-accent/30 text-accent hover:bg-accent"}`}
                                   onClick={() => openParecerModal(risk, row, (
-                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-2">
-                                      <p className="font-bold border-b border-border/50 pb-1 mb-1 opacity-50">DADOS DE MEDIÇÃO</p>
-                                      <p>EQUIPAMENTO: <span className="text-foreground">{row.equipamento_avaliado}</span></p>
-                                      <div className="grid grid-cols-2 gap-4 mt-1">
-                                         {row.aren_resultado && <div><p className="opacity-50 text-[9px]">AREN</p><p className="font-bold text-accent">{row.aren_resultado} {unidades.find(u => u.id === row.aren_unidade_id)?.simbolo}</p></div>}
-                                         {row.vdvr_resultado && <div><p className="opacity-50 text-[9px]">VDVR</p><p className="font-bold text-accent">{row.vdvr_resultado} {unidades.find(u => u.id === row.vdvr_unidade_id)?.simbolo}</p></div>}
-                                      </div>
+                                    <div className="text-xs font-mono p-4 bg-muted/30 rounded-xl space-y-1">
+                                      <p>AREN: <span className="text-accent font-bold">{row.aren_resultado}</span></p>
                                     </div>
                                   ))}
                                 >
-                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />} Parecer
                                 </Button>
                               </div>
                             ))
@@ -2343,6 +2422,52 @@ export default function LtcatWizard() {
                </Button>
             </DialogFooter>
           </div>
+        </DialogContent>
+      </Dialog>
+      {/* ============================================================ */}
+      {/* MODAL: EXCLUSÃO SELETIVA DE ITENS (FUNÇÃO/COLAB)             */}
+      {/* ============================================================ */}
+      <Dialog open={deleteItemsModalOpen} onOpenChange={setDeleteItemsModalOpen}>
+        <DialogContent className="sm:max-w-md rounded-2xl p-0 overflow-hidden border-none shadow-2xl">
+           <div className="bg-background flex flex-col">
+              <div className="p-6 border-b bg-destructive/5">
+                <DialogTitle className="text-xl font-heading font-black uppercase text-destructive tracking-tight">Exclusão Seletiva</DialogTitle>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-widest mt-1">Selecione quais funções/colaboradores remover do risco {riskToDeleteItems?.agente_nome}</p>
+              </div>
+              
+              <div className="p-6 space-y-3 max-h-[400px] overflow-y-auto">
+                 {riskToDeleteItems?.items.map(item => (
+                   <div 
+                    key={item.id} 
+                    className={`flex items-center justify-between p-4 rounded-xl border transition-all cursor-pointer ${selectedItemsToDelete.includes(item.id) ? "border-destructive bg-destructive/5 shadow-inner" : "border-border hover:border-accent/40"}`}
+                    onClick={() => {
+                      setSelectedItemsToDelete(prev => 
+                        prev.includes(item.id) ? prev.filter(id => id !== item.id) : [...prev, item.id]
+                      )
+                    }}
+                   >
+                     <div>
+                       <p className="font-bold uppercase text-foreground text-sm">{item.funcao_nome}</p>
+                       <p className="text-xs text-muted-foreground">{item.colaborador}</p>
+                     </div>
+                     <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedItemsToDelete.includes(item.id) ? "border-destructive bg-destructive text-white" : "border-muted"}`}>
+                        {selectedItemsToDelete.includes(item.id) && <Check className="w-3 h-3" />}
+                     </div>
+                   </div>
+                 ))}
+              </div>
+
+              <div className="p-6 bg-muted/20 border-t flex gap-3">
+                 <Button variant="ghost" onClick={() => setDeleteItemsModalOpen(false)} className="flex-1 font-bold uppercase tracking-widest text-[10px]">Cancelar</Button>
+                 <Button 
+                  onClick={handleConfirmSelectiveDelete}
+                  disabled={selectedItemsToDelete.length === 0}
+                  className="flex-2 bg-destructive text-destructive-foreground hover:bg-black font-black uppercase tracking-widest text-[10px] px-8"
+                 >
+                   Confirmar Exclusão ({selectedItemsToDelete.length})
+                 </Button>
+              </div>
+           </div>
         </DialogContent>
       </Dialog>
     </div>
