@@ -746,16 +746,17 @@ export default function LtcatWizard() {
       });
 
       // Build template data with loops and pareceres
+      const empresa = empresas.find((e: any) => e.id === empresaId);
       const templateData = {
         empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
         cnpj: empresa?.cnpj || "",
         endereco: empresa?.endereco || "",
-        cnae: empresa?.cnae || "",
+        cnae: empresa?.cnae_principal || "",
         responsavel,
         crea,
         cargo,
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setor: funcoes.length > 0 ? funcoes[0].nome_setor || "Vários Setores" : "",
+        setor: setores.length > 0 ? setores[0]?.nome_setor || "Vários Setores" : "",
         funcao: funcoes.map((f: any) => f.nome_funcao).join(", ") || "",
         
         // Loop: Riscos
