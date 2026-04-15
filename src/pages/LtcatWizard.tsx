@@ -454,7 +454,7 @@ export default function LtcatWizard() {
     setRiskForm({ ...riskForm, items: newItems });
   };
 
-  const handleSaveRisk = async (inlineResults?: any[], inlineComponentes?: any[]) => {
+  const handleSaveRisk = async (inlineResults?: any[], inlineComponentes?: any[], inlineVibracao?: any[], inlineCalor?: any[]) => {
     if (!riskForm.agente_id) {
       toast.error("Selecione um agente");
       return;
