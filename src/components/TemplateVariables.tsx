@@ -115,7 +115,7 @@ const variableGroups = [
       "{{#revisoes}}", "{{revisao}}", "{{data_revisao}}", "{{motivo}}", "{{responsavel}}", "{{/revisoes}}",
     ],
   },
-]);
+];
 
 export function TemplateVariables() {
   const [open, setOpen] = useState(false);
