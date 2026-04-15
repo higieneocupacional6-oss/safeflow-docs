@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -247,6 +247,9 @@ export default function LtcatWizard() {
 
   // Step 4
   const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [templateErrors, setTemplateErrors] = useState<any[]>([]);
+  const [templateErrorsOpen, setTemplateErrorsOpen] = useState(false);
+  const [validating, setValidating] = useState(false);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
@@ -847,6 +850,264 @@ export default function LtcatWizard() {
     setCalorModalOpen(true);
   };
 
+  // Helper: build template data (shared between validate and generate)
+  const buildTemplateData = () => {
+    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
+    const empresa = empresas.find((e: any) => e.id === empresaId);
+
+    const setoresData = activeSectors.map(sId => {
+      const sectorRisks = riscos.filter(r => r.setor_id === sId);
+      const sector = setores.find(s => s.id === sId);
+
+      const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
+
+      const riscosLoop = uniqueAgents.map(aId => {
+        const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
+        const first = agentEntries[0];
+
+        const avaliacoes = agentEntries.flatMap(r => {
+          const base = {
+            agente: r.agente_nome,
+            tipo: r.tipo_agente
+          };
+
+          if (r.resultados_calor?.length) {
+            return r.resultados_calor.map((rc: any) => ({
+              ...base,
+              colaborador: rc.colaborador,
+              funcao: rc.funcao_nome,
+              resultado: rc.resultado,
+              unidade_resultado: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo || "",
+              limite_tolerancia: rc.limite_tolerancia,
+              unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo || "",
+              parecer_tecnico: rc.parecer_tecnico || "",
+              aposentadoria_especial: rc.aposentadoria_especial || ""
+            }));
+          }
+          if (r.resultados_vibracao?.length) {
+            return r.resultados_vibracao.map((rv: any) => ({
+              ...base,
+              colaborador: rv.colaborador,
+              funcao: rv.funcao_nome,
+              resultado: rv.aren_resultado,
+              unidade_resultado: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo || "",
+              limite_tolerancia: rv.aren_limite,
+              unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo || "",
+              parecer_tecnico: rv.parecer_tecnico || "",
+              aposentadoria_especial: rv.aposentadoria_especial || ""
+            }));
+          }
+          if (r.resultados_componentes?.length) {
+            return r.resultados_componentes.map((rc: any) => ({
+              ...base,
+              colaborador: rc.colaborador,
+              funcao: rc.funcao_nome,
+              resultado: "Amostra Comp.",
+              unidade_resultado: "",
+              limite_tolerancia: "",
+              unidade_limite: "",
+              parecer_tecnico: rc.parecer_tecnico || "",
+              aposentadoria_especial: rc.aposentadoria_especial || ""
+            }));
+          }
+          if (r.resultados_detalhados?.length) {
+            return r.resultados_detalhados.map((rd: any) => ({
+              ...base,
+              colaborador: rd.colaborador,
+              funcao: rd.funcao_nome,
+              resultado: rd.resultado,
+              unidade_resultado: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo || "",
+              limite_tolerancia: rd.limite_tolerancia,
+              unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo || "",
+              parecer_tecnico: rd.parecer_tecnico || "",
+              aposentadoria_especial: rd.aposentadoria_especial || ""
+            }));
+          }
+
+          return r.items.map(item => ({
+            ...base,
+            colaborador: item.colaborador,
+            funcao: item.funcao_nome,
+            resultado: r.resultado || "",
+            unidade_resultado: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
+            limite_tolerancia: r.limite_tolerancia || "",
+            unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo || "",
+            parecer_tecnico: r.parecer_tecnico || "",
+            aposentadoria_especial: r.aposentadoria_especial || ""
+          }));
+        });
+
+        const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
+        const epis = episIds.map(id => {
+          const e = epiEpcCatalog.find(item => item.id === id);
+          const entryWithDetails = agentEntries.find(r => r.epi_id === id);
+          return {
+            epi_nome: e?.nome || "EPI",
+            epi_ca: entryWithDetails?.epi_ca || "",
+            epi_atenuacao: entryWithDetails?.epi_atenuacao || "",
+            epi_eficaz: entryWithDetails?.epi_eficaz || ""
+          };
+        });
+
+        const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
+        const epcs = epcsIds.map(id => {
+          const e = epiEpcCatalog.find(item => item.id === id);
+          const entryWithDetails = agentEntries.find(r => r.epc_id === id);
+          return {
+            epc_nome: e?.nome || "EPC",
+            epc_eficaz: entryWithDetails?.epc_eficaz || ""
+          };
+        });
+
+        return {
+          agente_nome: first.agente_nome,
+          tipo_agente: first.tipo_agente,
+          tipo_avaliacao: first.tipo_avaliacao,
+          descricao_tecnica: first.descricao_tecnica || "",
+          propagacao: first.propagacao || "",
+          tipo_exposicao: first.tipo_exposicao || "",
+          fonte_geradora: first.fonte_geradora || "",
+          danos_saude: first.danos_saude || "",
+          medidas_controle: first.medidas_controle || "",
+          tecnica_amostragem: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
+          equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
+          codigo_esocial: first.codigo_esocial || "",
+          descricao_esocial: first.descricao_esocial || "",
+          avaliacoes,
+          epis,
+          epcs
+        };
+      });
+
+      return {
+        setor: sector?.nome_setor || "Setor",
+        nome_setor: sector?.nome_setor || "Setor",
+        ghe_ges: sector?.ghe_ges || "",
+        descricao_ambiente: sector?.descricao_ambiente || "",
+        riscos: riscosLoop
+      };
+    });
+
+    return {
+      empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
+      razao_social: empresa?.razao_social || "",
+      nome_fantasia: empresa?.nome_fantasia || "",
+      cnpj: empresa?.cnpj || "",
+      endereco: empresa?.endereco || "",
+      cnae_principal: empresa?.cnae_principal || "",
+      grau_risco: empresa?.grau_risco || "",
+      numero_funcionarios_fem: empresa?.numero_funcionarios_fem || 0,
+      numero_funcionarios_masc: empresa?.numero_funcionarios_masc || 0,
+      total_funcionarios: empresa?.total_funcionarios || 0,
+      jornada_trabalho: empresa?.jornada_trabalho || "",
+      local_trabalho: empresa?.local_trabalho || "",
+      numero_contrato: empresa?.numero_contrato || "",
+      cnpj_contratante: empresa?.cnpj_contratante || "",
+      nome_contratante: empresa?.nome_contratante || "",
+      vigencia_inicio: empresa?.vigencia_inicio || "",
+      vigencia_fim: empresa?.vigencia_fim || "",
+      escopo_contrato: empresa?.escopo_contrato || "",
+      gestor_nome: empresa?.gestor_nome || "",
+      gestor_email: empresa?.gestor_email || "",
+      gestor_telefone: empresa?.gestor_telefone || "",
+      fiscal_nome: empresa?.fiscal_nome || "",
+      fiscal_email: empresa?.fiscal_email || "",
+      fiscal_telefone: empresa?.fiscal_telefone || "",
+      preposto_nome: empresa?.preposto_nome || "",
+      preposto_email: empresa?.preposto_email || "",
+      preposto_telefone: empresa?.preposto_telefone || "",
+      responsavel,
+      crea,
+      cargo,
+      data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+      setores: setoresData
+    };
+  };
+
+  // Parse docxtemplater Multi error into readable list
+  const parseDocxErrors = (err: any): any[] => {
+    if (err?.properties?.errors) {
+      return err.properties.errors.map((e: any) => {
+        const id = e.properties?.id || "unknown";
+        const explanation = e.properties?.explanation || e.message || "Erro desconhecido";
+        const xtag = e.properties?.xtag || "";
+        const file = e.properties?.file || "document.xml";
+        
+        let tipo = "Desconhecido";
+        let correcao = "";
+        
+        if (id === "unopened_tag") {
+          tipo = "Loop fechado sem abertura";
+          correcao = `Adicione {{#${xtag}}} antes de {{/${xtag}}} no template`;
+        } else if (id === "unclosed_tag") {
+          tipo = "Loop aberto sem fechamento";
+          correcao = `Adicione {{/${xtag}}} após {{#${xtag}}} no template`;
+        } else if (id === "closing_tag_does_not_match_opening_tag") {
+          tipo = "Tag de fechamento não corresponde à abertura";
+          correcao = `Verifique se {{#tag}} e {{/tag}} usam o mesmo nome`;
+        } else if (id === "undefined_tag") {
+          tipo = "Variável inexistente nos dados";
+          correcao = `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
+        } else if (id === "multi_error") {
+          tipo = "Múltiplos erros";
+        } else if (id === "raw_xml_tag_not_in_paragraph") {
+          tipo = "Tag XML fora de parágrafo";
+          correcao = "Mova a tag para dentro de um parágrafo no .docx";
+        } else {
+          correcao = explanation;
+        }
+
+        return { id, tipo, variavel: xtag, explicacao: explanation, arquivo: file, correcao };
+      });
+    }
+    return [{ id: "generic", tipo: "Erro genérico", variavel: "", explicacao: err.message || String(err), arquivo: "", correcao: "Verifique o template .docx" }];
+  };
+
+  // Validate template without generating
+  const handleValidateTemplate = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+
+    setValidating(true);
+    setTemplateErrors([]);
+    try {
+      const template = templates.find((t: any) => t.id === selectedTemplate);
+      if (!template) throw new Error("Template não encontrado");
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("templates")
+        .download(template.file_path);
+      if (downloadError) throw downloadError;
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const zip = new PizZip(arrayBuffer);
+      
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+
+      const templateData = buildTemplateData();
+
+      try {
+        doc.render(templateData);
+        setTemplateErrors([]);
+        toast.success("✅ Template válido! Nenhum erro encontrado.");
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) encontrado(s) no template`);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao carregar template: " + (err.message || ""));
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const handleGenerateDocument = async () => {
     if (!selectedTemplate) {
       toast.error("Selecione um template");
@@ -858,7 +1119,6 @@ export default function LtcatWizard() {
       const template = templates.find((t: any) => t.id === selectedTemplate);
       if (!template) throw new Error("Template não encontrado");
 
-      // Download template file
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("templates")
         .download(template.file_path);
@@ -871,159 +1131,17 @@ export default function LtcatWizard() {
         linebreaks: true,
       });
 
-      // 1. Group by Sector
-      const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
-      const empresa = empresas.find((e: any) => e.id === empresaId);
+      const templateData = buildTemplateData();
 
-      const setoresData = activeSectors.map(sId => {
-        const sectorRisks = riscos.filter(r => r.setor_id === sId);
-        const sector = setores.find(s => s.id === sId);
-        
-        // 2. Group by Agent within Sector
-        const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
-        
-        const riscosLoop = uniqueAgents.map(aId => {
-          const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
-          const first = agentEntries[0];
-          
-          // 3. Evaluations (avaliacoes)
-          const avaliacoes = agentEntries.flatMap(r => {
-             const base = {
-               agente: r.agente_nome,
-               tipo: r.tipo_agente
-             };
-             
-             if (r.resultados_calor?.length) {
-               return r.resultados_calor.map(rc => ({ 
-                 ...base, 
-                 colaborador: rc.colaborador, 
-                 funcao: rc.funcao_nome, 
-                 resultado: rc.resultado, 
-                 unidade: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo,
-                 limite: rc.limite_tolerancia,
-                 unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo,
-                 parecer_tecnico: rc.parecer_tecnico, 
-                 aposentadoria_especial: rc.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_vibracao?.length) {
-               return r.resultados_vibracao.map(rv => ({ 
-                 ...base, 
-                 colaborador: rv.colaborador, 
-                 funcao: rv.funcao_nome, 
-                 resultado: rv.aren_resultado, 
-                 unidade: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo,
-                 limite: rv.aren_limite,
-                 unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo,
-                 parecer_tecnico: rv.parecer_tecnico, 
-                 aposentadoria_especial: rv.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_componentes?.length) {
-               return r.resultados_componentes.map(rc => ({ 
-                 ...base, 
-                 colaborador: rc.colaborador, 
-                 funcao: rc.funcao_nome, 
-                 resultado: "Amostra Comp.", 
-                 unidade: "",
-                 limite: "",
-                 unidade_limite: "",
-                 parecer_tecnico: rc.parecer_tecnico, 
-                 aposentadoria_especial: rc.aposentadoria_especial 
-               }));
-             } 
-             if (r.resultados_detalhados?.length) {
-               return r.resultados_detalhados.map(rd => ({ 
-                 ...base, 
-                 colaborador: rd.colaborador, 
-                 funcao: rd.funcao_nome, 
-                 resultado: rd.resultado, 
-                 unidade: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo,
-                 limite: rd.limite_tolerancia,
-                 unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo,
-                 parecer_tecnico: rd.parecer_tecnico, 
-                 aposentadoria_especial: rd.aposentadoria_especial 
-               }));
-             } 
-             
-             // Fallback to basic items if no quantitative results
-             return r.items.map(item => ({ 
-               ...base, 
-               colaborador: item.colaborador, 
-               funcao: item.funcao_nome, 
-               resultado: r.resultado, 
-               unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
-               limite: r.limite_tolerancia,
-               unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
-               parecer_tecnico: r.parecer_tecnico, 
-               aposentadoria_especial: r.aposentadoria_especial 
-             }));
-          });
-
-          // 4. EPIs and EPCs (collect unique ones)
-          const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
-          const epis = episIds.map(id => {
-            const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epi_id === id);
-            return {
-              nome: e?.nome || "EPI",
-              ca: entryWithDetails?.epi_ca || "",
-              atenuacao: entryWithDetails?.epi_atenuacao || "",
-              eficaz: entryWithDetails?.epi_eficaz || ""
-            };
-          });
-
-          const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
-          const epcs = epcsIds.map(id => {
-            const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epc_id === id);
-            return {
-              nome: e?.nome || "EPC",
-              eficaz: entryWithDetails?.epc_eficaz || ""
-            };
-          });
-
-          return {
-            agente_nome: first.agente_nome,
-            tipo_agente: first.tipo_agente,
-            tipo_avaliacao: first.tipo_avaliacao,
-            descricao_tecnica: first.descricao_tecnica,
-            propagacao: first.propagacao,
-            tipo_exposicao: first.tipo_exposicao,
-            fonte_geradora: first.fonte_geradora,
-            danos_saude: first.danos_saude,
-            medidas_controle: first.medidas_controle,
-            tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
-            equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
-            esocial_codigo: first.codigo_esocial,
-            esocial_desc: first.descricao_esocial,
-            avaliacoes,
-            epis,
-            epcs
-          };
-        });
-
-        return {
-          nome_setor: sector?.nome_setor || "Setor",
-          ghe_ges: sector?.ghe_ges || "",
-          riscos: riscosLoop
-        };
-      });
-
-      const templateData = {
-        empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
-        cnpj: empresa?.cnpj || "",
-        endereco: empresa?.endereco || "",
-        cnae: empresa?.cnae_principal || "",
-        responsavel,
-        crea,
-        cargo,
-        data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setores: setoresData
-      };
-
-
-      doc.render(templateData);
+      try {
+        doc.render(templateData);
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) no template. Corrija o .docx e tente novamente.`);
+        return;
+      }
 
       const output = doc.getZip().generate({
         type: "blob",
@@ -1367,26 +1485,80 @@ export default function LtcatWizard() {
 
       {/* Step 4: Generate */}
       {step === 3 && (
-        <div className="glass-card rounded-xl p-8 max-w-2xl text-center">
-          <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
-          <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
-          <p className="text-muted-foreground mb-6">Selecione o template e gere o documento final</p>
-          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
-            <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
-            <SelectContent>
-              {templates.map((t: any) => (
-                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Button
-            className="bg-accent text-accent-foreground hover:bg-accent/90"
-            onClick={handleGenerateDocument}
-            disabled={generating || !selectedTemplate}
-          >
-            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
-            Gerar Documento
-          </Button>
+        <div className="space-y-6 max-w-2xl">
+          <div className="glass-card rounded-xl p-8 text-center">
+            <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
+            <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
+            <p className="text-muted-foreground mb-6">Selecione o template, valide e gere o documento final</p>
+            <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); }}>
+              <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
+              <SelectContent>
+                {templates.map((t: any) => (
+                  <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <div className="flex gap-3 justify-center">
+              <Button
+                variant="outline"
+                onClick={handleValidateTemplate}
+                disabled={validating || !selectedTemplate}
+              >
+                {validating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
+                Validar Template
+              </Button>
+              <Button
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+                onClick={handleGenerateDocument}
+                disabled={generating || !selectedTemplate}
+              >
+                {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                Gerar Documento
+              </Button>
+            </div>
+          </div>
+
+          {/* Template Errors Display (inline) */}
+          {templateErrors.length > 0 && (
+            <div className="glass-card rounded-xl p-6 border-destructive/30 border">
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <h3 className="font-heading font-bold text-destructive">
+                  {templateErrors.length} erro(s) encontrado(s) no template
+                </h3>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4">
+                Corrija esses erros no arquivo .docx e faça upload novamente em Templates.
+                O docxtemplater usa a sintaxe <code className="bg-muted px-1 rounded">{"{{variavel}}"}</code> (chaves duplas).
+              </p>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto">
+                {templateErrors.map((err, i) => (
+                  <div key={i} className="bg-muted/50 rounded-lg p-4 border border-border text-left">
+                    <div className="flex items-start gap-2">
+                      <span className="bg-destructive text-destructive-foreground text-xs font-bold rounded px-2 py-0.5 shrink-0">
+                        ERRO {i + 1}
+                      </span>
+                      <div className="space-y-1 text-sm min-w-0">
+                        <p><span className="font-semibold">Tipo:</span> {err.tipo}</p>
+                        {err.variavel && (
+                          <p><span className="font-semibold">Variável/Tag:</span> <code className="bg-muted px-1 rounded">{err.variavel}</code></p>
+                        )}
+                        <p><span className="font-semibold">Detalhe:</span> {err.explicacao}</p>
+                        {err.arquivo && (
+                          <p><span className="font-semibold">Arquivo:</span> {err.arquivo}</p>
+                        )}
+                        {err.correcao && (
+                          <p className="text-accent font-medium">
+                            <span className="font-semibold">✏️ Correção:</span> {err.correcao}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 
