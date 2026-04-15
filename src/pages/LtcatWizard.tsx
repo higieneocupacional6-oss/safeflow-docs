@@ -748,6 +748,8 @@ export default function LtcatWizard() {
           colaborador_nome: currentParecerTarget.colaborador,
           parecer_tecnico: tempParecer,
           aposentadoria_especial: tempAposentadoria
+        }, { 
+          onConflict: 'empresa_id,setor_id,funcao_id,agente_id,colaborador_nome' 
         });
       
       if (error) throw error;
@@ -800,6 +802,8 @@ export default function LtcatWizard() {
             colaborador_nome: item.colaborador,
             parecer_tecnico: tempParecer,
             aposentadoria_especial: tempAposentadoria
+          }, { 
+            onConflict: 'empresa_id,setor_id,funcao_id,agente_id,colaborador_nome' 
           });
         }
       }
