@@ -481,7 +481,6 @@ export default function LtcatWizard() {
     const isCalor = isAgentCalor(riskForm.agente_nome || "");
 
     if (isCalor) {
-      const inlineCalor = arguments[3] as any[] | undefined;
       if (inlineCalor) finalCalor = inlineCalor;
       if (!finalCalor || finalCalor.length === 0) {
         toast.error("Adicione ao menos um resultado de calor");
