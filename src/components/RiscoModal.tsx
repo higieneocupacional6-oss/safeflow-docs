@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,11 +15,12 @@ interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  editingId?: string;
 }
 
 const propagacaoOptions = ["Aérea", "Contato", "Dérmica"];
 
-export function RiscoModal({ open, onOpenChange, onSaved }: Props) {
+export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
   const [nome, setNome] = useState("");
   const [tipo, setTipo] = useState("");
   const [codigoEsocial, setCodigoEsocial] = useState("");
@@ -33,6 +34,30 @@ export function RiscoModal({ open, onOpenChange, onSaved }: Props) {
   const [epiEficaz, setEpiEficaz] = useState("");
   const [saving, setSaving] = useState(false);
 
+  useEffect(() => {
+    if (editingId && open) {
+      const loadData = async () => {
+        const { data, error } = await supabase.from("riscos").select("*").eq("id", editingId).single();
+        if (data && !error) {
+          setNome(data.nome || "");
+          setTipo(data.tipo || "");
+          setCodigoEsocial(data.codigo_esocial || "");
+          setDescricaoEsocial(data.descricao_esocial || "");
+          setPropagacao(data.propagacao || []);
+          setTipoExposicao(data.tipo_exposicao || "");
+          setFonteGeradora(data.fonte_geradora || "");
+          setDanosSaude(data.danos_saude || "");
+          setMedidasControle(data.medidas_controle || "");
+          setTipoEpi(data.tipo_epi || "");
+          setEpiEficaz(data.epi_eficaz || "");
+        }
+      };
+      loadData();
+    } else if (!editingId && open) {
+      reset();
+    }
+  }, [editingId, open]);
+
   const reset = () => {
     setNome(""); setTipo(""); setCodigoEsocial(""); setDescricaoEsocial("");
     setPropagacao([]); setTipoExposicao(""); setFonteGeradora("");
@@ -45,7 +70,7 @@ export function RiscoModal({ open, onOpenChange, onSaved }: Props) {
       return;
     }
     setSaving(true);
-    const { error } = await supabase.from("riscos").insert({
+    const payload = {
       nome: nome.trim(),
       tipo,
       codigo_esocial: codigoEsocial || null,
@@ -57,10 +82,19 @@ export function RiscoModal({ open, onOpenChange, onSaved }: Props) {
       medidas_controle: medidasControle || null,
       tipo_epi: tipoEpi || null,
       epi_eficaz: epiEficaz || null,
-    });
+    };
+
+    let error;
+    if (editingId) {
+      const { error: err } = await supabase.from("riscos").update(payload).eq("id", editingId);
+      error = err;
+    } else {
+      const { error: err } = await supabase.from("riscos").insert(payload);
+      error = err;
+    }
     setSaving(false);
     if (error) { toast.error("Erro ao salvar risco."); return; }
-    toast.success("Risco cadastrado com sucesso!");
+    toast.success(editingId ? "Risco atualizado com sucesso!" : "Risco cadastrado com sucesso!");
     reset();
     onOpenChange(false);
     onSaved();
@@ -74,7 +108,7 @@ export function RiscoModal({ open, onOpenChange, onSaved }: Props) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">Novo Risco / Agente</DialogTitle>
+          <DialogTitle className="font-heading">{editingId ? "Editar Risco / Agente" : "Novo Risco / Agente"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">

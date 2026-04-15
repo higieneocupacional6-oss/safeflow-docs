@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,6 +28,10 @@ export default function Cadastros() {
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
   const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
+  const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
+  const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: boolean = false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
   const { data: riscos = [] } = useQuery({
@@ -86,22 +90,42 @@ export default function Cadastros() {
     }
     setEpiEpcSaving(true);
     try {
-      const { data: inserted, error } = await supabase
-        .from("epi_epc")
-        .insert({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
-        .select("id")
-        .single();
-      if (error) throw error;
+      if (editingId) {
+        // Update
+        const { error } = await supabase
+          .from("epi_epc")
+          .update({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
+          .eq("id", editingId);
+        if (error) throw error;
 
-      if (epiEpcForm.risco_ids.length > 0) {
-        const links = epiEpcForm.risco_ids.map((risco_id) => ({ epi_epc_id: inserted.id, risco_id }));
-        const { error: linkError } = await supabase.from("epi_epc_riscos").insert(links);
-        if (linkError) throw linkError;
+        // Refresh links: simplest is delete all and re-insert
+        await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", editingId);
+        if (epiEpcForm.risco_ids.length > 0) {
+          const links = epiEpcForm.risco_ids.map((risco_id) => ({ epi_epc_id: editingId, risco_id }));
+          const { error: linkError } = await supabase.from("epi_epc_riscos").insert(links);
+          if (linkError) throw linkError;
+        }
+        toast.success("EPI/EPC atualizado com sucesso!");
+      } else {
+        // Insert
+        const { data: inserted, error } = await supabase
+          .from("epi_epc")
+          .insert({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
+          .select("id")
+          .single();
+        if (error) throw error;
+
+        if (epiEpcForm.risco_ids.length > 0) {
+          const links = epiEpcForm.risco_ids.map((risco_id) => ({ epi_epc_id: inserted.id, risco_id }));
+          const { error: linkError } = await supabase.from("epi_epc_riscos").insert(links);
+          if (linkError) throw linkError;
+        }
+        toast.success("EPI/EPC cadastrado com sucesso!");
       }
 
       queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
-      toast.success("EPI/EPC cadastrado com sucesso!");
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
+      setEditingId(null);
       setEpiEpcModalOpen(false);
     } catch (err: any) {
       toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
@@ -120,6 +144,7 @@ export default function Cadastros() {
   };
 
   const handleNovo = () => {
+    setEditingId(null);
     if (tab === "riscos") {
       setRiscoModalOpen(true);
     } else if (tab === "epi_epc") {
@@ -128,8 +153,109 @@ export default function Cadastros() {
     } else if (tab === "equipamentos") {
       setEquipmentForm({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
       setDialogOpen(true);
-    } else {
+    } else if (tab === "tecnicas") {
+      setTecnicasForm({ nome: "", referencia: "" });
       setDialogOpen(true);
+    } else if (tab === "unidades") {
+      setUnidadesForm({ simbolo: "", nome: "" });
+      setDialogOpen(true);
+    }
+  };
+
+  const handleEdit = (item: any) => {
+    setEditingId(item.id);
+    if (tab === "riscos") {
+      setRiscoModalOpen(true);
+    } else if (tab === "epi_epc") {
+      setEpiEpcForm({
+        tipo: item.tipo,
+        nome: item.nome,
+        risco_ids: item.epi_epc_riscos?.map((r: any) => r.risco_id) || []
+      });
+      setEpiEpcModalOpen(true);
+    } else if (tab === "equipamentos") {
+      setEquipmentForm({
+        nome: item.nome,
+        marca: item.marca || "",
+        serie_equipamento: item.serie_equipamento || "",
+        data_calibracao: item.data_calibracao || ""
+      });
+      setDialogOpen(true);
+    } else if (tab === "tecnicas") {
+      setTecnicasForm({
+        nome: item.nome,
+        referencia: item.referencia || ""
+      });
+      setDialogOpen(true);
+    } else if (tab === "unidades") {
+      setUnidadesForm({
+        simbolo: item.simbolo,
+        nome: item.nome || ""
+      });
+      setDialogOpen(true);
+    }
+  };
+
+  const handleDeleteClick = async (id: string) => {
+    // Verificar vínculos em ltcat_avaliacoes
+    const columnMap: any = {
+      riscos: "agente_id",
+      equipamentos: "equipamento_id",
+      tecnicas: "tecnica_id",
+      unidades: "unidade_resultado_id", // ou unidade_limite_id
+    };
+
+    if (columnMap[tab]) {
+      const { count, error } = await supabase
+        .from("ltcat_avaliacoes")
+        .select("*", { count: "exact", head: true })
+        .eq(columnMap[tab], id);
+      
+      let usedInUnits = false;
+      if (tab === "unidades") {
+        const { count: count2 } = await supabase
+          .from("ltcat_avaliacoes")
+          .select("*", { count: "exact", head: true })
+          .eq("unidade_limite_id", id);
+        if (count2 && count2 > 0) usedInUnits = true;
+      }
+
+      if ((count && count > 0) || usedInUnits) {
+        toast.error("Este registro está vinculado a outros dados e não pode ser excluído.");
+        return;
+      }
+    }
+
+    if (tab === "epi_epc") {
+      // epi_epc_riscos não bloqueia, deleta em cascata (ou manualmente)
+    }
+
+    setDeleteConfirm({ open: true, id, type: tab });
+  };
+
+  const confirmDelete = async () => {
+    const { id, type } = deleteConfirm;
+    const tableMap: any = {
+      riscos: "riscos",
+      tecnicas: "tecnicas_amostragem",
+      equipamentos: "equipamentos_ho",
+      unidades: "unidades",
+      epi_epc: "epi_epc"
+    };
+
+    try {
+      if (type === "epi_epc") {
+        await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", id);
+      }
+      const { error } = await supabase.from(tableMap[type]).delete().eq("id", id);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: [type === "tecnicas" ? "tecnicas_amostragem" : type] });
+      toast.success("Registro excluído com sucesso!");
+    } catch (err: any) {
+      toast.error("Erro ao excluir: " + (err.message || "Tente novamente"));
+    } finally {
+      setDeleteConfirm({ open: false, id: "", type: "riscos" });
     }
   };
 
@@ -187,6 +313,16 @@ export default function Cadastros() {
                         </Badge>
                       ) : "—"}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" title="Editar" onClick={() => handleEdit(r)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => handleDeleteClick(r.id)}>
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -195,15 +331,25 @@ export default function Cadastros() {
 
           <TabsContent value="tecnicas" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Técnica</TableHead><TableHead>Referência</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Técnica</TableHead><TableHead>Referência</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {tecnicas.length === 0 ? (
-                  <TableRow><TableCell colSpan={2} className="text-center py-8">Nenhuma técnica cadastrada</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhuma técnica cadastrada</TableCell></TableRow>
                 ) : (
                   tecnicas.map((t: any) => (
                     <TableRow key={t.id}>
                       <TableCell className="font-medium">{t.nome}</TableCell>
                       <TableCell className="text-muted-foreground">{t.referencia}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(t)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(t.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -213,10 +359,10 @@ export default function Cadastros() {
 
           <TabsContent value="equipamentos" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Série</TableHead><TableHead>Calibração</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Série</TableHead><TableHead>Calibração</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={5} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
                 ) : (
                   equipamentos_ho.map((e: any) => (
                     <TableRow key={e.id}>
@@ -228,6 +374,16 @@ export default function Cadastros() {
                           <Badge variant="secondary">{new Date(e.data_calibracao).toLocaleDateString("pt-BR")}</Badge>
                         ) : "—"}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -237,15 +393,25 @@ export default function Cadastros() {
 
           <TabsContent value="unidades" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Símbolo</TableHead><TableHead>Descrição</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Símbolo</TableHead><TableHead>Descrição</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {unidades.length === 0 ? (
-                  <TableRow><TableCell colSpan={2} className="text-center py-8">Nenhuma unidade cadastrada</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhuma unidade cadastrada</TableCell></TableRow>
                 ) : (
                   unidades.map((u: any) => (
                     <TableRow key={u.id}>
                       <TableCell><Badge variant="outline" className="font-mono">{u.simbolo}</Badge></TableCell>
                       <TableCell>{u.nome}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(u)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(u.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -255,10 +421,10 @@ export default function Cadastros() {
 
           <TabsContent value="epi_epc" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Riscos Associados</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Nome</TableHead><TableHead>Tipo</TableHead><TableHead>Riscos Associados</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {epiEpcList.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhum EPI/EPC cadastrado. Clique em "Cadastrar EPI/EPC" para começar.</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum EPI/EPC cadastrado. Clique em "Cadastrar EPI/EPC" para começar.</TableCell></TableRow>
                 ) : (
                   epiEpcList.map((item: any) => (
                     <TableRow key={item.id}>
@@ -275,6 +441,16 @@ export default function Cadastros() {
                             : <span className="text-muted-foreground text-xs">—</span>}
                         </div>
                       </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(item)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(item.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -288,6 +464,7 @@ export default function Cadastros() {
       <RiscoModal
         open={riscoModalOpen}
         onOpenChange={setRiscoModalOpen}
+        editingId={editingId || undefined}
         onSaved={() => queryClient.invalidateQueries({ queryKey: ["riscos"] })}
       />
 
@@ -295,7 +472,7 @@ export default function Cadastros() {
       <Dialog open={epiEpcModalOpen} onOpenChange={setEpiEpcModalOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="font-heading">Cadastro de EPI / EPC</DialogTitle>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Cadastro de"} EPI / EPC</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {/* 1. Tipo */}
@@ -381,14 +558,14 @@ export default function Cadastros() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="font-heading">
-              Novo {tab === "tecnicas" ? "Técnica" : tab === "equipamentos" ? "Equipamento" : "Unidade"}
+              {editingId ? "Editar" : "Novo"} {tab === "tecnicas" ? "Técnica" : tab === "equipamentos" ? "Equipamento" : "Unidade"}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">
             {tab === "tecnicas" && (
               <>
-                <div><Label>Nome da Técnica</Label><Input className="mt-1" placeholder="Ex: Dosimetria de Ruído" /></div>
-                <div><Label>Referência / Norma</Label><Input className="mt-1" placeholder="Ex: NHO-01" /></div>
+                <div><Label>Nome da Técnica</Label><Input className="mt-1" placeholder="Ex: Dosimetria de Ruído" value={tecnicasForm.nome} onChange={e => setTecnicasForm({ ...tecnicasForm, nome: e.target.value })} /></div>
+                <div><Label>Referência / Norma</Label><Input className="mt-1" placeholder="Ex: NHO-01" value={tecnicasForm.referencia} onChange={e => setTecnicasForm({ ...tecnicasForm, referencia: e.target.value })} /></div>
               </>
             )}
             {tab === "equipamentos" && (
@@ -435,8 +612,8 @@ export default function Cadastros() {
             )}
             {tab === "unidades" && (
               <>
-                <div><Label>Símbolo</Label><Input className="mt-1" placeholder="Ex: dB(A)" /></div>
-                <div><Label>Descrição</Label><Input className="mt-1" placeholder="Ex: Decibéis ponderados em A" /></div>
+                <div><Label>Símbolo</Label><Input className="mt-1" placeholder="Ex: dB(A)" value={unidadesForm.simbolo} onChange={e => setUnidadesForm({ ...unidadesForm, simbolo: e.target.value })} /></div>
+                <div><Label>Descrição</Label><Input className="mt-1" placeholder="Ex: Decibéis ponderados em A" value={unidadesForm.nome} onChange={e => setUnidadesForm({ ...unidadesForm, nome: e.target.value })} /></div>
               </>
             )}
           </div>
@@ -447,21 +624,67 @@ export default function Cadastros() {
               disabled={equipmentSaving}
               onClick={async () => { 
                 if (tab === "equipamentos") {
-                  if (!equipmentForm.nome.trim()) {
-                    toast.error("Informe o nome do equipamento");
-                    return;
-                  }
+                  if (!equipmentForm.nome.trim()) { toast.error("Informe o nome do equipamento"); return; }
                   setEquipmentSaving(true);
                   try {
-                    const { error } = await supabase.from("equipamentos_ho").insert({
+                    const payload = {
                       nome: equipmentForm.nome.trim(),
                       marca: equipmentForm.marca.trim() || null,
                       serie_equipamento: equipmentForm.serie_equipamento.trim() || null,
                       data_calibracao: equipmentForm.data_calibracao || null,
-                    });
-                    if (error) throw error;
+                    };
+                    if (editingId) {
+                      const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
+                      if (error) throw error;
+                      toast.success("Equipamento atualizado!");
+                    } else {
+                      const { error } = await supabase.from("equipamentos_ho").insert(payload);
+                      if (error) throw error;
+                      toast.success("Equipamento cadastrado!");
+                    }
                     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
-                    toast.success("Equipamento cadastrado com sucesso!");
+                    setDialogOpen(false);
+                  } catch (err: any) {
+                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  } finally {
+                    setEquipmentSaving(false);
+                  }
+                } else if (tab === "tecnicas") {
+                  if (!tecnicasForm.nome.trim()) { toast.error("Informe o nome da técnica"); return; }
+                  setEquipmentSaving(true);
+                  try {
+                    const payload = { nome: tecnicasForm.nome.trim(), referencia: tecnicasForm.referencia.trim() || null };
+                    if (editingId) {
+                      const { error } = await supabase.from("tecnicas_amostragem").update(payload).eq("id", editingId);
+                      if (error) throw error;
+                      toast.success("Técnica atualizada!");
+                    } else {
+                      const { error } = await supabase.from("tecnicas_amostragem").insert(payload);
+                      if (error) throw error;
+                      toast.success("Técnica cadastrada!");
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["tecnicas_amostragem"] });
+                    setDialogOpen(false);
+                  } catch (err: any) {
+                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  } finally {
+                    setEquipmentSaving(false);
+                  }
+                } else if (tab === "unidades") {
+                  if (!unidadesForm.simbolo.trim()) { toast.error("Informe o símbolo"); return; }
+                  setEquipmentSaving(true);
+                  try {
+                    const payload = { simbolo: unidadesForm.simbolo.trim(), nome: unidadesForm.nome.trim() || null };
+                    if (editingId) {
+                      const { error } = await supabase.from("unidades").update(payload).eq("id", editingId);
+                      if (error) throw error;
+                      toast.success("Unidade atualizada!");
+                    } else {
+                      const { error } = await supabase.from("unidades").insert(payload);
+                      if (error) throw error;
+                      toast.success("Unidade cadastrada!");
+                    }
+                    queryClient.invalidateQueries({ queryKey: ["unidades"] });
                     setDialogOpen(false);
                   } catch (err: any) {
                     toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
@@ -476,6 +699,26 @@ export default function Cadastros() {
             >
               {equipmentSaving ? "Salvando..." : "Salvar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Dialog open={deleteConfirm.open} onOpenChange={(v) => setDeleteConfirm({ ...deleteConfirm, open: v })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertTriangle className="w-5 h-5" />
+              Confirmar Exclusão
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-foreground">Deseja realmente excluir este registro?</p>
+            <p className="text-xs text-muted-foreground mt-2">Esta ação não poderá ser desfeita.</p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDeleteConfirm({ ...deleteConfirm, open: false })}>Cancelar</Button>
+            <Button variant="destructive" onClick={confirmDelete}>Confirmar exclusão</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
