@@ -498,7 +498,7 @@ export default function LtcatWizard() {
       }));
     } else if (isVib) {
       if (inlineVibracao) finalVibracao = inlineVibracao;
-      if (inlineVib) finalVibracao = inlineVib;
+      
       if (!finalVibracao || finalVibracao.length === 0) {
         toast.error("Adicione ao menos um resultado de vibração");
         return;
