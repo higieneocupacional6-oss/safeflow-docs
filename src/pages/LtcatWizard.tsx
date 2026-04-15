@@ -497,7 +497,7 @@ export default function LtcatWizard() {
         funcao_nome: r.funcao_nome,
       }));
     } else if (isVib) {
-      const inlineVib = arguments[2] as any[] | undefined;
+      if (inlineVibracao) finalVibracao = inlineVibracao;
       if (inlineVib) finalVibracao = inlineVib;
       if (!finalVibracao || finalVibracao.length === 0) {
         toast.error("Adicione ao menos um resultado de vibração");
