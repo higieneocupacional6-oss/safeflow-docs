@@ -272,7 +272,9 @@ export default function LtcatWizard() {
     limite_tolerancia: "",
     unidade_limite_id: "",
     resultados_detalhados: [] as any[],
-  });
+    resultados_componentes: [] as any[],
+    resultados_vibracao: [] as any[],
+    resultados_calor: [] as any[],
 
   const { data: epiEpcCatalog = [] } = useQuery({
     queryKey: ["epi_epc"],
