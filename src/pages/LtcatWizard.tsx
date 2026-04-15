@@ -869,7 +869,6 @@ export default function LtcatWizard() {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        delimiters: { start: "{", end: "}" },
       });
 
       // 1. Group by Sector
