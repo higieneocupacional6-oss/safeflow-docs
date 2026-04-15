@@ -864,6 +864,249 @@ export default function LtcatWizard() {
     setCalorModalOpen(true);
   };
 
+  const buildTemplateData = () => {
+    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
+    const empresa = empresas.find((e: any) => e.id === empresaId);
+
+    const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
+      return cachedPareceres.find(p =>
+        p.setor_id === setorId &&
+        p.agente_id === agenteId &&
+        p.funcao_id === funcId &&
+        (p.colaborador_nome === colab || !colab)
+      );
+    };
+
+    const getEpiEpcNames = (epiId: string, epcId: string) => {
+      const epi = epiEpcCatalog.find(e => e.id === epiId)?.nome || "";
+      const epc = epiEpcCatalog.find(e => e.id === epcId)?.nome || "";
+      return { epi_nome: epi, epc_nome: epc };
+    };
+
+    const setoresData = activeSectors.map(sId => {
+      const sectorRisks = riscos.filter(r => r.setor_id === sId);
+      const sector = setores.find(s => s.id === sId);
+
+      // 2. Group by Agent within Sector
+      const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
+
+      const riscosLoop = uniqueAgents.map(aId => {
+        const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
+        const first = agentEntries[0];
+
+        // 3. Evaluations (avaliacoes)
+        const avaliacoes = agentEntries.flatMap(r => {
+          const base = {
+            setor: sector?.nome_setor || "",
+            agente_nome: r.agente_nome || "",
+            tipo: r.tipo_agente || ""
+          };
+
+          const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
+
+          const mapResult = (res: any) => {
+            const dbParecer = findDBParecer(res.colaborador, res.funcao_id, sId, aId);
+            return {
+              ...base,
+              colaborador: res.colaborador || "",
+              funcao: res.funcao_nome || "",
+              resultado: res.resultado || res.aren_resultado || "",
+              unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
+              limite_tolerancia: res.limite_tolerancia || res.aren_limite || "",
+              unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || "",
+              parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
+              aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+              epi_nome,
+              epc_nome
+            };
+          };
+
+          if (r.resultados_calor?.length) return r.resultados_calor.map(mapResult);
+          if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(mapResult);
+          if (r.resultados_componentes?.length) {
+            return r.resultados_componentes.map(rc => {
+              const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
+              return {
+                ...base,
+                colaborador: rc.colaborador || "",
+                funcao: rc.funcao_nome || "",
+                resultado: "Amostra Comp.",
+                parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
+                aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                epi_nome,
+                epc_nome
+              };
+            });
+          }
+          if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(mapResult);
+
+          // Fallback to basic items
+          return r.items.map(item => {
+            const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, aId);
+            return {
+              ...base,
+              colaborador: item.colaborador || "",
+              funcao: item.funcao_nome || "",
+              resultado: r.resultado || "",
+              unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
+              limite_tolerancia: r.limite_tolerancia || "",
+              unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo || "",
+              parecer_tecnico: r.parecer_tecnico || dbParecer?.parecer_tecnico || "",
+              aposentadoria_especial: r.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+              epi_nome,
+              epc_nome
+            };
+          });
+        });
+
+        // 4. EPIs and EPCs
+        const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
+        const epis = episIds.map(id => {
+          const e = epiEpcCatalog.find(item => item.id === id);
+          const entryWithDetails = agentEntries.find(r => r.epi_id === id);
+          return {
+            nome: e?.nome || "EPI",
+            ca: entryWithDetails?.epi_ca || "",
+            atenuacao: entryWithDetails?.epi_atenuacao || "",
+            eficaz: entryWithDetails?.epi_eficaz || ""
+          };
+        });
+
+        const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
+        const epcs = epcsIds.map(id => {
+          const e = epiEpcCatalog.find(item => item.id === id);
+          const entryWithDetails = agentEntries.find(r => r.epc_id === id);
+          return {
+            nome: e?.nome || "EPC",
+            eficaz: entryWithDetails?.epc_eficaz || ""
+          };
+        });
+
+        return {
+          agente_nome: first.agente_nome || "",
+          tipo_agente: first.tipo_agente || "",
+          tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
+          descricao_tecnica: first.descricao_tecnica || "",
+          propagacao: first.propagacao || "",
+          tipo_exposicao: first.tipo_exposicao || "",
+          fonte_geradora: first.fonte_geradora || "",
+          danos_saude: first.danos_saude || "",
+          medidas_controle: first.medidas_controle || "",
+          tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
+          equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
+          esocial_codigo: first.codigo_esocial || "",
+          esocial_desc: first.descricao_esocial || "",
+          avaliacoes,
+          epis,
+          epcs
+        };
+      });
+
+      return {
+        setor: sector?.nome_setor || "Setor",
+        nome_setor: sector?.nome_setor || "Setor",
+        ghe_ges: sector?.ghe_ges || "",
+        descricao_ambiente: sector?.descricao_ambiente || "",
+        riscos: riscosLoop
+      };
+    });
+
+    return {
+      empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
+      cnpj: empresa?.cnpj || "",
+      endereco: empresa?.endereco || "",
+      cnae: empresa?.cnae_principal || "",
+      responsavel,
+      crea,
+      cargo,
+      data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+      setores: setoresData
+    };
+  };
+
+  const parseDocxErrors = (err: any): any[] => {
+    if (err?.properties?.errors) {
+      return err.properties.errors.map((e: any) => {
+        const id = e.properties?.id || "unknown";
+        const explanation = e.properties?.explanation || e.message || "Erro desconhecido";
+        const xtag = e.properties?.xtag || "";
+        const file = e.properties?.file || "document.xml";
+
+        let tipo = "Desconhecido";
+        let correcao = "";
+
+        if (id === "unopened_tag") {
+          tipo = "Loop fechado sem abertura";
+          correcao = `Adicione {{#${xtag}}} antes de {{/${xtag}}} no template`;
+        } else if (id === "unclosed_tag") {
+          tipo = "Loop aberto sem fechamento";
+          correcao = `Adicione {{/${xtag}}} após {{#${xtag}}} no template`;
+        } else if (id === "closing_tag_does_not_match_opening_tag") {
+          tipo = "Tag de fechamento não corresponde à abertura";
+          correcao = `Verifique se {{#tag}} e {{/tag}} usam o mesmo nome`;
+        } else if (id === "undefined_tag") {
+          tipo = "Variável inexistente nos dados";
+          correcao = `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
+        } else if (id === "multi_error") {
+          tipo = "Múltiplos erros";
+        } else if (id === "raw_xml_tag_not_in_paragraph") {
+          tipo = "Tag XML fora de parágrafo";
+          correcao = "Mova a tag para dentro de um parágrafo no .docx";
+        } else {
+          correcao = explanation;
+        }
+
+        return { id, tipo, variavel: xtag, explicacao: explanation, arquivo: file, correcao };
+      });
+    }
+    return [{ id: "generic", tipo: "Erro genérico", variavel: "", explicacao: err.message || String(err), arquivo: "", correcao: "Verifique o template .docx" }];
+  };
+
+  const handleValidateTemplate = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+
+    setValidating(true);
+    setTemplateErrors([]);
+    try {
+      const template = templates.find((t: any) => t.id === selectedTemplate);
+      if (!template) throw new Error("Template não encontrado");
+
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("templates")
+        .download(template.file_path);
+      if (downloadError) throw downloadError;
+
+      const arrayBuffer = await fileData.arrayBuffer();
+      const zip = new PizZip(arrayBuffer);
+
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+        delimiters: { start: "{{", end: "}}" },
+      });
+
+      const templateData = buildTemplateData();
+
+      try {
+        doc.render(templateData);
+        setTemplateErrors([]);
+        toast.success("✅ Template válido! Nenhum erro encontrado.");
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) encontrado(s) no template`);
+      }
+    } catch (err: any) {
+      toast.error("Erro ao carregar template: " + (err.message || ""));
+    } finally {
+      setValidating(false);
+    }
+  };
+
   const handleGenerateDocument = async () => {
     if (!selectedTemplate) {
       toast.error("Selecione um template");
@@ -875,7 +1118,6 @@ export default function LtcatWizard() {
       const template = templates.find((t: any) => t.id === selectedTemplate);
       if (!template) throw new Error("Template não encontrado");
 
-      // Download template file
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("templates")
         .download(template.file_path);
@@ -886,295 +1128,36 @@ export default function LtcatWizard() {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        delimiters: { start: "{", end: "}" },
+        delimiters: { start: "{{", end: "}}" },
       });
 
-      // 1. Group by Sector
-      const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
-      const empresa = empresas.find((e: any) => e.id === empresaId);
+      const templateData = buildTemplateData();
 
-      const setoresData = activeSectors.map(sId => {
-        const sectorRisks = riscos.filter(r => r.setor_id === sId);
-        const sector = setores.find(s => s.id === sId);
+      try {
+        doc.render(templateData);
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) no template. Corrija o .docx e tente novamente.`);
+        return;
+      }
 
-        // 2. Group by Agent within Sector
-        const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
-
-        const riscosLoop = uniqueAgents.map(aId => {
-          const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
-          const first = agentEntries[0];
-
-          // 3. Evaluations (avaliacoes)
-          const avaliacoes = agentEntries.flatMap(r => {
-            const base = {
-              agente: r.agente_nome,
-              tipo: r.tipo_agente
-            };
-
-            if (r.resultados_calor?.length) {
-              return r.resultados_calor.map(rc => ({
-                ...base,
-                colaborador: rc.colaborador,
-                funcao: rc.funcao_nome,
-                resultado: rc.resultado,
-                unidade: unidades.find(u => u.id === rc.unidade_resultado_id)?.simbolo,
-                limite: rc.limite_tolerancia,
-                unidade_limite: unidades.find(u => u.id === rc.unidade_limite_id)?.simbolo,
-                parecer_tecnico: rc.parecer_tecnico,
-                aposentadoria_especial: rc.aposentadoria_especial
-              }));
-            }
-            if (r.resultados_vibracao?.length) {
-              return r.resultados_vibracao.map(rv => ({
-                ...base,
-                colaborador: rv.colaborador,
-                funcao: rv.funcao_nome,
-                resultado: rv.aren_resultado,
-                unidade: unidades.find(u => u.id === rv.aren_unidade_id)?.simbolo,
-                limite: rv.aren_limite,
-                unidade_limite: unidades.find(u => u.id === rv.aren_limite_unidade_id)?.simbolo,
-                parecer_tecnico: rv.parecer_tecnico,
-                aposentadoria_especial: rv.aposentadoria_especial
-              }));
-            }
-            if (r.resultados_componentes?.length) {
-              return r.resultados_componentes.map(rc => ({
-                ...base,
-                colaborador: rc.colaborador,
-                funcao: rc.funcao_nome,
-                resultado: "Amostra Comp.",
-                parecer_tecnico: rc.parecer_tecnico,
-                aposentadoria_especial: rc.aposentadoria_especial
-              }));
-            }
-            if (r.resultados_detalhados?.length) {
-              return r.resultados_detalhados.map(rd => ({
-                ...base,
-                colaborador: rd.colaborador,
-                funcao: rd.funcao_nome,
-                resultado: rd.resultado,
-                unidade: unidades.find(u => u.id === rd.unidade_resultado_id)?.simbolo,
-                limite: rd.limite_tolerancia,
-                unidade_limite: unidades.find(u => u.id === rd.unidade_limite_id)?.simbolo,
-                parecer_tecnico: rd.parecer_tecnico,
-                aposentadoria_especial: rd.aposentadoria_especial
-              }));
-            }
-
-            // Fallback to basic items if no quantitative results
-            return r.items.map(item => ({
-              ...base,
-              colaborador: item.colaborador,
-              funcao: item.funcao_nome,
-              resultado: r.resultado,
-              unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo,
-              limite: r.limite_tolerancia,
-              unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo,
-              parecer_tecnico: r.parecer_tecnico,
-              aposentadoria_especial: r.aposentadoria_especial
-            }));
-          });
-
-          // 4. EPIs and EPCs (collect unique ones)
-          const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
-          const epis = episIds.map(id => {
-            const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epi_id === id);
-            return {
-              nome: e?.nome || "EPI",
-              ca: entryWithDetails?.epi_ca || "",
-              atenuacao: entryWithDetails?.epi_atenuacao || "",
-              eficaz: entryWithDetails?.epi_eficaz || ""
-            };
-          });
-
-          const epcsIds = Array.from(new Set(agentEntries.map(r => r.epc_id).filter(Boolean)));
-          const epcs = epcsIds.map(id => {
-            const e = epiEpcCatalog.find(item => item.id === id);
-            const entryWithDetails = agentEntries.find(r => r.epc_id === id);
-            return {
-              nome: e?.nome || "EPC",
-              eficaz: entryWithDetails?.epc_eficaz || ""
-            };
-          });
-
-          return {
-            agente_nome: first.agente_nome,
-            tipo_agente: first.tipo_agente,
-            tipo_avaliacao: first.tipo_avaliacao,
-            descricao_tecnica: first.descricao_tecnica,
-            propagacao: first.propagacao,
-            tipo_exposicao: first.tipo_exposicao,
-            fonte_geradora: first.fonte_geradora,
-            danos_saude: first.danos_saude,
-            medidas_controle: first.medidas_controle,
-            tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
-            equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
-            esocial_codigo: first.codigo_esocial,
-            esocial_desc: first.descricao_esocial,
-            avaliacoes,
-            epis,
-            epcs
-          };
-        });
-
-        return {
-          setor: sector?.nome_setor || "Setor",
-          nome_setor: sector?.nome_setor || "Setor",
-          ghe_ges: sector?.ghe_ges || "",
-          descricao_ambiente: sector?.descricao_ambiente || "",
-          riscos: riscosLoop
-        };
+      const output = doc.getZip().generate({
+        type: "blob",
+        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
-      const templateData = {
-        empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
-        cnpj: empresa?.cnpj || "",
-        endereco: empresa?.endereco || "",
-        cnae: empresa?.cnae_principal || "",
-        responsavel,
-        crea,
-        cargo,
-        data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setores: setoresData
-      };
-
-      // Parse docxtemplater Multi error into readable list
-      const parseDocxErrors = (err: any): any[] => {
-        if (err?.properties?.errors) {
-          return err.properties.errors.map((e: any) => {
-            const id = e.properties?.id || "unknown";
-            const explanation = e.properties?.explanation || e.message || "Erro desconhecido";
-            const xtag = e.properties?.xtag || "";
-            const file = e.properties?.file || "document.xml";
-
-            let tipo = "Desconhecido";
-            let correcao = "";
-
-            if (id === "unopened_tag") {
-              tipo = "Loop fechado sem abertura";
-              correcao = `Adicione {{#${xtag}}} antes de {{/${xtag}}} no template`;
-            } else if (id === "unclosed_tag") {
-              tipo = "Loop aberto sem fechamento";
-              correcao = `Adicione {{/${xtag}}} após {{#${xtag}}} no template`;
-            } else if (id === "closing_tag_does_not_match_opening_tag") {
-              tipo = "Tag de fechamento não corresponde à abertura";
-              correcao = `Verifique se {{#tag}} e {{/tag}} usam o mesmo nome`;
-            } else if (id === "undefined_tag") {
-              tipo = "Variável inexistente nos dados";
-              correcao = `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
-            } else if (id === "multi_error") {
-              tipo = "Múltiplos erros";
-            } else if (id === "raw_xml_tag_not_in_paragraph") {
-              tipo = "Tag XML fora de parágrafo";
-              correcao = "Mova a tag para dentro de um parágrafo no .docx";
-            } else {
-              correcao = explanation;
-            }
-
-            return { id, tipo, variavel: xtag, explicacao: explanation, arquivo: file, correcao };
-          });
-        }
-        return [{ id: "generic", tipo: "Erro genérico", variavel: "", explicacao: err.message || String(err), arquivo: "", correcao: "Verifique o template .docx" }];
-      };
-
-      // Validate template without generating
-      const handleValidateTemplate = async () => {
-        if (!selectedTemplate) {
-          toast.error("Selecione um template");
-          return;
-        }
-
-        setValidating(true);
-        setTemplateErrors([]);
-        try {
-          const template = templates.find((t: any) => t.id === selectedTemplate);
-          if (!template) throw new Error("Template não encontrado");
-
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from("templates")
-            .download(template.file_path);
-          if (downloadError) throw downloadError;
-
-          const arrayBuffer = await fileData.arrayBuffer();
-          const zip = new PizZip(arrayBuffer);
-
-          const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-            delimiters: { start: "{{", end: "}}" },
-          });
-
-          const templateData = buildTemplateData();
-
-          try {
-            doc.render(templateData);
-            setTemplateErrors([]);
-            toast.success("✅ Template válido! Nenhum erro encontrado.");
-          } catch (renderErr: any) {
-            const errors = parseDocxErrors(renderErr);
-            setTemplateErrors(errors);
-            setTemplateErrorsOpen(true);
-            toast.error(`${errors.length} erro(s) encontrado(s) no template`);
-          }
-        } catch (err: any) {
-          toast.error("Erro ao carregar template: " + (err.message || ""));
-        } finally {
-          setValidating(false);
-        }
-      };
-
-      const handleGenerateDocument = async () => {
-        if (!selectedTemplate) {
-          toast.error("Selecione um template");
-          return;
-        }
-
-        setGenerating(true);
-        try {
-          const template = templates.find((t: any) => t.id === selectedTemplate);
-          if (!template) throw new Error("Template não encontrado");
-
-          const { data: fileData, error: downloadError } = await supabase.storage
-            .from("templates")
-            .download(template.file_path);
-          if (downloadError) throw downloadError;
-
-          const arrayBuffer = await fileData.arrayBuffer();
-          const zip = new PizZip(arrayBuffer);
-          const doc = new Docxtemplater(zip, {
-            paragraphLoop: true,
-            linebreaks: true,
-            delimiters: { start: "{{", end: "}}" },
-          });
-
-          const templateData = buildTemplateData();
-
-          try {
-            doc.render(templateData);
-          } catch (renderErr: any) {
-            const errors = parseDocxErrors(renderErr);
-            setTemplateErrors(errors);
-            setTemplateErrorsOpen(true);
-            toast.error(`${errors.length} erro(s) no template. Corrija o .docx e tente novamente.`);
-            return;
-          }
-
-          const output = doc.getZip().generate({
-            type: "blob",
-            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          });
-
-          const year = new Date().getFullYear();
-          saveAs(output, `LTCAT_${year}.docx`);
-          toast.success("Documento gerado com sucesso!");
-        } catch (err: any) {
-          console.error(err);
-          toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));
-        } finally {
-          setGenerating(false);
-        }
-      };
+      const year = new Date().getFullYear();
+      saveAs(output, `LTCAT_${year}.docx`);
+      toast.success("Documento gerado com sucesso!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));
+    } finally {
+      setGenerating(false);
+    }
+  };
 
       return (
         <div>
