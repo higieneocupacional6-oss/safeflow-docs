@@ -110,6 +110,87 @@ export type Database = {
         }
         Relationships: []
       }
+      epi_epc: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      epi_epc_riscos: {
+        Row: {
+          epi_epc_id: string
+          id: string
+          risco_id: string
+        }
+        Insert: {
+          epi_epc_id: string
+          id?: string
+          risco_id: string
+        }
+        Update: {
+          epi_epc_id?: string
+          id?: string
+          risco_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "epi_epc_riscos_epi_epc_id_fkey"
+            columns: ["epi_epc_id"]
+            isOneToOne: false
+            referencedRelation: "epi_epc"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "epi_epc_riscos_risco_id_fkey"
+            columns: ["risco_id"]
+            isOneToOne: false
+            referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipamentos_ho: {
+        Row: {
+          certificado: string | null
+          created_at: string | null
+          id: string
+          marca: string | null
+          nome: string
+        }
+        Insert: {
+          certificado?: string | null
+          created_at?: string | null
+          id?: string
+          marca?: string | null
+          nome: string
+        }
+        Update: {
+          certificado?: string | null
+          created_at?: string | null
+          id?: string
+          marca?: string | null
+          nome?: string
+        }
+        Relationships: []
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
@@ -151,44 +232,190 @@ export type Database = {
           },
         ]
       }
-      ltcat_pareceres: {
+      ltcat_avaliacoes: {
         Row: {
+          agente_id: string | null
+          codigo_esocial: string | null
+          colaborador: string | null
+          created_at: string | null
+          created_by: string | null
+          danos_saude: string | null
+          descricao_esocial: string | null
+          empresa_id: string | null
+          equipamento_id: string | null
+          fonte_geradora: string | null
+          funcao_id: string | null
           id: string
-          empresa_id: string
-          setor_id: string
-          funcao_id: string
-          agente_id: string
-          colaborador_nome: string
-          parecer_tecnico: string | null
-          aposentadoria_especial: string | null
-          created_at: string
-          updated_at: string
+          limite_tolerancia: number | null
+          medidas_controle: string | null
+          propagacao: string | null
+          resultado: number | null
+          setor_id: string | null
+          tecnica_id: string | null
+          tipo_agente: string | null
+          tipo_avaliacao: string | null
+          tipo_exposicao: string | null
+          unidade_limite_id: string | null
+          unidade_resultado_id: string | null
         }
         Insert: {
+          agente_id?: string | null
+          codigo_esocial?: string | null
+          colaborador?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          danos_saude?: string | null
+          descricao_esocial?: string | null
+          empresa_id?: string | null
+          equipamento_id?: string | null
+          fonte_geradora?: string | null
+          funcao_id?: string | null
           id?: string
-          empresa_id: string
-          setor_id: string
-          funcao_id: string
-          agente_id: string
-          colaborador_nome: string
-          parecer_tecnico?: string | null
-          aposentadoria_especial?: string | null
-          created_at?: string
-          updated_at?: string
+          limite_tolerancia?: number | null
+          medidas_controle?: string | null
+          propagacao?: string | null
+          resultado?: number | null
+          setor_id?: string | null
+          tecnica_id?: string | null
+          tipo_agente?: string | null
+          tipo_avaliacao?: string | null
+          tipo_exposicao?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
         }
         Update: {
+          agente_id?: string | null
+          codigo_esocial?: string | null
+          colaborador?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          danos_saude?: string | null
+          descricao_esocial?: string | null
+          empresa_id?: string | null
+          equipamento_id?: string | null
+          fonte_geradora?: string | null
+          funcao_id?: string | null
           id?: string
-          empresa_id?: string
-          setor_id?: string
-          funcao_id?: string
-          agente_id?: string
-          colaborador_nome?: string
-          parecer_tecnico?: string | null
-          aposentadoria_especial?: string | null
-          created_at?: string
-          updated_at?: string
+          limite_tolerancia?: number | null
+          medidas_controle?: string | null
+          propagacao?: string | null
+          resultado?: number | null
+          setor_id?: string | null
+          tecnica_id?: string | null
+          tipo_agente?: string | null
+          tipo_avaliacao?: string | null
+          tipo_exposicao?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_avaliacoes_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos_ho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_funcao_id_fkey"
+            columns: ["funcao_id"]
+            isOneToOne: false
+            referencedRelation: "funcoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_tecnica_id_fkey"
+            columns: ["tecnica_id"]
+            isOneToOne: false
+            referencedRelation: "tecnicas_amostragem"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_unidade_limite_id_fkey"
+            columns: ["unidade_limite_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_unidade_resultado_id_fkey"
+            columns: ["unidade_resultado_id"]
+            isOneToOne: false
+            referencedRelation: "unidades"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_pareceres: {
+        Row: {
+          agente_id: string
+          aposentadoria_especial: string | null
+          colaborador_nome: string | null
+          created_at: string | null
+          created_by: string | null
+          empresa_id: string
+          funcao_id: string | null
+          id: string
+          parecer_tecnico: string | null
+          setor_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          agente_id: string
+          aposentadoria_especial?: string | null
+          colaborador_nome?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          empresa_id: string
+          funcao_id?: string | null
+          id?: string
+          parecer_tecnico?: string | null
+          setor_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          agente_id?: string
+          aposentadoria_especial?: string | null
+          colaborador_nome?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          empresa_id?: string
+          funcao_id?: string | null
+          id?: string
+          parecer_tecnico?: string | null
+          setor_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_pareceres_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       riscos: {
         Row: {
@@ -279,6 +506,27 @@ export type Database = {
           },
         ]
       }
+      tecnicas_amostragem: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string
+          referencia: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome: string
+          referencia?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string
+          referencia?: string | null
+        }
+        Relationships: []
+      }
       templates: {
         Row: {
           created_at: string
@@ -297,6 +545,27 @@ export type Database = {
           file_path?: string
           id?: string
           title?: string
+        }
+        Relationships: []
+      }
+      unidades: {
+        Row: {
+          created_at: string | null
+          id: string
+          nome: string | null
+          simbolo: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          nome?: string | null
+          simbolo: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          nome?: string | null
+          simbolo?: string
         }
         Relationships: []
       }

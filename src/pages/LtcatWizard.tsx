@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,6 +133,8 @@ interface ResultadoBase {
   limite_tolerancia: string;
   unidade_limite_id: string;
   componente?: string;
+  parecer_tecnico?: string;
+  aposentadoria_especial?: string;
 }
 
 // Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
@@ -224,6 +226,9 @@ export default function LtcatWizard() {
   const [tempParecer, setTempParecer] = useState("");
   const [tempAposentadoria, setTempAposentadoria] = useState("");
 
+  // Step 1
+  const [empresaId, setEmpresaId] = useState("");
+
   const { data: cachedPareceres = [] } = useQuery({
     queryKey: ["ltcat_pareceres", empresaId],
     queryFn: async () => {
@@ -238,9 +243,6 @@ export default function LtcatWizard() {
     },
     enabled: !!empresaId,
   });
-
-  // Step 1
-  const [empresaId, setEmpresaId] = useState("");
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -272,6 +274,9 @@ export default function LtcatWizard() {
     limite_tolerancia: "",
     unidade_limite_id: "",
     resultados_detalhados: [] as any[],
+    resultados_componentes: [] as any[],
+    resultados_vibracao: [] as any[],
+    resultados_calor: [] as any[],
   });
 
   const { data: epiEpcCatalog = [] } = useQuery({
@@ -449,7 +454,7 @@ export default function LtcatWizard() {
     setRiskForm({ ...riskForm, items: newItems });
   };
 
-  const handleSaveRisk = async (inlineResults?: any[], inlineComponentes?: any[]) => {
+  const handleSaveRisk = async (inlineResults?: any[], inlineComponentes?: any[], inlineVibracao?: any[], inlineCalor?: any[]) => {
     if (!riskForm.agente_id) {
       toast.error("Selecione um agente");
       return;
@@ -476,7 +481,6 @@ export default function LtcatWizard() {
     const isCalor = isAgentCalor(riskForm.agente_nome || "");
 
     if (isCalor) {
-      const inlineCalor = arguments[3] as any[] | undefined;
       if (inlineCalor) finalCalor = inlineCalor;
       if (!finalCalor || finalCalor.length === 0) {
         toast.error("Adicione ao menos um resultado de calor");
@@ -493,8 +497,8 @@ export default function LtcatWizard() {
         funcao_nome: r.funcao_nome,
       }));
     } else if (isVib) {
-      const inlineVib = arguments[2] as any[] | undefined;
-      if (inlineVib) finalVibracao = inlineVib;
+      if (inlineVibracao) finalVibracao = inlineVibracao;
+      
       if (!finalVibracao || finalVibracao.length === 0) {
         toast.error("Adicione ao menos um resultado de vibração");
         return;
@@ -741,16 +745,17 @@ export default function LtcatWizard() {
       });
 
       // Build template data with loops and pareceres
+      const empresa = empresas.find((e: any) => e.id === empresaId);
       const templateData = {
         empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
         cnpj: empresa?.cnpj || "",
         endereco: empresa?.endereco || "",
-        cnae: empresa?.cnae || "",
+        cnae: empresa?.cnae_principal || "",
         responsavel,
         crea,
         cargo,
         data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
-        setor: funcoes.length > 0 ? funcoes[0].nome_setor || "Vários Setores" : "",
+        setor: setores.length > 0 ? setores[0]?.nome_setor || "Vários Setores" : "",
         funcao: funcoes.map((f: any) => f.nome_funcao).join(", ") || "",
         
         // Loop: Riscos
