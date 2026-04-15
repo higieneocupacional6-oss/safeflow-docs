@@ -61,6 +61,13 @@ interface RiscoEntry {
   epc_eficaz?: string;
 }
 
+interface Revision {
+  revisao: string;
+  data_revisao: string;
+  motivo: string;
+  responsavel: string;
+}
+
 interface ResultadoBase {
   id: string;
   resultado: string;
@@ -200,6 +207,7 @@ export default function LtcatWizard() {
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
   const [dataElab, setDataElab] = useState("");
+  const [revisoes, setRevisoes] = useState<Revision[]>([]);
 
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
@@ -994,6 +1002,9 @@ export default function LtcatWizard() {
           medidas_controle: first.medidas_controle || "",
           tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
+          nome_equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
+          serie_equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.serie_equipamento || "",
+          data_calibracao: equipamentos.find(e => e.id === first.equipamento_id)?.data_calibracao ? new Date(equipamentos.find(e => e.id === first.equipamento_id)?.data_calibracao).toLocaleDateString("pt-BR") : "",
           esocial_codigo: first.codigo_esocial || "",
           esocial_desc: first.descricao_esocial || "",
           avaliacoes,
@@ -1020,6 +1031,12 @@ export default function LtcatWizard() {
       crea,
       cargo,
       data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+      revisoes: revisoes.map(r => ({
+        revisao: r.revisao || "",
+        data_revisao: r.data_revisao ? new Date(r.data_revisao).toLocaleDateString("pt-BR") : "",
+        motivo: r.motivo || "",
+        responsavel: r.responsavel || ""
+      })),
       setores: setoresData
     };
   };
@@ -1205,6 +1222,93 @@ export default function LtcatWizard() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Cargo</Label><Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Engenheiro de Segurança" /></div>
                 <div><Label>Data de Elaboração</Label><Input className="mt-1" type="date" value={dataElab} onChange={(e) => setDataElab(e.target.value)} /></div>
+              </div>
+
+              {/* Subseção: Alterações do Documento */}
+              <div className="pt-4 border-t border-border/50">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-heading font-bold uppercase tracking-tight">Alterações do Documento</h3>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="gap-2 text-accent border-accent/20"
+                    onClick={() => setRevisoes([...revisoes, { revisao: "", data_revisao: "", motivo: "", responsavel: "" }])}
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar Revisão
+                  </Button>
+                </div>
+
+                {revisoes.length === 0 ? (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma revisão registrada.</p>
+                ) : (
+                  <div className="space-y-4">
+                    {revisoes.map((rev, index) => (
+                      <div key={index} className="grid grid-cols-1 sm:grid-cols-4 gap-3 bg-muted/20 p-4 rounded-xl relative group">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="absolute -top-2 -right-2 h-6 w-6 rounded-full bg-background border border-border opacity-0 group-hover:opacity-100 transition-opacity text-destructive"
+                          onClick={() => setRevisoes(revisoes.filter((_, i) => i !== index))}
+                        >
+                          <X className="w-3 h-3" />
+                        </Button>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase">Revisão</Label>
+                          <Input 
+                            className="mt-1 h-8 text-xs" 
+                            value={rev.revisao} 
+                            onChange={(e) => {
+                              const newRevs = [...revisoes];
+                              newRevs[index].revisao = e.target.value;
+                              setRevisoes(newRevs);
+                            }} 
+                            placeholder="00" 
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase">Data</Label>
+                          <Input 
+                            className="mt-1 h-8 text-xs" 
+                            type="date" 
+                            value={rev.data_revisao} 
+                            onChange={(e) => {
+                              const newRevs = [...revisoes];
+                              newRevs[index].data_revisao = e.target.value;
+                              setRevisoes(newRevs);
+                            }} 
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase">Motivo</Label>
+                          <Input 
+                            className="mt-1 h-8 text-xs" 
+                            value={rev.motivo} 
+                            onChange={(e) => {
+                              const newRevs = [...revisoes];
+                              newRevs[index].motivo = e.target.value;
+                              setRevisoes(newRevs);
+                            }} 
+                            placeholder="Emissão Inicial" 
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase">Responsável</Label>
+                          <Input 
+                            className="mt-1 h-8 text-xs" 
+                            value={rev.responsavel} 
+                            onChange={(e) => {
+                              const newRevs = [...revisoes];
+                              newRevs[index].responsavel = e.target.value;
+                              setRevisoes(newRevs);
+                            }} 
+                            placeholder="Nome" 
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

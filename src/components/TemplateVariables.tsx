@@ -81,6 +81,7 @@ const variableGroups = [
       "{{tipo_avaliacao}}", "{{tipo_agente}}", "{{agente_nome}}", "{{codigo_esocial}}",
       "{{descricao_esocial}}", "{{propagacao}}", "{{tipo_exposicao}}", "{{fonte_geradora}}",
       "{{danos_saude}}", "{{medidas_controle}}", "{{tecnica_amostragem}}", "{{equipamento}}",
+      "{{nome_equipamento}}", "{{serie_equipamento}}", "{{data_calibracao}}",
       "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}",
     ],
   },
@@ -108,7 +109,13 @@ const variableGroups = [
       "{{parecer_tecnico}}", "{{aposentadoria_especial}}",
     ],
   },
-];
+  {
+    title: "Variáveis de Revisão (LTCAT)",
+    vars: [
+      "{{#revisoes}}", "{{revisao}}", "{{data_revisao}}", "{{motivo}}", "{{responsavel}}", "{{/revisoes}}",
+    ],
+  },
+]);
 
 export function TemplateVariables() {
   const [open, setOpen] = useState(false);

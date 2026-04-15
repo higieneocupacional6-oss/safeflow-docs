@@ -26,6 +26,8 @@ export default function Cadastros() {
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
   const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
+  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+  const [equipmentSaving, setEquipmentSaving] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: riscos = [] } = useQuery({
@@ -123,6 +125,9 @@ export default function Cadastros() {
     } else if (tab === "epi_epc") {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
+    } else if (tab === "equipamentos") {
+      setEquipmentForm({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+      setDialogOpen(true);
     } else {
       setDialogOpen(true);
     }
@@ -208,16 +213,21 @@ export default function Cadastros() {
 
           <TabsContent value="equipamentos" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Série</TableHead><TableHead>Calibração</TableHead></TableRow></TableHeader>
               <TableBody>
                 {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={3} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
                 ) : (
                   equipamentos_ho.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nome}</TableCell>
-                      <TableCell>{e.marca}</TableCell>
-                      <TableCell><Badge variant="secondary">{e.certificado}</Badge></TableCell>
+                      <TableCell>{e.marca || "—"}</TableCell>
+                      <TableCell>{e.serie_equipamento || "—"}</TableCell>
+                      <TableCell>
+                        {e.data_calibracao ? (
+                          <Badge variant="secondary">{new Date(e.data_calibracao).toLocaleDateString("pt-BR")}</Badge>
+                        ) : "—"}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -383,9 +393,44 @@ export default function Cadastros() {
             )}
             {tab === "equipamentos" && (
               <>
-                <div><Label>Nome do Equipamento</Label><Input className="mt-1" placeholder="Ex: Dosímetro DOS-500" /></div>
-                <div><Label>Marca</Label><Input className="mt-1" placeholder="Ex: Instrutherm" /></div>
-                <div><Label>Certificado</Label><Input className="mt-1" placeholder="Ex: RBC 2024" /></div>
+                <div>
+                  <Label>Nome do Equipamento <span className="text-destructive">*</span></Label>
+                  <Input 
+                    className="mt-1" 
+                    placeholder="Ex: Dosímetro DOS-500" 
+                    value={equipmentForm.nome}
+                    onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <Label>Marca</Label>
+                    <Input 
+                      className="mt-1" 
+                      placeholder="Ex: Instrutherm" 
+                      value={equipmentForm.marca}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, marca: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label>Série do Equipamento</Label>
+                    <Input 
+                      className="mt-1" 
+                      placeholder="Ex: SN12345" 
+                      value={equipmentForm.serie_equipamento}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, serie_equipamento: e.target.value })}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label>Data de Calibração</Label>
+                  <Input 
+                    type="date" 
+                    className="mt-1" 
+                    value={equipmentForm.data_calibracao}
+                    onChange={e => setEquipmentForm({ ...equipmentForm, data_calibracao: e.target.value })}
+                  />
+                </div>
               </>
             )}
             {tab === "unidades" && (
@@ -397,7 +442,40 @@ export default function Cadastros() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => { setDialogOpen(false); toast.success("Cadastro salvo!"); }}>Salvar</Button>
+            <Button 
+              className="bg-accent text-accent-foreground hover:bg-accent/90" 
+              disabled={equipmentSaving}
+              onClick={async () => { 
+                if (tab === "equipamentos") {
+                  if (!equipmentForm.nome.trim()) {
+                    toast.error("Informe o nome do equipamento");
+                    return;
+                  }
+                  setEquipmentSaving(true);
+                  try {
+                    const { error } = await supabase.from("equipamentos_ho").insert({
+                      nome: equipmentForm.nome.trim(),
+                      marca: equipmentForm.marca.trim() || null,
+                      serie_equipamento: equipmentForm.serie_equipamento.trim() || null,
+                      data_calibracao: equipmentForm.data_calibracao || null,
+                    });
+                    if (error) throw error;
+                    queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
+                    toast.success("Equipamento cadastrado com sucesso!");
+                    setDialogOpen(false);
+                  } catch (err: any) {
+                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  } finally {
+                    setEquipmentSaving(false);
+                  }
+                } else {
+                  setDialogOpen(false); 
+                  toast.success("Cadastro salvo!"); 
+                }
+              }}
+            >
+              {equipmentSaving ? "Salvando..." : "Salvar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
