@@ -133,6 +133,8 @@ interface ResultadoBase {
   limite_tolerancia: string;
   unidade_limite_id: string;
   componente?: string;
+  parecer_tecnico?: string;
+  aposentadoria_especial?: string;
 }
 
 // Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
