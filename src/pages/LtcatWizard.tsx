@@ -332,7 +332,7 @@ export default function LtcatWizard() {
     if (editRisk) {
       setEditingRiskId(editRisk.id);
       setRiskForm({
-        items: editRisk.items.map(i => ({ id: i.id, colaborador: i.colaborador, funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
+        items: editRisk.items.map(i => ({ id: i.id as `${string}-${string}-${string}-${string}-${string}`, colaborador: i.colaborador, funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
         tipo_avaliacao: editRisk.tipo_avaliacao,
         tipo_agente: editRisk.tipo_agente,
         agente_id: editRisk.agente_id,
@@ -352,6 +352,9 @@ export default function LtcatWizard() {
         limite_tolerancia: editRisk.limite_tolerancia,
         unidade_limite_id: editRisk.unidade_limite_id,
         resultados_detalhados: editRisk.resultados_detalhados || [],
+        resultados_componentes: editRisk.resultados_componentes || [],
+        resultados_vibracao: editRisk.resultados_vibracao || [],
+        resultados_calor: editRisk.resultados_calor || [],
       });
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
@@ -387,6 +390,9 @@ export default function LtcatWizard() {
         limite_tolerancia: "",
         unidade_limite_id: "",
         resultados_detalhados: [],
+        resultados_componentes: [],
+        resultados_vibracao: [],
+        resultados_calor: [],
       });
       setEpiEpcRiskForm({
         epi_id: "",
