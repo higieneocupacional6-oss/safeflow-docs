@@ -687,6 +687,28 @@ export default function LtcatWizard() {
     if (!currentParecerTarget) return;
 
     const { riskId, resultId } = currentParecerTarget;
+    const riskObj = riscos.find(r => r.id === riskId);
+    if (!riskObj) return;
+
+    // Resolve the actual Funcao UUID. 
+    // If it's a specific result, try to find it there, otherwise fallback to the item itself.
+    let resolvedFuncaoId = "";
+    if (resultId) {
+       const row = riskObj.resultados_calor?.find(x => x.id === resultId) || 
+                   riskObj.resultados_vibracao?.find(x => x.id === resultId) ||
+                   riskObj.resultados_componentes?.find(x => x.id === resultId) ||
+                   riskObj.resultados_detalhados?.find(x => x.id === resultId);
+       
+       resolvedFuncaoId = row?.funcao_id || riskObj.items.find(i => i.id === resultId)?.funcao_id || "";
+    } else {
+       // Global fallback (unlikely in the current vertical line UI)
+       resolvedFuncaoId = riskObj.items[0]?.funcao_id || "";
+    }
+
+    if (!resolvedFuncaoId) {
+      toast.error("Erro: Função não identificada para este parecer.");
+      return;
+    }
 
     // Local Update
     setRiscos(prev => prev.map(r => {
@@ -695,26 +717,13 @@ export default function LtcatWizard() {
           return { ...r, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria };
         }
         const updatedRisk = { ...r };
-        if (updatedRisk.resultados_calor) {
-          updatedRisk.resultados_calor = updatedRisk.resultados_calor.map(row => 
-            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
-          );
-        }
-        if (updatedRisk.resultados_vibracao) {
-          updatedRisk.resultados_vibracao = updatedRisk.resultados_vibracao.map(row => 
-            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
-          );
-        }
-        if (updatedRisk.resultados_componentes) {
-          updatedRisk.resultados_componentes = updatedRisk.resultados_componentes.map(row => 
-            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
-          );
-        }
-        if (updatedRisk.resultados_detalhados) {
-          updatedRisk.resultados_detalhados = updatedRisk.resultados_detalhados.map(row => 
-            row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row
-          );
-        }
+        const updateRow = (row: any) => row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row;
+        
+        if (updatedRisk.resultados_calor) updatedRisk.resultados_calor = updatedRisk.resultados_calor.map(updateRow);
+        if (updatedRisk.resultados_vibracao) updatedRisk.resultados_vibracao = updatedRisk.resultados_vibracao.map(updateRow);
+        if (updatedRisk.resultados_componentes) updatedRisk.resultados_componentes = updatedRisk.resultados_componentes.map(updateRow);
+        if (updatedRisk.resultados_detalhados) updatedRisk.resultados_detalhados = updatedRisk.resultados_detalhados.map(updateRow);
+        
         return updatedRisk;
       }
       return r;
@@ -722,18 +731,13 @@ export default function LtcatWizard() {
 
     // DB Upsert
     try {
-      const riskObj = riscos.find(r => r.id === riskId);
       const { error } = await supabase
         .from("ltcat_pareceres")
         .upsert({
           empresa_id: empresaId,
-          setor_id: riskObj?.setor_id || "",
-          funcao_id: resultId ? 
-            (riskObj?.resultados_calor?.find(x => x.id === resultId)?.funcao_id || 
-             riskObj?.resultados_vibracao?.find(x => x.id === resultId)?.funcao_id ||
-             riskObj?.resultados_componentes?.find(x => x.id === resultId)?.funcao_id ||
-             riskObj?.resultados_detalhados?.find(x => x.id === resultId)?.funcao_id || "") : "",
-          agente_id: riskObj?.agente_id || "", // The actual Agente UUID
+          setor_id: riskObj.setor_id,
+          funcao_id: resolvedFuncaoId,
+          agente_id: riskObj.agente_id,
           colaborador_nome: currentParecerTarget.colaborador,
           parecer_tecnico: tempParecer,
           aposentadoria_especial: tempAposentadoria
@@ -745,7 +749,60 @@ export default function LtcatWizard() {
       setParecerModalOpen(false);
     } catch (err) {
       console.error(err);
-      toast.error("Erro ao persistir parecer.");
+      toast.error("Erro ao persistir parecer no banco de dados.");
+    }
+  };
+
+  const handleReplicateParecer = async () => {
+    if (!currentParecerTarget || !tempParecer) return;
+    
+    const { riskId } = currentParecerTarget;
+    const riskObj = riscos.find(r => r.id === riskId);
+    if (!riskObj) return;
+
+    toast.loading("Replicando parecer para todos os colaboradores...");
+
+    // Update locally
+    setRiscos(prev => prev.map(r => {
+      if (r.id === riskId) {
+        const updateAll = (row: any) => ({ ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria });
+        return {
+          ...r,
+          parecer_tecnico: tempParecer,
+          aposentadoria_especial: tempAposentadoria,
+          resultados_calor: r.resultados_calor?.map(updateAll),
+          resultados_vibracao: r.resultados_vibracao?.map(updateAll),
+          resultados_componentes: r.resultados_componentes?.map(updateAll),
+          resultados_detalhados: r.resultados_detalhados?.map(updateAll),
+        };
+      }
+      return r;
+    }));
+
+    // Persist all to DB
+    try {
+      const entriesForAgent = riscos.filter(r => r.agente_id === riskObj.agente_id && r.setor_id === riskObj.setor_id);
+      
+      for (const entry of entriesForAgent) {
+        for (const item of entry.items) {
+          await supabase.from("ltcat_pareceres").upsert({
+            empresa_id: empresaId,
+            setor_id: entry.setor_id,
+            funcao_id: item.funcao_id,
+            agente_id: entry.agente_id,
+            colaborador_nome: item.colaborador,
+            parecer_tecnico: tempParecer,
+            aposentadoria_especial: tempAposentadoria
+          });
+        }
+      }
+      
+      toast.dismiss();
+      toast.success("Parecer replicado com sucesso!");
+      setParecerModalOpen(false);
+    } catch (err) {
+      toast.dismiss();
+      toast.error("Erro ao replicar pareceres.");
     }
   };
 
@@ -1116,9 +1173,37 @@ export default function LtcatWizard() {
                                              const entry = res?.entry || firstEntry;
                                              const data = res?.data || null;
                                              const display = (
-                                                <div className="text-[10px] font-mono bg-muted/40 p-4 rounded-xl border border-border/50 space-y-1">
-                                                   <p className="text-accent font-bold opacity-60">CONTEXTO DE CAMPO:</p>
-                                                   <p className="text-foreground uppercase">{item.funcao_nome} ({item.colaborador})</p>
+                                                <div className="text-[10px] font-mono bg-muted/40 p-4 rounded-xl border border-border/50 space-y-2">
+                                                   <div className="border-b border-border/50 pb-1 flex justify-between items-center">
+                                                      <p className="text-accent font-bold opacity-60">CONTEXTO DE CAMPO</p>
+                                                      <Badge variant="outline" className="text-[8px] border-accent/20 text-accent uppercase">{entry.agente_nome}</Badge>
+                                                   </div>
+                                                   <p className="text-foreground font-black uppercase text-xs">{item.funcao_nome}</p>
+                                                   <p className="text-muted-foreground uppercase opacity-80">COLABORADOR: {item.colaborador}</p>
+                                                   
+                                                   {/* Quantitative Results Preview */}
+                                                   {res && (
+                                                      <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
+                                                         {res.type === 'calor' && (
+                                                            <>
+                                                               <p className="text-accent font-bold">IBUTG: {res.data.resultado} {unidades.find(u => u.id === res.data.unidade_resultado_id)?.simbolo}</p>
+                                                               <p className="opacity-60 italic">Metabolismo: {res.data.taxa_metabolica || 'N/A'}</p>
+                                                            </>
+                                                         )}
+                                                         {res.type === 'vibracao' && (
+                                                            <>
+                                                               <p className="text-accent font-bold">AREN: {res.data.aren_resultado} {unidades.find(u => u.id === res.data.aren_unidade_id)?.simbolo}</p>
+                                                               {res.data.vdvr_resultado && <p className="text-accent font-bold">VDVR: {res.data.vdvr_resultado} {unidades.find(u => u.id === res.data.vdvr_unidade_id)?.simbolo}</p>}
+                                                            </>
+                                                         )}
+                                                         {res.type === 'detalhado' && (
+                                                            <>
+                                                               <p className="text-accent font-bold">RESULTADO: {res.data.resultado} {unidades.find(u => u.id === res.data.unidade_resultado_id)?.simbolo}</p>
+                                                               <p className="opacity-60 italic">Limite (LT): {res.data.limite_tolerancia || 'N/A'}</p>
+                                                            </>
+                                                         )}
+                                                      </div>
+                                                   )}
                                                 </div>
                                              );
                                              openParecerModal(entry as RiscoEntry, data, display);
@@ -2330,21 +2415,33 @@ export default function LtcatWizard() {
                       <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
                       Parecer do Engenheiro
                     </h4>
-                    <Button 
-                      variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent/10"
-                      onClick={() => {
-                        // Logic to find similar parecer for the same agente
-                        const similar = cachedPareceres.find(p => p.agente_id === currentParecerTarget?.riskId && p.parecer_tecnico);
-                        if (similar) {
-                          setTempParecer(similar.parecer_tecnico || "");
-                          toast.success("Parecer duplicado com sucesso!");
-                        } else {
-                          toast.info("Nenhum parecer técnico prévio encontrado para este agente.");
-                        }
-                      }}
-                    >
-                      <Copy className="w-3 h-3" /> Duplicar Parecer
-                    </Button>
+                    <div className="flex gap-2">
+                       <Button 
+                         variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent/10"
+                         onClick={() => {
+                           const currentRiskObj = riscos.find(r => r.id === currentParecerTarget?.riskId);
+                           if (!currentRiskObj) return;
+                           
+                           // Compare using the Agente (Risk Categorization) UUID, not the entry ID
+                           const similar = cachedPareceres.find(p => p.agente_id === currentRiskObj.agente_id && p.parecer_tecnico);
+                           if (similar) {
+                             setTempParecer(similar.parecer_tecnico || "");
+                             setTempAposentadoria(similar.aposentadoria_especial || "");
+                             toast.success("Parecer histórico recuperado!");
+                           } else {
+                             toast.info("Nenhum parecer técnico prévio encontrado para este agente.");
+                           }
+                         }}
+                       >
+                         <Copy className="w-3 h-3" /> Histórico
+                       </Button>
+                       <Button 
+                         variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-success hover:bg-success/10"
+                         onClick={handleReplicateParecer}
+                       >
+                         <Check className="w-3 h-3" /> Replicar para todos
+                       </Button>
+                    </div>
                  </div>
                  <div className="relative group">
                    <div className="absolute inset-0 bg-accent/5 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
