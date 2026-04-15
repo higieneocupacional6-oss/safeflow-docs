@@ -206,9 +206,9 @@ export default function Cadastros() {
     };
 
     if (columnMap[tab]) {
-      const { count, error } = await supabase
+      const { count, error } = await (supabase
         .from("ltcat_avaliacoes")
-        .select("*", { count: "exact", head: true })
+        .select("*", { count: "exact", head: true }) as any)
         .eq(columnMap[tab], id);
       
       let usedInUnits = false;
