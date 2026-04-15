@@ -275,6 +275,7 @@ export default function LtcatWizard() {
     resultados_componentes: [] as any[],
     resultados_vibracao: [] as any[],
     resultados_calor: [] as any[],
+  });
 
   const { data: epiEpcCatalog = [] } = useQuery({
     queryKey: ["epi_epc"],
