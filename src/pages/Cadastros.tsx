@@ -456,9 +456,8 @@ export default function Cadastros() {
                     const { error } = await supabase.from("equipamentos_ho").insert({
                       nome: equipmentForm.nome.trim(),
                       marca: equipmentForm.marca.trim() || null,
-                      serie_equipamento: equipmentForm.serie_equipamento.trim() || null,
-                      data_calibracao: equipmentForm.data_calibracao || null,
-                    });
+                      certificado: (equipmentForm as any).serie_equipamento?.trim() || null,
+                    } as any);
                     if (error) throw error;
                     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                     toast.success("Equipamento cadastrado com sucesso!");
