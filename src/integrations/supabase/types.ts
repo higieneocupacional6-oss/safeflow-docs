@@ -235,6 +235,7 @@ export type Database = {
       ltcat_avaliacoes: {
         Row: {
           agente_id: string | null
+          aposentadoria_especial: string | null
           codigo_esocial: string | null
           colaborador: string | null
           created_at: string | null
@@ -248,6 +249,7 @@ export type Database = {
           id: string
           limite_tolerancia: number | null
           medidas_controle: string | null
+          parecer_tecnico: string | null
           propagacao: string | null
           resultado: number | null
           setor_id: string | null
@@ -260,6 +262,7 @@ export type Database = {
         }
         Insert: {
           agente_id?: string | null
+          aposentadoria_especial?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
           created_at?: string | null
@@ -273,6 +276,7 @@ export type Database = {
           id?: string
           limite_tolerancia?: number | null
           medidas_controle?: string | null
+          parecer_tecnico?: string | null
           propagacao?: string | null
           resultado?: number | null
           setor_id?: string | null
@@ -285,6 +289,7 @@ export type Database = {
         }
         Update: {
           agente_id?: string | null
+          aposentadoria_especial?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
           created_at?: string | null
@@ -298,6 +303,7 @@ export type Database = {
           id?: string
           limite_tolerancia?: number | null
           medidas_controle?: string | null
+          parecer_tecnico?: string | null
           propagacao?: string | null
           resultado?: number | null
           setor_id?: string | null

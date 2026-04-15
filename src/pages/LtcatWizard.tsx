@@ -869,7 +869,6 @@ export default function LtcatWizard() {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        delimiters: { start: "{", end: "}" },
       });
 
       // 1. Group by Sector
@@ -926,6 +925,9 @@ export default function LtcatWizard() {
                  colaborador: rc.colaborador, 
                  funcao: rc.funcao_nome, 
                  resultado: "Amostra Comp.", 
+                 unidade: "",
+                 limite: "",
+                 unidade_limite: "",
                  parecer_tecnico: rc.parecer_tecnico, 
                  aposentadoria_especial: rc.aposentadoria_especial 
                }));
