@@ -1288,87 +1288,99 @@ export default function LtcatWizard() {
 
       {/* Risk Dialog */}
       <Dialog open={riskDialogOpen} onOpenChange={setRiskDialogOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="font-heading text-xl">AVALIAÇÃO DE RISCO POR SETOR</DialogTitle>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle className="font-heading text-2xl font-bold text-accent uppercase tracking-tight">Avaliação de Risco por Setor (LTCAT)</DialogTitle>
           </DialogHeader>
           
-          <div className="space-y-8 py-4">
-            {/* SEÇÃO 1: IDENTIFICAÇÃO */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 border-b pb-2">
-                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 1: IDENTIFICAÇÃO</h3>
+          <div className="p-8 pt-4 space-y-10">
+            {/* SEÇÃO 1: CLASSIFICAÇÃO DA AVALIAÇÃO */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-accent/10 pb-3">
+                <div className="bg-accent/10 p-2 rounded-lg text-accent"><Settings className="w-5 h-5" /></div>
+                <h3 className="font-heading font-bold text-base uppercase tracking-wider text-foreground">SEÇÃO 1: CLASSIFICAÇÃO DA AVALIAÇÃO</h3>
               </div>
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <Label>Setor Avaliado</Label>
-                  <Input value={currentRiskSetor?.nome_setor || ""} readOnly className="mt-1 bg-muted/30" />
-                </div>
-                
-                <div className="space-y-3">
-                  <Label>Colaborador e Função</Label>
-                  {riskForm.items.map((item, index) => (
-                    <div key={index} className="flex gap-2 items-end group animate-in fade-in slide-in-from-top-1">
-                      <div className="flex-1">
-                        <Input 
-                          placeholder="Nome do Colaborador" 
-                          value={item.colaborador} 
-                          onChange={(e) => updateItemBlock(index, "colaborador", e.target.value)}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <Select value={item.funcao_id} onValueChange={(v) => updateItemBlock(index, "funcao_id", v)}>
-                          <SelectTrigger><SelectValue placeholder="Selecione a Função" /></SelectTrigger>
-                          <SelectContent>
-                            {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
-                              <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {index > 0 && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-destructive h-10 w-10 shrink-0" 
-                          onClick={() => {
-                            const newItems = riskForm.items.filter((_, i) => i !== index);
-                            setRiskForm({ ...riskForm, items: newItems });
-                          }}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
-                  <Button variant="outline" size="sm" onClick={addItemBlock} className="mt-1 text-accent border-accent/20 hover:bg-accent/5">
-                    <Plus className="w-4 h-4 mr-2" />Adicionar Colaborador/Função
-                  </Button>
-                </div>
-              </div>
-            </section>
-
-            {/* SEÇÃO 2: CLASSIFICAÇÃO */}
-            <section className="space-y-4">
-              <div className="flex items-center gap-2 border-b pb-2">
-                <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 2: CLASSIFICAÇÃO DA AVALIAÇÃO</h3>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Tipo de Avaliação</Label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-muted/5 p-6 rounded-xl border border-muted-foreground/10">
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Avaliação *</Label>
                   <Select value={riskForm.tipo_avaliacao} onValueChange={(v) => setRiskForm({ ...riskForm, tipo_avaliacao: v })}>
-                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectTrigger className="mt-1 h-12 text-base border-muted-foreground/20 hover:border-accent/50 transition-colors"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="qualitativa">Qualitativa</SelectItem>
                       <SelectItem value="quantitativa">Quantitativa</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <div>
-                  <Label>Tipo de Agente</Label>
-                  <Input value={riskForm.tipo_agente} readOnly className="mt-1 bg-muted/30" placeholder="Auto-preenchido" />
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Agente</Label>
+                  <Input value={riskForm.tipo_agente} readOnly className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium" placeholder="Auto-preenchido" />
+                </div>
+              </div>
+            </section>
+
+            {/* SEÇÃO 2: IDENTIFICAÇÃO */}
+            <section className="space-y-6">
+              <div className="flex items-center gap-3 border-b border-accent/10 pb-3">
+                <div className="bg-accent/10 p-2 rounded-lg text-accent"><Check className="w-5 h-5" /></div>
+                <h3 className="font-heading font-bold text-base uppercase tracking-wider text-foreground">SEÇÃO 2: IDENTIFICAÇÃO</h3>
+              </div>
+              <div className="space-y-6 bg-muted/5 p-6 rounded-xl border border-muted-foreground/10">
+                <div className="grid grid-cols-1 gap-6">
+                  <div className="space-y-2">
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Setor Avaliado</Label>
+                    <Input value={currentRiskSetor?.nome_setor || ""} readOnly className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium" />
+                  </div>
+                  
+                  {riskForm.tipo_avaliacao === "qualitativa" && (
+                    <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                      <Label className="text-xs font-bold uppercase text-muted-foreground">Colaboradores e Funções Avaliadas</Label>
+                      <div className="space-y-4">
+                        {riskForm.items.map((item, index) => (
+                          <div key={index} className="flex gap-4 items-end group animate-in fade-in slide-in-from-top-1">
+                            <div className="flex-[1.5] space-y-1.5">
+                              <Input 
+                                className="h-11 border-muted-foreground/20 focus-visible:ring-accent"
+                                placeholder="Nome do Colaborador" 
+                                value={item.colaborador} 
+                                onChange={(e) => updateItemBlock(index, "colaborador", e.target.value)}
+                              />
+                            </div>
+                            <div className="flex-1 space-y-1.5">
+                              <Select value={item.funcao_id} onValueChange={(v) => updateItemBlock(index, "funcao_id", v)}>
+                                <SelectTrigger className="h-11 border-muted-foreground/20 focus-visible:ring-accent"><SelectValue placeholder="Selecione a Função" /></SelectTrigger>
+                                <SelectContent>
+                                  {funcoesBySetor(currentRiskSetor?.id).map((f: any) => (
+                                    <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            {index > 0 && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-destructive h-11 w-11 shrink-0 hover:bg-destructive/10 hover:text-destructive transition-colors" 
+                                onClick={() => {
+                                  const newItems = riskForm.items.filter((_, i) => i !== index);
+                                  setRiskForm({ ...riskForm, items: newItems });
+                                }}
+                              >
+                                <Trash2 className="w-5 h-5" />
+                              </Button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                      <Button 
+                        variant="outline" 
+                        size="lg" 
+                        onClick={addItemBlock} 
+                        className="mt-2 text-accent border-accent/20 hover:bg-accent/5 gap-2 font-semibold h-11"
+                      >
+                        <Plus className="w-5 h-5" />Adicionar Colaborador/Função
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
             </section>
