@@ -135,6 +135,7 @@ export default function LtcatWizard() {
   const [calorAmostraModalOpen, setCalorAmostraModalOpen] = useState(false);
   const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
   const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
+  const [generating, setGenerating] = useState(false);
 
   // EPI/EPC form state inside risk dialog
   const [epiEpcRiskForm, setEpiEpcRiskForm] = useState({
