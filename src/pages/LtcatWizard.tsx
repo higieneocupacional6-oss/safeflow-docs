@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -939,6 +939,9 @@ export default function LtcatWizard() {
                 colaborador: rc.colaborador || "",
                 funcao: rc.funcao_nome || "",
                 resultado: "Amostra Comp.",
+                unidade: "",
+                limite_tolerancia: "",
+                unidade_limite: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
                 epi_nome,
@@ -1003,8 +1006,8 @@ export default function LtcatWizard() {
           tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
           nome_equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
-          serie_equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.serie_equipamento || "",
-          data_calibracao: equipamentos.find(e => e.id === first.equipamento_id)?.data_calibracao ? new Date(equipamentos.find(e => e.id === first.equipamento_id)?.data_calibracao).toLocaleDateString("pt-BR") : "",
+          serie_equipamento: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.serie_equipamento || "",
+          data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
           esocial_codigo: first.codigo_esocial || "",
           esocial_desc: first.descricao_esocial || "",
           avaliacoes,
