@@ -31,7 +31,7 @@ export default function Cadastros() {
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [deleteConfirm, setDeleteConfirm] = useState({ open: boolean = false, id: "", type: "" as TabKey | "epi_epc" });
+  const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
   const { data: riscos = [] } = useQuery({
@@ -630,8 +630,7 @@ export default function Cadastros() {
                     const payload = {
                       nome: equipmentForm.nome.trim(),
                       marca: equipmentForm.marca.trim() || null,
-                      serie_equipamento: equipmentForm.serie_equipamento.trim() || null,
-                      data_calibracao: equipmentForm.data_calibracao || null,
+                      certificado: equipmentForm.serie_equipamento?.trim() || null,
                     };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
