@@ -1020,180 +1020,141 @@ export default function LtcatWizard() {
                   </div>
                   
                   <div className="grid grid-cols-1 gap-6">
-                    {setorRiscos.map(risk => (
-                      <div key={risk.id} className="glass-card rounded-2xl p-8 border border-border/50 hover:border-accent/40 transition-all bg-background/80 shadow-sm hover:shadow-xl group relative overflow-hidden">
-                        <div className="absolute top-0 left-0 w-2 h-full bg-accent opacity-20"></div>
+                    {(() => {
+                      // Grouping: In this Sector, find all unique Agents
+                      const uniqueAgents = Array.from(new Set(setorRiscos.map(r => r.agente_id)));
+                      
+                      return uniqueAgents.map(agenteId => {
+                        // Find all entries for this specific agent in this sector
+                        const entriesForAgent = setorRiscos.filter(r => r.agente_id === agenteId);
+                        const firstEntry = entriesForAgent[0];
                         
-                        <div className="flex justify-between items-start mb-8">
-                          <div className="space-y-1">
-                            <h3 className="text-3xl font-heading font-black text-foreground uppercase tracking-tight group-hover:text-accent transition-colors">
-                              {risk.agente_nome}
-                            </h3>
-                            <div className="flex items-center gap-3">
-                               <Badge variant="outline" className="text-[10px] uppercase font-black tracking-[0.2em] px-2 py-0.5 border-accent/30 text-accent/80">
-                                 {risk.tipo_agente}
-                               </Badge>
-                               <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest bg-muted/30 px-2 py-0.5 rounded">
-                                 MODO: {risk.tipo_avaliacao}
-                               </span>
+                        // Consolidate all items from all entries (avoiding UI duplicates if they exist in state)
+                        // We use the ID to ensure we don't list the exact same sub-entry twice if the groupings overlap
+                        const allItems = entriesForAgent.flatMap(e => e.items);
+                        
+                        return (
+                          <div key={agenteId} className="glass-card rounded-2xl overflow-hidden border border-border/50 bg-background/60 shadow-sm hover:shadow-md transition-all">
+                            {/* Risk Header */}
+                            <div className="p-6 border-b border-border/50 flex justify-between items-center bg-accent/[0.02]">
+                              <div className="space-y-1">
+                                <h3 className="text-2xl font-heading font-black text-foreground uppercase tracking-tight">
+                                  {firstEntry.agente_nome}
+                                </h3>
+                                <div className="flex items-center gap-2">
+                                   <Badge variant="outline" className="text-[10px] uppercase font-bold tracking-widest px-2 py-0 border-accent/30 text-accent/70">
+                                     {firstEntry.tipo_agente}
+                                   </Badge>
+                                   <span className="text-[10px] uppercase font-bold text-muted-foreground opacity-60 tracking-tighter italic">
+                                     Avaliação Global: {firstEntry.tipo_avaliacao}
+                                   </span>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                 <Button 
+                                  variant="ghost" size="sm" className="h-8 gap-2 text-[10px] font-bold uppercase transition-all hover:bg-accent/10"
+                                  onClick={() => openRiskModal(setores.find(s => s.id === firstEntry.setor_id), firstEntry)}
+                                 >
+                                   <Settings className="w-3.5 h-3.5" /> Editar Risco
+                                 </Button>
+                                 <Button 
+                                  variant="ghost" size="sm" className="h-8 gap-2 text-[10px] font-bold uppercase text-destructive hover:bg-destructive/10"
+                                  onClick={() => {
+                                     const idsToRemove = entriesForAgent.map(e => e.id);
+                                     setRiscos(prev => prev.filter(r => !idsToRemove.includes(r.id)));
+                                     toast.success("Agente removido do setor");
+                                  }}
+                                 >
+                                   <Trash2 className="w-3.5 h-3.5" /> Excluir Card
+                                 </Button>
+                              </div>
+                            </div>
+
+                            {/* Functions List - One below the other as requested */}
+                            <div className="divide-y divide-border/30 bg-background/40">
+                               {allItems.map((item) => {
+                                 // Look for result data in all entries
+                                 const findRes = () => {
+                                    for (const e of entriesForAgent) {
+                                       const rc = e.resultados_calor?.find(r => r.id === item.id || (r.funcao_id === item.funcao_id && r.colaborador === item.colaborador));
+                                       if (rc) return { type: 'calor', data: rc, entry: e };
+                                       const rv = e.resultados_vibracao?.find(r => r.id === item.id || (r.funcao_id === item.funcao_id && r.colaborador === item.colaborador));
+                                       if (rv) return { type: 'vibracao', data: rv, entry: e };
+                                       const rcp = e.resultados_componentes?.find(r => r.id === item.id || (r.funcao_id === item.funcao_id && r.colaborador === item.colaborador));
+                                       if (rcp) return { type: 'componentes', data: rcp, entry: e };
+                                       const rd = e.resultados_detalhados?.find(r => r.id === item.id || (r.funcao_id === item.funcao_id && r.colaborador === item.colaborador));
+                                       if (rd) return { type: 'detalhado', data: rd, entry: e };
+                                    }
+                                    return null;
+                                 };
+                                 const res = findRes();
+                                 const itemParecer = res?.data?.parecer_tecnico || firstEntry.parecer_tecnico;
+
+                                 return (
+                                   <div key={item.id} className="group/line flex items-center justify-between p-4 hover:bg-accent/[0.02] transition-colors">
+                                      <div className="flex items-center gap-4">
+                                         <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs ${itemParecer ? "bg-success/10 text-success border border-success/20" : "bg-muted text-muted-foreground border border-border/50"}`}>
+                                            {itemParecer ? <Check className="w-4 h-4" /> : "!"}
+                                         </div>
+                                         <div className="space-y-0.5">
+                                            <p className="text-sm font-black uppercase text-foreground leading-none">{item.funcao_nome}</p>
+                                            <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-tight">COLABORADOR: {item.colaborador}</p>
+                                            {res && (
+                                              <div className="flex gap-3 text-[9px] font-mono font-bold text-accent uppercase tracking-widest mt-1">
+                                                 {res.type === 'calor' && <span>CALOR: {res.data.resultado}</span>}
+                                                 {res.type === 'vibracao' && <span>AREN: {res.data.aren_resultado}</span>}
+                                                 {res.type === 'detalhado' && <span>RES: {res.data.resultado}</span>}
+                                              </div>
+                                            )}
+                                         </div>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                         <Button 
+                                          size="sm" variant="outline" className={`h-8 gap-2 text-[10px] font-black uppercase tracking-widest px-4 transition-all rounded-xl ${itemParecer ? "border-success/40 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/40 bg-accent/5 text-accent hover:bg-accent hover:text-white"}`}
+                                          onClick={() => {
+                                             const entry = res?.entry || firstEntry;
+                                             const data = res?.data || null;
+                                             const display = (
+                                                <div className="text-[10px] font-mono bg-muted/40 p-4 rounded-xl border border-border/50 space-y-1">
+                                                   <p className="text-accent font-bold opacity-60">CONTEXTO DE CAMPO:</p>
+                                                   <p className="text-foreground uppercase">{item.funcao_nome} ({item.colaborador})</p>
+                                                </div>
+                                             );
+                                             openParecerModal(entry as RiscoEntry, data, display);
+                                          }}
+                                         >
+                                           <FileText className="w-3.5 h-3.5" /> Parecer Técnico
+                                         </Button>
+                                         <Button 
+                                          size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
+                                          onClick={() => {
+                                             setRiscos(prev => prev.map(r => {
+                                                if (r.agente_id === agenteId && r.setor_id === setorId) {
+                                                   return {
+                                                      ...r,
+                                                      items: r.items.filter(i => i.id !== item.id),
+                                                      resultados_calor: r.resultados_calor?.filter(x => x.id !== item.id),
+                                                      resultados_vibracao: r.resultados_vibracao?.filter(x => x.id !== item.id),
+                                                      resultados_componentes: r.resultados_componentes?.filter(x => x.id !== item.id),
+                                                      resultados_detalhados: r.resultados_detalhados?.filter(x => x.id !== item.id),
+                                                   };
+                                                }
+                                                return r;
+                                             }).filter(r => r.items.length > 0));
+                                          }}
+                                         >
+                                           <Trash2 className="w-3.5 h-3.5" />
+                                         </Button>
+                                      </div>
+                                   </div>
+                                 );
+                               })}
                             </div>
                           </div>
-                          
-                          <div className="flex items-center gap-2">
-                             <Button 
-                              variant="outline" size="sm" className="h-9 w-9 p-0 rounded-xl border-accent/20 hover:bg-accent hover:text-white transition-all shadow-sm"
-                              title="Editar Avaliação"
-                              onClick={() => openRiskModal(setores.find(s => s.id === risk.setor_id), risk)}
-                             >
-                               <Settings className="w-4 h-4" />
-                             </Button>
-                             <Button 
-                              variant="outline" size="sm" className="h-9 w-9 p-0 rounded-xl border-destructive/20 text-destructive hover:bg-destructive hover:text-white transition-all shadow-sm"
-                              title="Excluir Colaboradores/Funções"
-                              onClick={() => openDeleteSelectiveModal(risk)}
-                             >
-                               <Trash2 className="w-4 h-4" />
-                             </Button>
-                          </div>
-                        </div>
-
-                        {/* Funções Vinculadas ao Risco em Linha */}
-                        <div className="mb-8">
-                           <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-3 flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-accent/40"></span>
-                              Funções Vinculadas
-                           </h4>
-                           <div className="p-4 rounded-xl bg-accent/[0.02] border border-accent/5 font-medium text-foreground tracking-tight">
-                              {risk.items.map((item, idx) => (
-                                <span key={item.id}>
-                                  <span className="font-bold">{item.funcao_nome}</span>
-                                  <span className="text-muted-foreground opacity-60"> ({item.colaborador})</span>
-                                  {idx < risk.items.length - 1 && <span className="mx-3 text-accent font-black opacity-30">—</span>}
-                                </span>
-                              ))}
-                           </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 gap-3">
-                          {/* Render based on risk evaluation results (kept original logic but polished buttons) */}
-                          {risk.resultados_calor && risk.resultados_calor.length > 0 ? (
-                            risk.resultados_calor.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-black hover:text-white transition-all">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-bold uppercase">{row.funcao_nome} <span className="opacity-60 font-normal italic pl-1">— {row.colaborador}</span></p>
-                                  <div className="flex gap-4 text-[10px] font-mono font-semibold uppercase tracking-widest opacity-80">
-                                     <span>VALOR: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span>
-                                  </div>
-                                </div>
-                                <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all rounded-lg ${row.parecer_tecnico ? "border-success/50 bg-success/10 text-success hover:bg-success" : "border-accent/30 text-accent hover:bg-accent"}`}
-                                  onClick={() => openParecerModal(risk, row, (
-                                    <div className="text-xs font-mono p-4 bg-muted/30 rounded-xl space-y-1">
-                                      <p>RESULTADO: <span className="text-accent font-bold">{row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</span></p>
-                                    </div>
-                                  ))}
-                                >
-                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />} Parecer
-                                </Button>
-                              </div>
-                            ))
-                          ) : risk.resultados_vibracao && risk.resultados_vibracao.length > 0 ? (
-                            risk.resultados_vibracao.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-black hover:text-white transition-all">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-bold uppercase">{row.funcao_nome} <span className="opacity-60 font-normal italic pl-1">— {row.colaborador}</span></p>
-                                  <div className="flex gap-4 text-[10px] font-mono font-semibold uppercase tracking-widest opacity-80">
-                                     {row.aren_resultado && <span>AREN: {row.aren_resultado}</span>}
-                                     {row.vdvr_resultado && <span>VDVR: {row.vdvr_resultado}</span>}
-                                  </div>
-                                </div>
-                                <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all rounded-lg ${row.parecer_tecnico ? "border-success/50 bg-success/10 text-success hover:bg-success" : "border-accent/30 text-accent hover:bg-accent"}`}
-                                  onClick={() => openParecerModal(risk, row, (
-                                    <div className="text-xs font-mono p-4 bg-muted/30 rounded-xl space-y-1">
-                                      <p>AREN: <span className="text-accent font-bold">{row.aren_resultado}</span></p>
-                                    </div>
-                                  ))}
-                                >
-                                  {row.parecer_tecnico ? <Check className="w-3 h-3" /> : <Plus className="w-3 h-3" />} Parecer
-                                </Button>
-                              </div>
-                            ))
-                          ) : risk.resultados_componentes && risk.resultados_componentes.length > 0 ? (
-                            risk.resultados_componentes.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
-                                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] font-mono text-muted-foreground mt-1">
-                                     {row.componentes.slice(0, 3).map((c, i) => (
-                                       <span key={i} className="bg-muted px-1.5 py-0.5 rounded border border-border/30">• {c.componente}: {c.resultado}</span>
-                                     ))}
-                                     {row.componentes.length > 3 && <span>... (+{row.componentes.length - 3} itens)</span>}
-                                  </div>
-                                </div>
-                                <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
-                                  onClick={() => openParecerModal(risk, row, (
-                                    <div className="space-y-3">
-                                      <p className="text-[10px] font-bold uppercase text-muted-foreground border-b border-border/50 pb-1">Composição da Amostra:</p>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {row.componentes.map((c, i) => (
-                                          <div key={i} className="text-[10px] bg-muted/50 p-2 rounded-lg border border-border/50">
-                                            <p className="font-bold truncate text-foreground">{c.componente}</p>
-                                            <p className="font-mono text-accent font-semibold">{c.resultado} {unidades.find(u => u.id === c.unidade_resultado_id)?.simbolo}</p>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  ))}
-                                >
-                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
-                                </Button>
-                              </div>
-                            ))
-                          ) : risk.resultados_detalhados && risk.resultados_detalhados.length > 0 ? (
-                            risk.resultados_detalhados.map((row) => (
-                              <div key={row.id} className="flex items-center justify-between p-4 rounded-xl bg-accent/[0.03] border border-accent/10 hover:bg-accent/[0.06] transition-colors">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-bold text-foreground uppercase">{row.funcao_nome} <span className="text-muted-foreground font-normal lowercase italic pl-1">— {row.colaborador}</span></p>
-                                  <p className="text-xs font-mono font-bold text-accent">VALOR: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</p>
-                                </div>
-                                <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${row.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
-                                  onClick={() => openParecerModal(risk, row, (
-                                    <div className="text-xs font-mono p-3 bg-muted/30 rounded-lg border border-border/50 space-y-1">
-                                      <p className="font-bold text-accent">RESULTADO: {row.resultado} {unidades.find(u => u.id === row.unidade_resultado_id)?.simbolo}</p>
-                                      {row.limite_tolerancia && <p className="opacity-60 italic">LIMITE (LT): {row.limite_tolerancia} {unidades.find(u => u.id === row.unidade_limite_id)?.simbolo}</p>}
-                                    </div>
-                                  ))}
-                                >
-                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
-                                </Button>
-                              </div>
-                            ))
-                          ) : (
-                            // Solo risk evaluation (qualitative)
-                            <div className="flex items-center justify-between p-4 rounded-xl bg-muted/10 border border-border/50 group/item">
-                                <div className="space-y-1">
-                                  <p className="text-sm font-bold text-foreground uppercase">Avaliação Global do Setor</p>
-                                  <p className="text-xs text-muted-foreground font-medium italic">Contexto: {risk.setor_nome}</p>
-                                </div>
-                                <Button 
-                                  size="sm" variant="outline" className={`gap-2 text-[10px] uppercase font-black tracking-widest h-9 px-4 transition-all ${risk.parecer_tecnico ? "border-success/50 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/20 text-accent hover:bg-accent hover:text-white"}`}
-                                  onClick={() => openParecerModal(risk, null, (
-                                    <div className="text-[11px] p-4 bg-muted/30 rounded-xl border border-border/50">
-                                      <p className="font-bold uppercase text-muted-foreground mb-2 text-[9px] tracking-widest">Descrição Técnica Vinculada:</p>
-                                      <p className="text-foreground leading-relaxed whitespace-pre-wrap">{risk.descricao_tecnica || "Nenhuma descrição técnica informada para este agente."}</p>
-                                    </div>
-                                  ))}
-                                >
-                                  <FileText className="w-3.5 h-3.5" /> Parecer Técnico
-                                </Button>
-                              </div>
-                          )}
-                        </div>
-                      </div>
-                    ))}
+                        );
+                      });
+                    })()}
                   </div>
                 </div>
               );
