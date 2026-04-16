@@ -851,20 +851,21 @@ export default function LtcatWizard() {
       return;
     }
 
-    // Local Update
+    // Local Update — sempre propaga ao nível raiz do RiscoEntry
     setRiscos(prev => prev.map(r => {
       if (r.id === riskId) {
-        if (!resultId) {
-          return { ...r, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria };
+        const updatedRisk: RiscoEntry = {
+          ...r,
+          parecer_tecnico: tempParecer,
+          aposentadoria_especial: tempAposentadoria,
+        };
+        if (resultId) {
+          const updateRow = (row: any) => row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row;
+          if (updatedRisk.resultados_calor) updatedRisk.resultados_calor = updatedRisk.resultados_calor.map(updateRow);
+          if (updatedRisk.resultados_vibracao) updatedRisk.resultados_vibracao = updatedRisk.resultados_vibracao.map(updateRow);
+          if (updatedRisk.resultados_componentes) updatedRisk.resultados_componentes = updatedRisk.resultados_componentes.map(updateRow);
+          if (updatedRisk.resultados_detalhados) updatedRisk.resultados_detalhados = updatedRisk.resultados_detalhados.map(updateRow);
         }
-        const updatedRisk = { ...r };
-        const updateRow = (row: any) => row.id === resultId ? { ...row, parecer_tecnico: tempParecer, aposentadoria_especial: tempAposentadoria } : row;
-
-        if (updatedRisk.resultados_calor) updatedRisk.resultados_calor = updatedRisk.resultados_calor.map(updateRow);
-        if (updatedRisk.resultados_vibracao) updatedRisk.resultados_vibracao = updatedRisk.resultados_vibracao.map(updateRow);
-        if (updatedRisk.resultados_componentes) updatedRisk.resultados_componentes = updatedRisk.resultados_componentes.map(updateRow);
-        if (updatedRisk.resultados_detalhados) updatedRisk.resultados_detalhados = updatedRisk.resultados_detalhados.map(updateRow);
-
         return updatedRisk;
       }
       return r;
