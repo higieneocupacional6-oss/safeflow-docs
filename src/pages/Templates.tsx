@@ -1,5 +1,6 @@
 import { useState, useRef } from "react";
 import { TemplateVariables } from "@/components/TemplateVariables";
+import { LtcatTemplateHelper } from "@/components/LtcatTemplateHelper";
 import { Plus, FileText, Upload, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -143,7 +144,10 @@ export default function Templates() {
           <h3 className="font-heading font-semibold mb-1">Variáveis para Templates</h3>
           <p className="text-xs text-muted-foreground">Clique para ver e copiar as variáveis disponíveis</p>
         </div>
-        <TemplateVariables />
+        <div className="flex gap-2">
+          <LtcatTemplateHelper />
+          <TemplateVariables />
+        </div>
       </div>
 
       {/* Upload Modal */}
