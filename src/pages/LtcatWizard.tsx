@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1860,8 +1860,8 @@ export default function LtcatWizard() {
               <div className="glass-card rounded-xl p-8 text-center">
                 <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
                 <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
-                <p className="text-muted-foreground mb-6">Selecione o template, valide e gere o documento final</p>
-                <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); }}>
+                <p className="text-muted-foreground mb-6">Selecione o template, salve, valide e gere o documento final</p>
+                <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); setDocumentValidated(false); }}>
                   <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
                   <SelectContent>
                     {templates.map((t: any) => (
@@ -1869,24 +1869,59 @@ export default function LtcatWizard() {
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="flex gap-3 justify-center">
+
+                {/* Step indicators */}
+                <div className="flex items-center justify-center gap-2 mb-6 text-xs font-medium text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-[10px] font-bold">1</span>
+                    Salvar
+                  </div>
+                  <div className="w-6 h-px bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${documentValidated ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>2</span>
+                    Validar
+                  </div>
+                  <div className="w-6 h-px bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${documentValidated ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>3</span>
+                    Gerar
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveDocument}
+                    disabled={saving || !selectedTemplate}
+                    className="gap-2"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Salvar Documento
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={handleValidateTemplate}
                     disabled={validating || !selectedTemplate}
+                    className={`gap-2 ${documentValidated ? "border-emerald-500 text-emerald-600" : ""}`}
                   >
-                    {validating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                    Validar Template
+                    {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : documentValidated ? <ShieldCheck className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                    {documentValidated ? "Validado ✓" : "Validar Documento"}
                   </Button>
                   <Button
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                    className={`gap-2 ${documentValidated ? "bg-accent text-accent-foreground hover:bg-accent/90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
                     onClick={handleGenerateDocument}
-                    disabled={generating || !selectedTemplate}
+                    disabled={generating || !selectedTemplate || !documentValidated}
                   >
-                    {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                     Gerar Documento
                   </Button>
                 </div>
+
+                {!documentValidated && selectedTemplate && (
+                  <p className="text-xs text-muted-foreground mt-3 italic">
+                    🔒 Salve e valide o documento antes de gerar o arquivo final
+                  </p>
+                )}
               </div>
 
               {/* Template Errors Display (inline) */}
@@ -1900,7 +1935,6 @@ export default function LtcatWizard() {
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
                     Corrija esses erros no arquivo .docx e faça upload novamente em Templates.
-                    O docxtemplater usa a sintaxe <code className="bg-muted px-1 rounded">{"{{variavel}}"}</code> (chaves duplas).
                   </p>
                   <div className="space-y-3 max-h-[400px] overflow-y-auto">
                     {templateErrors.map((err, i) => (
@@ -1915,9 +1949,6 @@ export default function LtcatWizard() {
                               <p><span className="font-semibold">Variável/Tag:</span> <code className="bg-muted px-1 rounded">{err.variavel}</code></p>
                             )}
                             <p><span className="font-semibold">Detalhe:</span> {err.explicacao}</p>
-                            {err.arquivo && (
-                              <p><span className="font-semibold">Arquivo:</span> {err.arquivo}</p>
-                            )}
                             {err.correcao && (
                               <p className="text-accent font-medium">
                                 <span className="font-semibold">✏️ Correção:</span> {err.correcao}
@@ -3387,6 +3418,48 @@ export default function LtcatWizard() {
                   </Button>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* MODAL: ERRO INTELIGENTE DE DOCUMENTO                         */}
+          {/* ============================================================ */}
+          <Dialog open={smartErrorModalOpen} onOpenChange={setSmartErrorModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl font-bold text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-6 h-6" />
+                  Erro ao preparar documento
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Foram encontrados problemas que precisam ser corrigidos antes de gerar o documento.
+              </p>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto py-2">
+                {smartErrors.map((err, i) => (
+                  <div key={i} className={`rounded-lg p-4 border text-left ${err.severidade === "erro" ? "bg-destructive/5 border-destructive/30" : "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700"}`}>
+                    <div className="flex items-start gap-2">
+                      <span className={`text-xs font-bold rounded px-2 py-0.5 shrink-0 ${err.severidade === "erro" ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"}`}>
+                        {err.severidade === "erro" ? "❌ ERRO" : "⚠️ AVISO"}
+                      </span>
+                      <div className="space-y-1.5 text-sm min-w-0">
+                        <p className="font-semibold text-foreground">{err.mensagem}</p>
+                        <p className="text-muted-foreground">{err.explicacao}</p>
+                        <p className="text-accent font-medium">✏️ <span className="font-semibold">Solução:</span> {err.correcao}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSmartErrorModalOpen(false)}
+                  className="gap-2"
+                >
+                  Entendi, corrigir template
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
