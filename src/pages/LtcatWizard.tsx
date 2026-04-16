@@ -1025,9 +1025,21 @@ export default function LtcatWizard() {
           data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
           esocial_codigo: first.codigo_esocial || "",
           esocial_desc: first.descricao_esocial || "",
+          data_avaliacao: first.data_avaliacao ? new Date(first.data_avaliacao).toLocaleDateString("pt-BR") : "",
+          funcoes_ges: first.funcoes_ges || "",
           avaliacoes,
           epis,
-          epcs
+          epcs,
+          equipamentos_avaliacao: (first.equipamentos_avaliacao || []).length > 0
+            ? first.equipamentos_avaliacao.map((eq: any) => ({
+                agente_nome: eq.agente_nome || "",
+                nome_equipamento: eq.nome_equipamento || "",
+                modelo_equipamento: eq.modelo_equipamento || "",
+                serie_equipamento: eq.serie_equipamento || "",
+                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
+                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+              }))
+            : [],
         };
       });
 
