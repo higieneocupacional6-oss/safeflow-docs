@@ -249,6 +249,8 @@ export default function LtcatWizard() {
     equipamentos_avaliacao: [] as any[],
     tempo_coleta: "",
     unidade_tempo_coleta: "",
+    parecer_tecnico: "",
+    aposentadoria_especial: "",
   });
 
   const { data: epiEpcCatalog = [] } = useQuery({
@@ -514,6 +516,8 @@ export default function LtcatWizard() {
         equipamentos_avaliacao: [],
         tempo_coleta: "",
         unidade_tempo_coleta: "",
+        parecer_tecnico: "",
+        aposentadoria_especial: "",
       });
       setEpiEpcRiskForm({
         epi_id: "",
@@ -680,6 +684,20 @@ export default function LtcatWizard() {
     }
 
     // ------------------------------------------------------------
+    // SEÇÃO 7 OBRIGATÓRIA: Parecer Técnico + Aposentadoria Especial
+    // ------------------------------------------------------------
+    if (!riskForm.parecer_tecnico?.trim()) {
+      toast.error("Preencha o parecer técnico antes de finalizar este risco.");
+      document.getElementById("secao-7-parecer")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (!riskForm.aposentadoria_especial) {
+      toast.error("Selecione a conclusão sobre aposentadoria especial.");
+      document.getElementById("secao-7-parecer")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+
+    // ------------------------------------------------------------
     // REGRA DE DUPLICIDADE: Mesma Função + Mesmo Colaborador + Mesmo Risco
     // ------------------------------------------------------------
     const hasDuplicate = finalItems.some((newItem, idx) => {
@@ -750,7 +768,29 @@ export default function LtcatWizard() {
       equipamentos_avaliacao: riskForm.equipamentos_avaliacao,
       tempo_coleta: riskForm.tempo_coleta,
       unidade_tempo_coleta: riskForm.unidade_tempo_coleta,
+      parecer_tecnico: riskForm.parecer_tecnico,
+      aposentadoria_especial: riskForm.aposentadoria_especial,
     } as RiscoEntry;
+
+    // Persistir parecer técnico vinculado ao risco (todas as funções/colaboradores deste risco)
+    try {
+      if (empresaId && finalItems.length > 0) {
+        const pareceresPayload = finalItems.map(it => ({
+          empresa_id: empresaId,
+          setor_id: currentRiskSetor.id,
+          funcao_id: it.funcao_id,
+          agente_id: riskForm.agente_id,
+          colaborador_nome: it.colaborador,
+          parecer_tecnico: riskForm.parecer_tecnico,
+          aposentadoria_especial: riskForm.aposentadoria_especial,
+        }));
+        await supabase.from("ltcat_pareceres").upsert(pareceresPayload, {
+          onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome",
+        });
+      }
+    } catch (e) {
+      console.warn("[LTCAT] Falha ao persistir parecer no DB:", e);
+    }
 
     try {
       if (editingRiskId) {
@@ -2779,7 +2819,44 @@ export default function LtcatWizard() {
                 })()}
               </div>
 
-              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                </div>
+
+              {/* SEÇÃO 7: PARECER TÉCNICO (obrigatória) */}
+              <section
+                id="secao-7-parecer"
+                className="space-y-4 mx-8 mb-6 p-6 rounded-xl border-2 border-accent/30 bg-accent/5 animate-in fade-in slide-in-from-top-2"
+              >
+                <div className="flex items-center gap-2 border-b border-accent/20 pb-2">
+                  <div className="bg-accent/20 p-1.5 rounded text-accent"><FileText className="w-4 h-4" /></div>
+                  <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-accent">SEÇÃO 7: PARECER TÉCNICO *</h3>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Conclusão Técnica / Parecer do Engenheiro *</Label>
+                    <Textarea
+                      className="mt-1 min-h-[120px]"
+                      placeholder="Descreva a conclusão técnica do engenheiro/responsável sobre a exposição avaliada..."
+                      value={riskForm.parecer_tecnico || ""}
+                      onChange={(e) => setRiskForm({ ...riskForm, parecer_tecnico: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-bold uppercase text-muted-foreground">Ensejador de aposentadoria especial? *</Label>
+                    <Select
+                      value={riskForm.aposentadoria_especial || ""}
+                      onValueChange={(v) => setRiskForm({ ...riskForm, aposentadoria_especial: v })}
+                    >
+                      <SelectTrigger className="mt-1 h-11"><SelectValue placeholder="Selecione a conclusão previdenciária" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SIM, CARACTERIZADO">SIM, CARACTERIZADO</SelectItem>
+                        <SelectItem value="NÃO CARACTERIZADO">NÃO CARACTERIZADO</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </section>
+
+              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4 px-8 pb-6">
                 <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
                 <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleSaveRisk()}>Salvar Risco</Button>
               </DialogFooter>
