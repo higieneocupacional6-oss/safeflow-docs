@@ -53,6 +53,61 @@ ENSEJADOR DE APOSENTADORIA ESPECIAL
 {{/riscos}}
 {{/setores}}`;
 
+const quimicoBlock = `{{#setores}}
+
+{{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RECONHECIMENTO DE RISCOS QUÍMICOS
+Funções do GES: {{funcoes_ges}}
+
+{{#riscos}}
+{{#is_quimico}}
+
+AGENTE QUÍMICO: {{agente_nome}}
+Código eSocial: {{codigo_esocial}} — {{descricao_esocial}}
+
+AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA | TEMPO DE COLETA
+{{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}} | {{tempo_coleta}} {{unidade_tempo_coleta}}
+
+COMPONENTES / RESULTADOS DAS AVALIAÇÕES
+DATA | COLABORADOR | FUNÇÃO | CBO | CÓD eSOCIAL | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{cbo_codigo}} | {{codigo_esocial}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+EQUIPAMENTOS UTILIZADOS NA AVALIAÇÃO
+EQUIPAMENTO | MODELO | SÉRIE | DATA AVALIAÇÃO | DATA CALIBRAÇÃO
+{{#equipamentos_avaliacao}}
+{{nome_equipamento}} | {{modelo_equipamento}} | {{serie_equipamento}} | {{data_avaliacao}} | {{data_calibracao}}
+{{/equipamentos_avaliacao}}
+
+MEDIDAS DE CONTROLE
+{{medidas_controle}}
+
+EPI | CA | ATENUAÇÃO | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_atenuacao}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_quimico}}
+{{/riscos}}
+{{/setores}}`;
+
 const rules = [
   "NÃO alterar {{}} das variáveis",
   "NÃO remover loops (# e /)",
