@@ -994,19 +994,18 @@ export default function LtcatWizard() {
       const sectorRisks = riscos.filter(r => r.setor_id === sId);
       const sector = setores.find(s => s.id === sId);
 
-      // 2. Group by Agent within Sector
       const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
 
       const riscosLoop = uniqueAgents.map(aId => {
         const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
         const first = agentEntries[0];
 
-        // 3. Evaluations (avaliacoes)
         const avaliacoes = agentEntries.flatMap(r => {
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
-            tipo: r.tipo_agente || ""
+            tipo: r.tipo_agente || "",
+            tipo_agente: r.tipo_agente || "",
           };
 
           const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
@@ -1021,6 +1020,7 @@ export default function LtcatWizard() {
               ...base,
               colaborador: res.colaborador || "",
               funcao: res.funcao_nome || "",
+              nome_funcao: res.funcao_nome || "",
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
@@ -1033,7 +1033,25 @@ export default function LtcatWizard() {
               parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
-              epc_nome
+              epc_nome,
+              // Vibração fields
+              equipamento_avaliado: res.equipamento_avaliado || "",
+              aren_resultado: res.aren_resultado || "",
+              aren_unidade: unidades.find(u => u.id === res.aren_unidade_id)?.simbolo || "",
+              aren_limite: res.aren_limite || "",
+              aren_limite_unidade: unidades.find(u => u.id === res.aren_limite_unidade_id)?.simbolo || "",
+              vdvr_resultado: res.vdvr_resultado || "",
+              vdvr_unidade: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
+              vdvr_limite: res.vdvr_limite || "",
+              vdvr_limite_unidade: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
+              // Calor fields
+              local_avaliado: res.local_avaliado || "",
+              atividade_avaliada: res.atividade_avaliada || "",
+              taxa_metabolica: res.taxa_metabolica || "",
+              resultado_calor: res.resultado_calor || res.resultado || "",
+              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_resultado_id))?.simbolo || "",
+              limite_tolerancia_calor: res.limite_tolerancia_calor || res.limite_tolerancia || "",
+              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || "",
             };
           };
 
@@ -1046,6 +1064,7 @@ export default function LtcatWizard() {
                 ...base,
                 colaborador: rc.colaborador || "",
                 funcao: rc.funcao_nome || "",
+                nome_funcao: rc.funcao_nome || "",
                 data_avaliacao: "",
                 dose_percentual: "",
                 resultado: "Amostra Comp.",
@@ -1058,19 +1077,24 @@ export default function LtcatWizard() {
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
                 epi_nome,
-                epc_nome
+                epc_nome,
+                equipamento_avaliado: "",
+                aren_resultado: "", aren_unidade: "", aren_limite: "", aren_limite_unidade: "",
+                vdvr_resultado: "", vdvr_unidade: "", vdvr_limite: "", vdvr_limite_unidade: "",
+                local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "",
+                resultado_calor: "", unidade_resultado_calor: "", limite_tolerancia_calor: "", unidade_limite_calor: "",
               };
             });
           }
           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(mapResult);
 
-          // Fallback to basic items
           return r.items.map(item => {
             const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, aId);
             return {
               ...base,
               colaborador: item.colaborador || "",
               funcao: item.funcao_nome || "",
+              nome_funcao: item.funcao_nome || "",
               data_avaliacao: "",
               dose_percentual: "",
               resultado: r.resultado || "",
@@ -1083,21 +1107,30 @@ export default function LtcatWizard() {
               parecer_tecnico: r.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: r.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
-              epc_nome
+              epc_nome,
+              equipamento_avaliado: "",
+              aren_resultado: "", aren_unidade: "", aren_limite: "", aren_limite_unidade: "",
+              vdvr_resultado: "", vdvr_unidade: "", vdvr_limite: "", vdvr_limite_unidade: "",
+              local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "",
+              resultado_calor: "", unidade_resultado_calor: "", limite_tolerancia_calor: "", unidade_limite_calor: "",
             };
           });
         });
 
-        // 4. EPIs and EPCs
+        // EPIs and EPCs
         const episIds = Array.from(new Set(agentEntries.map(r => r.epi_id).filter(Boolean)));
         const epis = episIds.map(id => {
           const e = epiEpcCatalog.find(item => item.id === id);
           const entryWithDetails = agentEntries.find(r => r.epi_id === id);
           return {
             nome: e?.nome || "EPI",
+            epi_nome: e?.nome || "EPI",
             ca: entryWithDetails?.epi_ca || "",
+            epi_ca: entryWithDetails?.epi_ca || "",
             atenuacao: entryWithDetails?.epi_atenuacao || "",
-            eficaz: entryWithDetails?.epi_eficaz || ""
+            epi_atenuacao: entryWithDetails?.epi_atenuacao || "",
+            eficaz: entryWithDetails?.epi_eficaz || "",
+            epi_eficaz: entryWithDetails?.epi_eficaz || "",
           };
         });
 
@@ -1107,7 +1140,9 @@ export default function LtcatWizard() {
           const entryWithDetails = agentEntries.find(r => r.epc_id === id);
           return {
             nome: e?.nome || "EPC",
-            eficaz: entryWithDetails?.epc_eficaz || ""
+            epc_nome: e?.nome || "EPC",
+            eficaz: entryWithDetails?.epc_eficaz || "",
+            epc_eficaz: entryWithDetails?.epc_eficaz || "",
           };
         });
 
@@ -1122,17 +1157,20 @@ export default function LtcatWizard() {
           danos_saude: first.danos_saude || "",
           medidas_controle: first.medidas_controle || "",
           tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
+          tecnica_amostragem: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
           nome_equipamento: equipamentos.find(e => e.id === first.equipamento_id)?.nome || "",
           serie_equipamento: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.serie_equipamento || "",
           data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
+          codigo_esocial: first.codigo_esocial || "",
+          descricao_esocial: first.descricao_esocial || "",
+          // Keep old names as aliases for backwards compat
           esocial_codigo: first.codigo_esocial || "",
           esocial_desc: first.descricao_esocial || "",
           data_avaliacao: first.data_avaliacao ? new Date(first.data_avaliacao).toLocaleDateString("pt-BR") : "",
           funcoes_ges: first.funcoes_ges || "",
           tempo_coleta: (first as any).tempo_coleta || "",
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
-          tecnica_amostragem: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           avaliacoes,
           epis,
           epcs,
@@ -1154,27 +1192,67 @@ export default function LtcatWizard() {
         nome_setor: sector?.nome_setor || "Setor",
         ghe_ges: sector?.ghe_ges || "",
         descricao_ambiente: sector?.descricao_ambiente || "",
+        local_trabalho: empresa?.local_trabalho || "",
+        jornada_trabalho: empresa?.jornada_trabalho || "",
         riscos: riscosLoop
       };
     });
 
-    return {
+    const templateData = {
+      // Empresa
       empresa: empresa?.razao_social || empresa?.nome_fantasia || "",
+      razao_social: empresa?.razao_social || "",
+      nome_fantasia: empresa?.nome_fantasia || "",
       cnpj: empresa?.cnpj || "",
-      endereco: empresa?.endereco || "",
+      cnae_principal: empresa?.cnae_principal || "",
       cnae: empresa?.cnae_principal || "",
+      grau_risco: empresa?.grau_risco || "",
+      endereco: empresa?.endereco || "",
+      numero_funcionarios_fem: empresa?.numero_funcionarios_fem?.toString() || "0",
+      numero_funcionarios_masc: empresa?.numero_funcionarios_masc?.toString() || "0",
+      total_funcionarios: empresa?.total_funcionarios?.toString() || "0",
+      jornada_trabalho: empresa?.jornada_trabalho || "",
+      local_trabalho: empresa?.local_trabalho || "",
+
+      // Contrato
+      numero_contrato: empresa?.numero_contrato || "",
+      cnpj_contratante: empresa?.cnpj_contratante || "",
+      nome_contratante: empresa?.nome_contratante || "",
+      vigencia_inicio: empresa?.vigencia_inicio ? new Date(empresa.vigencia_inicio).toLocaleDateString("pt-BR") : "",
+      vigencia_fim: empresa?.vigencia_fim ? new Date(empresa.vigencia_fim).toLocaleDateString("pt-BR") : "",
+      escopo_contrato: empresa?.escopo_contrato || "",
+
+      // Responsáveis (campos simples da empresa)
+      gestor_nome: empresa?.gestor_nome || "",
+      gestor_email: empresa?.gestor_email || "",
+      gestor_telefone: empresa?.gestor_telefone || "",
+      fiscal_nome: empresa?.fiscal_nome || "",
+      fiscal_email: empresa?.fiscal_email || "",
+      fiscal_telefone: empresa?.fiscal_telefone || "",
+      preposto_nome: empresa?.preposto_nome || "",
+      preposto_email: empresa?.preposto_email || "",
+      preposto_telefone: empresa?.preposto_telefone || "",
+
+      // Documento
       responsavel,
       crea,
       cargo,
       data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+
+      // Revisões
       revisoes: revisoes.map(r => ({
         revisao: r.revisao || "",
         data_revisao: r.data_revisao ? new Date(r.data_revisao).toLocaleDateString("pt-BR") : "",
         motivo: r.motivo || "",
         responsavel: r.responsavel || ""
       })),
-      setores: setoresData
+
+      // Setores com riscos
+      setores: setoresData,
     };
+
+    console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
+    return templateData;
   };
 
   const parseDocxErrors = (err: any): any[] => {
