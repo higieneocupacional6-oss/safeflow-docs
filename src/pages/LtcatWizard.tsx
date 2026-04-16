@@ -1571,7 +1571,12 @@ export default function LtcatWizard() {
       const doc = await loadTemplateDoc();
       const templateData = buildTemplateData();
 
-      try {
+      if ((templateData as any).__pareceres_incompletos) {
+        toast.error(`🚫 Parecer técnico não encontrado para: ${(templateData as any).__pareceres_incompletos}`);
+        return;
+      }
+
+
         doc.render(templateData);
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
