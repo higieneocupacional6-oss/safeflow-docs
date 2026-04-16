@@ -23,6 +23,8 @@ interface RiscoEntry {
   id: string;
   setor_id: string;
   setor_nome: string;
+  funcoes_ges?: string;
+  data_avaliacao?: string;
   items: {
     id: string;
     colaborador: string;
@@ -59,6 +61,7 @@ interface RiscoEntry {
   epi_eficaz?: string;
   epc_id?: string;
   epc_eficaz?: string;
+  equipamentos_avaliacao?: any[];
 }
 
 interface Revision {
