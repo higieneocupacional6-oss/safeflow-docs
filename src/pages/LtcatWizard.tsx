@@ -1011,6 +1011,29 @@ export default function LtcatWizard() {
         const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
         const first = agentEntries[0];
 
+        // Equipamentos da avaliação (mapeados uma vez por risco/agente)
+        const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
+          agente_nome: eq.agente_nome || r.agente_nome || "",
+          nome_equipamento: eq.nome_equipamento || "",
+          modelo_equipamento: eq.modelo_equipamento || "",
+          serie_equipamento: eq.serie_equipamento || "",
+          data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
+          data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+        })))(first);
+
+        // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
+        const enrichWithFuncao = (av: any, funcaoId: string) => {
+          const f = funcoes.find((x: any) => x.id === funcaoId);
+          return {
+            ...av,
+            cbo_codigo: f?.cbo_codigo || "",
+            cbo_descricao: f?.cbo_descricao || "",
+            descricao_atividades: f?.descricao_atividades || "",
+            descricao_atividade: f?.descricao_atividades || "", // alias
+            equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+          };
+        };
+
         const avaliacoes = agentEntries.flatMap(r => {
           const base = {
             setor: sector?.nome_setor || "",
@@ -1027,11 +1050,17 @@ export default function LtcatWizard() {
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
             const situacao = hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "";
+            const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
               colaborador: res.colaborador || "",
-              funcao: res.funcao_nome || "",
-              nome_funcao: res.funcao_nome || "",
+              funcao: res.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: res.funcao_nome || f?.nome_funcao || "",
+              cbo_codigo: f?.cbo_codigo || "",
+              cbo_descricao: f?.cbo_descricao || "",
+              descricao_atividades: f?.descricao_atividades || "",
+              descricao_atividade: f?.descricao_atividades || "", // alias para template
+              equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
