@@ -244,6 +244,8 @@ export default function LtcatWizard() {
     funcoes_ges: "",
     data_avaliacao: "",
     equipamentos_avaliacao: [] as any[],
+    tempo_coleta: "",
+    unidade_tempo_coleta: "",
   });
 
   const { data: epiEpcCatalog = [] } = useQuery({
