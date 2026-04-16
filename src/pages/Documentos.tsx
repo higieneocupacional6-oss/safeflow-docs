@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Download, Trash2 } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Download, Trash2, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -73,6 +73,12 @@ export default function Documentos() {
     toast.success("Documento removido");
   };
 
+  const handleEdit = (doc: any) => {
+    if (doc.tipo === "LTCAT") {
+      navigate(`/documentos/ltcat/editar/${doc.id}`);
+    }
+  };
+
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR");
 
   return (
@@ -120,6 +126,15 @@ export default function Documentos() {
                     <st.icon className="w-3 h-3" />
                     {st.label}
                   </Badge>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => handleEdit(doc)}
+                    title="Editar documento"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
                   {doc.file_path && (
                     <Button
                       variant="ghost"

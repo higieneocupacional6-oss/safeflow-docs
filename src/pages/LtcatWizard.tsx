@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -120,7 +120,10 @@ const isAgentCalor = (agentNome: string) => {
 
 export default function LtcatWizard() {
   const navigate = useNavigate();
+  const { documentoId } = useParams<{ documentoId?: string }>();
+  const isEditMode = !!documentoId;
   const [step, setStep] = useState(0);
+  const [docLoaded, setDocLoaded] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [tempResultados, setTempResultados] = useState<any[]>([]);
@@ -361,6 +364,75 @@ export default function LtcatWizard() {
       return data;
     },
   });
+
+  // Load existing document data in edit mode
+  useEffect(() => {
+    if (!isEditMode || docLoaded) return;
+    const loadDocument = async () => {
+      try {
+        const { data: doc } = await supabase.from("documentos").select("*").eq("id", documentoId).single();
+        if (!doc) return;
+        if (doc.empresa_id) setEmpresaId(doc.empresa_id);
+        // Load evaluations for this empresa
+        if (doc.empresa_id) {
+          const { data: avaliacoes } = await supabase
+            .from("ltcat_avaliacoes")
+            .select("*")
+            .eq("empresa_id", doc.empresa_id);
+          if (avaliacoes && avaliacoes.length > 0) {
+            const loadedRiscos: RiscoEntry[] = [];
+            const grouped: Record<string, any[]> = {};
+            avaliacoes.forEach((av: any) => {
+              const key = `${av.setor_id}_${av.agente_id}`;
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(av);
+            });
+            Object.values(grouped).forEach((group) => {
+              const first = group[0];
+              loadedRiscos.push({
+                id: first.id,
+                setor_id: first.setor_id || "",
+                setor_nome: "",
+                funcoes_ges: first.funcoes_ges || "",
+                data_avaliacao: first.data_avaliacao || "",
+                items: group.map(g => ({
+                  id: g.id,
+                  colaborador: g.colaborador || "",
+                  funcao_id: g.funcao_id || "",
+                  funcao_nome: "",
+                })),
+                tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
+                tipo_agente: first.tipo_agente || "",
+                agente_id: first.agente_id || "",
+                agente_nome: "",
+                codigo_esocial: first.codigo_esocial || "",
+                descricao_esocial: first.descricao_esocial || "",
+                propagacao: first.propagacao || "",
+                tipo_exposicao: first.tipo_exposicao || "",
+                fonte_geradora: first.fonte_geradora || "",
+                danos_saude: first.danos_saude || "",
+                medidas_controle: first.medidas_controle || "",
+                descricao_tecnica: "",
+                tecnica_id: first.tecnica_id || "",
+                equipamento_id: first.equipamento_id || "",
+                resultado: first.resultado?.toString() || "",
+                unidade_resultado_id: first.unidade_resultado_id || "",
+                limite_tolerancia: first.limite_tolerancia?.toString() || "",
+                unidade_limite_id: first.unidade_limite_id || "",
+                parecer_tecnico: first.parecer_tecnico || "",
+                aposentadoria_especial: first.aposentadoria_especial || "",
+              });
+            });
+            setRiscos(loadedRiscos);
+          }
+        }
+        setDocLoaded(true);
+      } catch (err) {
+        console.error("Error loading document:", err);
+      }
+    };
+    loadDocument();
+  }, [isEditMode, documentoId, docLoaded]);
 
   const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
 

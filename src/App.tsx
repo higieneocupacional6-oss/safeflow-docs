@@ -31,6 +31,7 @@ const App = () => (
           <Route path="/setores-funcoes" element={<AppLayout><SetoresFuncoes /></AppLayout>} />
           <Route path="/documentos" element={<AppLayout><Documentos /></AppLayout>} />
           <Route path="/documentos/ltcat/novo" element={<AppLayout><LtcatWizard /></AppLayout>} />
+          <Route path="/documentos/ltcat/editar/:documentoId" element={<AppLayout><LtcatWizard /></AppLayout>} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </BrowserRouter>

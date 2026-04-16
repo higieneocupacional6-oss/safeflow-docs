@@ -65,6 +65,44 @@ export type Database = {
           },
         ]
       }
+      empresa_contatos: {
+        Row: {
+          created_at: string
+          email: string | null
+          empresa_id: string
+          id: string
+          nome: string
+          telefone: string | null
+          tipo: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          empresa_id: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          tipo: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          empresa_id?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          tipo?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "empresa_contatos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           cnae_principal: string | null
