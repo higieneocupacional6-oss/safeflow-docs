@@ -167,6 +167,56 @@ export type Database = {
           },
         ]
       }
+      equipamentos_avaliacao: {
+        Row: {
+          agente_nome: string | null
+          avaliacao_id: string | null
+          created_at: string
+          data_avaliacao: string | null
+          data_calibracao: string | null
+          empresa_id: string | null
+          id: string
+          modelo_equipamento: string | null
+          nome_equipamento: string | null
+          serie_equipamento: string | null
+          setor_id: string | null
+        }
+        Insert: {
+          agente_nome?: string | null
+          avaliacao_id?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          data_calibracao?: string | null
+          empresa_id?: string | null
+          id?: string
+          modelo_equipamento?: string | null
+          nome_equipamento?: string | null
+          serie_equipamento?: string | null
+          setor_id?: string | null
+        }
+        Update: {
+          agente_nome?: string | null
+          avaliacao_id?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          data_calibracao?: string | null
+          empresa_id?: string | null
+          id?: string
+          modelo_equipamento?: string | null
+          nome_equipamento?: string | null
+          serie_equipamento?: string | null
+          setor_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipamentos_avaliacao_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipamentos_ho: {
         Row: {
           certificado: string | null
@@ -241,11 +291,13 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           danos_saude: string | null
+          data_avaliacao: string | null
           descricao_esocial: string | null
           empresa_id: string | null
           equipamento_id: string | null
           fonte_geradora: string | null
           funcao_id: string | null
+          funcoes_ges: string | null
           id: string
           limite_tolerancia: number | null
           medidas_controle: string | null
@@ -268,11 +320,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           danos_saude?: string | null
+          data_avaliacao?: string | null
           descricao_esocial?: string | null
           empresa_id?: string | null
           equipamento_id?: string | null
           fonte_geradora?: string | null
           funcao_id?: string | null
+          funcoes_ges?: string | null
           id?: string
           limite_tolerancia?: number | null
           medidas_controle?: string | null
@@ -295,11 +349,13 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           danos_saude?: string | null
+          data_avaliacao?: string | null
           descricao_esocial?: string | null
           empresa_id?: string | null
           equipamento_id?: string | null
           fonte_geradora?: string | null
           funcao_id?: string | null
+          funcoes_ges?: string | null
           id?: string
           limite_tolerancia?: number | null
           medidas_controle?: string | null

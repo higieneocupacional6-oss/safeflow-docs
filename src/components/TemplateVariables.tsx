@@ -92,6 +92,20 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis Gerais de Avaliação",
+    vars: [
+      "{{data_avaliacao}}", "{{funcoes_ges}}",
+    ],
+  },
+  {
+    title: "Loop de Equipamentos da Avaliação",
+    vars: [
+      "{{#equipamentos_avaliacao}}", "{{agente_nome}}", "{{nome_equipamento}}",
+      "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_avaliacao}}",
+      "{{data_calibracao}}", "{{/equipamentos_avaliacao}}",
+    ],
+  },
+  {
     title: "Variáveis de EPI (LTCAT)",
     vars: [
       "{{epi_nome}}", "{{epi_ca}}", "{{epi_atenuacao}}", "{{epi_eficaz}}",
