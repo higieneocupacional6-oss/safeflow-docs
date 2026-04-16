@@ -1916,6 +1916,35 @@ export default function LtcatWizard() {
                             </Select>
                           </div>
                         </div>
+                        {/* Tempo de Coleta - only for Físico ou Químico */}
+                        {(() => {
+                          const ta = (riskForm.tipo_agente || "").toLowerCase();
+                          const showTempo = (ta.includes("físi") || ta.includes("fisi") || ta.includes("quími") || ta.includes("quimi"));
+                          if (!showTempo) return null;
+                          return (
+                            <div className="grid grid-cols-2 gap-4 mt-4 animate-in fade-in slide-in-from-top-1">
+                              <div>
+                                <Label>Tempo de Coleta</Label>
+                                <Input
+                                  className="mt-1"
+                                  placeholder="Ex: 480"
+                                  value={riskForm.tempo_coleta}
+                                  onChange={(e) => setRiskForm({ ...riskForm, tempo_coleta: e.target.value })}
+                                />
+                              </div>
+                              <div>
+                                <Label>Unidade do Tempo</Label>
+                                <Select value={riskForm.unidade_tempo_coleta} onValueChange={(v) => setRiskForm({ ...riskForm, unidade_tempo_coleta: v })}>
+                                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="Min">Min</SelectItem>
+                                    <SelectItem value="Horas">Horas</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       )}
                     </section>
                   );
