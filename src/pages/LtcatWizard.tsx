@@ -661,6 +661,9 @@ export default function LtcatWizard() {
       epi_eficaz: epiEpcRiskForm.epi_eficaz,
       epc_id: epiEpcRiskForm.epc_id,
       epc_eficaz: epiEpcRiskForm.epc_eficaz,
+      funcoes_ges: riskForm.funcoes_ges,
+      data_avaliacao: riskForm.data_avaliacao,
+      equipamentos_avaliacao: riskForm.equipamentos_avaliacao,
     };
 
     try {
