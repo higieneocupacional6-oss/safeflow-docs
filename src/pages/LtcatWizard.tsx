@@ -120,7 +120,10 @@ const isAgentCalor = (agentNome: string) => {
 
 export default function LtcatWizard() {
   const navigate = useNavigate();
+  const { documentoId } = useParams<{ documentoId?: string }>();
+  const isEditMode = !!documentoId;
   const [step, setStep] = useState(0);
+  const [docLoaded, setDocLoaded] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
   const [tempResultados, setTempResultados] = useState<any[]>([]);
