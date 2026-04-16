@@ -1112,10 +1112,10 @@ export default function LtcatWizard() {
         let tipo = "Desconhecido";
         let correcao = "";
 
-        if (id === "unopened_tag") {
+        if (id === "unopened_tag" || id === "unopened_loop") {
           tipo = "Loop fechado sem abertura";
           correcao = `Adicione {{#${xtag}}} antes de {{/${xtag}}} no template`;
-        } else if (id === "unclosed_tag") {
+        } else if (id === "unclosed_tag" || id === "unclosed_loop") {
           tipo = "Loop aberto sem fechamento";
           correcao = `Adicione {{/${xtag}}} após {{#${xtag}}} no template`;
         } else if (id === "closing_tag_does_not_match_opening_tag") {
@@ -1159,11 +1159,20 @@ export default function LtcatWizard() {
       const arrayBuffer = await fileData.arrayBuffer();
       const zip = new PizZip(arrayBuffer);
 
-      const doc = new Docxtemplater(zip, {
-        paragraphLoop: true,
-        linebreaks: true,
-        delimiters: { start: "{{", end: "}}" },
-      });
+      let doc: Docxtemplater;
+      try {
+        doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          delimiters: { start: "{{", end: "}}" },
+        });
+      } catch (compileErr: any) {
+        const errors = parseDocxErrors(compileErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) de estrutura no template`);
+        return;
+      }
 
       const templateData = buildTemplateData();
 
@@ -1202,11 +1211,21 @@ export default function LtcatWizard() {
 
       const arrayBuffer = await fileData.arrayBuffer();
       const zip = new PizZip(arrayBuffer);
-      const doc = new Docxtemplater(zip, {
-        paragraphLoop: true,
-        linebreaks: true,
-        delimiters: { start: "{{", end: "}}" },
-      });
+
+      let doc: Docxtemplater;
+      try {
+        doc = new Docxtemplater(zip, {
+          paragraphLoop: true,
+          linebreaks: true,
+          delimiters: { start: "{{", end: "}}" },
+        });
+      } catch (compileErr: any) {
+        const errors = parseDocxErrors(compileErr);
+        setTemplateErrors(errors);
+        setTemplateErrorsOpen(true);
+        toast.error(`${errors.length} erro(s) de estrutura no template. Corrija o .docx.`);
+        return;
+      }
 
       const templateData = buildTemplateData();
 
@@ -1225,9 +1244,29 @@ export default function LtcatWizard() {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
       const year = new Date().getFullYear();
-      saveAs(output, `LTCAT_${year}.docx`);
-      toast.success("Documento gerado com sucesso!");
+      const fileName = `LTCAT_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
+
+      // Upload to storage
+      const storagePath = `documentos/${Date.now()}_${fileName}`;
+      const { error: uploadErr } = await supabase.storage
+        .from("templates")
+        .upload(storagePath, output);
+
+      // Save record to documentos table
+      await supabase.from("documentos").insert({
+        tipo: "LTCAT",
+        empresa_id: empresaId || null,
+        empresa_nome: empresaNome,
+        template_id: selectedTemplate,
+        file_path: storagePath,
+        status: uploadErr ? "erro" : "concluido",
+      });
+
+      saveAs(output, fileName);
+      toast.success("Documento gerado e salvo com sucesso!");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));

@@ -1,10 +1,13 @@
 import { useState } from "react";
-import { Plus, FileText, Clock, CheckCircle2, AlertCircle } from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Download, Trash2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
@@ -12,12 +15,6 @@ const docTypes = [
   { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
-];
-
-const mockDocs = [
-  { id: "1", tipo: "LTCAT", empresa: "Alpha Construções", data: "10/04/2025", status: "concluido" },
-  { id: "2", tipo: "PGR", empresa: "Beta Industrial", data: "08/04/2025", status: "rascunho" },
-  { id: "3", tipo: "LTCAT", empresa: "Beta Industrial", data: "01/04/2025", status: "concluido" },
 ];
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
@@ -29,6 +26,19 @@ const statusConfig: Record<string, { label: string; icon: any; className: string
 export default function Documentos() {
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+
+  const { data: documentos = [], isLoading } = useQuery({
+    queryKey: ["documentos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("documentos")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const handleSelectType = (typeId: string) => {
     setOpen(false);
@@ -36,6 +46,34 @@ export default function Documentos() {
       navigate("/documentos/ltcat/novo");
     }
   };
+
+  const handleDownload = async (filePath: string, tipo: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("templates")
+        .download(filePath);
+      if (error) throw error;
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${tipo}_${Date.now()}.docx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Erro ao baixar documento");
+    }
+  };
+
+  const handleDelete = async (id: string, filePath: string | null) => {
+    if (filePath) {
+      await supabase.storage.from("templates").remove([filePath]);
+    }
+    await supabase.from("documentos").delete().eq("id", id);
+    queryClient.invalidateQueries({ queryKey: ["documentos"] });
+    toast.success("Documento removido");
+  };
+
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR");
 
   return (
     <div>
@@ -49,29 +87,63 @@ export default function Documentos() {
         }
       />
 
-      <div className="space-y-3">
-        {mockDocs.map((doc) => {
-          const st = statusConfig[doc.status];
-          return (
-            <div key={doc.id} className="glass-card rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-shadow cursor-pointer">
-              <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                <FileText className="w-5 h-5 text-muted-foreground" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="font-mono text-xs">{doc.tipo}</Badge>
-                  <span className="font-medium text-foreground">{doc.empresa}</span>
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : documentos.length === 0 ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-muted-foreground">Nenhum documento gerado ainda</p>
+          <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
+            <Plus className="w-4 h-4 mr-2" />Criar Documento
+          </Button>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {documentos.map((doc: any) => {
+            const st = statusConfig[doc.status] || statusConfig.rascunho;
+            return (
+              <div key={doc.id} className="glass-card rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-shadow group">
+                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                  <FileText className="w-5 h-5 text-muted-foreground" />
                 </div>
-                <p className="text-xs text-muted-foreground mt-0.5">{doc.data}</p>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="font-mono text-xs">{doc.tipo}</Badge>
+                    <span className="font-medium text-foreground">{doc.empresa_nome}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.created_at)}</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Badge className={`${st.className} gap-1`}>
+                    <st.icon className="w-3 h-3" />
+                    {st.label}
+                  </Badge>
+                  {doc.file_path && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => handleDownload(doc.file_path, doc.tipo)}
+                    >
+                      <Download className="w-4 h-4" />
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDelete(doc.id, doc.file_path)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <Badge className={`${st.className} gap-1`}>
-                <st.icon className="w-3 h-3" />
-                {st.label}
-              </Badge>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
 
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">

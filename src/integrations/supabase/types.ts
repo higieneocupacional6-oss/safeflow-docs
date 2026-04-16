@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      documentos: {
+        Row: {
+          created_at: string
+          empresa_id: string | null
+          empresa_nome: string
+          file_path: string | null
+          id: string
+          status: string
+          template_id: string | null
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          empresa_id?: string | null
+          empresa_nome?: string
+          file_path?: string | null
+          id?: string
+          status?: string
+          template_id?: string | null
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          empresa_id?: string | null
+          empresa_nome?: string
+          file_path?: string | null
+          id?: string
+          status?: string
+          template_id?: string | null
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documentos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "documentos_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       empresas: {
         Row: {
           cnae_principal: string | null
