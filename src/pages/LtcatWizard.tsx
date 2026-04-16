@@ -427,6 +427,9 @@ export default function LtcatWizard() {
         resultados_componentes: [],
         resultados_vibracao: [],
         resultados_calor: [],
+        funcoes_ges: "",
+        data_avaliacao: "",
+        equipamentos_avaliacao: [],
       });
       setEpiEpcRiskForm({
         epi_id: "",
