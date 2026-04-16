@@ -1244,7 +1244,8 @@ export default function LtcatWizard() {
         mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
       });
 
-      const empresaNome = empresa?.razao_social || empresa?.nome_fantasia || "Empresa";
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
       const year = new Date().getFullYear();
       const fileName = `LTCAT_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
 
@@ -1257,7 +1258,7 @@ export default function LtcatWizard() {
       // Save record to documentos table
       await supabase.from("documentos").insert({
         tipo: "LTCAT",
-        empresa_id: selectedEmpresa || null,
+        empresa_id: empresaId || null,
         empresa_nome: empresaNome,
         template_id: selectedTemplate,
         file_path: storagePath,
