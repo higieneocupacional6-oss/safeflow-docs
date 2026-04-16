@@ -1773,8 +1773,16 @@ export default function LtcatWizard() {
                                         <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
                                       ))}
                                     </SelectContent>
-                                  </Select>
-                                </div>
+                                   </Select>
+                                 </div>
+                                 <div className="flex-[0.8] space-y-1.5">
+                                   <Input
+                                     type="date"
+                                     className="h-11 border-muted-foreground/20 focus-visible:ring-accent"
+                                     value={riskForm.data_avaliacao}
+                                     onChange={(e) => setRiskForm({ ...riskForm, data_avaliacao: e.target.value })}
+                                   />
+                                 </div>
                                 {index > 0 && (
                                   <Button
                                     variant="ghost"
