@@ -386,6 +386,9 @@ export default function LtcatWizard() {
         resultados_componentes: editRisk.resultados_componentes || [],
         resultados_vibracao: editRisk.resultados_vibracao || [],
         resultados_calor: editRisk.resultados_calor || [],
+        funcoes_ges: editRisk.funcoes_ges || "",
+        data_avaliacao: editRisk.data_avaliacao || "",
+        equipamentos_avaliacao: editRisk.equipamentos_avaliacao || [],
       });
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
