@@ -1011,6 +1011,29 @@ export default function LtcatWizard() {
         const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
         const first = agentEntries[0];
 
+        // Equipamentos da avaliação (mapeados uma vez por risco/agente)
+        const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
+          agente_nome: eq.agente_nome || r.agente_nome || "",
+          nome_equipamento: eq.nome_equipamento || "",
+          modelo_equipamento: eq.modelo_equipamento || "",
+          serie_equipamento: eq.serie_equipamento || "",
+          data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
+          data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+        })))(first);
+
+        // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
+        const enrichWithFuncao = (av: any, funcaoId: string) => {
+          const f = funcoes.find((x: any) => x.id === funcaoId);
+          return {
+            ...av,
+            cbo_codigo: f?.cbo_codigo || "",
+            cbo_descricao: f?.cbo_descricao || "",
+            descricao_atividades: f?.descricao_atividades || "",
+            descricao_atividade: f?.descricao_atividades || "", // alias
+            equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+          };
+        };
+
         const avaliacoes = agentEntries.flatMap(r => {
           const base = {
             setor: sector?.nome_setor || "",
@@ -1027,11 +1050,17 @@ export default function LtcatWizard() {
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
             const situacao = hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "";
+            const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
               colaborador: res.colaborador || "",
-              funcao: res.funcao_nome || "",
-              nome_funcao: res.funcao_nome || "",
+              funcao: res.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: res.funcao_nome || f?.nome_funcao || "",
+              cbo_codigo: f?.cbo_codigo || "",
+              cbo_descricao: f?.cbo_descricao || "",
+              descricao_atividades: f?.descricao_atividades || "",
+              descricao_atividade: f?.descricao_atividades || "", // alias para template
+              equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
@@ -1071,11 +1100,17 @@ export default function LtcatWizard() {
           if (r.resultados_componentes?.length) {
             return r.resultados_componentes.map(rc => {
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
+              const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               return {
                 ...base,
                 colaborador: rc.colaborador || "",
-                funcao: rc.funcao_nome || "",
-                nome_funcao: rc.funcao_nome || "",
+                funcao: rc.funcao_nome || f?.nome_funcao || "",
+                nome_funcao: rc.funcao_nome || f?.nome_funcao || "",
+                cbo_codigo: f?.cbo_codigo || "",
+                cbo_descricao: f?.cbo_descricao || "",
+                descricao_atividades: f?.descricao_atividades || "",
+                descricao_atividade: f?.descricao_atividades || "",
+                equipamentos_avaliacao: equipamentosAvaliacaoLoop,
                 data_avaliacao: "",
                 dose_percentual: "",
                 resultado: "Amostra Comp.",
@@ -1101,11 +1136,17 @@ export default function LtcatWizard() {
 
           return r.items.map(item => {
             const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, aId);
+            const f = funcoes.find((x: any) => x.id === item.funcao_id);
             return {
               ...base,
               colaborador: item.colaborador || "",
-              funcao: item.funcao_nome || "",
-              nome_funcao: item.funcao_nome || "",
+              funcao: item.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: item.funcao_nome || f?.nome_funcao || "",
+              cbo_codigo: f?.cbo_codigo || "",
+              cbo_descricao: f?.cbo_descricao || "",
+              descricao_atividades: f?.descricao_atividades || "",
+              descricao_atividade: f?.descricao_atividades || "",
+              equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
               dose_percentual: "",
               resultado: r.resultado || "",
@@ -1340,9 +1381,24 @@ export default function LtcatWizard() {
         } else if (id === "closing_tag_does_not_match_opening_tag") {
           tipo = "Tag de fechamento não corresponde à abertura";
           correcao = `Verifique se {{#tag}} e {{/tag}} usam o mesmo nome`;
-        } else if (id === "undefined_tag") {
+        } else if (id === "undefined_tag" || id === "scopeparser_execution_failed") {
           tipo = "Variável inexistente nos dados";
-          correcao = `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
+          // Sugestão "Você quis dizer..."
+          const knownVars = [
+            "descricao_atividades", "cbo_codigo", "cbo_descricao", "nome_funcao", "funcao",
+            "agente_nome", "parecer_tecnico", "aposentadoria_especial",
+            "nome_equipamento", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
+            "razao_social", "cnpj", "cnae_principal", "grau_risco", "endereco",
+            "setor", "ghe_ges", "descricao_ambiente", "local_trabalho", "jornada_trabalho",
+            "codigo_esocial", "descricao_esocial", "fonte_geradora", "danos_saude", "medidas_controle",
+            "tipo_exposicao", "propagacao", "tipo_avaliacao", "tipo_agente",
+            "resultado", "unidade_resultado", "limite_tolerancia", "unidade_limite",
+            "epi_nome", "epi_ca", "epi_atenuacao", "epi_eficaz", "epc_nome", "epc_eficaz",
+          ];
+          const suggestion = knownVars.find(k => k.toLowerCase().startsWith(xtag.toLowerCase().slice(0, 5)) || k.includes(xtag.replace(/s$/, "")));
+          correcao = suggestion
+            ? `A variável {{${xtag}}} não existe. Você quis dizer {{${suggestion}}}?`
+            : `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
         } else if (id === "multi_error") {
           tipo = "Múltiplos erros";
         } else if (id === "raw_xml_tag_not_in_paragraph") {
