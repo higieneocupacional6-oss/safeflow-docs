@@ -128,14 +128,54 @@ const displayRules = [
 export function LtcatTemplateHelper() {
   const [open, setOpen] = useState(false);
   const [showRuido, setShowRuido] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [showQuimico, setShowQuimico] = useState(false);
+  const [showQuimicoVars, setShowQuimicoVars] = useState(false);
+  const [copiedKey, setCopiedKey] = useState<string>("");
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(ruidoBlock);
-    setCopied(true);
+  const handleCopyBlock = (key: string, content: string) => {
+    navigator.clipboard.writeText(content);
+    setCopiedKey(key);
     toast.success("Bloco copiado! Cole no seu template Word.");
-    setTimeout(() => setCopied(false), 3000);
+    setTimeout(() => setCopiedKey(""), 3000);
   };
+
+  const handleCopyVar = (v: string) => {
+    navigator.clipboard.writeText(v);
+    setCopiedKey(v);
+    toast.success(`Copiado: ${v}`);
+    setTimeout(() => setCopiedKey(""), 2000);
+  };
+
+  const quimicoVarGroups = [
+    {
+      title: "Modal de Riscos (Químico)",
+      vars: ["{{agente_nome}}", "{{tipo_agente}}", "{{is_quimico}}", "{{codigo_esocial}}", "{{descricao_esocial}}", "{{fonte_geradora}}", "{{propagacao}}", "{{tipo_exposicao}}", "{{danos_saude}}", "{{medidas_controle}}"],
+    },
+    {
+      title: "Componentes Químicos",
+      vars: ["{{#avaliacoes}}", "{{agente_nome}}", "{{codigo_esocial}}", "{{descricao_esocial}}", "{{tipo_agente}}", "{{/avaliacoes}}"],
+    },
+    {
+      title: "Resultados (Químico)",
+      vars: ["{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}", "{{situacao}}", "{{cod_gfip}}", "{{dose_percentual}}"],
+    },
+    {
+      title: "Avaliações Químicas",
+      vars: ["{{tecnica_amostragem}}", "{{tempo_coleta}}", "{{unidade_tempo_coleta}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_calibracao}}"],
+    },
+    {
+      title: "Equipamentos da Avaliação (Químico)",
+      vars: ["{{#equipamentos_avaliacao}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_avaliacao}}", "{{data_calibracao}}", "{{/equipamentos_avaliacao}}"],
+    },
+    {
+      title: "Parecer & Conclusão",
+      vars: ["{{parecer_tecnico}}", "{{aposentadoria_especial}}"],
+    },
+    {
+      title: "Flags Condicionais (Tipo de Agente)",
+      vars: ["{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}", "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}"],
+    },
+  ];
 
   return (
     <>
@@ -156,13 +196,13 @@ export function LtcatTemplateHelper() {
           </div>
 
           {/* Tabela Ruído */}
-          <div className="border border-border rounded-lg overflow-hidden">
+          <div className="border border-border rounded-lg overflow-hidden mb-3">
             <button
               onClick={() => setShowRuido(!showRuido)}
               className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
             >
               <div className="flex items-center gap-2">
-                <Badge className="bg-emerald-600 text-white">Físico</Badge>
+                <Badge className="bg-success text-success-foreground">Físico</Badge>
                 <span className="font-heading font-semibold">TABELA RUÍDO</span>
               </div>
               {showRuido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
@@ -173,24 +213,20 @@ export function LtcatTemplateHelper() {
                 <p className="text-sm text-muted-foreground italic">
                   Essa tabela será repetida automaticamente para cada <strong>SETOR</strong> e para cada <strong>AGENTE</strong> (Ruído).
                 </p>
-
-                {/* Code block */}
                 <div className="relative">
                   <Button
                     size="sm"
                     variant="outline"
                     className="absolute top-2 right-2 z-10 gap-1.5"
-                    onClick={handleCopy}
+                    onClick={() => handleCopyBlock("ruido", ruidoBlock)}
                   >
-                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
-                    {copied ? "Copiado!" : "Copiar Bloco"}
+                    {copiedKey === "ruido" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === "ruido" ? "Copiado!" : "Copiar Bloco"}
                   </Button>
                   <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto">
                     {ruidoBlock}
                   </pre>
                 </div>
-
-                {/* Display rules */}
                 <div>
                   <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Regras de exibição no Word</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -202,6 +238,86 @@ export function LtcatTemplateHelper() {
                     ))}
                   </div>
                 </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabela Químico */}
+          <div className="border border-border rounded-lg overflow-hidden mb-3">
+            <button
+              onClick={() => setShowQuimico(!showQuimico)}
+              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Badge className="bg-destructive text-destructive-foreground">Químico</Badge>
+                <span className="font-heading font-semibold">TABELA QUÍMICO</span>
+              </div>
+              {showQuimico ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showQuimico && (
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-muted-foreground italic">
+                  Bloco condicional via <code className="bg-muted px-1 rounded">{"{{#is_quimico}}"}</code> — só aparece quando o risco for do tipo <strong>QUÍMICO</strong>.
+                </p>
+                <div className="relative">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2 z-10 gap-1.5"
+                    onClick={() => handleCopyBlock("quimico", quimicoBlock)}
+                  >
+                    {copiedKey === "quimico" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === "quimico" ? "Copiado!" : "Copiar Bloco"}
+                  </Button>
+                  <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto">
+                    {quimicoBlock}
+                  </pre>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Variáveis Químicas individuais */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setShowQuimicoVars(!showQuimicoVars)}
+              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="border-destructive/40 text-destructive">Químico</Badge>
+                <span className="font-heading font-semibold">VARIÁVEIS — AGENTE QUÍMICO</span>
+              </div>
+              {showQuimicoVars ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showQuimicoVars && (
+              <div className="p-4 space-y-4">
+                <p className="text-xs text-muted-foreground italic">
+                  Variáveis dos modais de Riscos, Resultados, Avaliações e Componentes — clique para copiar.
+                </p>
+                {quimicoVarGroups.map((group) => (
+                  <div key={group.title}>
+                    <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{group.title}</h4>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.vars.map((v) => (
+                        <Badge
+                          key={v + group.title}
+                          variant="outline"
+                          className="font-mono text-xs py-1 px-2 cursor-pointer hover:bg-accent/10 transition-colors"
+                          onClick={() => handleCopyVar(v)}
+                        >
+                          {v}
+                          {copiedKey === v ? (
+                            <Check className="w-3 h-3 ml-1 text-success" />
+                          ) : (
+                            <Copy className="w-3 h-3 ml-1 opacity-40" />
+                          )}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>
