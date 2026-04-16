@@ -1,0 +1,170 @@
+import { useState } from "react";
+import { BookOpen, Copy, Check, ChevronDown, ChevronUp, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import { toast } from "sonner";
+
+const ruidoBlock = `{{#setores}}
+
+{{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RECONHECIMENTO DE RISCOS
+Funções do GES: {{funcoes_ges}} | Função Avaliada: {{funcao}} | Atividade: {{descricao_atividade}}
+
+{{#riscos}}
+{{#is_ruido}}
+
+{{agente_nome}}
+
+AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA | TEMPO DE COLETA
+{{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}} | {{tempo_coleta}} {{unidade_tempo_coleta}}
+
+RESULTADOS DAS AVALIAÇÕES
+DATA | COLABORADOR | FUNÇÃO | CÓD eSOCIAL | DOSE (%) | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{codigo_esocial}} | {{dose_percentual}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+MEDIDAS DE CONTROLE
+EPI | CA | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_ruido}}
+{{/riscos}}
+{{/setores}}`;
+
+const rules = [
+  "NÃO alterar {{}} das variáveis",
+  "NÃO remover loops (# e /)",
+  "Cada {{#setores}} deve fechar com {{/setores}}",
+  "Cada {{#riscos}} deve fechar com {{/riscos}}",
+  "Cada {{#avaliacoes}} deve fechar com {{/avaliacoes}}",
+];
+
+const displayRules = [
+  { label: "SETOR", desc: "Aparece a cada novo setor — formatar MAIÚSCULO + NEGRITO" },
+  { label: "AGENTE FÍSICO", desc: "Fundo VERDE no Word" },
+  { label: "AGENTE QUÍMICO", desc: "Fundo VERMELHO + texto branco no Word" },
+  { label: "RESULTADOS", desc: "Repete para cada colaborador avaliado" },
+  { label: "Situação Segura", desc: "Cor verde (#00ff5f)" },
+  { label: "Situação Nocivo", desc: "Cor vermelho (#ff3b1f)" },
+];
+
+export function LtcatTemplateHelper() {
+  const [open, setOpen] = useState(false);
+  const [showRuido, setShowRuido] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(ruidoBlock);
+    setCopied(true);
+    toast.success("Bloco copiado! Cole no seu template Word.");
+    setTimeout(() => setCopied(false), 3000);
+  };
+
+  return (
+    <>
+      <Button variant="outline" size="sm" onClick={() => setOpen(true)} className="gap-2">
+        <BookOpen className="w-4 h-4" />
+        Variáveis LTCAT
+      </Button>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Variáveis LTCAT — Assistente de Template</DialogTitle>
+          </DialogHeader>
+
+          <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
+            <BookOpen className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+            Copie e cole as estruturas abaixo no seu template Word para montar automaticamente a tabela do LTCAT.
+          </div>
+
+          {/* Tabela Ruído */}
+          <div className="border border-border rounded-lg overflow-hidden">
+            <button
+              onClick={() => setShowRuido(!showRuido)}
+              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Badge className="bg-emerald-600 text-white">Físico</Badge>
+                <span className="font-heading font-semibold">TABELA RUÍDO</span>
+              </div>
+              {showRuido ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showRuido && (
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-muted-foreground italic">
+                  Essa tabela será repetida automaticamente para cada <strong>SETOR</strong> e para cada <strong>AGENTE</strong> (Ruído).
+                </p>
+
+                {/* Code block */}
+                <div className="relative">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2 z-10 gap-1.5"
+                    onClick={handleCopy}
+                  >
+                    {copied ? <Check className="w-3.5 h-3.5 text-emerald-500" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copied ? "Copiado!" : "Copiar Bloco"}
+                  </Button>
+                  <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto">
+                    {ruidoBlock}
+                  </pre>
+                </div>
+
+                {/* Display rules */}
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Regras de exibição no Word</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {displayRules.map((r) => (
+                      <div key={r.label} className="text-xs p-2 rounded bg-muted/40 border border-border">
+                        <span className="font-semibold text-foreground">{r.label}:</span>{" "}
+                        <span className="text-muted-foreground">{r.desc}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Rules */}
+          <div className="mt-4 p-3 rounded-lg bg-destructive/10 border border-destructive/20 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-sm font-semibold text-destructive mb-1">
+              <AlertTriangle className="w-4 h-4" />
+              Regras Importantes
+            </div>
+            {rules.map((r, i) => (
+              <p key={i} className="text-xs text-muted-foreground">
+                {i + 1}. {r}
+              </p>
+            ))}
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
