@@ -817,6 +817,16 @@ export default function LtcatWizard() {
   const handleSaveParecer = async () => {
     if (!currentParecerTarget) return;
 
+    // Obrigatoriedade: parecer técnico e aposentadoria especial
+    if (!tempParecer.trim()) {
+      toast.error("Parecer técnico é obrigatório.");
+      return;
+    }
+    if (!tempAposentadoria) {
+      toast.error("Aposentadoria especial é obrigatória.");
+      return;
+    }
+
     const { riskId, resultId } = currentParecerTarget;
     const riskObj = riscos.find(r => r.id === riskId);
     if (!riskObj) return;
@@ -1187,6 +1197,22 @@ export default function LtcatWizard() {
         };
       });
 
+      // Funções deste setor (vindas do cadastro de funções)
+      const sectorFuncoes = funcoes
+        .filter((f: any) => f.setor_id === sId)
+        .map((f: any) => ({
+          funcao: f.nome_funcao || "",
+          nome_funcao: f.nome_funcao || "",
+          cbo_codigo: f.cbo_codigo || "",
+          cbo_descricao: f.cbo_descricao || "",
+          descricao_atividades: f.descricao_atividades || "",
+        }));
+
+      // funcoes_ges agregado a partir dos riscos do setor (fallback "")
+      const funcoesGesSetor = Array.from(
+        new Set(sectorRisks.map(r => r.funcoes_ges).filter(Boolean))
+      ).join(", ") || "";
+
       return {
         setor: sector?.nome_setor || "Setor",
         nome_setor: sector?.nome_setor || "Setor",
@@ -1194,9 +1220,20 @@ export default function LtcatWizard() {
         descricao_ambiente: sector?.descricao_ambiente || "",
         local_trabalho: empresa?.local_trabalho || "",
         jornada_trabalho: empresa?.jornada_trabalho || "",
+        funcoes_ges: funcoesGesSetor,
+        funcoes: sectorFuncoes,
         riscos: riscosLoop
       };
     });
+
+    // Loop de riscos consolidado (parecer por risco)
+    const riscosConsolidados = riscos.map(r => ({
+      agente_nome: r.agente_nome || "",
+      tipo_agente: r.tipo_agente || "",
+      setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
+      parecer_tecnico: r.parecer_tecnico || "",
+      aposentadoria_especial: r.aposentadoria_especial || "",
+    }));
 
     const templateData = {
       // Empresa
@@ -1247,8 +1284,11 @@ export default function LtcatWizard() {
         responsavel: r.responsavel || ""
       })),
 
-      // Setores com riscos
+      // Setores com funções e riscos
       setores: setoresData,
+
+      // Loop de riscos consolidado (parecer por risco)
+      riscos: riscosConsolidados,
     };
 
     console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
