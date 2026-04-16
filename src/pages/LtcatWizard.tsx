@@ -893,6 +893,27 @@ export default function LtcatWizard() {
         const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
         const first = agentEntries[0];
 
+        // Parecer técnico no nível do RISCO (para {{#setores}}{{#riscos}}{{parecer_tecnico}})
+        const dbParecerRisco = cachedPareceres.find((p: any) =>
+          p.agente_id === aId && p.setor_id === sId
+        ) || cachedPareceres.find((p: any) => p.agente_id === aId);
+        const allResultsRisco = agentEntries.flatMap((r: any) => [
+          ...(r.resultados_detalhados || []),
+          ...(r.resultados_componentes || []),
+          ...(r.resultados_vibracao || []),
+          ...(r.resultados_calor || []),
+        ]);
+        const riscoParecerTecnico =
+          first.parecer_tecnico ||
+          allResultsRisco.find((x: any) => x?.parecer_tecnico)?.parecer_tecnico ||
+          dbParecerRisco?.parecer_tecnico ||
+          "";
+        const riscoAposentadoria =
+          first.aposentadoria_especial ||
+          allResultsRisco.find((x: any) => x?.aposentadoria_especial)?.aposentadoria_especial ||
+          dbParecerRisco?.aposentadoria_especial ||
+          "";
+
         // Equipamentos da avaliação (mapeados uma vez por risco/agente)
         const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
           agente_nome: eq.agente_nome || r.agente_nome || "",
@@ -1105,6 +1126,8 @@ export default function LtcatWizard() {
           funcoes_ges: first.funcoes_ges || "",
           tempo_coleta: (first as any).tempo_coleta || "",
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
+          parecer_tecnico: riscoParecerTecnico,
+          aposentadoria_especial: riscoAposentadoria,
           avaliacoes,
           epis,
           epcs,
@@ -1240,6 +1263,21 @@ export default function LtcatWizard() {
     };
 
     console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
+    console.log("🧪 [LTCAT] RISCOS COM PARECER:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
+      agente: r.agente_nome,
+      parecer_tecnico: r.parecer_tecnico,
+      aposentadoria_especial: r.aposentadoria_especial,
+    })));
+
+    const riscosSemParecer = templateData.setores
+      .flatMap((s: any) => s.riscos)
+      .filter((r: any) => !r.parecer_tecnico || !r.aposentadoria_especial);
+    if (riscosSemParecer.length > 0) {
+      const nomes = riscosSemParecer.map((r: any) => r.agente_nome || "—").join(", ");
+      console.warn("⚠️ [LTCAT] Riscos sem parecer:", nomes);
+      (templateData as any).__pareceres_incompletos = nomes;
+    }
+
     return templateData;
   };
 
@@ -1532,6 +1570,11 @@ export default function LtcatWizard() {
     try {
       const doc = await loadTemplateDoc();
       const templateData = buildTemplateData();
+
+      if ((templateData as any).__pareceres_incompletos) {
+        toast.error(`🚫 Parecer técnico não encontrado para: ${(templateData as any).__pareceres_incompletos}`);
+        return;
+      }
 
       try {
         doc.render(templateData);
