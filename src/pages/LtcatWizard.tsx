@@ -1206,7 +1206,7 @@ export default function LtcatWizard() {
 
     try {
       // ETAPA 1: Load and compile template
-      let doc: Docxtemplater;
+      let doc: any;
       try {
         doc = await loadTemplateDoc();
       } catch (compileErr: any) {
