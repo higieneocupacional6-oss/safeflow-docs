@@ -280,6 +280,10 @@ export default function LtcatWizard() {
   const [templateErrors, setTemplateErrors] = useState<any[]>([]);
   const [templateErrorsOpen, setTemplateErrorsOpen] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [documentValidated, setDocumentValidated] = useState(false);
+  const [smartErrorModalOpen, setSmartErrorModalOpen] = useState(false);
+  const [smartErrors, setSmartErrors] = useState<{ tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[]>([]);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
