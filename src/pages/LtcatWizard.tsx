@@ -2819,8 +2819,6 @@ export default function LtcatWizard() {
                 })()}
               </div>
 
-                </div>
-
               {/* SEÇÃO 7: PARECER TÉCNICO (obrigatória) */}
               <section
                 id="secao-7-parecer"
