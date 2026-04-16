@@ -1101,9 +1101,25 @@ export default function LtcatWizard() {
           };
         });
 
+        // Flags de tipo de agente para uso condicional no template
+        const tipoAgenteUpper = (first.tipo_agente || "").toUpperCase();
+        const agenteNomeLower = (first.agente_nome || "").toLowerCase();
+        const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
+        const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
+        const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+        const is_ruido = agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido");
+        const is_calor = agenteNomeLower.includes("calor");
+        const is_vibracao = agenteNomeLower.includes("vibra");
+
         return {
           agente_nome: first.agente_nome || "",
           tipo_agente: first.tipo_agente || "",
+          is_quimico,
+          is_fisico,
+          is_biologico,
+          is_ruido,
+          is_calor,
+          is_vibracao,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
