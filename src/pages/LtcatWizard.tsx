@@ -1143,6 +1143,149 @@ export default function LtcatWizard() {
     return [{ id: "generic", tipo: "Erro genérico", variavel: "", explicacao: err.message || String(err), arquivo: "", correcao: "Verifique o template .docx" }];
   };
 
+  // Smart data validation - checks if all required data exists
+  const validateDataCompleteness = (templateData: any): { tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[] => {
+    const issues: { tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[] = [];
+
+    if (!templateData.empresa) issues.push({ tipo: "Dados", mensagem: "Empresa não selecionada", explicacao: "O campo empresa está vazio nos dados do documento.", correcao: "Volte ao passo 1 e selecione uma empresa.", severidade: "erro" });
+    if (!templateData.cnpj) issues.push({ tipo: "Dados", mensagem: "CNPJ não preenchido", explicacao: "O CNPJ da empresa não foi encontrado no cadastro.", correcao: "Edite a empresa e preencha o CNPJ.", severidade: "aviso" });
+    if (!templateData.setores || templateData.setores.length === 0) issues.push({ tipo: "Dados", mensagem: "Nenhum setor com risco cadastrado", explicacao: "Não há setores com avaliações de risco.", correcao: "Volte ao passo 2 e adicione riscos por setor.", severidade: "erro" });
+
+    if (templateData.setores) {
+      templateData.setores.forEach((s: any, si: number) => {
+        if (!s.riscos || s.riscos.length === 0) {
+          issues.push({ tipo: "Dados", mensagem: `Setor "${s.setor}" sem riscos`, explicacao: "O setor não possui agentes de risco cadastrados.", correcao: `Adicione riscos ao setor ${s.setor}.`, severidade: "aviso" });
+        }
+        s.riscos?.forEach((r: any) => {
+          if (!r.avaliacoes || r.avaliacoes.length === 0) {
+            issues.push({ tipo: "Dados", mensagem: `Agente "${r.agente_nome}" em "${s.setor}" sem avaliações`, explicacao: "Nenhuma avaliação registrada para este agente.", correcao: "Adicione resultados de avaliação para o agente.", severidade: "aviso" });
+          }
+          r.avaliacoes?.forEach((av: any) => {
+            if (!av.colaborador) issues.push({ tipo: "Dados", mensagem: `Avaliação sem colaborador em "${r.agente_nome}"`, explicacao: "O campo colaborador está vazio.", correcao: "Preencha o nome do colaborador na avaliação.", severidade: "aviso" });
+            if (!av.parecer_tecnico) issues.push({ tipo: "Dados", mensagem: `Sem parecer técnico para "${r.agente_nome}" - "${av.colaborador || 'N/A'}"`, explicacao: "O parecer técnico não foi preenchido.", correcao: "Clique no ícone de parecer na listagem e preencha.", severidade: "aviso" });
+          });
+        });
+      });
+    }
+
+    return issues;
+  };
+
+  // Helper: load template and create docxtemplater instance
+  const loadTemplateDoc = async () => {
+    const template = templates.find((t: any) => t.id === selectedTemplate);
+    if (!template) throw new Error("Template não encontrado");
+
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("templates")
+      .download(template.file_path);
+    if (downloadError) throw downloadError;
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    const zip = new PizZip(arrayBuffer);
+
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{{", end: "}}" },
+    });
+
+    return doc;
+  };
+
+  // SALVAR DOCUMENTO - Smart validation + save
+  const handleSaveDocument = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+
+    setSaving(true);
+    setDocumentValidated(false);
+    const allErrors: typeof smartErrors = [];
+
+    try {
+      // ETAPA 1: Load and compile template
+      let doc: Docxtemplater;
+      try {
+        doc = await loadTemplateDoc();
+      } catch (compileErr: any) {
+        const errors = parseDocxErrors(compileErr);
+        errors.forEach(e => {
+          allErrors.push({
+            tipo: "Template",
+            mensagem: `${e.tipo}: ${e.variavel || ""}`,
+            explicacao: e.explicacao,
+            correcao: e.correcao,
+            severidade: "erro",
+          });
+        });
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        return;
+      }
+
+      // ETAPA 2: Build template data from DB
+      const templateData = buildTemplateData();
+
+      // ETAPA 3: Validate data completeness
+      const dataIssues = validateDataCompleteness(templateData);
+      allErrors.push(...dataIssues);
+
+      // ETAPA 4: Try rendering to catch template errors
+      try {
+        doc.render(templateData);
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        errors.forEach(e => {
+          allErrors.push({
+            tipo: "Template",
+            mensagem: `${e.tipo}: ${e.variavel || ""}`,
+            explicacao: e.explicacao,
+            correcao: e.correcao,
+            severidade: "erro",
+          });
+        });
+      }
+
+      // Check for any blocking errors
+      const blockingErrors = allErrors.filter(e => e.severidade === "erro");
+
+      if (blockingErrors.length > 0) {
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        toast.error(`${blockingErrors.length} erro(s) impedem a geração do documento`);
+        return;
+      }
+
+      // If only warnings or no issues, save as rascunho
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+
+      await supabase.from("documentos").insert({
+        tipo: "LTCAT",
+        empresa_id: empresaId || null,
+        empresa_nome: empresaNome,
+        template_id: selectedTemplate,
+        file_path: null,
+        status: "rascunho",
+      });
+
+      if (allErrors.length > 0) {
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        toast.info("Documento salvo com avisos. Revise antes de validar.");
+      } else {
+        toast.success("✅ Documento salvo! Pronto para validação.");
+      }
+    } catch (err: any) {
+      toast.error("Erro ao salvar documento: " + (err.message || ""));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // VALIDAR DOCUMENTO - Final validation
   const handleValidateTemplate = async () => {
     if (!selectedTemplate) {
       toast.error("Selecione um template");
@@ -1150,44 +1293,68 @@ export default function LtcatWizard() {
     }
 
     setValidating(true);
-    setTemplateErrors([]);
+    setDocumentValidated(false);
     try {
-      const template = templates.find((t: any) => t.id === selectedTemplate);
-      if (!template) throw new Error("Template não encontrado");
-
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("templates")
-        .download(template.file_path);
-      if (downloadError) throw downloadError;
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const zip = new PizZip(arrayBuffer);
-
       let doc: Docxtemplater;
       try {
-        doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-          delimiters: { start: "{{", end: "}}" },
-        });
+        doc = await loadTemplateDoc();
       } catch (compileErr: any) {
         const errors = parseDocxErrors(compileErr);
         setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
         toast.error(`${errors.length} erro(s) de estrutura no template`);
         return;
       }
 
       const templateData = buildTemplateData();
+      const dataIssues = validateDataCompleteness(templateData);
+      const blockingData = dataIssues.filter(d => d.severidade === "erro");
+
+      if (blockingData.length > 0) {
+        setSmartErrors(dataIssues);
+        setSmartErrorModalOpen(true);
+        toast.error("Dados incompletos impedem a validação");
+        return;
+      }
 
       try {
         doc.render(templateData);
         setTemplateErrors([]);
-        toast.success("✅ Template válido! Nenhum erro encontrado.");
+        setDocumentValidated(true);
+
+        // Update status in documentos table
+        const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+        const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+
+        // Try to update existing rascunho, or insert new
+        const { data: existing } = await supabase
+          .from("documentos")
+          .select("id")
+          .eq("empresa_id", empresaId)
+          .eq("tipo", "LTCAT")
+          .eq("status", "rascunho")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          await supabase.from("documentos").update({ status: "concluido" }).eq("id", existing[0].id);
+        } else {
+          await supabase.from("documentos").insert({
+            tipo: "LTCAT",
+            empresa_id: empresaId || null,
+            empresa_nome: empresaNome,
+            template_id: selectedTemplate,
+            status: "concluido",
+          });
+        }
+
+        toast.success("✅ Documento VALIDADO! Pode gerar o documento final.");
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
         setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
         toast.error(`${errors.length} erro(s) encontrado(s) no template`);
       }
     } catch (err: any) {
@@ -1197,7 +1364,12 @@ export default function LtcatWizard() {
     }
   };
 
+  // GERAR DOCUMENTO - Only after validation
   const handleGenerateDocument = async () => {
+    if (!documentValidated) {
+      toast.error("🚫 Valide o documento antes de gerar!");
+      return;
+    }
     if (!selectedTemplate) {
       toast.error("Selecione um template");
       return;
@@ -1205,41 +1377,17 @@ export default function LtcatWizard() {
 
     setGenerating(true);
     try {
-      const template = templates.find((t: any) => t.id === selectedTemplate);
-      if (!template) throw new Error("Template não encontrado");
-
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("templates")
-        .download(template.file_path);
-      if (downloadError) throw downloadError;
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const zip = new PizZip(arrayBuffer);
-
-      let doc: Docxtemplater;
-      try {
-        doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-          delimiters: { start: "{{", end: "}}" },
-        });
-      } catch (compileErr: any) {
-        const errors = parseDocxErrors(compileErr);
-        setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
-        toast.error(`${errors.length} erro(s) de estrutura no template. Corrija o .docx.`);
-        return;
-      }
-
+      const doc = await loadTemplateDoc();
       const templateData = buildTemplateData();
 
       try {
         doc.render(templateData);
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
-        setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
-        toast.error(`${errors.length} erro(s) no template. Corrija o .docx e tente novamente.`);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
+        toast.error("Erro ao gerar. Valide novamente.");
+        setDocumentValidated(false);
         return;
       }
 
@@ -1259,18 +1407,35 @@ export default function LtcatWizard() {
         .from("templates")
         .upload(storagePath, output);
 
-      // Save record to documentos table
-      await supabase.from("documentos").insert({
-        tipo: "LTCAT",
-        empresa_id: empresaId || null,
-        empresa_nome: empresaNome,
-        template_id: selectedTemplate,
-        file_path: storagePath,
-        status: uploadErr ? "erro" : "concluido",
-      });
+      // Update existing document record or insert
+      const { data: existing } = await supabase
+        .from("documentos")
+        .select("id")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "LTCAT")
+        .eq("status", "concluido")
+        .is("file_path", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await supabase.from("documentos").update({
+          file_path: storagePath,
+          status: uploadErr ? "erro" : "concluido",
+        }).eq("id", existing[0].id);
+      } else {
+        await supabase.from("documentos").insert({
+          tipo: "LTCAT",
+          empresa_id: empresaId || null,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate,
+          file_path: storagePath,
+          status: uploadErr ? "erro" : "concluido",
+        });
+      }
 
       saveAs(output, fileName);
-      toast.success("Documento gerado e salvo com sucesso!");
+      toast.success("📄 Documento gerado e salvo com sucesso!");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));
