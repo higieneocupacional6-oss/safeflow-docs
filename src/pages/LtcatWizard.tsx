@@ -1295,7 +1295,7 @@ export default function LtcatWizard() {
     setValidating(true);
     setDocumentValidated(false);
     try {
-      let doc: Docxtemplater;
+      let doc: any;
       try {
         doc = await loadTemplateDoc();
       } catch (compileErr: any) {
