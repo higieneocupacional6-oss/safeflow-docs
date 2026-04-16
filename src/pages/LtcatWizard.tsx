@@ -935,14 +935,23 @@ export default function LtcatWizard() {
 
           const mapResult = (res: any) => {
             const dbParecer = findDBParecer(res.colaborador, res.funcao_id, sId, aId);
+            const resNum = parseFloat(res.resultado);
+            const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
+            const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
+            const situacao = hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "";
             return {
               ...base,
               colaborador: res.colaborador || "",
               funcao: res.funcao_nome || "",
+              data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
+              dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
+              unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
               unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
               limite_tolerancia: res.limite_tolerancia || res.aren_limite || "",
               unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || "",
+              situacao,
+              cod_gfip: res.cod_gfip || "",
               parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
