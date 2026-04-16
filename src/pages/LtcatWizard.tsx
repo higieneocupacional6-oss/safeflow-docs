@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -280,6 +280,10 @@ export default function LtcatWizard() {
   const [templateErrors, setTemplateErrors] = useState<any[]>([]);
   const [templateErrorsOpen, setTemplateErrorsOpen] = useState(false);
   const [validating, setValidating] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [documentValidated, setDocumentValidated] = useState(false);
+  const [smartErrorModalOpen, setSmartErrorModalOpen] = useState(false);
+  const [smartErrors, setSmartErrors] = useState<{ tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[]>([]);
 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
@@ -1139,6 +1143,149 @@ export default function LtcatWizard() {
     return [{ id: "generic", tipo: "Erro genérico", variavel: "", explicacao: err.message || String(err), arquivo: "", correcao: "Verifique o template .docx" }];
   };
 
+  // Smart data validation - checks if all required data exists
+  const validateDataCompleteness = (templateData: any): { tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[] => {
+    const issues: { tipo: string; mensagem: string; explicacao: string; correcao: string; severidade: "erro" | "aviso" }[] = [];
+
+    if (!templateData.empresa) issues.push({ tipo: "Dados", mensagem: "Empresa não selecionada", explicacao: "O campo empresa está vazio nos dados do documento.", correcao: "Volte ao passo 1 e selecione uma empresa.", severidade: "erro" });
+    if (!templateData.cnpj) issues.push({ tipo: "Dados", mensagem: "CNPJ não preenchido", explicacao: "O CNPJ da empresa não foi encontrado no cadastro.", correcao: "Edite a empresa e preencha o CNPJ.", severidade: "aviso" });
+    if (!templateData.setores || templateData.setores.length === 0) issues.push({ tipo: "Dados", mensagem: "Nenhum setor com risco cadastrado", explicacao: "Não há setores com avaliações de risco.", correcao: "Volte ao passo 2 e adicione riscos por setor.", severidade: "erro" });
+
+    if (templateData.setores) {
+      templateData.setores.forEach((s: any, si: number) => {
+        if (!s.riscos || s.riscos.length === 0) {
+          issues.push({ tipo: "Dados", mensagem: `Setor "${s.setor}" sem riscos`, explicacao: "O setor não possui agentes de risco cadastrados.", correcao: `Adicione riscos ao setor ${s.setor}.`, severidade: "aviso" });
+        }
+        s.riscos?.forEach((r: any) => {
+          if (!r.avaliacoes || r.avaliacoes.length === 0) {
+            issues.push({ tipo: "Dados", mensagem: `Agente "${r.agente_nome}" em "${s.setor}" sem avaliações`, explicacao: "Nenhuma avaliação registrada para este agente.", correcao: "Adicione resultados de avaliação para o agente.", severidade: "aviso" });
+          }
+          r.avaliacoes?.forEach((av: any) => {
+            if (!av.colaborador) issues.push({ tipo: "Dados", mensagem: `Avaliação sem colaborador em "${r.agente_nome}"`, explicacao: "O campo colaborador está vazio.", correcao: "Preencha o nome do colaborador na avaliação.", severidade: "aviso" });
+            if (!av.parecer_tecnico) issues.push({ tipo: "Dados", mensagem: `Sem parecer técnico para "${r.agente_nome}" - "${av.colaborador || 'N/A'}"`, explicacao: "O parecer técnico não foi preenchido.", correcao: "Clique no ícone de parecer na listagem e preencha.", severidade: "aviso" });
+          });
+        });
+      });
+    }
+
+    return issues;
+  };
+
+  // Helper: load template and create docxtemplater instance
+  const loadTemplateDoc = async () => {
+    const template = templates.find((t: any) => t.id === selectedTemplate);
+    if (!template) throw new Error("Template não encontrado");
+
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("templates")
+      .download(template.file_path);
+    if (downloadError) throw downloadError;
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    const zip = new PizZip(arrayBuffer);
+
+    const doc = new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{{", end: "}}" },
+    });
+
+    return doc;
+  };
+
+  // SALVAR DOCUMENTO - Smart validation + save
+  const handleSaveDocument = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+
+    setSaving(true);
+    setDocumentValidated(false);
+    const allErrors: typeof smartErrors = [];
+
+    try {
+      // ETAPA 1: Load and compile template
+      let doc: any;
+      try {
+        doc = await loadTemplateDoc();
+      } catch (compileErr: any) {
+        const errors = parseDocxErrors(compileErr);
+        errors.forEach(e => {
+          allErrors.push({
+            tipo: "Template",
+            mensagem: `${e.tipo}: ${e.variavel || ""}`,
+            explicacao: e.explicacao,
+            correcao: e.correcao,
+            severidade: "erro",
+          });
+        });
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        return;
+      }
+
+      // ETAPA 2: Build template data from DB
+      const templateData = buildTemplateData();
+
+      // ETAPA 3: Validate data completeness
+      const dataIssues = validateDataCompleteness(templateData);
+      allErrors.push(...dataIssues);
+
+      // ETAPA 4: Try rendering to catch template errors
+      try {
+        doc.render(templateData);
+      } catch (renderErr: any) {
+        const errors = parseDocxErrors(renderErr);
+        errors.forEach(e => {
+          allErrors.push({
+            tipo: "Template",
+            mensagem: `${e.tipo}: ${e.variavel || ""}`,
+            explicacao: e.explicacao,
+            correcao: e.correcao,
+            severidade: "erro",
+          });
+        });
+      }
+
+      // Check for any blocking errors
+      const blockingErrors = allErrors.filter(e => e.severidade === "erro");
+
+      if (blockingErrors.length > 0) {
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        toast.error(`${blockingErrors.length} erro(s) impedem a geração do documento`);
+        return;
+      }
+
+      // If only warnings or no issues, save as rascunho
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+
+      await supabase.from("documentos").insert({
+        tipo: "LTCAT",
+        empresa_id: empresaId || null,
+        empresa_nome: empresaNome,
+        template_id: selectedTemplate,
+        file_path: null,
+        status: "rascunho",
+      });
+
+      if (allErrors.length > 0) {
+        setSmartErrors(allErrors);
+        setSmartErrorModalOpen(true);
+        toast.info("Documento salvo com avisos. Revise antes de validar.");
+      } else {
+        toast.success("✅ Documento salvo! Pronto para validação.");
+      }
+    } catch (err: any) {
+      toast.error("Erro ao salvar documento: " + (err.message || ""));
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // VALIDAR DOCUMENTO - Final validation
   const handleValidateTemplate = async () => {
     if (!selectedTemplate) {
       toast.error("Selecione um template");
@@ -1146,44 +1293,68 @@ export default function LtcatWizard() {
     }
 
     setValidating(true);
-    setTemplateErrors([]);
+    setDocumentValidated(false);
     try {
-      const template = templates.find((t: any) => t.id === selectedTemplate);
-      if (!template) throw new Error("Template não encontrado");
-
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("templates")
-        .download(template.file_path);
-      if (downloadError) throw downloadError;
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const zip = new PizZip(arrayBuffer);
-
-      let doc: Docxtemplater;
+      let doc: any;
       try {
-        doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-          delimiters: { start: "{{", end: "}}" },
-        });
+        doc = await loadTemplateDoc();
       } catch (compileErr: any) {
         const errors = parseDocxErrors(compileErr);
         setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
         toast.error(`${errors.length} erro(s) de estrutura no template`);
         return;
       }
 
       const templateData = buildTemplateData();
+      const dataIssues = validateDataCompleteness(templateData);
+      const blockingData = dataIssues.filter(d => d.severidade === "erro");
+
+      if (blockingData.length > 0) {
+        setSmartErrors(dataIssues);
+        setSmartErrorModalOpen(true);
+        toast.error("Dados incompletos impedem a validação");
+        return;
+      }
 
       try {
         doc.render(templateData);
         setTemplateErrors([]);
-        toast.success("✅ Template válido! Nenhum erro encontrado.");
+        setDocumentValidated(true);
+
+        // Update status in documentos table
+        const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+        const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+
+        // Try to update existing rascunho, or insert new
+        const { data: existing } = await supabase
+          .from("documentos")
+          .select("id")
+          .eq("empresa_id", empresaId)
+          .eq("tipo", "LTCAT")
+          .eq("status", "rascunho")
+          .order("created_at", { ascending: false })
+          .limit(1);
+
+        if (existing && existing.length > 0) {
+          await supabase.from("documentos").update({ status: "concluido" }).eq("id", existing[0].id);
+        } else {
+          await supabase.from("documentos").insert({
+            tipo: "LTCAT",
+            empresa_id: empresaId || null,
+            empresa_nome: empresaNome,
+            template_id: selectedTemplate,
+            status: "concluido",
+          });
+        }
+
+        toast.success("✅ Documento VALIDADO! Pode gerar o documento final.");
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
         setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
         toast.error(`${errors.length} erro(s) encontrado(s) no template`);
       }
     } catch (err: any) {
@@ -1193,7 +1364,12 @@ export default function LtcatWizard() {
     }
   };
 
+  // GERAR DOCUMENTO - Only after validation
   const handleGenerateDocument = async () => {
+    if (!documentValidated) {
+      toast.error("🚫 Valide o documento antes de gerar!");
+      return;
+    }
     if (!selectedTemplate) {
       toast.error("Selecione um template");
       return;
@@ -1201,41 +1377,17 @@ export default function LtcatWizard() {
 
     setGenerating(true);
     try {
-      const template = templates.find((t: any) => t.id === selectedTemplate);
-      if (!template) throw new Error("Template não encontrado");
-
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("templates")
-        .download(template.file_path);
-      if (downloadError) throw downloadError;
-
-      const arrayBuffer = await fileData.arrayBuffer();
-      const zip = new PizZip(arrayBuffer);
-
-      let doc: Docxtemplater;
-      try {
-        doc = new Docxtemplater(zip, {
-          paragraphLoop: true,
-          linebreaks: true,
-          delimiters: { start: "{{", end: "}}" },
-        });
-      } catch (compileErr: any) {
-        const errors = parseDocxErrors(compileErr);
-        setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
-        toast.error(`${errors.length} erro(s) de estrutura no template. Corrija o .docx.`);
-        return;
-      }
-
+      const doc = await loadTemplateDoc();
       const templateData = buildTemplateData();
 
       try {
         doc.render(templateData);
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
-        setTemplateErrors(errors);
-        setTemplateErrorsOpen(true);
-        toast.error(`${errors.length} erro(s) no template. Corrija o .docx e tente novamente.`);
+        setSmartErrors(errors.map(e => ({ tipo: "Template", mensagem: `${e.tipo}: ${e.variavel || ""}`, explicacao: e.explicacao, correcao: e.correcao, severidade: "erro" as const })));
+        setSmartErrorModalOpen(true);
+        toast.error("Erro ao gerar. Valide novamente.");
+        setDocumentValidated(false);
         return;
       }
 
@@ -1255,18 +1407,35 @@ export default function LtcatWizard() {
         .from("templates")
         .upload(storagePath, output);
 
-      // Save record to documentos table
-      await supabase.from("documentos").insert({
-        tipo: "LTCAT",
-        empresa_id: empresaId || null,
-        empresa_nome: empresaNome,
-        template_id: selectedTemplate,
-        file_path: storagePath,
-        status: uploadErr ? "erro" : "concluido",
-      });
+      // Update existing document record or insert
+      const { data: existing } = await supabase
+        .from("documentos")
+        .select("id")
+        .eq("empresa_id", empresaId)
+        .eq("tipo", "LTCAT")
+        .eq("status", "concluido")
+        .is("file_path", null)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (existing && existing.length > 0) {
+        await supabase.from("documentos").update({
+          file_path: storagePath,
+          status: uploadErr ? "erro" : "concluido",
+        }).eq("id", existing[0].id);
+      } else {
+        await supabase.from("documentos").insert({
+          tipo: "LTCAT",
+          empresa_id: empresaId || null,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate,
+          file_path: storagePath,
+          status: uploadErr ? "erro" : "concluido",
+        });
+      }
 
       saveAs(output, fileName);
-      toast.success("Documento gerado e salvo com sucesso!");
+      toast.success("📄 Documento gerado e salvo com sucesso!");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao gerar documento: " + (err.message || "Tente novamente"));
@@ -1691,8 +1860,8 @@ export default function LtcatWizard() {
               <div className="glass-card rounded-xl p-8 text-center">
                 <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
                 <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
-                <p className="text-muted-foreground mb-6">Selecione o template, valide e gere o documento final</p>
-                <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); }}>
+                <p className="text-muted-foreground mb-6">Selecione o template, salve, valide e gere o documento final</p>
+                <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); setDocumentValidated(false); }}>
                   <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
                   <SelectContent>
                     {templates.map((t: any) => (
@@ -1700,24 +1869,59 @@ export default function LtcatWizard() {
                     ))}
                   </SelectContent>
                 </Select>
-                <div className="flex gap-3 justify-center">
+
+                {/* Step indicators */}
+                <div className="flex items-center justify-center gap-2 mb-6 text-xs font-medium text-muted-foreground">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-5 h-5 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-[10px] font-bold">1</span>
+                    Salvar
+                  </div>
+                  <div className="w-6 h-px bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${documentValidated ? "bg-emerald-500 text-white" : "bg-muted text-muted-foreground"}`}>2</span>
+                    Validar
+                  </div>
+                  <div className="w-6 h-px bg-border" />
+                  <div className="flex items-center gap-1.5">
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold ${documentValidated ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground"}`}>3</span>
+                    Gerar
+                  </div>
+                </div>
+
+                <div className="flex gap-3 justify-center flex-wrap">
+                  <Button
+                    variant="outline"
+                    onClick={handleSaveDocument}
+                    disabled={saving || !selectedTemplate}
+                    className="gap-2"
+                  >
+                    {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    Salvar Documento
+                  </Button>
                   <Button
                     variant="outline"
                     onClick={handleValidateTemplate}
                     disabled={validating || !selectedTemplate}
+                    className={`gap-2 ${documentValidated ? "border-emerald-500 text-emerald-600" : ""}`}
                   >
-                    {validating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Search className="w-4 h-4 mr-2" />}
-                    Validar Template
+                    {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : documentValidated ? <ShieldCheck className="w-4 h-4" /> : <Search className="w-4 h-4" />}
+                    {documentValidated ? "Validado ✓" : "Validar Documento"}
                   </Button>
                   <Button
-                    className="bg-accent text-accent-foreground hover:bg-accent/90"
+                    className={`gap-2 ${documentValidated ? "bg-accent text-accent-foreground hover:bg-accent/90" : "bg-muted text-muted-foreground cursor-not-allowed"}`}
                     onClick={handleGenerateDocument}
-                    disabled={generating || !selectedTemplate}
+                    disabled={generating || !selectedTemplate || !documentValidated}
                   >
-                    {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
                     Gerar Documento
                   </Button>
                 </div>
+
+                {!documentValidated && selectedTemplate && (
+                  <p className="text-xs text-muted-foreground mt-3 italic">
+                    🔒 Salve e valide o documento antes de gerar o arquivo final
+                  </p>
+                )}
               </div>
 
               {/* Template Errors Display (inline) */}
@@ -1731,7 +1935,6 @@ export default function LtcatWizard() {
                   </div>
                   <p className="text-sm text-muted-foreground mb-4">
                     Corrija esses erros no arquivo .docx e faça upload novamente em Templates.
-                    O docxtemplater usa a sintaxe <code className="bg-muted px-1 rounded">{"{{variavel}}"}</code> (chaves duplas).
                   </p>
                   <div className="space-y-3 max-h-[400px] overflow-y-auto">
                     {templateErrors.map((err, i) => (
@@ -1746,9 +1949,6 @@ export default function LtcatWizard() {
                               <p><span className="font-semibold">Variável/Tag:</span> <code className="bg-muted px-1 rounded">{err.variavel}</code></p>
                             )}
                             <p><span className="font-semibold">Detalhe:</span> {err.explicacao}</p>
-                            {err.arquivo && (
-                              <p><span className="font-semibold">Arquivo:</span> {err.arquivo}</p>
-                            )}
                             {err.correcao && (
                               <p className="text-accent font-medium">
                                 <span className="font-semibold">✏️ Correção:</span> {err.correcao}
@@ -3218,6 +3418,48 @@ export default function LtcatWizard() {
                   </Button>
                 </div>
               </div>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* MODAL: ERRO INTELIGENTE DE DOCUMENTO                         */}
+          {/* ============================================================ */}
+          <Dialog open={smartErrorModalOpen} onOpenChange={setSmartErrorModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl font-bold text-destructive flex items-center gap-2">
+                  <AlertCircle className="w-6 h-6" />
+                  Erro ao preparar documento
+                </DialogTitle>
+              </DialogHeader>
+              <p className="text-sm text-muted-foreground">
+                Foram encontrados problemas que precisam ser corrigidos antes de gerar o documento.
+              </p>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto py-2">
+                {smartErrors.map((err, i) => (
+                  <div key={i} className={`rounded-lg p-4 border text-left ${err.severidade === "erro" ? "bg-destructive/5 border-destructive/30" : "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700"}`}>
+                    <div className="flex items-start gap-2">
+                      <span className={`text-xs font-bold rounded px-2 py-0.5 shrink-0 ${err.severidade === "erro" ? "bg-destructive text-destructive-foreground" : "bg-amber-500 text-white"}`}>
+                        {err.severidade === "erro" ? "❌ ERRO" : "⚠️ AVISO"}
+                      </span>
+                      <div className="space-y-1.5 text-sm min-w-0">
+                        <p className="font-semibold text-foreground">{err.mensagem}</p>
+                        <p className="text-muted-foreground">{err.explicacao}</p>
+                        <p className="text-accent font-medium">✏️ <span className="font-semibold">Solução:</span> {err.correcao}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setSmartErrorModalOpen(false)}
+                  className="gap-2"
+                >
+                  Entendi, corrigir template
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
