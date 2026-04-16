@@ -1576,7 +1576,7 @@ export default function LtcatWizard() {
         return;
       }
 
-
+      try {
         doc.render(templateData);
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
