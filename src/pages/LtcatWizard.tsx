@@ -1126,6 +1126,8 @@ export default function LtcatWizard() {
           funcoes_ges: first.funcoes_ges || "",
           tempo_coleta: (first as any).tempo_coleta || "",
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
+          parecer_tecnico: riscoParecerTecnico,
+          aposentadoria_especial: riscoAposentadoria,
           avaliacoes,
           epis,
           epcs,
