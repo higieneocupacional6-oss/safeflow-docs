@@ -391,6 +391,8 @@ export default function LtcatWizard() {
         funcoes_ges: editRisk.funcoes_ges || "",
         data_avaliacao: editRisk.data_avaliacao || "",
         equipamentos_avaliacao: editRisk.equipamentos_avaliacao || [],
+        tempo_coleta: (editRisk as any).tempo_coleta || "",
+        unidade_tempo_coleta: (editRisk as any).unidade_tempo_coleta || "",
       });
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
@@ -432,6 +434,8 @@ export default function LtcatWizard() {
         funcoes_ges: "",
         data_avaliacao: "",
         equipamentos_avaliacao: [],
+        tempo_coleta: "",
+        unidade_tempo_coleta: "",
       });
       setEpiEpcRiskForm({
         epi_id: "",
