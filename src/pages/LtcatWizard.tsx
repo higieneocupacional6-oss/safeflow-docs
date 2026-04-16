@@ -2062,20 +2062,7 @@ export default function LtcatWizard() {
                          <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 6: RESULTADOS</h3>
                       </div>
 
-                      {/* Data da Avaliação - Quantitativa (Físico ou Químico) */}
-                      {(isFisico || tipoAgenteStr.includes("quími") || tipoAgenteStr.includes("quimi")) && (
-                        <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
-                          <div className="space-y-2">
-                            <Label className="text-xs font-bold uppercase text-muted-foreground">Data da Avaliação</Label>
-                            <Input
-                              type="date"
-                              className="h-11 border-muted-foreground/20 focus-visible:ring-accent"
-                              value={riskForm.data_avaliacao}
-                              onChange={(e) => setRiskForm({ ...riskForm, data_avaliacao: e.target.value })}
-                            />
-                          </div>
-                        </div>
-                      )}
+                      {/* Data da Avaliação moved to Results modal */}
 
                       {/* Equipamentos da Avaliação */}
                       {(isFisico || tipoAgenteStr.includes("quími") || tipoAgenteStr.includes("quimi")) && (
