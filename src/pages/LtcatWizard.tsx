@@ -1227,13 +1227,37 @@ export default function LtcatWizard() {
     });
 
     // Loop de riscos consolidado (parecer por risco)
-    const riscosConsolidados = riscos.map(r => ({
-      agente_nome: r.agente_nome || "",
-      tipo_agente: r.tipo_agente || "",
-      setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
-      parecer_tecnico: r.parecer_tecnico || "",
-      aposentadoria_especial: r.aposentadoria_especial || "",
-    }));
+    // Busca parecer/aposentadoria em qualquer fonte: nível raiz, resultados ou cache do BD
+    const riscosConsolidados = riscos.map(r => {
+      const allResults = [
+        ...(r.resultados_detalhados || []),
+        ...(r.resultados_componentes || []),
+        ...(r.resultados_vibracao || []),
+        ...(r.resultados_calor || []),
+      ];
+      const resultadoComParecer = allResults.find((x: any) => x?.parecer_tecnico);
+      const resultadoComAposent = allResults.find((x: any) => x?.aposentadoria_especial);
+      const dbParecer = cachedPareceres.find((p: any) => p.agente_id === r.agente_id);
+
+      const parecer_tecnico =
+        r.parecer_tecnico ||
+        resultadoComParecer?.parecer_tecnico ||
+        dbParecer?.parecer_tecnico ||
+        "";
+      const aposentadoria_especial =
+        r.aposentadoria_especial ||
+        resultadoComAposent?.aposentadoria_especial ||
+        dbParecer?.aposentadoria_especial ||
+        "";
+
+      return {
+        agente_nome: r.agente_nome || "",
+        tipo_agente: r.tipo_agente || "",
+        setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
+        parecer_tecnico,
+        aposentadoria_especial,
+      };
+    });
 
     const templateData = {
       // Empresa
