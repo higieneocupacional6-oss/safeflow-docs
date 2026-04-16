@@ -1100,11 +1100,17 @@ export default function LtcatWizard() {
           if (r.resultados_componentes?.length) {
             return r.resultados_componentes.map(rc => {
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
+              const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               return {
                 ...base,
                 colaborador: rc.colaborador || "",
-                funcao: rc.funcao_nome || "",
-                nome_funcao: rc.funcao_nome || "",
+                funcao: rc.funcao_nome || f?.nome_funcao || "",
+                nome_funcao: rc.funcao_nome || f?.nome_funcao || "",
+                cbo_codigo: f?.cbo_codigo || "",
+                cbo_descricao: f?.cbo_descricao || "",
+                descricao_atividades: f?.descricao_atividades || "",
+                descricao_atividade: f?.descricao_atividades || "",
+                equipamentos_avaliacao: equipamentosAvaliacaoLoop,
                 data_avaliacao: "",
                 dose_percentual: "",
                 resultado: "Amostra Comp.",
@@ -1130,11 +1136,17 @@ export default function LtcatWizard() {
 
           return r.items.map(item => {
             const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, aId);
+            const f = funcoes.find((x: any) => x.id === item.funcao_id);
             return {
               ...base,
               colaborador: item.colaborador || "",
-              funcao: item.funcao_nome || "",
-              nome_funcao: item.funcao_nome || "",
+              funcao: item.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: item.funcao_nome || f?.nome_funcao || "",
+              cbo_codigo: f?.cbo_codigo || "",
+              cbo_descricao: f?.cbo_descricao || "",
+              descricao_atividades: f?.descricao_atividades || "",
+              descricao_atividade: f?.descricao_atividades || "",
+              equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
               dose_percentual: "",
               resultado: r.resultado || "",
