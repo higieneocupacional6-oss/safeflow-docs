@@ -2011,8 +2011,99 @@ export default function LtcatWizard() {
                     <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
                       <div className="flex items-center gap-2 border-b pb-2">
                         <div className="bg-accent/10 p-1.5 rounded text-accent"><Check className="w-4 h-4" /></div>
-                        <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 6: RESULTADOS</h3>
+                         <h3 className="font-heading font-bold text-sm uppercase tracking-wider">SEÇÃO 6: RESULTADOS</h3>
                       </div>
+
+                      {/* Data da Avaliação - Quantitativa (Físico ou Químico) */}
+                      {(isFisico || tipoAgenteStr.includes("quími") || tipoAgenteStr.includes("quimi")) && (
+                        <div className="grid grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-1">
+                          <div className="space-y-2">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Data da Avaliação</Label>
+                            <Input
+                              type="date"
+                              className="h-11 border-muted-foreground/20 focus-visible:ring-accent"
+                              value={riskForm.data_avaliacao}
+                              onChange={(e) => setRiskForm({ ...riskForm, data_avaliacao: e.target.value })}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Equipamentos da Avaliação */}
+                      {(isFisico || tipoAgenteStr.includes("quími") || tipoAgenteStr.includes("quimi")) && (
+                        <div className="space-y-3 animate-in fade-in slide-in-from-top-1">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold uppercase text-muted-foreground">Equipamentos Utilizados na Avaliação</Label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5"
+                              onClick={() => {
+                                setRiskForm(prev => ({
+                                  ...prev,
+                                  equipamentos_avaliacao: [
+                                    ...prev.equipamentos_avaliacao,
+                                    { id: crypto.randomUUID(), agente_nome: prev.agente_nome, nome_equipamento: "", modelo_equipamento: "", serie_equipamento: "", data_avaliacao: prev.data_avaliacao, data_calibracao: "" }
+                                  ]
+                                }));
+                              }}
+                            >
+                              <Plus className="w-3 h-3" /> Equipamento
+                            </Button>
+                          </div>
+                          {riskForm.equipamentos_avaliacao.map((eq: any, eqi: number) => (
+                            <div key={eq.id} className="grid grid-cols-6 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
+                              <div>
+                                <Label className="text-[10px] font-bold uppercase">Equipamento</Label>
+                                <Input className="mt-1 h-8 text-xs" placeholder="Nome" value={eq.nome_equipamento} onChange={e => {
+                                  const updated = [...riskForm.equipamentos_avaliacao];
+                                  updated[eqi] = { ...updated[eqi], nome_equipamento: e.target.value };
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                }} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-bold uppercase">Modelo</Label>
+                                <Input className="mt-1 h-8 text-xs" placeholder="Modelo" value={eq.modelo_equipamento} onChange={e => {
+                                  const updated = [...riskForm.equipamentos_avaliacao];
+                                  updated[eqi] = { ...updated[eqi], modelo_equipamento: e.target.value };
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                }} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-bold uppercase">Série</Label>
+                                <Input className="mt-1 h-8 text-xs" placeholder="Nº série" value={eq.serie_equipamento} onChange={e => {
+                                  const updated = [...riskForm.equipamentos_avaliacao];
+                                  updated[eqi] = { ...updated[eqi], serie_equipamento: e.target.value };
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                }} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-bold uppercase">Data Aval.</Label>
+                                <Input type="date" className="mt-1 h-8 text-xs" value={eq.data_avaliacao} onChange={e => {
+                                  const updated = [...riskForm.equipamentos_avaliacao];
+                                  updated[eqi] = { ...updated[eqi], data_avaliacao: e.target.value };
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                }} />
+                              </div>
+                              <div>
+                                <Label className="text-[10px] font-bold uppercase">Data Calib.</Label>
+                                <Input type="date" className="mt-1 h-8 text-xs" value={eq.data_calibracao} onChange={e => {
+                                  const updated = [...riskForm.equipamentos_avaliacao];
+                                  updated[eqi] = { ...updated[eqi], data_calibracao: e.target.value };
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                }} />
+                              </div>
+                              <div className="flex justify-end">
+                                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => {
+                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: prev.equipamentos_avaliacao.filter((_: any, i: number) => i !== eqi) }));
+                                }}>
+                                  <Trash2 className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
                       {/* VIBRAÇÃO */}
                       {isAgentVibracao(riskForm.agente_nome || "") && (
