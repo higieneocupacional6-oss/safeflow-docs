@@ -1381,9 +1381,24 @@ export default function LtcatWizard() {
         } else if (id === "closing_tag_does_not_match_opening_tag") {
           tipo = "Tag de fechamento não corresponde à abertura";
           correcao = `Verifique se {{#tag}} e {{/tag}} usam o mesmo nome`;
-        } else if (id === "undefined_tag") {
+        } else if (id === "undefined_tag" || id === "scopeparser_execution_failed") {
           tipo = "Variável inexistente nos dados";
-          correcao = `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
+          // Sugestão "Você quis dizer..."
+          const knownVars = [
+            "descricao_atividades", "cbo_codigo", "cbo_descricao", "nome_funcao", "funcao",
+            "agente_nome", "parecer_tecnico", "aposentadoria_especial",
+            "nome_equipamento", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
+            "razao_social", "cnpj", "cnae_principal", "grau_risco", "endereco",
+            "setor", "ghe_ges", "descricao_ambiente", "local_trabalho", "jornada_trabalho",
+            "codigo_esocial", "descricao_esocial", "fonte_geradora", "danos_saude", "medidas_controle",
+            "tipo_exposicao", "propagacao", "tipo_avaliacao", "tipo_agente",
+            "resultado", "unidade_resultado", "limite_tolerancia", "unidade_limite",
+            "epi_nome", "epi_ca", "epi_atenuacao", "epi_eficaz", "epc_nome", "epc_eficaz",
+          ];
+          const suggestion = knownVars.find(k => k.toLowerCase().startsWith(xtag.toLowerCase().slice(0, 5)) || k.includes(xtag.replace(/s$/, "")));
+          correcao = suggestion
+            ? `A variável {{${xtag}}} não existe. Você quis dizer {{${suggestion}}}?`
+            : `A variável {{${xtag}}} não existe nos dados enviados. Verifique o nome ou remova do template`;
         } else if (id === "multi_error") {
           tipo = "Múltiplos erros";
         } else if (id === "raw_xml_tag_not_in_paragraph") {
