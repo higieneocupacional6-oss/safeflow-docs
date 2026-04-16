@@ -1740,6 +1740,17 @@ export default function LtcatWizard() {
                         <Input value={currentRiskSetor?.nome_setor || ""} readOnly className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium" />
                       </div>
 
+                      {/* Campo: Funções do GES */}
+                      <div className="space-y-2">
+                        <Label className="text-xs font-bold uppercase text-muted-foreground">Funções do GES</Label>
+                        <Input
+                          className="mt-1 h-12 border-muted-foreground/20 focus-visible:ring-accent"
+                          placeholder="Descreva as funções do GES"
+                          value={riskForm.funcoes_ges}
+                          onChange={(e) => setRiskForm({ ...riskForm, funcoes_ges: e.target.value })}
+                        />
+                      </div>
+
                       {riskForm.tipo_avaliacao === "qualitativa" && (
                         <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
                           <Label className="text-xs font-bold uppercase text-muted-foreground">Colaboradores e Funções Avaliadas</Label>
@@ -1752,6 +1763,7 @@ export default function LtcatWizard() {
                                     placeholder="Nome do Colaborador"
                                     value={item.colaborador}
                                     onChange={(e) => updateItemBlock(index, "colaborador", e.target.value)}
+                                  />
                                   />
                                 </div>
                                 <div className="flex-1 space-y-1.5">
