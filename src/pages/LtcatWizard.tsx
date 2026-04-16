@@ -1892,6 +1892,7 @@ export default function LtcatWizard() {
                           />
                         </div>
                       ) : (
+                        <>
                         <div className="grid grid-cols-2 gap-4">
                           <div>
                             <Label>Técnica de Amostragem</Label>
@@ -1916,7 +1917,6 @@ export default function LtcatWizard() {
                             </Select>
                           </div>
                         </div>
-                        {/* Tempo de Coleta - only for Físico ou Químico */}
                         {(() => {
                           const ta = (riskForm.tipo_agente || "").toLowerCase();
                           const showTempo = (ta.includes("físi") || ta.includes("fisi") || ta.includes("quími") || ta.includes("quimi"));
@@ -1945,6 +1945,7 @@ export default function LtcatWizard() {
                             </div>
                           );
                         })()}
+                        </>
                       )}
                     </section>
                   );
