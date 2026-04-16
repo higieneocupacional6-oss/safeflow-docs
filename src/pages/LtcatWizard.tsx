@@ -1213,9 +1213,17 @@ export default function LtcatWizard() {
         dbParecer?.aposentadoria_especial ||
         "";
 
+      const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
+      const agenteNomeLower = (r.agente_nome || "").toLowerCase();
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
+        is_quimico: tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI"),
+        is_fisico: tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI"),
+        is_biologico: tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG"),
+        is_ruido: agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido"),
+        is_calor: agenteNomeLower.includes("calor"),
+        is_vibracao: agenteNomeLower.includes("vibra"),
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
