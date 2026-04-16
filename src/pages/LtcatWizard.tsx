@@ -1475,7 +1475,7 @@ export default function LtcatWizard() {
           }
           r.avaliacoes?.forEach((av: any) => {
             if (!av.colaborador) issues.push({ tipo: "Dados", mensagem: `Avaliação sem colaborador em "${r.agente_nome}"`, explicacao: "O campo colaborador está vazio.", correcao: "Preencha o nome do colaborador na avaliação.", severidade: "aviso" });
-            if (!av.parecer_tecnico) issues.push({ tipo: "Dados", mensagem: `Sem parecer técnico para "${r.agente_nome}" - "${av.colaborador || 'N/A'}"`, explicacao: "O parecer técnico não foi preenchido.", correcao: "Clique no ícone de parecer na listagem e preencha.", severidade: "aviso" });
+            if (!av.parecer_tecnico) issues.push({ tipo: "Dados", mensagem: `Sem parecer técnico para "${r.agente_nome}" - "${av.colaborador || 'N/A'}"`, explicacao: "O parecer técnico não foi preenchido.", correcao: "Edite o risco e preencha a Seção 7 — Parecer Técnico.", severidade: "aviso" });
           });
         });
       });
@@ -2085,50 +2085,6 @@ export default function LtcatWizard() {
                                         </div>
 
                                         <div className="flex items-center gap-2">
-                                          <Button
-                                            size="sm" variant="outline" className={`h-8 gap-2 text-[10px] font-black uppercase tracking-widest px-4 transition-all rounded-xl ${itemParecer ? "border-success/40 bg-success/5 text-success hover:bg-success hover:text-white" : "border-accent/40 bg-accent/5 text-accent hover:bg-accent hover:text-white"}`}
-                                            onClick={() => {
-                                              const entry = res?.entry || firstEntry;
-                                              const data = res?.data || null;
-                                              const display = (
-                                                <div className="text-[10px] font-mono bg-muted/40 p-4 rounded-xl border border-border/50 space-y-2">
-                                                  <div className="border-b border-border/50 pb-1 flex justify-between items-center">
-                                                    <p className="text-accent font-bold opacity-60">CONTEXTO DE CAMPO</p>
-                                                    <Badge variant="outline" className="text-[8px] border-accent/20 text-accent uppercase">{entry.agente_nome}</Badge>
-                                                  </div>
-                                                  <p className="text-foreground font-black uppercase text-xs">{item.funcao_nome}</p>
-                                                  <p className="text-muted-foreground uppercase opacity-80">COLABORADOR: {item.colaborador}</p>
-
-                                                  {/* Quantitative Results Preview */}
-                                                  {res && (
-                                                    <div className="mt-2 pt-2 border-t border-border/30 space-y-1">
-                                                      {res.type === 'calor' && (
-                                                        <>
-                                                          <p className="text-accent font-bold">IBUTG: {res.data.resultado} {unidades.find(u => u.id === res.data.unidade_resultado_id)?.simbolo}</p>
-                                                          <p className="opacity-60 italic">Metabolismo: {res.data.taxa_metabolica || 'N/A'}</p>
-                                                        </>
-                                                      )}
-                                                      {res.type === 'vibracao' && (
-                                                        <>
-                                                          <p className="text-accent font-bold">AREN: {res.data.aren_resultado} {unidades.find(u => u.id === res.data.aren_unidade_id)?.simbolo}</p>
-                                                          {res.data.vdvr_resultado && <p className="text-accent font-bold">VDVR: {res.data.vdvr_resultado} {unidades.find(u => u.id === res.data.vdvr_unidade_id)?.simbolo}</p>}
-                                                        </>
-                                                      )}
-                                                      {res.type === 'detalhado' && (
-                                                        <>
-                                                          <p className="text-accent font-bold">RESULTADO: {res.data.resultado} {unidades.find(u => u.id === res.data.unidade_resultado_id)?.simbolo}</p>
-                                                          <p className="opacity-60 italic">Limite (LT): {res.data.limite_tolerancia || 'N/A'}</p>
-                                                        </>
-                                                      )}
-                                                    </div>
-                                                  )}
-                                                </div>
-                                              );
-                                              openParecerModal(entry as RiscoEntry, data, display);
-                                            }}
-                                          >
-                                            <FileText className="w-3.5 h-3.5" /> Parecer Técnico
-                                          </Button>
                                           <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
                                             onClick={() => {
@@ -3264,7 +3220,19 @@ export default function LtcatWizard() {
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
                 <Button variant="outline" onClick={() => setResultsModalOpen(false)}>Cancelar</Button>
                 <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => {
-                  handleSaveRisk(tempResultados);
+                  // Persistir resultados no riskForm e voltar ao modal principal
+                  setRiskForm(prev => ({ ...prev, resultados_detalhados: tempResultados }));
+                  setResultsModalOpen(false);
+                  toast.success(`${tempResultados.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
+                  // Scroll automático até Seção 7 com destaque
+                  setTimeout(() => {
+                    const el = document.getElementById("secao-7-parecer");
+                    if (el) {
+                      el.scrollIntoView({ behavior: "smooth", block: "center" });
+                      el.classList.add("ring-4", "ring-accent/60");
+                      setTimeout(() => el.classList.remove("ring-4", "ring-accent/60"), 2000);
+                    }
+                  }, 200);
                 }}>
                   Salvar Resultados
                 </Button>
@@ -3605,123 +3573,6 @@ export default function LtcatWizard() {
             </DialogContent>
           </Dialog>
 
-          {/* ============================================================ */}
-          {/* MODAL: PARECER TÉCNICO E APOSENTADORIA ESPECIAL              */}
-          {/* ============================================================ */}
-          <Dialog open={parecerModalOpen} onOpenChange={setParecerModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto p-0 gap-0 border-none bg-transparent shadow-2xl">
-              <div className="glass-card !bg-background w-full rounded-2xl overflow-hidden flex flex-col border border-border/50">
-                <DialogHeader className="p-6 bg-accent/[0.03] border-b border-border/50">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-accent/10 flex items-center justify-center">
-                      <FileText className="w-5 h-5 text-accent" />
-                    </div>
-                    <div>
-                      <DialogTitle className="font-heading text-xl font-black uppercase tracking-tight">Parecer Técnico</DialogTitle>
-                      <p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">Conclusão Técnica das Condições Ambientais</p>
-                    </div>
-                  </div>
-                </DialogHeader>
-
-                <div className="px-6 py-8 space-y-8">
-                  {/* SEÇÃO 1: VISUALIZAÇÃO DOS DADOS */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                      Dados de Diagnóstico
-                    </h4>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
-                        <Label className="text-[9px] font-black uppercase tracking-wider opacity-50 block mb-1">Colaborador Avaliado</Label>
-                        <p className="text-sm font-bold text-foreground truncate uppercase">{currentParecerTarget?.colaborador}</p>
-                      </div>
-                      <div className="bg-muted/30 p-4 rounded-2xl border border-border/50">
-                        <Label className="text-[9px] font-black uppercase tracking-wider opacity-50 block mb-1">Função / Setor</Label>
-                        <p className="text-sm font-bold text-foreground truncate uppercase">{currentParecerTarget?.funcao_nome}</p>
-                      </div>
-                    </div>
-                    {currentParecerTarget?.results_display}
-                  </div>
-
-                  {/* SEÇÃO 2: DESCRIÇÃO DO PARECER TÉCNICO */}
-                  <div className="space-y-4">
-                    <div className="flex justify-between items-center">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
-                        <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                        Parecer do Engenheiro
-                      </h4>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-accent hover:bg-accent/10"
-                          onClick={() => {
-                            const currentRiskObj = riscos.find(r => r.id === currentParecerTarget?.riskId);
-                            if (!currentRiskObj) return;
-
-                            // Compare using the Agente (Risk Categorization) UUID, not the entry ID
-                            const similar = cachedPareceres.find(p => p.agente_id === currentRiskObj.agente_id && p.parecer_tecnico);
-                            if (similar) {
-                              setTempParecer(similar.parecer_tecnico || "");
-                              setTempAposentadoria(similar.aposentadoria_especial || "");
-                              toast.success("Parecer histórico recuperado!");
-                            } else {
-                              toast.info("Nenhum parecer técnico prévio encontrado para este agente.");
-                            }
-                          }}
-                        >
-                          <Copy className="w-3 h-3" /> Histórico
-                        </Button>
-                        <Button
-                          variant="ghost" size="sm" className="h-7 gap-1.5 text-[10px] font-bold uppercase tracking-widest text-success hover:bg-success/10"
-                          onClick={handleReplicateParecer}
-                        >
-                          <Check className="w-3 h-3" /> Replicar para todos
-                        </Button>
-                      </div>
-                    </div>
-                    <div className="relative group">
-                      <div className="absolute inset-0 bg-accent/5 rounded-2xl blur-xl opacity-0 group-focus-within:opacity-100 transition-opacity"></div>
-                      <Textarea
-                        placeholder="Descreva aqui sua conclusão técnica detalhada sobre a exposição..."
-                        className="min-h-[160px] relative bg-background/50 border-border/50 focus:border-accent/40 rounded-2xl p-5 text-sm leading-relaxed"
-                        value={tempParecer}
-                        onChange={(e) => setTempParecer(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* SEÇÃO 3: APOSENTADORIA ESPECIAL */}
-                  <div className="space-y-4">
-                    <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-accent/60 flex items-center gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-accent"></span>
-                      Conclusão Previdenciária
-                    </h4>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-center">
-                      <Label className="text-sm font-bold text-foreground">Ensejador de Aposentadoria Especial?</Label>
-                      <Select value={tempAposentadoria} onValueChange={setTempAposentadoria}>
-                        <SelectTrigger className="rounded-xl border-border/50 bg-background/50 h-11 font-medium">
-                          <SelectValue placeholder="Selecione a conclusão" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="Sim, Caracterizado" className="font-medium text-destructive">Sim, Caracterizado</SelectItem>
-                          <SelectItem value="Não Caracterizado" className="font-medium text-success">Não Caracterizado</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                <DialogFooter className="p-6 bg-accent/[0.03] border-t border-border/50">
-                  <Button variant="ghost" onClick={() => setParecerModalOpen(false)} className="rounded-xl font-bold uppercase tracking-widest text-[10px]">Descartar</Button>
-                  <Button
-                    onClick={handleSaveParecer}
-                    className="bg-accent text-accent-foreground hover:bg-black rounded-xl px-10 font-black uppercase tracking-widest text-[10px] h-11 shadow-lg shadow-accent/20"
-                  >
-                    Salvar Parecer
-                  </Button>
-                </DialogFooter>
-              </div>
-            </DialogContent>
-          </Dialog>
           {/* ============================================================ */}
           {/* MODAL: EXCLUSÃO SELETIVA DE ITENS (FUNÇÃO/COLAB)             */}
           {/* ============================================================ */}
