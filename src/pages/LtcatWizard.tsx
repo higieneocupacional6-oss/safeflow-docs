@@ -670,7 +670,9 @@ export default function LtcatWizard() {
       funcoes_ges: riskForm.funcoes_ges,
       data_avaliacao: riskForm.data_avaliacao,
       equipamentos_avaliacao: riskForm.equipamentos_avaliacao,
-    };
+      tempo_coleta: riskForm.tempo_coleta,
+      unidade_tempo_coleta: riskForm.unidade_tempo_coleta,
+    } as RiscoEntry;
 
     try {
       if (editingRiskId) {
