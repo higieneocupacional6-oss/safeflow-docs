@@ -1101,9 +1101,25 @@ export default function LtcatWizard() {
           };
         });
 
+        // Flags de tipo de agente para uso condicional no template
+        const tipoAgenteUpper = (first.tipo_agente || "").toUpperCase();
+        const agenteNomeLower = (first.agente_nome || "").toLowerCase();
+        const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
+        const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
+        const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+        const is_ruido = agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido");
+        const is_calor = agenteNomeLower.includes("calor");
+        const is_vibracao = agenteNomeLower.includes("vibra");
+
         return {
           agente_nome: first.agente_nome || "",
           tipo_agente: first.tipo_agente || "",
+          is_quimico,
+          is_fisico,
+          is_biologico,
+          is_ruido,
+          is_calor,
+          is_vibracao,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
@@ -1197,9 +1213,17 @@ export default function LtcatWizard() {
         dbParecer?.aposentadoria_especial ||
         "";
 
+      const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
+      const agenteNomeLower = (r.agente_nome || "").toLowerCase();
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
+        is_quimico: tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI"),
+        is_fisico: tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI"),
+        is_biologico: tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG"),
+        is_ruido: agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido"),
+        is_calor: agenteNomeLower.includes("calor"),
+        is_vibracao: agenteNomeLower.includes("vibra"),
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
