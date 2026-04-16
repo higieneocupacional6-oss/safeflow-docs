@@ -165,18 +165,7 @@ export default function LtcatWizard() {
   const [riskToDeleteItems, setRiskToDeleteItems] = useState<RiscoEntry | null>(null);
   const [selectedItemsToDelete, setSelectedItemsToDelete] = useState<string[]>([]);
 
-  // Parecer Técnico Modal State
-  const [parecerModalOpen, setParecerModalOpen] = useState(false);
-  const [currentParecerTarget, setCurrentParecerTarget] = useState<{
-    riskId: string;
-    resultId?: string;
-    colaborador: string;
-    funcao_nome: string;
-    agente_nome: string;
-    results_display: React.ReactNode;
-  } | null>(null);
-  const [tempParecer, setTempParecer] = useState("");
-  const [tempAposentadoria, setTempAposentadoria] = useState("");
+  // (Parecer Técnico agora é preenchido exclusivamente na Seção 7 do modal de risco)
 
   // Step 1
   const [empresaId, setEmpresaId] = useState("");
