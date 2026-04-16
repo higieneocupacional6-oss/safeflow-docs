@@ -1274,8 +1274,11 @@ export default function LtcatWizard() {
         responsavel: r.responsavel || ""
       })),
 
-      // Setores com riscos
+      // Setores com funções e riscos
       setores: setoresData,
+
+      // Loop de riscos consolidado (parecer por risco)
+      riscos: riscosConsolidados,
     };
 
     console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
