@@ -1763,8 +1763,7 @@ export default function LtcatWizard() {
                                     placeholder="Nome do Colaborador"
                                     value={item.colaborador}
                                     onChange={(e) => updateItemBlock(index, "colaborador", e.target.value)}
-                                  />
-                                  />
+                                   />
                                 </div>
                                 <div className="flex-1 space-y-1.5">
                                   <Select value={item.funcao_id} onValueChange={(v) => updateItemBlock(index, "funcao_id", v)}>
