@@ -817,6 +817,16 @@ export default function LtcatWizard() {
   const handleSaveParecer = async () => {
     if (!currentParecerTarget) return;
 
+    // Obrigatoriedade: parecer técnico e aposentadoria especial
+    if (!tempParecer.trim()) {
+      toast.error("Parecer técnico é obrigatório.");
+      return;
+    }
+    if (!tempAposentadoria) {
+      toast.error("Aposentadoria especial é obrigatória.");
+      return;
+    }
+
     const { riskId, resultId } = currentParecerTarget;
     const riskObj = riscos.find(r => r.id === riskId);
     if (!riskObj) return;
