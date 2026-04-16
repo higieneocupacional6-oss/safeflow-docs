@@ -1112,10 +1112,10 @@ export default function LtcatWizard() {
         let tipo = "Desconhecido";
         let correcao = "";
 
-        if (id === "unopened_tag") {
+        if (id === "unopened_tag" || id === "unopened_loop") {
           tipo = "Loop fechado sem abertura";
           correcao = `Adicione {{#${xtag}}} antes de {{/${xtag}}} no template`;
-        } else if (id === "unclosed_tag") {
+        } else if (id === "unclosed_tag" || id === "unclosed_loop") {
           tipo = "Loop aberto sem fechamento";
           correcao = `Adicione {{/${xtag}}} após {{#${xtag}}} no template`;
         } else if (id === "closing_tag_does_not_match_opening_tag") {
