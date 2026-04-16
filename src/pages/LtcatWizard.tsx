@@ -893,6 +893,27 @@ export default function LtcatWizard() {
         const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
         const first = agentEntries[0];
 
+        // Parecer técnico no nível do RISCO (para {{#setores}}{{#riscos}}{{parecer_tecnico}})
+        const dbParecerRisco = cachedPareceres.find((p: any) =>
+          p.agente_id === aId && p.setor_id === sId
+        ) || cachedPareceres.find((p: any) => p.agente_id === aId);
+        const allResultsRisco = agentEntries.flatMap((r: any) => [
+          ...(r.resultados_detalhados || []),
+          ...(r.resultados_componentes || []),
+          ...(r.resultados_vibracao || []),
+          ...(r.resultados_calor || []),
+        ]);
+        const riscoParecerTecnico =
+          first.parecer_tecnico ||
+          allResultsRisco.find((x: any) => x?.parecer_tecnico)?.parecer_tecnico ||
+          dbParecerRisco?.parecer_tecnico ||
+          "";
+        const riscoAposentadoria =
+          first.aposentadoria_especial ||
+          allResultsRisco.find((x: any) => x?.aposentadoria_especial)?.aposentadoria_especial ||
+          dbParecerRisco?.aposentadoria_especial ||
+          "";
+
         // Equipamentos da avaliação (mapeados uma vez por risco/agente)
         const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
           agente_nome: eq.agente_nome || r.agente_nome || "",
