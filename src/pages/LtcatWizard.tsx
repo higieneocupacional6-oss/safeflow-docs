@@ -1263,6 +1263,21 @@ export default function LtcatWizard() {
     };
 
     console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
+    console.log("🧪 [LTCAT] RISCOS COM PARECER:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
+      agente: r.agente_nome,
+      parecer_tecnico: r.parecer_tecnico,
+      aposentadoria_especial: r.aposentadoria_especial,
+    })));
+
+    const riscosSemParecer = templateData.setores
+      .flatMap((s: any) => s.riscos)
+      .filter((r: any) => !r.parecer_tecnico || !r.aposentadoria_especial);
+    if (riscosSemParecer.length > 0) {
+      const nomes = riscosSemParecer.map((r: any) => r.agente_nome || "—").join(", ");
+      console.warn("⚠️ [LTCAT] Riscos sem parecer:", nomes);
+      (templateData as any).__pareceres_incompletos = nomes;
+    }
+
     return templateData;
   };
 
