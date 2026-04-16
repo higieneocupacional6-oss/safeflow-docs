@@ -94,7 +94,16 @@ const variableGroups = [
   {
     title: "Variáveis Gerais de Avaliação",
     vars: [
-      "{{data_avaliacao}}", "{{funcoes_ges}}",
+      "{{data_avaliacao}}", "{{funcoes_ges}}", "{{tecnica_amostragem}}",
+      "{{tempo_coleta}}", "{{unidade_tempo_coleta}}",
+    ],
+  },
+  {
+    title: "Variáveis de Resultado Quantitativo",
+    vars: [
+      "{{colaborador}}", "{{funcao}}", "{{data_avaliacao}}", "{{dose_percentual}}",
+      "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}",
+      "{{situacao}}", "{{cod_gfip}}",
     ],
   },
   {

@@ -286,6 +286,7 @@ export type Database = {
         Row: {
           agente_id: string | null
           aposentadoria_especial: string | null
+          cod_gfip: string | null
           codigo_esocial: string | null
           colaborador: string | null
           created_at: string | null
@@ -293,6 +294,7 @@ export type Database = {
           danos_saude: string | null
           data_avaliacao: string | null
           descricao_esocial: string | null
+          dose_percentual: number | null
           empresa_id: string | null
           equipamento_id: string | null
           fonte_geradora: string | null
@@ -305,16 +307,20 @@ export type Database = {
           propagacao: string | null
           resultado: number | null
           setor_id: string | null
+          situacao: string | null
           tecnica_id: string | null
+          tempo_coleta: string | null
           tipo_agente: string | null
           tipo_avaliacao: string | null
           tipo_exposicao: string | null
           unidade_limite_id: string | null
           unidade_resultado_id: string | null
+          unidade_tempo_coleta: string | null
         }
         Insert: {
           agente_id?: string | null
           aposentadoria_especial?: string | null
+          cod_gfip?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
           created_at?: string | null
@@ -322,6 +328,7 @@ export type Database = {
           danos_saude?: string | null
           data_avaliacao?: string | null
           descricao_esocial?: string | null
+          dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
           fonte_geradora?: string | null
@@ -334,16 +341,20 @@ export type Database = {
           propagacao?: string | null
           resultado?: number | null
           setor_id?: string | null
+          situacao?: string | null
           tecnica_id?: string | null
+          tempo_coleta?: string | null
           tipo_agente?: string | null
           tipo_avaliacao?: string | null
           tipo_exposicao?: string | null
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
         }
         Update: {
           agente_id?: string | null
           aposentadoria_especial?: string | null
+          cod_gfip?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
           created_at?: string | null
@@ -351,6 +362,7 @@ export type Database = {
           danos_saude?: string | null
           data_avaliacao?: string | null
           descricao_esocial?: string | null
+          dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
           fonte_geradora?: string | null
@@ -363,12 +375,15 @@ export type Database = {
           propagacao?: string | null
           resultado?: number | null
           setor_id?: string | null
+          situacao?: string | null
           tecnica_id?: string | null
+          tempo_coleta?: string | null
           tipo_agente?: string | null
           tipo_avaliacao?: string | null
           tipo_exposicao?: string | null
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
         }
         Relationships: [
           {
