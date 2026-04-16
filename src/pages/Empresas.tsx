@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, Building2, MoreHorizontal, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Pencil, Trash2, Loader2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,12 +12,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { EmpresaModal } from "@/components/EmpresaModal";
 import {
-  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function Empresas() {
   const [open, setOpen] = useState(false);
+  const [editEmpresa, setEditEmpresa] = useState<any>(null);
   const [search, setSearch] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: empresas = [], isLoading } = useQuery({
@@ -38,10 +40,22 @@ export default function Empresas() {
       (e.cnpj || "").includes(search)
   );
 
-  const handleDelete = async (id: string) => {
-    await supabase.from("empresas").delete().eq("id", id);
+  const handleDelete = async () => {
+    if (!deleteConfirm) return;
+    await supabase.from("empresas").delete().eq("id", deleteConfirm.id);
     queryClient.invalidateQueries({ queryKey: ["empresas"] });
     toast.success("Empresa removida");
+    setDeleteConfirm(null);
+  };
+
+  const handleEdit = (empresa: any) => {
+    setEditEmpresa(empresa);
+    setOpen(true);
+  };
+
+  const handleNew = () => {
+    setEditEmpresa(null);
+    setOpen(true);
   };
 
   return (
@@ -50,7 +64,7 @@ export default function Empresas() {
         title="Empresas"
         description="Gerencie as empresas cadastradas no sistema"
         actions={
-          <Button onClick={() => setOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <Button onClick={handleNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="w-4 h-4 mr-2" />Nova Empresa
           </Button>
         }
@@ -72,16 +86,15 @@ export default function Empresas() {
               <TableRow>
                 <TableHead>Empresa</TableHead>
                 <TableHead>CNPJ</TableHead>
-                <TableHead className="hidden md:table-cell">CNAE</TableHead>
-                <TableHead className="hidden sm:table-cell">Grau Risco</TableHead>
-                <TableHead className="hidden sm:table-cell">Funcionários</TableHead>
-                <TableHead className="w-12"></TableHead>
+                <TableHead className="hidden md:table-cell">Nº Contrato</TableHead>
+                <TableHead className="hidden sm:table-cell">Local de Trabalho</TableHead>
+                <TableHead className="w-24">Ações</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredEmpresas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
+                  <TableCell colSpan={5} className="text-center py-12 text-muted-foreground">
                     <Building2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
                     <p>Nenhuma empresa encontrada</p>
                   </TableCell>
@@ -96,24 +109,17 @@ export default function Empresas() {
                       </div>
                     </TableCell>
                     <TableCell><Badge variant="outline" className="font-mono text-xs">{empresa.cnpj}</Badge></TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground max-w-[200px] truncate">{empresa.cnae_principal}</TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      {empresa.grau_risco && <Badge variant="secondary">GR {empresa.grau_risco}</Badge>}
-                    </TableCell>
-                    <TableCell className="hidden sm:table-cell">
-                      <Badge variant="secondary">{empresa.total_funcionarios || 0}</Badge>
-                    </TableCell>
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground">{empresa.numero_contrato || "—"}</TableCell>
+                    <TableCell className="hidden sm:table-cell text-sm text-muted-foreground max-w-[200px] truncate">{empresa.local_trabalho || "—"}</TableCell>
                     <TableCell>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8"><MoreHorizontal className="w-4 h-4" /></Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(empresa.id)}>
-                            <Trash2 className="w-4 h-4 mr-2" />Excluir
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(empresa)}>
+                          <Pencil className="w-4 h-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => setDeleteConfirm(empresa)}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))
@@ -123,7 +129,28 @@ export default function Empresas() {
         )}
       </div>
 
-      <EmpresaModal open={open} onOpenChange={setOpen} onSaved={() => queryClient.invalidateQueries({ queryKey: ["empresas"] })} />
+      <EmpresaModal
+        open={open}
+        onOpenChange={setOpen}
+        onSaved={() => queryClient.invalidateQueries({ queryKey: ["empresas"] })}
+        empresa={editEmpresa}
+      />
+
+      {/* Delete confirmation modal */}
+      <Dialog open={!!deleteConfirm} onOpenChange={() => setDeleteConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Confirmar Exclusão</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Tem certeza que deseja excluir a empresa <strong>{deleteConfirm?.nome_fantasia || deleteConfirm?.razao_social}</strong>? Esta ação não pode ser desfeita.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteConfirm(null)}>Cancelar</Button>
+            <Button variant="destructive" onClick={handleDelete}>Excluir</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,10 +12,18 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { getGrauRiscoByCnae } from "@/lib/cnaeGrauRisco";
 
+interface Contato {
+  id?: string;
+  nome: string;
+  email: string;
+  telefone: string;
+}
+
 interface EmpresaModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
+  empresa?: any;
 }
 
 const formatCnpj = (value: string) => {
@@ -27,19 +35,92 @@ const formatCnpj = (value: string) => {
     .replace(/(\d{4})(\d)/, "$1-$2");
 };
 
-export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps) {
+const emptyForm = {
+  cnpj: "", razao_social: "", nome_fantasia: "", cnae_principal: "", grau_risco: "", endereco: "",
+  numero_funcionarios_fem: "", numero_funcionarios_masc: "", total_funcionarios: "", jornada_trabalho: "",
+  numero_contrato: "", cnpj_contratante: "", nome_contratante: "",
+  vigencia_inicio: "", vigencia_fim: "", local_trabalho: "", escopo_contrato: "",
+  gestor_nome: "", gestor_email: "", gestor_telefone: "",
+  fiscal_nome: "", fiscal_email: "", fiscal_telefone: "",
+  preposto_nome: "", preposto_email: "", preposto_telefone: "",
+};
+
+const emptyContato = (): Contato => ({ nome: "", email: "", telefone: "" });
+
+export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaModalProps) {
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingContratante, setLoadingContratante] = useState(false);
-  const [form, setForm] = useState({
-    cnpj: "", razao_social: "", nome_fantasia: "", cnae_principal: "", grau_risco: "", endereco: "",
-    numero_funcionarios_fem: "", numero_funcionarios_masc: "", total_funcionarios: "", jornada_trabalho: "",
-    numero_contrato: "", cnpj_contratante: "", nome_contratante: "",
-    vigencia_inicio: "", vigencia_fim: "", local_trabalho: "", escopo_contrato: "",
-    gestor_nome: "", gestor_email: "", gestor_telefone: "",
-    fiscal_nome: "", fiscal_email: "", fiscal_telefone: "",
-    preposto_nome: "", preposto_email: "", preposto_telefone: "",
-  });
+  const [form, setForm] = useState({ ...emptyForm });
+  const [fiscais, setFiscais] = useState<Contato[]>([emptyContato()]);
+  const [gestores, setGestores] = useState<Contato[]>([emptyContato()]);
+  const [prepostos, setPrepostos] = useState<Contato[]>([emptyContato()]);
+
+  const isEdit = !!empresa;
+
+  useEffect(() => {
+    if (open && empresa) {
+      setForm({
+        cnpj: empresa.cnpj || "",
+        razao_social: empresa.razao_social || "",
+        nome_fantasia: empresa.nome_fantasia || "",
+        cnae_principal: empresa.cnae_principal || "",
+        grau_risco: empresa.grau_risco || "",
+        endereco: empresa.endereco || "",
+        numero_funcionarios_fem: empresa.numero_funcionarios_fem?.toString() || "",
+        numero_funcionarios_masc: empresa.numero_funcionarios_masc?.toString() || "",
+        total_funcionarios: empresa.total_funcionarios?.toString() || "",
+        jornada_trabalho: empresa.jornada_trabalho || "",
+        numero_contrato: empresa.numero_contrato || "",
+        cnpj_contratante: empresa.cnpj_contratante || "",
+        nome_contratante: empresa.nome_contratante || "",
+        vigencia_inicio: empresa.vigencia_inicio || "",
+        vigencia_fim: empresa.vigencia_fim || "",
+        local_trabalho: empresa.local_trabalho || "",
+        escopo_contrato: empresa.escopo_contrato || "",
+        gestor_nome: empresa.gestor_nome || "",
+        gestor_email: empresa.gestor_email || "",
+        gestor_telefone: empresa.gestor_telefone || "",
+        fiscal_nome: empresa.fiscal_nome || "",
+        fiscal_email: empresa.fiscal_email || "",
+        fiscal_telefone: empresa.fiscal_telefone || "",
+        preposto_nome: empresa.preposto_nome || "",
+        preposto_email: empresa.preposto_email || "",
+        preposto_telefone: empresa.preposto_telefone || "",
+      });
+      // Load contatos
+      loadContatos(empresa.id);
+    } else if (open && !empresa) {
+      setForm({ ...emptyForm });
+      setFiscais([emptyContato()]);
+      setGestores([emptyContato()]);
+      setPrepostos([emptyContato()]);
+    }
+  }, [open, empresa]);
+
+  const loadContatos = async (empresaId: string) => {
+    const { data } = await supabase
+      .from("empresa_contatos")
+      .select("*")
+      .eq("empresa_id", empresaId)
+      .order("created_at");
+    if (data && data.length > 0) {
+      const f = data.filter((c: any) => c.tipo === "fiscal").map((c: any) => ({ id: c.id, nome: c.nome, email: c.email, telefone: c.telefone }));
+      const g = data.filter((c: any) => c.tipo === "gestor").map((c: any) => ({ id: c.id, nome: c.nome, email: c.email, telefone: c.telefone }));
+      const p = data.filter((c: any) => c.tipo === "preposto").map((c: any) => ({ id: c.id, nome: c.nome, email: c.email, telefone: c.telefone }));
+      setFiscais(f.length > 0 ? f : [emptyContato()]);
+      setGestores(g.length > 0 ? g : [emptyContato()]);
+      setPrepostos(p.length > 0 ? p : [emptyContato()]);
+    } else {
+      // Migrate existing single fields to contatos list
+      const f: Contato[] = empresa.fiscal_nome ? [{ nome: empresa.fiscal_nome, email: empresa.fiscal_email || "", telefone: empresa.fiscal_telefone || "" }] : [emptyContato()];
+      const g: Contato[] = empresa.gestor_nome ? [{ nome: empresa.gestor_nome, email: empresa.gestor_email || "", telefone: empresa.gestor_telefone || "" }] : [emptyContato()];
+      const p: Contato[] = empresa.preposto_nome ? [{ nome: empresa.preposto_nome, email: empresa.preposto_email || "", telefone: empresa.preposto_telefone || "" }] : [emptyContato()];
+      setFiscais(f);
+      setGestores(g);
+      setPrepostos(p);
+    }
+  };
 
   const update = (field: string, value: string) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -80,6 +161,34 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
     finally { setLoadingContratante(false); }
   };
 
+  const updateContato = (list: Contato[], setList: (v: Contato[]) => void, index: number, field: keyof Contato, value: string) => {
+    const newList = [...list];
+    newList[index] = { ...newList[index], [field]: value };
+    setList(newList);
+  };
+
+  const addContato = (list: Contato[], setList: (v: Contato[]) => void) => {
+    setList([...list, emptyContato()]);
+  };
+
+  const removeContato = (list: Contato[], setList: (v: Contato[]) => void, index: number) => {
+    if (list.length <= 1) return;
+    setList(list.filter((_, i) => i !== index));
+  };
+
+  const saveContatos = async (empresaId: string) => {
+    // Delete existing
+    await supabase.from("empresa_contatos").delete().eq("empresa_id", empresaId);
+    // Insert all
+    const rows: any[] = [];
+    fiscais.filter(c => c.nome.trim()).forEach(c => rows.push({ empresa_id: empresaId, tipo: "fiscal", nome: c.nome, email: c.email, telefone: c.telefone }));
+    gestores.filter(c => c.nome.trim()).forEach(c => rows.push({ empresa_id: empresaId, tipo: "gestor", nome: c.nome, email: c.email, telefone: c.telefone }));
+    prepostos.filter(c => c.nome.trim()).forEach(c => rows.push({ empresa_id: empresaId, tipo: "preposto", nome: c.nome, email: c.email, telefone: c.telefone }));
+    if (rows.length > 0) {
+      await supabase.from("empresa_contatos").insert(rows);
+    }
+  };
+
   const handleSave = async () => {
     if (!form.cnpj || form.cnpj.replace(/\D/g, "").length !== 14) {
       toast.error("Informe um CNPJ válido"); return;
@@ -89,7 +198,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from("empresas").insert({
+      const payload = {
         cnpj: form.cnpj,
         razao_social: form.razao_social,
         nome_fantasia: form.nome_fantasia || null,
@@ -107,40 +216,68 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
         vigencia_fim: form.vigencia_fim || null,
         local_trabalho: form.local_trabalho || null,
         escopo_contrato: form.escopo_contrato || null,
-        gestor_nome: form.gestor_nome || null,
-        gestor_email: form.gestor_email || null,
-        gestor_telefone: form.gestor_telefone || null,
-        fiscal_nome: form.fiscal_nome || null,
-        fiscal_email: form.fiscal_email || null,
-        fiscal_telefone: form.fiscal_telefone || null,
-        preposto_nome: form.preposto_nome || null,
-        preposto_email: form.preposto_email || null,
-        preposto_telefone: form.preposto_telefone || null,
-      });
-      if (error) throw error;
-      toast.success("Empresa cadastrada com sucesso!");
+        gestor_nome: gestores[0]?.nome || form.gestor_nome || null,
+        gestor_email: gestores[0]?.email || form.gestor_email || null,
+        gestor_telefone: gestores[0]?.telefone || form.gestor_telefone || null,
+        fiscal_nome: fiscais[0]?.nome || form.fiscal_nome || null,
+        fiscal_email: fiscais[0]?.email || form.fiscal_email || null,
+        fiscal_telefone: fiscais[0]?.telefone || form.fiscal_telefone || null,
+        preposto_nome: prepostos[0]?.nome || form.preposto_nome || null,
+        preposto_email: prepostos[0]?.email || form.preposto_email || null,
+        preposto_telefone: prepostos[0]?.telefone || form.preposto_telefone || null,
+      };
+
+      let empresaId: string;
+      if (isEdit) {
+        const { error } = await supabase.from("empresas").update(payload).eq("id", empresa.id);
+        if (error) throw error;
+        empresaId = empresa.id;
+      } else {
+        const { data, error } = await supabase.from("empresas").insert(payload).select("id").single();
+        if (error) throw error;
+        empresaId = data.id;
+      }
+
+      await saveContatos(empresaId);
+
+      toast.success(isEdit ? "Empresa atualizada!" : "Empresa cadastrada!");
       onSaved();
       onOpenChange(false);
-      // Reset
-      setForm({
-        cnpj: "", razao_social: "", nome_fantasia: "", cnae_principal: "", grau_risco: "", endereco: "",
-        numero_funcionarios_fem: "", numero_funcionarios_masc: "", total_funcionarios: "", jornada_trabalho: "",
-        numero_contrato: "", cnpj_contratante: "", nome_contratante: "",
-        vigencia_inicio: "", vigencia_fim: "", local_trabalho: "", escopo_contrato: "",
-        gestor_nome: "", gestor_email: "", gestor_telefone: "",
-        fiscal_nome: "", fiscal_email: "", fiscal_telefone: "",
-        preposto_nome: "", preposto_email: "", preposto_telefone: "",
-      });
     } catch (err: any) {
       toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
     } finally { setSaving(false); }
   };
 
+  const renderContatoSection = (titulo: string, list: Contato[], setList: (v: Contato[]) => void) => (
+    <div className="p-3 rounded-lg border border-border space-y-2">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-foreground">{titulo}</p>
+        <Button type="button" variant="ghost" size="sm" onClick={() => addContato(list, setList)}>
+          <Plus className="w-3 h-3 mr-1" />Adicionar
+        </Button>
+      </div>
+      {list.map((contato, idx) => (
+        <div key={idx} className="flex gap-2 items-start">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 flex-1">
+            <div><Label className="text-xs">Nome</Label><Input className="mt-1 h-9 text-sm" value={contato.nome} onChange={e => updateContato(list, setList, idx, "nome", e.target.value)} /></div>
+            <div><Label className="text-xs">Email</Label><Input className="mt-1 h-9 text-sm" type="email" value={contato.email} onChange={e => updateContato(list, setList, idx, "email", e.target.value)} /></div>
+            <div><Label className="text-xs">Telefone</Label><Input className="mt-1 h-9 text-sm" value={contato.telefone} onChange={e => updateContato(list, setList, idx, "telefone", e.target.value)} /></div>
+          </div>
+          {list.length > 1 && (
+            <Button type="button" variant="ghost" size="icon" className="h-8 w-8 mt-5 text-destructive shrink-0" onClick={() => removeContato(list, setList, idx)}>
+              <Trash2 className="w-3 h-3" />
+            </Button>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading text-lg">Nova Empresa</DialogTitle>
+          <DialogTitle className="font-heading text-lg">{isEdit ? "Editar Empresa" : "Nova Empresa"}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-6 py-2">
@@ -203,37 +340,13 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
 
           <Separator />
 
-          {/* Responsáveis */}
+          {/* Responsáveis - Multiple */}
           <div>
             <h3 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-3">Responsáveis do Contrato</h3>
             <div className="space-y-4">
-              {/* Gestor */}
-              <div className="p-3 rounded-lg border border-border space-y-2">
-                <p className="text-sm font-semibold text-foreground">Gestor do Contrato</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div><Label className="text-xs">Nome</Label><Input className="mt-1 h-9 text-sm" value={form.gestor_nome} onChange={e => update("gestor_nome", e.target.value)} /></div>
-                  <div><Label className="text-xs">Email</Label><Input className="mt-1 h-9 text-sm" type="email" value={form.gestor_email} onChange={e => update("gestor_email", e.target.value)} /></div>
-                  <div><Label className="text-xs">Telefone</Label><Input className="mt-1 h-9 text-sm" value={form.gestor_telefone} onChange={e => update("gestor_telefone", e.target.value)} /></div>
-                </div>
-              </div>
-              {/* Fiscal */}
-              <div className="p-3 rounded-lg border border-border space-y-2">
-                <p className="text-sm font-semibold text-foreground">Fiscal do Contrato</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div><Label className="text-xs">Nome</Label><Input className="mt-1 h-9 text-sm" value={form.fiscal_nome} onChange={e => update("fiscal_nome", e.target.value)} /></div>
-                  <div><Label className="text-xs">Email</Label><Input className="mt-1 h-9 text-sm" type="email" value={form.fiscal_email} onChange={e => update("fiscal_email", e.target.value)} /></div>
-                  <div><Label className="text-xs">Telefone</Label><Input className="mt-1 h-9 text-sm" value={form.fiscal_telefone} onChange={e => update("fiscal_telefone", e.target.value)} /></div>
-                </div>
-              </div>
-              {/* Preposto */}
-              <div className="p-3 rounded-lg border border-border space-y-2">
-                <p className="text-sm font-semibold text-foreground">Preposto da Empresa</p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                  <div><Label className="text-xs">Nome</Label><Input className="mt-1 h-9 text-sm" value={form.preposto_nome} onChange={e => update("preposto_nome", e.target.value)} /></div>
-                  <div><Label className="text-xs">Email</Label><Input className="mt-1 h-9 text-sm" type="email" value={form.preposto_email} onChange={e => update("preposto_email", e.target.value)} /></div>
-                  <div><Label className="text-xs">Telefone</Label><Input className="mt-1 h-9 text-sm" value={form.preposto_telefone} onChange={e => update("preposto_telefone", e.target.value)} /></div>
-                </div>
-              </div>
+              {renderContatoSection("Gestor do Contrato", gestores, setGestores)}
+              {renderContatoSection("Fiscal do Contrato", fiscais, setFiscais)}
+              {renderContatoSection("Preposto da Empresa", prepostos, setPrepostos)}
             </div>
           </div>
         </div>
@@ -242,7 +355,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved }: EmpresaModalProps)
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
           <Button onClick={handleSave} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
             {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-            Salvar Empresa
+            {isEdit ? "Atualizar Empresa" : "Salvar Empresa"}
           </Button>
         </DialogFooter>
       </DialogContent>
