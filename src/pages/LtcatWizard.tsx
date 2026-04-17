@@ -1734,18 +1734,176 @@ export default function LtcatWizard() {
         return;
       }
 
-      // If only warnings or no issues, save as rascunho
+  // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
+  // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
+  const persistAvaliacoes = async (docId: string) => {
+    if (!docId || !empresaId) return;
+    try {
+      // 1) Limpar avaliações existentes deste documento (cascade limpa subtables via FK)
+      const { data: existentes } = await supabase
+        .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
+      if (existentes && existentes.length > 0) {
+        await supabase.from("ltcat_avaliacoes")
+          .delete().in("id", existentes.map(e => e.id));
+      }
+
+      // 2) Para cada risco -> 1 avaliação por item (colaborador/função)
+      for (const r of riscos) {
+        for (const it of r.items) {
+          const { data: avRow, error: avErr } = await supabase
+            .from("ltcat_avaliacoes")
+            .insert({
+              documento_id: docId,
+              empresa_id: empresaId,
+              setor_id: r.setor_id || null,
+              funcao_id: it.funcao_id || null,
+              colaborador: it.colaborador || null,
+              tipo_avaliacao: r.tipo_avaliacao || null,
+              tipo_agente: r.tipo_agente || null,
+              agente_id: r.agente_id || null,
+              tecnica_id: r.tecnica_id || null,
+              equipamento_id: r.equipamento_id || null,
+              resultado: r.resultado ? Number(r.resultado) : null,
+              unidade_resultado_id: r.unidade_resultado_id || null,
+              limite_tolerancia: r.limite_tolerancia ? Number(r.limite_tolerancia) : null,
+              unidade_limite_id: r.unidade_limite_id || null,
+              codigo_esocial: r.codigo_esocial || null,
+              descricao_esocial: r.descricao_esocial || null,
+              propagacao: r.propagacao || null,
+              tipo_exposicao: r.tipo_exposicao || null,
+              fonte_geradora: r.fonte_geradora || null,
+              danos_saude: r.danos_saude || null,
+              medidas_controle: r.medidas_controle || null,
+              parecer_tecnico: r.parecer_tecnico || null,
+              aposentadoria_especial: r.aposentadoria_especial || null,
+              data_avaliacao: r.data_avaliacao || null,
+              funcoes_ges: r.funcoes_ges || null,
+              tempo_coleta: (r as any).tempo_coleta || null,
+              unidade_tempo_coleta: (r as any).unidade_tempo_coleta || null,
+            }).select("id").single();
+          if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
+          const avId = avRow.id;
+
+          const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
+            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, ...extra(x, i) }));
+
+          const compRows = mkRows(r.resultados_componentes, (x) => ({
+            componente: x.componente_avaliado || x.componente || null,
+            cas: x.cas || null,
+            resultado: x.resultado ? Number(x.resultado) : null,
+            unidade_resultado_id: x.unidade_resultado_id || null,
+            limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
+            unidade_limite_id: x.unidade_limite_id || null,
+            tempo_coleta: x.tempo_coleta || null,
+            unidade_tempo_coleta: x.unidade_tempo_coleta || null,
+            dose_percentual: x.dose_percentual ? Number(x.dose_percentual) : null,
+            situacao: x.situacao || null,
+            cod_gfip: x.cod_gfip || null,
+            colaborador: x.colaborador || null,
+            funcao_id: x.funcao_id || null,
+            data_avaliacao: x.data_avaliacao || null,
+            descricao_avaliacao: x.descricao_avaliacao || x.descricao_tecnica || null,
+            parecer_tecnico: x.parecer_tecnico || null,
+            aposentadoria_especial: x.aposentadoria_especial || null,
+          }));
+          const calorRows = mkRows(r.resultados_calor, (x) => ({
+            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
+            data_avaliacao: x.data_avaliacao || null,
+            ibutg_medido: x.ibutg_medido ? Number(x.ibutg_medido) : null,
+            ibutg_limite: x.ibutg_limite ? Number(x.ibutg_limite) : null,
+            m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
+            tipo_atividade: x.tipo_atividade || null,
+            taxa_metabolica: x.taxa_metabolica || null,
+            descricao_atividade: x.descricao_atividade || null,
+            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
+            parecer_tecnico: x.parecer_tecnico || null,
+            aposentadoria_especial: x.aposentadoria_especial || null,
+          }));
+          const vibRows = mkRows(r.resultados_vibracao, (x) => ({
+            tipo: x.tipo || null,
+            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
+            data_avaliacao: x.data_avaliacao || null,
+            aren: x.aren_resultado ? Number(x.aren_resultado) : (x.aren ? Number(x.aren) : null),
+            vdvr: x.vdvr_resultado ? Number(x.vdvr_resultado) : (x.vdvr ? Number(x.vdvr) : null),
+            aren_limite: x.aren_limite ? Number(x.aren_limite) : null,
+            vdvr_limite: x.vdvr_limite ? Number(x.vdvr_limite) : null,
+            tempo_exposicao: x.tempo_exposicao || x.tempo_coleta || null,
+            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
+            parecer_tecnico: x.parecer_tecnico || null,
+            aposentadoria_especial: x.aposentadoria_especial || null,
+          }));
+          const resRows = mkRows(r.resultados_detalhados, (x) => ({
+            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
+            data_avaliacao: x.data_avaliacao || null,
+            resultado: x.resultado ? Number(x.resultado) : null,
+            unidade_resultado_id: x.unidade_resultado_id || null,
+            limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
+            unidade_limite_id: x.unidade_limite_id || null,
+            tempo_coleta: x.tempo_coleta || null,
+            unidade_tempo_coleta: x.unidade_tempo_coleta || null,
+            dose_percentual: x.dose_percentual ? Number(x.dose_percentual) : null,
+            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
+            descricao_avaliacao: x.descricao_avaliacao || null,
+            parecer_tecnico: x.parecer_tecnico || null,
+            aposentadoria_especial: x.aposentadoria_especial || null,
+          }));
+          const eqRows = mkRows((r as any).equipamentos_avaliacao, (x) => ({
+            nome_equipamento: x.nome_equipamento || null,
+            modelo_equipamento: x.modelo_equipamento || null,
+            serie_equipamento: x.serie_equipamento || null,
+            data_calibracao: x.data_calibracao || null,
+            data_avaliacao: x.data_avaliacao || null,
+            agente_nome: x.agente_nome || null,
+          }));
+
+          const inserts: Promise<any>[] = [];
+          if (compRows.length)  inserts.push(supabase.from("ltcat_av_componentes").insert(compRows));
+          if (calorRows.length) inserts.push(supabase.from("ltcat_av_calor").insert(calorRows));
+          if (vibRows.length)   inserts.push(supabase.from("ltcat_av_vibracao").insert(vibRows));
+          if (resRows.length)   inserts.push(supabase.from("ltcat_av_resultados").insert(resRows));
+          if (eqRows.length)    inserts.push(supabase.from("ltcat_av_equipamentos").insert(eqRows));
+          if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
+            inserts.push(supabase.from("ltcat_av_epi_epc").insert({
+              avaliacao_id: avId,
+              epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
+              epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
+              epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
+            }));
+          }
+          await Promise.all(inserts);
+        }
+      }
+      console.log("💾 [LTCAT] Avaliações persistidas para documento:", docId);
+    } catch (e) {
+      console.error("[persistAvaliacoes] erro:", e);
+      throw e;
+    }
+  };
+
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
-      await supabase.from("documentos").insert({
-        tipo: "LTCAT",
-        empresa_id: empresaId || null,
-        empresa_nome: empresaNome,
-        template_id: selectedTemplate,
-        file_path: null,
-        status: "rascunho",
-      });
+      let docId: string | undefined;
+      if (isEditMode && documentoId) {
+        await supabase.from("documentos").update({
+          empresa_id: empresaId || null,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate,
+          status: "rascunho",
+        }).eq("id", documentoId);
+        docId = documentoId;
+      } else {
+        const { data: inserted } = await supabase.from("documentos").insert({
+          tipo: "LTCAT",
+          empresa_id: empresaId || null,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate,
+          file_path: null,
+          status: "rascunho",
+        }).select("id").single();
+        docId = inserted?.id;
+      }
+      if (docId) await persistAvaliacoes(docId);
 
       if (allErrors.length > 0) {
         setSmartErrors(allErrors);
@@ -1803,27 +1961,36 @@ export default function LtcatWizard() {
         const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
         const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
-        // Try to update existing rascunho, or insert new
-        const { data: existing } = await supabase
-          .from("documentos")
-          .select("id")
-          .eq("empresa_id", empresaId)
-          .eq("tipo", "LTCAT")
-          .eq("status", "rascunho")
-          .order("created_at", { ascending: false })
-          .limit(1);
-
-        if (existing && existing.length > 0) {
-          await supabase.from("documentos").update({ status: "concluido" }).eq("id", existing[0].id);
+        let docId: string | undefined;
+        if (isEditMode && documentoId) {
+          await supabase.from("documentos").update({ status: "concluido" }).eq("id", documentoId);
+          docId = documentoId;
         } else {
-          await supabase.from("documentos").insert({
-            tipo: "LTCAT",
-            empresa_id: empresaId || null,
-            empresa_nome: empresaNome,
-            template_id: selectedTemplate,
-            status: "concluido",
-          });
+          // Try to update existing rascunho, or insert new
+          const { data: existing } = await supabase
+            .from("documentos")
+            .select("id")
+            .eq("empresa_id", empresaId)
+            .eq("tipo", "LTCAT")
+            .eq("status", "rascunho")
+            .order("created_at", { ascending: false })
+            .limit(1);
+
+          if (existing && existing.length > 0) {
+            await supabase.from("documentos").update({ status: "concluido" }).eq("id", existing[0].id);
+            docId = existing[0].id;
+          } else {
+            const { data: inserted } = await supabase.from("documentos").insert({
+              tipo: "LTCAT",
+              empresa_id: empresaId || null,
+              empresa_nome: empresaNome,
+              template_id: selectedTemplate,
+              status: "concluido",
+            }).select("id").single();
+            docId = inserted?.id;
+          }
         }
+        if (docId) await persistAvaliacoes(docId);
 
         toast.success("✅ Documento VALIDADO! Pode gerar o documento final.");
       } catch (renderErr: any) {
