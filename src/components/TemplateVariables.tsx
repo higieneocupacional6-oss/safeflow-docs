@@ -133,6 +133,18 @@ const variableGroups = [
     ],
   },
   {
+    title: "Variáveis de Agente Qualitativo (LTCAT)",
+    vars: [
+      "{{#is_qualitativo}}", "{{agente_nome}}", "{{funcoes_ges}}", "{{tipo_avaliacao}}",
+      "{{tipo_agente}}", "{{fonte_geradora}}", "{{propagacao}}", "{{tipo_exposicao}}",
+      "{{danos_saude}}", "{{codigo_esocial}}",
+      "{{#avaliacoes}}", "{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{descricao_avaliacao}}", "{{/avaliacoes}}",
+      "{{#epis}}", "{{epi_nome}}", "{{epi_eficaz}}", "{{/epis}}",
+      "{{#epcs}}", "{{epc_nome}}", "{{epc_eficaz}}", "{{/epcs}}",
+      "{{parecer_tecnico}}", "{{aposentadoria_especial}}", "{{/is_qualitativo}}",
+    ],
+  },
+  {
     title: "Variáveis de Revisão (LTCAT)",
     vars: [
       "{{#revisoes}}", "{{revisao}}", "{{data_revisao}}", "{{motivo}}", "{{responsavel}}", "{{/revisoes}}",

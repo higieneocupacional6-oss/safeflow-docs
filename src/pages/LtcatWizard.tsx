@@ -1018,6 +1018,7 @@ export default function LtcatWizard() {
               unidade_tempo_coleta: res.unidade_tempo_coleta || (r as any).unidade_tempo_coleta || "",
               metodologia_utilizada: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "",
               metodologia: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "", // alias curto
+              descricao_avaliacao: res.descricao_avaliacao || res.descricao_tecnica || (r as any).descricao_tecnica || "",
               parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
@@ -1075,6 +1076,7 @@ export default function LtcatWizard() {
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
                 data_avaliacao: dataAv,
+                descricao_avaliacao: rc.descricao_avaliacao || rc.descricao_tecnica || (r as any).descricao_tecnica || "",
                 dose_percentual: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
@@ -1142,6 +1144,7 @@ export default function LtcatWizard() {
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
               componente_avaliado: item.componente_avaliado || "",
+              descricao_avaliacao: (item as any).descricao_avaliacao || (r as any).descricao_tecnica || "",
               dose_percentual: "",
               resultado: r.resultado || "",
               unidade_resultado: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
@@ -1204,6 +1207,9 @@ export default function LtcatWizard() {
         const is_vibracao = agenteNomeLower.includes("vibra");
         const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
         const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
+        const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
+        const is_qualitativo = tipoAvalLower.includes("qualitativ");
+        const is_quantitativo = tipoAvalLower.includes("quantitativ");
 
         return {
           agente_nome: first.agente_nome || "",
@@ -1216,6 +1222,8 @@ export default function LtcatWizard() {
           is_vibracao,
           is_vibracao_corpo_inteiro,
           is_vibracao_maos_bracos,
+          is_qualitativo,
+          is_quantitativo,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
@@ -1323,6 +1331,9 @@ export default function LtcatWizard() {
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
         is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
+        is_qualitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ"),
+        is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+        tipo_avaliacao: r.tipo_avaliacao || "",
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
@@ -1397,6 +1408,15 @@ export default function LtcatWizard() {
       is_vibracao_corpo_inteiro: r.is_vibracao_corpo_inteiro, is_vibracao_maos_bracos: r.is_vibracao_maos_bracos,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
+    const qualitativosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_qualitativo);
+    console.log("📝 [LTCAT] QUALITATIVOS JSON:", qualitativosFlat);
+    console.log("📝 [LTCAT] QUALITATIVOS AVALIACOES:", qualitativosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({
+      agente: r.agente_nome,
+      data_avaliacao: a.data_avaliacao,
+      colaborador: a.colaborador,
+      funcao: a.funcao,
+      descricao_avaliacao: a.descricao_avaliacao,
+    }))));
     const quimicosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico);
     console.log("🧪 [LTCAT] QUIMICOS JSON:", quimicosFlat);
     console.log("🧪 [LTCAT] QUIMICOS AVALIACOES:", quimicosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({
