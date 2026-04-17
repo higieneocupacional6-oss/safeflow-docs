@@ -173,7 +173,7 @@ export function LtcatTemplateHelper() {
     },
     {
       title: "Resultados (Químico)",
-      vars: ["{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}", "{{situacao}}", "{{cod_gfip}}", "{{dose_percentual}}"],
+      vars: ["{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{componente_avaliado}}", "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}", "{{situacao}}", "{{cod_gfip}}", "{{dose_percentual}}"],
     },
     {
       title: "Avaliações Químicas",
