@@ -476,6 +476,9 @@ export default function LtcatWizard() {
       setTempFuncaoRows(editRisk.resultados_componentes || []);
     } else {
       setEditingRiskId(null);
+      // PERSISTÊNCIA: pré-preencher Funções do GES com o valor já salvo no setor
+      const setorIdAtual = setor?.id;
+      const existingGes = riscos.find(r => r.setor_id === setorIdAtual && r.funcoes_ges)?.funcoes_ges || "";
       setRiskForm({
         items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
         tipo_avaliacao: "qualitativa",
@@ -500,7 +503,7 @@ export default function LtcatWizard() {
         resultados_componentes: [],
         resultados_vibracao: [],
         resultados_calor: [],
-        funcoes_ges: "",
+        funcoes_ges: existingGes,
         data_avaliacao: "",
         equipamentos_avaliacao: [],
         tempo_coleta: "",
