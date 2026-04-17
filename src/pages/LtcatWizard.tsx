@@ -1318,6 +1318,7 @@ export default function LtcatWizard() {
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
     console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
+    console.log("🔥 [LTCAT] AVALIACOES CALOR:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_calor).flatMap((r: any) => r.avaliacoes || []));
 
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
