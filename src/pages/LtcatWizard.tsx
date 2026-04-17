@@ -949,7 +949,7 @@ export default function LtcatWizard() {
           };
         };
 
-        const avaliacoes = agentEntries.flatMap(r => {
+        const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
