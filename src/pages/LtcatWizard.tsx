@@ -356,70 +356,129 @@ export default function LtcatWizard() {
     },
   });
 
-  // Load existing document data in edit mode
+  // Load existing document data in edit mode (HIDRATAÇÃO COMPLETA)
   useEffect(() => {
     if (!isEditMode || docLoaded) return;
     const loadDocument = async () => {
       try {
-        const { data: doc } = await supabase.from("documentos").select("*").eq("id", documentoId).single();
-        if (!doc) return;
-        if (doc.empresa_id) setEmpresaId(doc.empresa_id);
-        // Load evaluations for this empresa
-        if (doc.empresa_id) {
-          const { data: avaliacoes } = await supabase
-            .from("ltcat_avaliacoes")
-            .select("*")
-            .eq("empresa_id", doc.empresa_id);
-          if (avaliacoes && avaliacoes.length > 0) {
-            const loadedRiscos: RiscoEntry[] = [];
-            const grouped: Record<string, any[]> = {};
-            avaliacoes.forEach((av: any) => {
-              const key = `${av.setor_id}_${av.agente_id}`;
-              if (!grouped[key]) grouped[key] = [];
-              grouped[key].push(av);
-            });
-            Object.values(grouped).forEach((group) => {
-              const first = group[0];
-              loadedRiscos.push({
-                id: first.id,
-                setor_id: first.setor_id || "",
-                setor_nome: "",
-                funcoes_ges: first.funcoes_ges || "",
-                data_avaliacao: first.data_avaliacao || "",
-                items: group.map(g => ({
-                  id: g.id,
-                  colaborador: g.colaborador || "",
-                  funcao_id: g.funcao_id || "",
-                  funcao_nome: "",
-                })),
-                tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
-                tipo_agente: first.tipo_agente || "",
-                agente_id: first.agente_id || "",
-                agente_nome: "",
-                codigo_esocial: first.codigo_esocial || "",
-                descricao_esocial: first.descricao_esocial || "",
-                propagacao: first.propagacao || "",
-                tipo_exposicao: first.tipo_exposicao || "",
-                fonte_geradora: first.fonte_geradora || "",
-                danos_saude: first.danos_saude || "",
-                medidas_controle: first.medidas_controle || "",
-                descricao_tecnica: "",
-                tecnica_id: first.tecnica_id || "",
-                equipamento_id: first.equipamento_id || "",
-                resultado: first.resultado?.toString() || "",
-                unidade_resultado_id: first.unidade_resultado_id || "",
-                limite_tolerancia: first.limite_tolerancia?.toString() || "",
-                unidade_limite_id: first.unidade_limite_id || "",
-                parecer_tecnico: first.parecer_tecnico || "",
-                aposentadoria_especial: first.aposentadoria_especial || "",
-              });
-            });
-            setRiscos(loadedRiscos);
-          }
+        const { data: doc, error: docErr } = await supabase
+          .from("documentos").select("*").eq("id", documentoId).single();
+        if (docErr || !doc) {
+          console.error("📋 [LTCAT EDIT] Documento não encontrado:", docErr);
+          toast.error("Documento não encontrado");
+          return;
         }
+        if (doc.empresa_id) setEmpresaId(doc.empresa_id);
+        if (doc.template_id) setSelectedTemplate(doc.template_id);
+
+        // Buscar avaliações vinculadas a ESTE documento (preferencial),
+        // com fallback para todas da empresa (compatibilidade com docs antigos)
+        let avaliacoes: any[] = [];
+        const { data: avDoc } = await supabase
+          .from("ltcat_avaliacoes").select("*").eq("documento_id", documentoId);
+        if (avDoc && avDoc.length > 0) {
+          avaliacoes = avDoc;
+        } else if (doc.empresa_id) {
+          const { data: avEmp } = await supabase
+            .from("ltcat_avaliacoes").select("*").eq("empresa_id", doc.empresa_id);
+          avaliacoes = avEmp || [];
+        }
+
+        if (avaliacoes.length === 0) {
+          console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
+          setDocLoaded(true);
+          return;
+        }
+
+        const avIds = avaliacoes.map(a => a.id);
+
+        // Carregar todos os subdados em paralelo
+        const [
+          { data: componentes = [] },
+          { data: calor = [] },
+          { data: vibracao = [] },
+          { data: resultados = [] },
+          { data: equipamentos = [] },
+          { data: epiEpc = [] },
+        ] = await Promise.all([
+          supabase.from("ltcat_av_componentes").select("*").in("avaliacao_id", avIds),
+          supabase.from("ltcat_av_calor").select("*").in("avaliacao_id", avIds),
+          supabase.from("ltcat_av_vibracao").select("*").in("avaliacao_id", avIds),
+          supabase.from("ltcat_av_resultados").select("*").in("avaliacao_id", avIds),
+          supabase.from("ltcat_av_equipamentos").select("*").in("avaliacao_id", avIds),
+          supabase.from("ltcat_av_epi_epc").select("*").in("avaliacao_id", avIds),
+        ]);
+
+        const byAv = (rows: any[] | null) => {
+          const m: Record<string, any[]> = {};
+          (rows || []).forEach(r => { (m[r.avaliacao_id] ||= []).push(r); });
+          return m;
+        };
+        const compByAv = byAv(componentes);
+        const calorByAv = byAv(calor);
+        const vibByAv  = byAv(vibracao);
+        const resByAv  = byAv(resultados);
+        const eqByAv   = byAv(equipamentos);
+        const epiByAv: Record<string, any> = {};
+        (epiEpc || []).forEach((r: any) => { epiByAv[r.avaliacao_id] = r; });
+
+        const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
+          const epi = epiByAv[av.id] || {};
+          return {
+            id: av.id,
+            setor_id: av.setor_id || "",
+            setor_nome: "",
+            funcoes_ges: av.funcoes_ges || "",
+            data_avaliacao: av.data_avaliacao || "",
+            items: [{
+              id: crypto.randomUUID(),
+              colaborador: av.colaborador || "",
+              funcao_id: av.funcao_id || "",
+              funcao_nome: "",
+            }],
+            tipo_avaliacao: av.tipo_avaliacao || "qualitativa",
+            tipo_agente: av.tipo_agente || "",
+            agente_id: av.agente_id || "",
+            agente_nome: "",
+            codigo_esocial: av.codigo_esocial || "",
+            descricao_esocial: av.descricao_esocial || "",
+            propagacao: av.propagacao || "",
+            tipo_exposicao: av.tipo_exposicao || "",
+            fonte_geradora: av.fonte_geradora || "",
+            danos_saude: av.danos_saude || "",
+            medidas_controle: av.medidas_controle || "",
+            descricao_tecnica: "",
+            tecnica_id: av.tecnica_id || "",
+            equipamento_id: av.equipamento_id || "",
+            resultado: av.resultado?.toString() || "",
+            unidade_resultado_id: av.unidade_resultado_id || "",
+            limite_tolerancia: av.limite_tolerancia?.toString() || "",
+            unidade_limite_id: av.unidade_limite_id || "",
+            tempo_coleta: av.tempo_coleta || "",
+            unidade_tempo_coleta: av.unidade_tempo_coleta || "",
+            parecer_tecnico: av.parecer_tecnico || "",
+            aposentadoria_especial: av.aposentadoria_especial || "",
+            resultados_detalhados: (resByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            resultados_componentes: (compByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            resultados_vibracao: (vibByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            resultados_calor: (calorByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            epi_id: epi.epi_id || "",
+            epi_ca: epi.epi_ca || "",
+            epi_atenuacao: epi.epi_atenuacao || "",
+            epi_eficaz: epi.epi_eficaz || "",
+            epc_id: epi.epc_id || "",
+            epc_eficaz: epi.epc_eficaz || "",
+          } as RiscoEntry;
+        });
+
+        console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
+        setRiscos(loadedRiscos);
         setDocLoaded(true);
+        toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
       } catch (err) {
-        console.error("Error loading document:", err);
+        console.error("📋 [LTCAT EDIT] Erro ao carregar:", err);
+        toast.error("Erro ao carregar documento para edição");
       }
     };
     loadDocument();
