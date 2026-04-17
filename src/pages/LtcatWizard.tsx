@@ -1147,6 +1147,8 @@ export default function LtcatWizard() {
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
         const is_calor = agenteNomeLower.includes("calor");
         const is_vibracao = agenteNomeLower.includes("vibra");
+        const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
+        const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
 
         return {
           agente_nome: first.agente_nome || "",
@@ -1157,6 +1159,8 @@ export default function LtcatWizard() {
           is_ruido,
           is_calor,
           is_vibracao,
+          is_vibracao_corpo_inteiro,
+          is_vibracao_maos_bracos,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
