@@ -2789,8 +2789,8 @@ export default function LtcatWizard() {
                         </div>
                       )}
 
-                      {/* FÍSICO COM MÚLTIPLAS MEDIÇÕES */}
-                      {!isCompAgent && isFisico && (
+                      {/* RUÍDO — múltiplas medições (botão exclusivo) */}
+                      {!isCompAgent && isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
                           <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
                             <Plus className="w-4 h-4" /> + Resultados
