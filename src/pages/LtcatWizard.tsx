@@ -964,7 +964,16 @@ export default function LtcatWizard() {
             const resNum = parseFloat(res.resultado || res.exposicao);
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
-            const situacao = res.situacao || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+            // Vibração: regra automática (NOCIVO se AREN OU VDVR ultrapassar)
+            const arenN = parseFloat(res.aren_resultado);
+            const arenLt = parseFloat(res.aren_limite);
+            const vdvrN = parseFloat(res.vdvr_resultado);
+            const vdvrLt = parseFloat(res.vdvr_limite);
+            const arenExc = !isNaN(arenN) && !isNaN(arenLt) && arenLt > 0 && arenN > arenLt;
+            const vdvrExc = !isNaN(vdvrN) && !isNaN(vdvrLt) && vdvrLt > 0 && vdvrN > vdvrLt;
+            const hasVibData = !isNaN(arenN) || !isNaN(vdvrN);
+            const situacaoVib = hasVibData ? ((arenExc || vdvrExc) ? "Nocivo" : "Seguro") : "";
+            const situacao = res.situacao || situacaoVib || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
