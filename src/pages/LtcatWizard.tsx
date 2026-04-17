@@ -476,6 +476,9 @@ export default function LtcatWizard() {
       setTempFuncaoRows(editRisk.resultados_componentes || []);
     } else {
       setEditingRiskId(null);
+      // PERSISTÊNCIA: pré-preencher Funções do GES com o valor já salvo no setor
+      const setorIdAtual = setor?.id;
+      const existingGes = riscos.find(r => r.setor_id === setorIdAtual && r.funcoes_ges)?.funcoes_ges || "";
       setRiskForm({
         items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
         tipo_avaliacao: "qualitativa",
@@ -500,7 +503,7 @@ export default function LtcatWizard() {
         resultados_componentes: [],
         resultados_vibracao: [],
         resultados_calor: [],
-        funcoes_ges: "",
+        funcoes_ges: existingGes,
         data_avaliacao: "",
         equipamentos_avaliacao: [],
         tempo_coleta: "",
@@ -782,12 +785,25 @@ export default function LtcatWizard() {
     }
 
     try {
+      const novoGes = (riskForm.funcoes_ges || "").trim();
       if (editingRiskId) {
-        setRiscos(prev => prev.map(r => r.id === editingRiskId ? newRisk : r));
+        setRiscos(prev => prev.map(r => {
+          if (r.id === editingRiskId) return newRisk;
+          // Propaga funcoes_ges atualizado para todos os riscos do mesmo setor
+          if (novoGes && r.setor_id === currentRiskSetor.id) {
+            return { ...r, funcoes_ges: novoGes };
+          }
+          return r;
+        }));
       } else {
-        setRiscos((prev) => [...prev, newRisk]);
+        setRiscos((prev) => {
+          const propagated = novoGes
+            ? prev.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
+            : prev;
+          return [...propagated, newRisk];
+        });
       }
-      toast.success("Risco avaliado com sucesso!");
+      toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
       setComponentesModalOpen(false);
@@ -935,6 +951,9 @@ export default function LtcatWizard() {
           data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
           data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
         })))(first);
+        if (equipamentosAvaliacaoLoop.length > 0) {
+          console.log(`🔧 [LTCAT] EQUIPAMENTOS (${first.agente_nome}):`, equipamentosAvaliacaoLoop);
+        }
 
         // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
         const enrichWithFuncao = (av: any, funcaoId: string) => {
@@ -2763,8 +2782,8 @@ export default function LtcatWizard() {
                         </div>
                       )}
 
-                      {/* FÍSICO PADRÃO */}
-                      {!isCompAgent && !isFisico && (
+                      {/* FÍSICO PADRÃO (apenas não-ruído/vibração/calor) */}
+                      {!isCompAgent && !isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Resultado</Label>
@@ -2789,8 +2808,8 @@ export default function LtcatWizard() {
                         </div>
                       )}
 
-                      {/* FÍSICO COM MÚLTIPLAS MEDIÇÕES */}
-                      {!isCompAgent && isFisico && (
+                      {/* RUÍDO — múltiplas medições (botão exclusivo) */}
+                      {!isCompAgent && isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
                           <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
                             <Plus className="w-4 h-4" /> + Resultados
@@ -2844,7 +2863,7 @@ export default function LtcatWizard() {
 
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4 px-8 pb-6">
                 <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
-                <Button className="bg-accent text-accent-foreground hover:bg-accent/90" onClick={() => handleSaveRisk()}>Salvar Risco</Button>
+                <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase tracking-wide" onClick={() => handleSaveRisk()}>Finalizar</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
