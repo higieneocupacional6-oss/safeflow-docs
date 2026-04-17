@@ -1408,6 +1408,15 @@ export default function LtcatWizard() {
       is_vibracao_corpo_inteiro: r.is_vibracao_corpo_inteiro, is_vibracao_maos_bracos: r.is_vibracao_maos_bracos,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
+    const qualitativosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_qualitativo);
+    console.log("📝 [LTCAT] QUALITATIVOS JSON:", qualitativosFlat);
+    console.log("📝 [LTCAT] QUALITATIVOS AVALIACOES:", qualitativosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({
+      agente: r.agente_nome,
+      data_avaliacao: a.data_avaliacao,
+      colaborador: a.colaborador,
+      funcao: a.funcao,
+      descricao_avaliacao: a.descricao_avaliacao,
+    }))));
     const quimicosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico);
     console.log("🧪 [LTCAT] QUIMICOS JSON:", quimicosFlat);
     console.log("🧪 [LTCAT] QUIMICOS AVALIACOES:", quimicosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({

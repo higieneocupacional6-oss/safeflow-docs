@@ -20,6 +20,7 @@ const KNOWN_VARS = [
   "resultado", "unidade_resultado", "limite_tolerancia", "unidade_limite",
   "epi_nome", "epi_ca", "epi_atenuacao", "epi_eficaz", "epc_nome", "epc_eficaz",
   "is_quimico", "is_fisico", "is_biologico", "is_ruido", "is_calor", "is_vibracao",
+  "is_qualitativo", "is_quantitativo", "descricao_avaliacao",
 ];
 
 export function parseDocxErrors(err: any): TemplateIssue[] {
@@ -107,6 +108,7 @@ export async function validateDocxTemplate(file: File): Promise<TemplateIssue[]>
         agente_nome: "Ruído contínuo", tipo_agente: "FISICO",
         is_quimico: false, is_fisico: true, is_biologico: false,
         is_ruido: true, is_calor: false, is_vibracao: false,
+        is_qualitativo: false, is_quantitativo: true,
         codigo_esocial: "01.01.001", descricao_esocial: "Descrição eSocial",
         fonte_geradora: "Fonte", propagacao: "Aérea", tipo_exposicao: "Habitual",
         danos_saude: "Danos", medidas_controle: "Medidas",
@@ -117,7 +119,7 @@ export async function validateDocxTemplate(file: File): Promise<TemplateIssue[]>
           cbo_codigo: "0000", codigo_esocial: "01.01.001",
           resultado: "85", unidade_resultado: "dB", limite_tolerancia: "85",
           unidade_limite: "dB", situacao: "Segura", cod_gfip: "00",
-          dose_percentual: "50",
+          dose_percentual: "50", descricao_avaliacao: "",
         }],
         equipamentos_avaliacao: [{
           nome_equipamento: "Dosímetro", modelo_equipamento: "X1",
