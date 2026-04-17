@@ -1378,7 +1378,31 @@ export default function LtcatWizard() {
       is_vibracao_corpo_inteiro: r.is_vibracao_corpo_inteiro, is_vibracao_maos_bracos: r.is_vibracao_maos_bracos,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
-    console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
+    const quimicosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico);
+    console.log("🧪 [LTCAT] QUIMICOS JSON:", quimicosFlat);
+    console.log("🧪 [LTCAT] QUIMICOS AVALIACOES:", quimicosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({
+      agente: r.agente_nome,
+      data_avaliacao: a.data_avaliacao,
+      colaborador: a.colaborador,
+      funcao: a.funcao,
+      componente_avaliado: a.componente_avaliado,
+      resultado: a.resultado,
+      unidade_resultado: a.unidade_resultado,
+      limite_tolerancia: a.limite_tolerancia,
+      unidade_limite: a.unidade_limite,
+      situacao: a.situacao,
+      cod_gfip: a.cod_gfip,
+    }))));
+    // Validação: químicos sem componente/resultado/limite
+    const quimicosIncompletos = quimicosFlat.flatMap((r: any) =>
+      (r.avaliacoes || [])
+        .filter((a: any) => !a.componente_avaliado || !a.resultado || !a.limite_tolerancia)
+        .map((a: any) => ({ agente: r.agente_nome, colaborador: a.colaborador, faltando: ["componente_avaliado", "resultado", "limite_tolerancia"].filter(k => !a[k]) }))
+    );
+    if (quimicosIncompletos.length) {
+      console.warn("⚠️ [LTCAT] QUIMICOS incompletos:", quimicosIncompletos);
+      toast.warning(`Dados de componentes químicos incompletos em ${quimicosIncompletos.length} avaliação(ões). Verifique o console.`);
+    }
     console.log("🔥 [LTCAT] AVALIACOES CALOR:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_calor).flatMap((r: any) => r.avaliacoes || []));
     console.log("📳 [LTCAT] VIBRACAO VCI:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_corpo_inteiro));
     console.log("🤚 [LTCAT] VIBRACAO VMB:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_maos_bracos));
