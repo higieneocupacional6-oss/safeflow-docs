@@ -54,22 +54,23 @@ ENSEJADOR DE APOSENTADORIA ESPECIAL
 {{/setores}}`;
 
 const quimicoBlock = `{{#setores}}
+{{#riscos}}
+{{#is_quimico}}
 
-{{setor}}
+═══════════════════════════════════════
+AGENTE QUÍMICO: {{agente_nome}}
+═══════════════════════════════════════
+
+SETOR: {{setor}}
 GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
 
 Descrição do Setor:
 {{descricao_ambiente}}
 
-RECONHECIMENTO DE RISCOS QUÍMICOS
 Funções do GES: {{funcoes_ges}}
-
-{{#riscos}}
-{{#is_quimico}}
-
-AGENTE QUÍMICO: {{agente_nome}}
 Código eSocial: {{codigo_esocial}} — {{descricao_esocial}}
 
+RECONHECIMENTO DO RISCO QUÍMICO
 AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA | TEMPO DE COLETA
 {{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}} | {{tempo_coleta}} {{unidade_tempo_coleta}}
 
