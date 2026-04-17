@@ -964,7 +964,16 @@ export default function LtcatWizard() {
             const resNum = parseFloat(res.resultado || res.exposicao);
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
-            const situacao = res.situacao || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+            // Vibração: regra automática (NOCIVO se AREN OU VDVR ultrapassar)
+            const arenN = parseFloat(res.aren_resultado);
+            const arenLt = parseFloat(res.aren_limite);
+            const vdvrN = parseFloat(res.vdvr_resultado);
+            const vdvrLt = parseFloat(res.vdvr_limite);
+            const arenExc = !isNaN(arenN) && !isNaN(arenLt) && arenLt > 0 && arenN > arenLt;
+            const vdvrExc = !isNaN(vdvrN) && !isNaN(vdvrLt) && vdvrLt > 0 && vdvrN > vdvrLt;
+            const hasVibData = !isNaN(arenN) || !isNaN(vdvrN);
+            const situacaoVib = hasVibData ? ((arenExc || vdvrExc) ? "Nocivo" : "Seguro") : "";
+            const situacao = res.situacao || situacaoVib || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
@@ -1000,6 +1009,15 @@ export default function LtcatWizard() {
               vdvr_unidade: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
               vdvr_limite: res.vdvr_limite || "",
               vdvr_limite_unidade: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
+              // Vibração — aliases conforme spec do template
+              resultado_aren: res.aren_resultado || "",
+              unidade_aren: unidades.find(u => u.id === res.aren_unidade_id)?.simbolo || "",
+              limite_aren: res.aren_limite || "",
+              unidade_limite_aren: unidades.find(u => u.id === res.aren_limite_unidade_id)?.simbolo || "",
+              resultado_vdvr: res.vdvr_resultado || "",
+              unidade_vdvr: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
+              limite_vdvr: res.vdvr_limite || "",
+              unidade_limite_vdvr: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
               // Calor fields (modal específico)
               tipo_atividade: res.tipo_atividade || res.atividade_avaliada || "",
               local_avaliado: res.local_avaliado || "",
@@ -1129,6 +1147,8 @@ export default function LtcatWizard() {
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
         const is_calor = agenteNomeLower.includes("calor");
         const is_vibracao = agenteNomeLower.includes("vibra");
+        const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
+        const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
 
         return {
           agente_nome: first.agente_nome || "",
@@ -1139,6 +1159,8 @@ export default function LtcatWizard() {
           is_ruido,
           is_calor,
           is_vibracao,
+          is_vibracao_corpo_inteiro,
+          is_vibracao_maos_bracos,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
@@ -1244,6 +1266,8 @@ export default function LtcatWizard() {
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
         is_calor: agenteNomeLower.includes("calor"),
         is_vibracao: agenteNomeLower.includes("vibra"),
+        is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
+        is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
@@ -1315,10 +1339,13 @@ export default function LtcatWizard() {
     console.log("🏷️ [LTCAT] RISCOS COM FLAGS:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
       agente: r.agente_nome, tipo: r.tipo_agente,
       is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
+      is_vibracao_corpo_inteiro: r.is_vibracao_corpo_inteiro, is_vibracao_maos_bracos: r.is_vibracao_maos_bracos,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
     console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
     console.log("🔥 [LTCAT] AVALIACOES CALOR:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_calor).flatMap((r: any) => r.avaliacoes || []));
+    console.log("📳 [LTCAT] VIBRACAO VCI:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_corpo_inteiro));
+    console.log("🤚 [LTCAT] VIBRACAO VMB:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_maos_bracos));
 
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
