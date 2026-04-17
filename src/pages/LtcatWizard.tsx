@@ -785,12 +785,25 @@ export default function LtcatWizard() {
     }
 
     try {
+      const novoGes = (riskForm.funcoes_ges || "").trim();
       if (editingRiskId) {
-        setRiscos(prev => prev.map(r => r.id === editingRiskId ? newRisk : r));
+        setRiscos(prev => prev.map(r => {
+          if (r.id === editingRiskId) return newRisk;
+          // Propaga funcoes_ges atualizado para todos os riscos do mesmo setor
+          if (novoGes && r.setor_id === currentRiskSetor.id) {
+            return { ...r, funcoes_ges: novoGes };
+          }
+          return r;
+        }));
       } else {
-        setRiscos((prev) => [...prev, newRisk]);
+        setRiscos((prev) => {
+          const propagated = novoGes
+            ? prev.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
+            : prev;
+          return [...propagated, newRisk];
+        });
       }
-      toast.success("Risco avaliado com sucesso!");
+      toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
       setComponentesModalOpen(false);
