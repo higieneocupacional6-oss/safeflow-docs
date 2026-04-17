@@ -371,6 +371,387 @@ export type Database = {
           },
         ]
       }
+      ltcat_av_calor: {
+        Row: {
+          aposentadoria_especial: string | null
+          avaliacao_id: string
+          cod_gfip: string | null
+          colaborador: string | null
+          created_at: string
+          data_avaliacao: string | null
+          descricao_atividade: string | null
+          funcao_id: string | null
+          ibutg_limite: number | null
+          ibutg_medido: number | null
+          id: string
+          m_kcal_h: number | null
+          ordem: number
+          parecer_tecnico: string | null
+          situacao: string | null
+          taxa_metabolica: string | null
+          tipo_atividade: string | null
+        }
+        Insert: {
+          aposentadoria_especial?: string | null
+          avaliacao_id: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_atividade?: string | null
+          funcao_id?: string | null
+          ibutg_limite?: number | null
+          ibutg_medido?: number | null
+          id?: string
+          m_kcal_h?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          situacao?: string | null
+          taxa_metabolica?: string | null
+          tipo_atividade?: string | null
+        }
+        Update: {
+          aposentadoria_especial?: string | null
+          avaliacao_id?: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_atividade?: string | null
+          funcao_id?: string | null
+          ibutg_limite?: number | null
+          ibutg_medido?: number | null
+          id?: string
+          m_kcal_h?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          situacao?: string | null
+          taxa_metabolica?: string | null
+          tipo_atividade?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_calor_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_av_componentes: {
+        Row: {
+          aposentadoria_especial: string | null
+          avaliacao_id: string
+          cas: string | null
+          cod_gfip: string | null
+          colaborador: string | null
+          componente: string | null
+          created_at: string
+          data_avaliacao: string | null
+          descricao_avaliacao: string | null
+          dose_percentual: number | null
+          funcao_id: string | null
+          id: string
+          limite_tolerancia: number | null
+          ordem: number
+          parecer_tecnico: string | null
+          resultado: number | null
+          situacao: string | null
+          tempo_coleta: string | null
+          unidade_limite_id: string | null
+          unidade_resultado_id: string | null
+          unidade_tempo_coleta: string | null
+        }
+        Insert: {
+          aposentadoria_especial?: string | null
+          avaliacao_id: string
+          cas?: string | null
+          cod_gfip?: string | null
+          colaborador?: string | null
+          componente?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
+          dose_percentual?: number | null
+          funcao_id?: string | null
+          id?: string
+          limite_tolerancia?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          resultado?: number | null
+          situacao?: string | null
+          tempo_coleta?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
+        }
+        Update: {
+          aposentadoria_especial?: string | null
+          avaliacao_id?: string
+          cas?: string | null
+          cod_gfip?: string | null
+          colaborador?: string | null
+          componente?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
+          dose_percentual?: number | null
+          funcao_id?: string | null
+          id?: string
+          limite_tolerancia?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          resultado?: number | null
+          situacao?: string | null
+          tempo_coleta?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_componentes_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_av_epi_epc: {
+        Row: {
+          avaliacao_id: string
+          created_at: string
+          epc_eficaz: string | null
+          epc_id: string | null
+          epi_atenuacao: string | null
+          epi_ca: string | null
+          epi_eficaz: string | null
+          epi_id: string | null
+          id: string
+        }
+        Insert: {
+          avaliacao_id: string
+          created_at?: string
+          epc_eficaz?: string | null
+          epc_id?: string | null
+          epi_atenuacao?: string | null
+          epi_ca?: string | null
+          epi_eficaz?: string | null
+          epi_id?: string | null
+          id?: string
+        }
+        Update: {
+          avaliacao_id?: string
+          created_at?: string
+          epc_eficaz?: string | null
+          epc_id?: string | null
+          epi_atenuacao?: string | null
+          epi_ca?: string | null
+          epi_eficaz?: string | null
+          epi_id?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_epi_epc_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: true
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_av_equipamentos: {
+        Row: {
+          agente_nome: string | null
+          avaliacao_id: string
+          created_at: string
+          data_avaliacao: string | null
+          data_calibracao: string | null
+          id: string
+          modelo_equipamento: string | null
+          nome_equipamento: string | null
+          ordem: number
+          serie_equipamento: string | null
+        }
+        Insert: {
+          agente_nome?: string | null
+          avaliacao_id: string
+          created_at?: string
+          data_avaliacao?: string | null
+          data_calibracao?: string | null
+          id?: string
+          modelo_equipamento?: string | null
+          nome_equipamento?: string | null
+          ordem?: number
+          serie_equipamento?: string | null
+        }
+        Update: {
+          agente_nome?: string | null
+          avaliacao_id?: string
+          created_at?: string
+          data_avaliacao?: string | null
+          data_calibracao?: string | null
+          id?: string
+          modelo_equipamento?: string | null
+          nome_equipamento?: string | null
+          ordem?: number
+          serie_equipamento?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_equipamentos_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_av_resultados: {
+        Row: {
+          aposentadoria_especial: string | null
+          avaliacao_id: string
+          cod_gfip: string | null
+          colaborador: string | null
+          created_at: string
+          data_avaliacao: string | null
+          descricao_avaliacao: string | null
+          dose_percentual: number | null
+          funcao_id: string | null
+          id: string
+          limite_tolerancia: number | null
+          ordem: number
+          parecer_tecnico: string | null
+          resultado: number | null
+          situacao: string | null
+          tempo_coleta: string | null
+          unidade_limite_id: string | null
+          unidade_resultado_id: string | null
+          unidade_tempo_coleta: string | null
+        }
+        Insert: {
+          aposentadoria_especial?: string | null
+          avaliacao_id: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
+          dose_percentual?: number | null
+          funcao_id?: string | null
+          id?: string
+          limite_tolerancia?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          resultado?: number | null
+          situacao?: string | null
+          tempo_coleta?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
+        }
+        Update: {
+          aposentadoria_especial?: string | null
+          avaliacao_id?: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
+          dose_percentual?: number | null
+          funcao_id?: string | null
+          id?: string
+          limite_tolerancia?: number | null
+          ordem?: number
+          parecer_tecnico?: string | null
+          resultado?: number | null
+          situacao?: string | null
+          tempo_coleta?: string | null
+          unidade_limite_id?: string | null
+          unidade_resultado_id?: string | null
+          unidade_tempo_coleta?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_resultados_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ltcat_av_vibracao: {
+        Row: {
+          aposentadoria_especial: string | null
+          aren: number | null
+          aren_limite: number | null
+          avaliacao_id: string
+          cod_gfip: string | null
+          colaborador: string | null
+          created_at: string
+          data_avaliacao: string | null
+          funcao_id: string | null
+          id: string
+          ordem: number
+          parecer_tecnico: string | null
+          situacao: string | null
+          tempo_exposicao: string | null
+          tipo: string | null
+          vdvr: number | null
+          vdvr_limite: number | null
+        }
+        Insert: {
+          aposentadoria_especial?: string | null
+          aren?: number | null
+          aren_limite?: number | null
+          avaliacao_id: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          funcao_id?: string | null
+          id?: string
+          ordem?: number
+          parecer_tecnico?: string | null
+          situacao?: string | null
+          tempo_exposicao?: string | null
+          tipo?: string | null
+          vdvr?: number | null
+          vdvr_limite?: number | null
+        }
+        Update: {
+          aposentadoria_especial?: string | null
+          aren?: number | null
+          aren_limite?: number | null
+          avaliacao_id?: string
+          cod_gfip?: string | null
+          colaborador?: string | null
+          created_at?: string
+          data_avaliacao?: string | null
+          funcao_id?: string | null
+          id?: string
+          ordem?: number
+          parecer_tecnico?: string | null
+          situacao?: string | null
+          tempo_exposicao?: string | null
+          tipo?: string | null
+          vdvr?: number | null
+          vdvr_limite?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ltcat_av_vibracao_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "ltcat_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ltcat_avaliacoes: {
         Row: {
           agente_id: string | null
@@ -383,6 +764,7 @@ export type Database = {
           danos_saude: string | null
           data_avaliacao: string | null
           descricao_esocial: string | null
+          documento_id: string | null
           dose_percentual: number | null
           empresa_id: string | null
           equipamento_id: string | null
@@ -417,6 +799,7 @@ export type Database = {
           danos_saude?: string | null
           data_avaliacao?: string | null
           descricao_esocial?: string | null
+          documento_id?: string | null
           dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
@@ -451,6 +834,7 @@ export type Database = {
           danos_saude?: string | null
           data_avaliacao?: string | null
           descricao_esocial?: string | null
+          documento_id?: string | null
           dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
@@ -480,6 +864,13 @@ export type Database = {
             columns: ["agente_id"]
             isOneToOne: false
             referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
             referencedColumns: ["id"]
           },
           {
