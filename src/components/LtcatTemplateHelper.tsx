@@ -124,6 +124,51 @@ DATA | COLABORADOR | FUNÇÃO | COMPONENTE | RESULTADO | LIMITE | SITUAÇÃO | G
 {{/riscos}}
 {{/setores}}`;
 
+const calorBlock = `{{#setores}}
+{{#riscos}}
+{{#is_calor}}
+
+═══════════════════════════════════════
+AGENTE FÍSICO — CALOR: {{agente_nome}}
+═══════════════════════════════════════
+
+SETOR: {{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RECONHECIMENTO DO RISCO — CALOR
+AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA
+{{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}}
+
+RESULTADOS DAS AVALIAÇÕES — CALOR
+DATA | COLABORADOR | FUNÇÃO | TIPO ATIVIDADE | TAXA METABÓLICA | EXPOSIÇÃO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{tipo_atividade}} | {{taxa_metabolica}} | {{exposicao}} {{unidade_exposicao}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+MEDIDAS DE CONTROLE
+EPI | CA | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_calor}}
+{{/riscos}}
+{{/setores}}`;
+
 const rules = [
   "NÃO alterar {{}} das variáveis",
   "NÃO remover loops (# e /)",
