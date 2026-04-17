@@ -274,6 +274,8 @@ export function LtcatTemplateHelper() {
   const [showQuimico, setShowQuimico] = useState(false);
   const [showQuimicoVars, setShowQuimicoVars] = useState(false);
   const [showCalor, setShowCalor] = useState(false);
+  const [showVci, setShowVci] = useState(false);
+  const [showVmb, setShowVmb] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string>("");
 
   const handleCopyBlock = (key: string, content: string) => {
