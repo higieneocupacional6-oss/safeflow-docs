@@ -3129,7 +3129,7 @@ export default function LtcatWizard() {
                 </div>
 
                 <Button variant="outline" size="sm" onClick={() => {
-                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
+                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
                 }} className="mt-2 text-accent border-accent/20 hover:bg-accent/5">
                   <Plus className="w-4 h-4 mr-2" /> Adicionar Linha
                 </Button>
