@@ -1018,6 +1018,7 @@ export default function LtcatWizard() {
               unidade_tempo_coleta: res.unidade_tempo_coleta || (r as any).unidade_tempo_coleta || "",
               metodologia_utilizada: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "",
               metodologia: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "", // alias curto
+              descricao_avaliacao: res.descricao_avaliacao || res.descricao_tecnica || (r as any).descricao_tecnica || "",
               parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
