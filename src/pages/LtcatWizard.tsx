@@ -3594,7 +3594,16 @@ export default function LtcatWizard() {
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => {
                     setRiskForm(prev => ({ ...prev, resultados_vibracao: tempVibracaoRows }));
-                    handleSaveRisk(undefined, undefined, tempVibracaoRows);
+                    setVibracaoModalOpen(false);
+                    toast.success(`${tempVibracaoRows.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
+                    setTimeout(() => {
+                      const el = document.getElementById("secao-7-parecer");
+                      if (el) {
+                        el.scrollIntoView({ behavior: "smooth", block: "center" });
+                        el.classList.add("ring-4", "ring-accent/60");
+                        setTimeout(() => el.classList.remove("ring-4", "ring-accent/60"), 2000);
+                      }
+                    }, 200);
                   }}
                 >
                   Salvar Resultados
