@@ -965,6 +965,7 @@ export default function LtcatWizard() {
               descricao_atividade: f?.descricao_atividades || "", // alias para template
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
+              componente_avaliado: res.componente_avaliado || "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
               unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
