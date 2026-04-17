@@ -3232,6 +3232,58 @@ export default function LtcatWizard() {
               <div className="space-y-4 py-4">
                 {tempVibracaoRows.map((row, ri) => (
                   <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                    {/* LINHA 0: Data, Tempo Coleta, Metodologia, Cod GFIP */}
+                    <div className="grid grid-cols-4 gap-3 items-end">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data da Avaliação</Label>
+                        <Input
+                          type="date" className="mt-1 h-8 text-sm" value={row.data_avaliacao || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].data_avaliacao = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tempo Coleta</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex: 480 min" value={row.tempo_coleta || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].tempo_coleta = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Metodologia</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex: NHO-09 / NHO-10" value={row.metodologia_utilizada || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].metodologia_utilizada = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cod. GFIP</Label>
+                        <Select value={row.cod_gfip || ""} onValueChange={v => {
+                          const updated = [...tempVibracaoRows];
+                          updated[ri].cod_gfip = v;
+                          setTempVibracaoRows(updated);
+                        }}>
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Sel." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                            <SelectItem value="03">03</SelectItem>
+                            <SelectItem value="04">04</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div className="flex gap-3 items-end">
                       <div className="flex-[2]">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
