@@ -1789,19 +1789,19 @@ export default function LtcatWizard() {
             agente_nome: x.agente_nome || null,
           }));
 
-          const tasks: Array<PromiseLike<any>> = [];
-          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows));
-          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows));
-          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows));
-          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows));
-          if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows));
+          const tasks: any[] = [];
+          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
+          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
+          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
+          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
+          if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
               epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
               epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
               epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
-            }));
+            }).then());
           }
           await Promise.all(tasks);
         }
