@@ -2763,8 +2763,8 @@ export default function LtcatWizard() {
                         </div>
                       )}
 
-                      {/* FÍSICO PADRÃO */}
-                      {!isCompAgent && !isFisico && (
+                      {/* FÍSICO PADRÃO (apenas não-ruído/vibração/calor) */}
+                      {!isCompAgent && !isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="grid grid-cols-2 gap-4">
                           <div className="space-y-2">
                             <Label>Resultado</Label>
