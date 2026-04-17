@@ -1266,6 +1266,8 @@ export default function LtcatWizard() {
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
         is_calor: agenteNomeLower.includes("calor"),
         is_vibracao: agenteNomeLower.includes("vibra"),
+        is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
+        is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
