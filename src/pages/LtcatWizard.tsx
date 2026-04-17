@@ -3048,6 +3048,36 @@ export default function LtcatWizard() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
+                    {/* Linha 2: Situação automática + GFIP */}
+                    <div className="col-span-6">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
+                      {(() => {
+                        const r = parseFloat(String(comp.resultado).replace(",", "."));
+                        const lt = parseFloat(String(comp.limite_tolerancia).replace(",", "."));
+                        const sit = (!isNaN(r) && !isNaN(lt) && lt > 0) ? (r > lt ? "Nocivo" : "Seguro") : "—";
+                        const cls = sit === "Nocivo" ? "text-destructive" : sit === "Seguro" ? "text-success" : "text-muted-foreground";
+                        return <div className={`mt-1 h-10 px-3 py-2 text-sm rounded-md border bg-muted/20 font-semibold ${cls}`}>{sit}</div>;
+                      })()}
+                    </div>
+                    <div className="col-span-6">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
+                      <Select
+                        value={comp.cod_gfip || ""}
+                        onValueChange={v => {
+                          const updated = [...tempComponentes];
+                          updated[ci] = { ...updated[ci], cod_gfip: v };
+                          setTempComponentes(updated);
+                        }}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="01">01</SelectItem>
+                          <SelectItem value="02">02</SelectItem>
+                          <SelectItem value="03">03</SelectItem>
+                          <SelectItem value="04">04</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
 
@@ -3055,7 +3085,7 @@ export default function LtcatWizard() {
                   variant="outline"
                   size="sm"
                   className="gap-2 text-accent border-accent/20 hover:bg-accent/5 mt-2"
-                  onClick={() => setTempComponentes([...tempComponentes, { id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }])}
+                  onClick={() => setTempComponentes([...tempComponentes, { id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", situacao: "", cod_gfip: "" }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Componente
                 </Button>
