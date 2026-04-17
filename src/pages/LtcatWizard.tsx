@@ -2838,8 +2838,21 @@ export default function LtcatWizard() {
                 {tempFuncaoRows.map((row, ri) => (
                   <div key={row.id} className="border rounded-xl p-4 bg-muted/10 space-y-3">
                     {/* Cabeçalho da linha */}
-                    <div className="flex gap-3 items-end">
-                      <div className="flex-1">
+                    <div className="flex gap-3 items-end flex-wrap">
+                      <div className="w-40">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Avaliação</Label>
+                        <Input
+                          type="date"
+                          className="mt-1"
+                          value={row.data_avaliacao || ""}
+                          onChange={e => {
+                            const updated = [...tempFuncaoRows];
+                            updated[ri] = { ...updated[ri], data_avaliacao: e.target.value };
+                            setTempFuncaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
                         <Input
                           className="mt-1"
@@ -2852,7 +2865,7 @@ export default function LtcatWizard() {
                           }}
                         />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
                         <Select
                           value={row.funcao_id}
@@ -2877,7 +2890,7 @@ export default function LtcatWizard() {
                         className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0"
                         onClick={() => {
                           setCurrentAmostraIndex(ri);
-                          setTempComponentes(row.componentes?.length ? row.componentes : [{ id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
+                          setTempComponentes(row.componentes?.length ? row.componentes : [{ id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", situacao: "", cod_gfip: "" }]);
                           setAmostraModalOpen(true);
                         }}
                       >
