@@ -2921,7 +2921,7 @@ export default function LtcatWizard() {
 
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4 px-8 pb-6">
                 <Button variant="outline" onClick={() => setRiskDialogOpen(false)}>Cancelar</Button>
-                <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase tracking-wide" onClick={() => handleSaveRisk()}>Finalizar</Button>
+                <Button className="bg-accent text-accent-foreground hover:bg-accent/90 font-bold uppercase tracking-wide" onClick={() => handleSaveRisk()}>FINALIZAR</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
