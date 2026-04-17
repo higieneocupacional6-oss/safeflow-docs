@@ -965,6 +965,7 @@ export default function LtcatWizard() {
               descricao_atividade: f?.descricao_atividades || "", // alias para template
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
+              componente_avaliado: res.componente_avaliado || "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
               unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
@@ -1014,7 +1015,8 @@ export default function LtcatWizard() {
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
-                data_avaliacao: "",
+                data_avaliacao: rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "",
+                componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
                 dose_percentual: "",
                 resultado: "Amostra Comp.",
                 unidade_resultado: "",
@@ -1051,6 +1053,7 @@ export default function LtcatWizard() {
               descricao_atividade: f?.descricao_atividades || "",
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
+              componente_avaliado: item.componente_avaliado || "",
               dose_percentual: "",
               resultado: r.resultado || "",
               unidade_resultado: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
@@ -1299,6 +1302,7 @@ export default function LtcatWizard() {
       is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
+    console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
 
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
@@ -3034,6 +3038,25 @@ export default function LtcatWizard() {
                           }} />
                         </div>
                       </div>
+                      {/* COMPONENTE AVALIADO — apenas para QUÍMICO */}
+                      {(riskForm.tipo_agente || "").toUpperCase().includes("QUIMI") && (
+                        <div className="grid grid-cols-1 gap-3 items-end">
+                          <div>
+                            <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
+                              Componente Avaliado <span className="text-accent">(Químico)</span>
+                            </Label>
+                            <Input
+                              placeholder="Ex: Benzeno, Sílica Livre, Poeira Respirável"
+                              value={res.componente_avaliado || ""}
+                              onChange={e => {
+                                const updated = [...tempResultados];
+                                updated[index].componente_avaliado = e.target.value;
+                                setTempResultados(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       {/* LINHA 2: Resultado, Unidade, Limite, Unidade Limite */}
                       <div className="grid grid-cols-4 gap-3 items-end">
                         <div>
@@ -3125,7 +3148,7 @@ export default function LtcatWizard() {
                 </div>
 
                 <Button variant="outline" size="sm" onClick={() => {
-                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
+                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
                 }} className="mt-2 text-accent border-accent/20 hover:bg-accent/5">
                   <Plus className="w-4 h-4 mr-2" /> Adicionar Linha
                 </Button>

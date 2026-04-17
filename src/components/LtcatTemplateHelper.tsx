@@ -74,10 +74,10 @@ RECONHECIMENTO DO RISCO QUÍMICO
 AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA | TEMPO DE COLETA
 {{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}} | {{tempo_coleta}} {{unidade_tempo_coleta}}
 
-COMPONENTES / RESULTADOS DAS AVALIAÇÕES
-DATA | COLABORADOR | FUNÇÃO | CBO | CÓD eSOCIAL | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+RESULTADOS DAS AVALIAÇÕES
+DATA | COLABORADOR | FUNÇÃO | COMPONENTE AVALIADO | RESULTADO | LIMITE | SITUAÇÃO | GFIP
 {{#avaliacoes}}
-{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{cbo_codigo}} | {{codigo_esocial}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{componente_avaliado}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
 {{/avaliacoes}}
 
 EQUIPAMENTOS UTILIZADOS NA AVALIAÇÃO
@@ -104,6 +104,21 @@ PARECER TÉCNICO
 
 ENSEJADOR DE APOSENTADORIA ESPECIAL
 {{aposentadoria_especial}}
+
+{{/is_quimico}}
+{{/riscos}}
+{{/setores}}`;
+
+const quimicoTabelaSimples = `{{#setores}}
+{{#riscos}}
+{{#is_quimico}}
+
+{{agente_nome}}
+
+DATA | COLABORADOR | FUNÇÃO | COMPONENTE | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{componente_avaliado}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
 
 {{/is_quimico}}
 {{/riscos}}
@@ -158,7 +173,7 @@ export function LtcatTemplateHelper() {
     },
     {
       title: "Resultados (Químico)",
-      vars: ["{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}", "{{situacao}}", "{{cod_gfip}}", "{{dose_percentual}}"],
+      vars: ["{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{componente_avaliado}}", "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}", "{{situacao}}", "{{cod_gfip}}", "{{dose_percentual}}"],
     },
     {
       title: "Avaliações Químicas",
@@ -274,6 +289,26 @@ export function LtcatTemplateHelper() {
                   <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto">
                     {quimicoBlock}
                   </pre>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    📌 Tabela Químico Simples (com Componente Avaliado)
+                  </h4>
+                  <div className="relative">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="absolute top-2 right-2 z-10 gap-1.5"
+                      onClick={() => handleCopyBlock("quimico-simples", quimicoTabelaSimples)}
+                    >
+                      {copiedKey === "quimico-simples" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === "quimico-simples" ? "Copiado!" : "Copiar Bloco"}
+                    </Button>
+                    <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[35vh] overflow-y-auto">
+                      {quimicoTabelaSimples}
+                    </pre>
+                  </div>
                 </div>
               </div>
             )}
