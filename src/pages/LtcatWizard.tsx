@@ -1015,7 +1015,8 @@ export default function LtcatWizard() {
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
-                data_avaliacao: "",
+                data_avaliacao: rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "",
+                componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
                 dose_percentual: "",
                 resultado: "Amostra Comp.",
                 unidade_resultado: "",
@@ -1052,6 +1053,7 @@ export default function LtcatWizard() {
               descricao_atividade: f?.descricao_atividades || "",
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
+              componente_avaliado: item.componente_avaliado || "",
               dose_percentual: "",
               resultado: r.resultado || "",
               unidade_resultado: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
@@ -1300,6 +1302,7 @@ export default function LtcatWizard() {
       is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
+    console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
 
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
