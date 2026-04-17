@@ -851,7 +851,7 @@ export default function LtcatWizard() {
   const openVibracaoModal = () => {
     const initial = riskForm.resultados_vibracao?.length
       ? riskForm.resultados_vibracao
-      : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
+      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
     setTempVibracaoRows(initial);
     setVibracaoModalOpen(true);
   };
@@ -986,7 +986,7 @@ export default function LtcatWizard() {
               descricao_atividade: f?.descricao_atividades || "", // alias para template
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
-              componente_avaliado: res.componente_avaliado || "",
+              componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
               unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
@@ -995,6 +995,10 @@ export default function LtcatWizard() {
               unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || "",
               situacao,
               cod_gfip: res.cod_gfip || "",
+              tempo_coleta: res.tempo_coleta || (r as any).tempo_coleta || "",
+              unidade_tempo_coleta: res.unidade_tempo_coleta || (r as any).unidade_tempo_coleta || "",
+              metodologia_utilizada: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "",
+              metodologia: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "", // alias curto
               parecer_tecnico: res.parecer_tecnico || dbParecer?.parecer_tecnico || "",
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
@@ -1346,6 +1350,17 @@ export default function LtcatWizard() {
     console.log("🔥 [LTCAT] AVALIACOES CALOR:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_calor).flatMap((r: any) => r.avaliacoes || []));
     console.log("📳 [LTCAT] VIBRACAO VCI:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_corpo_inteiro));
     console.log("🤚 [LTCAT] VIBRACAO VMB:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_maos_bracos));
+
+    // 🔍 Diagnóstico: lista campos vazios por avaliação para detectar mapeamento ausente
+    const allAvals = templateData.setores.flatMap((s: any) =>
+      s.riscos.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({ agente: r.agente_nome, ...a })))
+    );
+    const checkFields = ["data_avaliacao", "colaborador", "funcao", "resultado", "limite_tolerancia", "situacao", "cod_gfip"];
+    const empty = allAvals.map(a => {
+      const missing = checkFields.filter(k => !a[k] || a[k] === "");
+      return missing.length ? { agente: a.agente, colaborador: a.colaborador, missing } : null;
+    }).filter(Boolean);
+    if (empty.length) console.warn("⚠️ [LTCAT] AVALIACOES com campos vazios:", empty);
 
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
@@ -3232,6 +3247,58 @@ export default function LtcatWizard() {
               <div className="space-y-4 py-4">
                 {tempVibracaoRows.map((row, ri) => (
                   <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
+                    {/* LINHA 0: Data, Tempo Coleta, Metodologia, Cod GFIP */}
+                    <div className="grid grid-cols-4 gap-3 items-end">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data da Avaliação</Label>
+                        <Input
+                          type="date" className="mt-1 h-8 text-sm" value={row.data_avaliacao || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].data_avaliacao = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tempo Coleta</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex: 480 min" value={row.tempo_coleta || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].tempo_coleta = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Metodologia</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex: NHO-09 / NHO-10" value={row.metodologia_utilizada || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].metodologia_utilizada = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cod. GFIP</Label>
+                        <Select value={row.cod_gfip || ""} onValueChange={v => {
+                          const updated = [...tempVibracaoRows];
+                          updated[ri].cod_gfip = v;
+                          setTempVibracaoRows(updated);
+                        }}>
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Sel." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                            <SelectItem value="03">03</SelectItem>
+                            <SelectItem value="04">04</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
                     <div className="flex gap-3 items-end">
                       <div className="flex-[2]">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
@@ -3330,7 +3397,7 @@ export default function LtcatWizard() {
 
                 <Button
                   variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
+                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
