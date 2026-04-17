@@ -124,6 +124,51 @@ DATA | COLABORADOR | FUNÇÃO | COMPONENTE | RESULTADO | LIMITE | SITUAÇÃO | G
 {{/riscos}}
 {{/setores}}`;
 
+const calorBlock = `{{#setores}}
+{{#riscos}}
+{{#is_calor}}
+
+═══════════════════════════════════════
+AGENTE FÍSICO — CALOR: {{agente_nome}}
+═══════════════════════════════════════
+
+SETOR: {{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RECONHECIMENTO DO RISCO — CALOR
+AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA
+{{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}}
+
+RESULTADOS DAS AVALIAÇÕES — CALOR
+DATA | COLABORADOR | FUNÇÃO | TIPO ATIVIDADE | TAXA METABÓLICA | EXPOSIÇÃO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{tipo_atividade}} | {{taxa_metabolica}} | {{exposicao}} {{unidade_exposicao}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+MEDIDAS DE CONTROLE
+EPI | CA | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_calor}}
+{{/riscos}}
+{{/setores}}`;
+
 const rules = [
   "NÃO alterar {{}} das variáveis",
   "NÃO remover loops (# e /)",
@@ -146,6 +191,7 @@ export function LtcatTemplateHelper() {
   const [showRuido, setShowRuido] = useState(false);
   const [showQuimico, setShowQuimico] = useState(false);
   const [showQuimicoVars, setShowQuimicoVars] = useState(false);
+  const [showCalor, setShowCalor] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string>("");
 
   const handleCopyBlock = (key: string, content: string) => {
@@ -308,6 +354,71 @@ export function LtcatTemplateHelper() {
                     <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[35vh] overflow-y-auto">
                       {quimicoTabelaSimples}
                     </pre>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Tabela Calor */}
+          <div className="border border-border rounded-lg overflow-hidden mb-3">
+            <button
+              onClick={() => setShowCalor(!showCalor)}
+              className="w-full flex items-center justify-between p-4 bg-muted/30 hover:bg-muted/50 transition-colors text-left"
+            >
+              <div className="flex items-center gap-2">
+                <Badge className="bg-warning text-warning-foreground">Físico</Badge>
+                <span className="font-heading font-semibold">TABELA CALOR</span>
+              </div>
+              {showCalor ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+            </button>
+
+            {showCalor && (
+              <div className="p-4 space-y-4">
+                <p className="text-sm text-muted-foreground italic">
+                  Bloco condicional via <code className="bg-muted px-1 rounded">{"{{#is_calor}}"}</code> — só aparece quando o agente for <strong>CALOR</strong>. Use o loop <code className="bg-muted px-1 rounded">{"{{#avaliacoes}}"}</code> para listar todos os colaboradores avaliados.
+                </p>
+                <div className="relative">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="absolute top-2 right-2 z-10 gap-1.5"
+                    onClick={() => handleCopyBlock("calor", calorBlock)}
+                  >
+                    {copiedKey === "calor" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                    {copiedKey === "calor" ? "Copiado!" : "Copiar Bloco"}
+                  </Button>
+                  <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[40vh] overflow-y-auto">
+                    {calorBlock}
+                  </pre>
+                </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Variáveis exclusivas — Calor</h4>
+                  <div className="flex flex-wrap gap-1.5">
+                    {[
+                      "{{#is_calor}}", "{{/is_calor}}",
+                      "{{#avaliacoes}}", "{{/avaliacoes}}",
+                      "{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}",
+                      "{{tipo_atividade}}", "{{taxa_metabolica}}",
+                      "{{exposicao}}", "{{unidade_exposicao}}",
+                      "{{limite_tolerancia}}", "{{unidade_limite}}",
+                      "{{situacao}}", "{{cod_gfip}}",
+                    ].map((v) => (
+                      <Badge
+                        key={"calor-" + v}
+                        variant="outline"
+                        className="font-mono text-xs py-1 px-2 cursor-pointer hover:bg-accent/10 transition-colors"
+                        onClick={() => handleCopyVar(v)}
+                      >
+                        {v}
+                        {copiedKey === v ? (
+                          <Check className="w-3 h-3 ml-1 text-success" />
+                        ) : (
+                          <Copy className="w-3 h-3 ml-1 opacity-40" />
+                        )}
+                      </Badge>
+                    ))}
                   </div>
                 </div>
               </div>
