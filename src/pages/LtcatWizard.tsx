@@ -1000,12 +1000,15 @@ export default function LtcatWizard() {
               vdvr_unidade: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
               vdvr_limite: res.vdvr_limite || "",
               vdvr_limite_unidade: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
-              // Calor fields
+              // Calor fields (modal específico)
+              tipo_atividade: res.tipo_atividade || res.atividade_avaliada || "",
               local_avaliado: res.local_avaliado || "",
-              atividade_avaliada: res.atividade_avaliada || "",
+              atividade_avaliada: res.atividade_avaliada || res.tipo_atividade || "",
               taxa_metabolica: res.taxa_metabolica || "",
-              resultado_calor: res.resultado_calor || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_resultado_id))?.simbolo || "",
+              exposicao: res.exposicao || res.resultado || "",
+              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || "",
+              resultado_calor: res.resultado_calor || res.exposicao || res.resultado || "",
+              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || "",
               limite_tolerancia_calor: res.limite_tolerancia_calor || res.limite_tolerancia || "",
               unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || "",
             };
