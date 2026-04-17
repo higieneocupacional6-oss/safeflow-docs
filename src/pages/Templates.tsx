@@ -1,10 +1,9 @@
 import { useState, useRef } from "react";
 import { TemplateVariables } from "@/components/TemplateVariables";
 import { LtcatTemplateHelper } from "@/components/LtcatTemplateHelper";
-import { Plus, FileText, Upload, Trash2, Loader2 } from "lucide-react";
+import { Plus, FileText, Upload, Trash2, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -13,12 +12,15 @@ import {
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { validateDocxTemplate, type TemplateIssue } from "@/lib/templateValidator";
 
 export default function Templates() {
   const [open, setOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [validationIssues, setValidationIssues] = useState<TemplateIssue[]>([]);
+  const [validationOpen, setValidationOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -45,6 +47,19 @@ export default function Templates() {
     }
   };
 
+  const persistTemplate = async (f: File) => {
+    const filePath = `${Date.now()}_${f.name}`;
+    const { error: uploadError } = await supabase.storage
+      .from("templates")
+      .upload(filePath, f);
+    if (uploadError) throw uploadError;
+
+    const { error: dbError } = await supabase
+      .from("templates")
+      .insert({ title: title.trim(), file_path: filePath });
+    if (dbError) throw dbError;
+  };
+
   const handleSave = async () => {
     if (!title.trim()) {
       toast.error("Informe o título do template");
@@ -57,18 +72,20 @@ export default function Templates() {
 
     setSaving(true);
     try {
-      const filePath = `${Date.now()}_${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("templates")
-        .upload(filePath, file);
-      if (uploadError) throw uploadError;
+      // 1) Valida o template antes de salvar
+      const issues = await validateDocxTemplate(file);
+      const blocking = issues.filter((i) => i.severidade === "erro");
 
-      const { error: dbError } = await supabase
-        .from("templates")
-        .insert({ title: title.trim(), file_path: filePath });
-      if (dbError) throw dbError;
+      if (blocking.length > 0) {
+        setValidationIssues(issues);
+        setValidationOpen(true);
+        toast.error(`${blocking.length} erro(s) encontrado(s) no template`);
+        return;
+      }
 
-      toast.success("Template salvo com sucesso!");
+      // 2) Tudo certo → salva automático
+      await persistTemplate(file);
+      toast.success("✅ Template validado e salvo!");
       queryClient.invalidateQueries({ queryKey: ["templates"] });
       setOpen(false);
       setTitle("");
@@ -87,9 +104,7 @@ export default function Templates() {
     toast.success("Template removido");
   };
 
-  const formatDate = (dateStr: string) => {
-    return new Date(dateStr).toLocaleDateString("pt-BR");
-  };
+  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR");
 
   return (
     <div>
@@ -185,6 +200,9 @@ export default function Templates() {
                   {file ? file.name : "Selecionar arquivo .docx"}
                 </Button>
               </div>
+              <p className="text-[11px] text-muted-foreground mt-1.5">
+                Ao clicar em <strong>Salvar</strong>, validamos o template antes de enviar. Se houver erros, mostraremos uma lista para correção.
+              </p>
             </div>
           </div>
           <DialogFooter>
@@ -195,7 +213,63 @@ export default function Templates() {
               className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
               {saving && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Salvar Template
+              {saving ? "Validando…" : "Salvar Template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation Errors Modal */}
+      <Dialog open={validationOpen} onOpenChange={setValidationOpen}>
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="font-heading text-xl font-bold text-destructive flex items-center gap-2">
+              <AlertCircle className="w-6 h-6" />
+              Erros encontrados no template
+            </DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-muted-foreground">
+            Corrija os problemas abaixo no arquivo .docx e tente enviar novamente. Templates com erros não podem ser salvos.
+          </p>
+          <div className="space-y-3 max-h-[400px] overflow-y-auto py-2">
+            {validationIssues.map((err, i) => (
+              <div
+                key={i}
+                className={`rounded-lg p-4 border text-left ${
+                  err.severidade === "erro"
+                    ? "bg-destructive/5 border-destructive/30"
+                    : "bg-amber-50 border-amber-300 dark:bg-amber-950/20 dark:border-amber-700"
+                }`}
+              >
+                <div className="flex items-start gap-2">
+                  <span
+                    className={`text-xs font-bold rounded px-2 py-0.5 shrink-0 ${
+                      err.severidade === "erro"
+                        ? "bg-destructive text-destructive-foreground"
+                        : "bg-amber-500 text-white"
+                    }`}
+                  >
+                    {err.severidade === "erro" ? "❌ ERRO" : "⚠️ AVISO"}
+                  </span>
+                  <div className="space-y-1.5 text-sm min-w-0">
+                    <p className="font-semibold text-foreground">{err.mensagem}</p>
+                    <p className="text-muted-foreground">{err.explicacao}</p>
+                    <p className="text-accent font-medium">
+                      ✏️ <span className="font-semibold">Solução:</span> {err.correcao}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+            {validationIssues.length === 0 && (
+              <div className="flex items-center gap-2 text-sm text-success">
+                <CheckCircle2 className="w-4 h-4" /> Nenhum problema encontrado.
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setValidationOpen(false)} className="gap-2">
+              Entendi, corrigir template
             </Button>
           </DialogFooter>
         </DialogContent>

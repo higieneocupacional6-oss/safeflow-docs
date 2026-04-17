@@ -1103,11 +1103,12 @@ export default function LtcatWizard() {
 
         // Flags de tipo de agente para uso condicional no template
         const tipoAgenteUpper = (first.tipo_agente || "").toUpperCase();
-        const agenteNomeLower = (first.agente_nome || "").toLowerCase();
+        const agenteNomeLower = (first.agente_nome || "").toLowerCase().trim();
+        const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
         const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
         const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
         const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
-        const is_ruido = agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido");
+        const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
         const is_calor = agenteNomeLower.includes("calor");
         const is_vibracao = agenteNomeLower.includes("vibra");
 
@@ -1214,14 +1215,15 @@ export default function LtcatWizard() {
         "";
 
       const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
-      const agenteNomeLower = (r.agente_nome || "").toLowerCase();
+      const agenteNomeLower = (r.agente_nome || "").toLowerCase().trim();
+      const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
         is_quimico: tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI"),
         is_fisico: tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI"),
         is_biologico: tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG"),
-        is_ruido: agenteNomeLower.includes("ruído") || agenteNomeLower.includes("ruido"),
+        is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
         is_calor: agenteNomeLower.includes("calor"),
         is_vibracao: agenteNomeLower.includes("vibra"),
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
@@ -1291,6 +1293,11 @@ export default function LtcatWizard() {
       agente: r.agente_nome,
       parecer_tecnico: r.parecer_tecnico,
       aposentadoria_especial: r.aposentadoria_especial,
+    })));
+    console.log("🏷️ [LTCAT] RISCOS COM FLAGS:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
+      agente: r.agente_nome, tipo: r.tipo_agente,
+      is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
+      is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
 
     const riscosSemParecer = templateData.setores
