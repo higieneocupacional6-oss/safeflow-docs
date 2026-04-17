@@ -1009,6 +1009,15 @@ export default function LtcatWizard() {
               vdvr_unidade: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
               vdvr_limite: res.vdvr_limite || "",
               vdvr_limite_unidade: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
+              // Vibração — aliases conforme spec do template
+              resultado_aren: res.aren_resultado || "",
+              unidade_aren: unidades.find(u => u.id === res.aren_unidade_id)?.simbolo || "",
+              limite_aren: res.aren_limite || "",
+              unidade_limite_aren: unidades.find(u => u.id === res.aren_limite_unidade_id)?.simbolo || "",
+              resultado_vdvr: res.vdvr_resultado || "",
+              unidade_vdvr: unidades.find(u => u.id === res.vdvr_unidade_id)?.simbolo || "",
+              limite_vdvr: res.vdvr_limite || "",
+              unidade_limite_vdvr: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
               // Calor fields (modal específico)
               tipo_atividade: res.tipo_atividade || res.atividade_avaliada || "",
               local_avaliado: res.local_avaliado || "",
