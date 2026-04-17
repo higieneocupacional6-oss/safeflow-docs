@@ -1039,10 +1039,13 @@ export default function LtcatWizard() {
           if (r.resultados_calor?.length) return r.resultados_calor.map(mapResult);
           if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(mapResult);
           if (r.resultados_componentes?.length) {
-            return r.resultados_componentes.map(rc => {
+            // Explode componentes em avaliacoes individuais (1 linha por componente)
+            const rows: any[] = [];
+            r.resultados_componentes.forEach((rc: any) => {
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
-              return {
+              const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
+              const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
                 funcao: rc.funcao_nome || f?.nome_funcao || "",
@@ -1052,16 +1055,8 @@ export default function LtcatWizard() {
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
-                data_avaliacao: rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "",
-                componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
+                data_avaliacao: dataAv,
                 dose_percentual: "",
-                resultado: "Amostra Comp.",
-                unidade_resultado: "",
-                unidade: "",
-                limite_tolerancia: "",
-                unidade_limite: "",
-                situacao: "",
-                cod_gfip: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
                 epi_nome,
@@ -1072,7 +1067,44 @@ export default function LtcatWizard() {
                 local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "",
                 resultado_calor: "", unidade_resultado_calor: "", limite_tolerancia_calor: "", unidade_limite_calor: "",
               };
+              const comps = rc.componentes || [];
+              if (!comps.length) {
+                rows.push({
+                  ...baseRow,
+                  componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
+                  resultado: "",
+                  unidade_resultado: "",
+                  unidade: "",
+                  limite_tolerancia: "",
+                  unidade_limite: "",
+                  situacao: "",
+                  cod_gfip: "",
+                });
+                return;
+              }
+              comps.forEach((c: any) => {
+                const uRes = unidades.find((u: any) => u.id === c.unidade_resultado_id)?.simbolo || "";
+                const uLim = unidades.find((u: any) => u.id === c.unidade_limite_id)?.simbolo || "";
+                const resN = parseFloat(String(c.resultado).replace(",", "."));
+                const ltN = parseFloat(String(c.limite_tolerancia).replace(",", "."));
+                let situacao = c.situacao || "";
+                if (!situacao && !isNaN(resN) && !isNaN(ltN) && ltN > 0) {
+                  situacao = resN > ltN ? "Nocivo" : "Seguro";
+                }
+                rows.push({
+                  ...baseRow,
+                  componente_avaliado: c.componente || c.nome_componente || "",
+                  resultado: c.resultado != null ? String(c.resultado) : "",
+                  unidade_resultado: uRes,
+                  unidade: uRes,
+                  limite_tolerancia: c.limite_tolerancia != null ? String(c.limite_tolerancia) : "",
+                  unidade_limite: uLim,
+                  situacao,
+                  cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                });
+              });
             });
+            return rows;
           }
           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(mapResult);
 
@@ -1346,7 +1378,31 @@ export default function LtcatWizard() {
       is_vibracao_corpo_inteiro: r.is_vibracao_corpo_inteiro, is_vibracao_maos_bracos: r.is_vibracao_maos_bracos,
       is_quimico: r.is_quimico, is_biologico: r.is_biologico, is_fisico: r.is_fisico,
     })));
-    console.log("🧪 [LTCAT] QUIMICOS JSON:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico));
+    const quimicosFlat = templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_quimico);
+    console.log("🧪 [LTCAT] QUIMICOS JSON:", quimicosFlat);
+    console.log("🧪 [LTCAT] QUIMICOS AVALIACOES:", quimicosFlat.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({
+      agente: r.agente_nome,
+      data_avaliacao: a.data_avaliacao,
+      colaborador: a.colaborador,
+      funcao: a.funcao,
+      componente_avaliado: a.componente_avaliado,
+      resultado: a.resultado,
+      unidade_resultado: a.unidade_resultado,
+      limite_tolerancia: a.limite_tolerancia,
+      unidade_limite: a.unidade_limite,
+      situacao: a.situacao,
+      cod_gfip: a.cod_gfip,
+    }))));
+    // Validação: químicos sem componente/resultado/limite
+    const quimicosIncompletos = quimicosFlat.flatMap((r: any) =>
+      (r.avaliacoes || [])
+        .filter((a: any) => !a.componente_avaliado || !a.resultado || !a.limite_tolerancia)
+        .map((a: any) => ({ agente: r.agente_nome, colaborador: a.colaborador, faltando: ["componente_avaliado", "resultado", "limite_tolerancia"].filter(k => !a[k]) }))
+    );
+    if (quimicosIncompletos.length) {
+      console.warn("⚠️ [LTCAT] QUIMICOS incompletos:", quimicosIncompletos);
+      toast.warning(`Dados de componentes químicos incompletos em ${quimicosIncompletos.length} avaliação(ões). Verifique o console.`);
+    }
     console.log("🔥 [LTCAT] AVALIACOES CALOR:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_calor).flatMap((r: any) => r.avaliacoes || []));
     console.log("📳 [LTCAT] VIBRACAO VCI:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_corpo_inteiro));
     console.log("🤚 [LTCAT] VIBRACAO VMB:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_maos_bracos));
@@ -2806,8 +2862,21 @@ export default function LtcatWizard() {
                 {tempFuncaoRows.map((row, ri) => (
                   <div key={row.id} className="border rounded-xl p-4 bg-muted/10 space-y-3">
                     {/* Cabeçalho da linha */}
-                    <div className="flex gap-3 items-end">
-                      <div className="flex-1">
+                    <div className="flex gap-3 items-end flex-wrap">
+                      <div className="w-40">
+                        <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Data Avaliação</Label>
+                        <Input
+                          type="date"
+                          className="mt-1"
+                          value={row.data_avaliacao || ""}
+                          onChange={e => {
+                            const updated = [...tempFuncaoRows];
+                            updated[ri] = { ...updated[ri], data_avaliacao: e.target.value };
+                            setTempFuncaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
                         <Input
                           className="mt-1"
@@ -2820,7 +2889,7 @@ export default function LtcatWizard() {
                           }}
                         />
                       </div>
-                      <div className="flex-1">
+                      <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
                         <Select
                           value={row.funcao_id}
@@ -2845,7 +2914,7 @@ export default function LtcatWizard() {
                         className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0"
                         onClick={() => {
                           setCurrentAmostraIndex(ri);
-                          setTempComponentes(row.componentes?.length ? row.componentes : [{ id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }]);
+                          setTempComponentes(row.componentes?.length ? row.componentes : [{ id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", situacao: "", cod_gfip: "" }]);
                           setAmostraModalOpen(true);
                         }}
                       >
@@ -2885,7 +2954,7 @@ export default function LtcatWizard() {
                   variant="outline"
                   size="sm"
                   className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempFuncaoRows([...tempFuncaoRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }])}
+                  onClick={() => setTempFuncaoRows([...tempFuncaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
@@ -3003,6 +3072,36 @@ export default function LtcatWizard() {
                         <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
+                    {/* Linha 2: Situação automática + GFIP */}
+                    <div className="col-span-6">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
+                      {(() => {
+                        const r = parseFloat(String(comp.resultado).replace(",", "."));
+                        const lt = parseFloat(String(comp.limite_tolerancia).replace(",", "."));
+                        const sit = (!isNaN(r) && !isNaN(lt) && lt > 0) ? (r > lt ? "Nocivo" : "Seguro") : "—";
+                        const cls = sit === "Nocivo" ? "text-destructive" : sit === "Seguro" ? "text-success" : "text-muted-foreground";
+                        return <div className={`mt-1 h-10 px-3 py-2 text-sm rounded-md border bg-muted/20 font-semibold ${cls}`}>{sit}</div>;
+                      })()}
+                    </div>
+                    <div className="col-span-6">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
+                      <Select
+                        value={comp.cod_gfip || ""}
+                        onValueChange={v => {
+                          const updated = [...tempComponentes];
+                          updated[ci] = { ...updated[ci], cod_gfip: v };
+                          setTempComponentes(updated);
+                        }}
+                      >
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="01">01</SelectItem>
+                          <SelectItem value="02">02</SelectItem>
+                          <SelectItem value="03">03</SelectItem>
+                          <SelectItem value="04">04</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 ))}
 
@@ -3010,7 +3109,7 @@ export default function LtcatWizard() {
                   variant="outline"
                   size="sm"
                   className="gap-2 text-accent border-accent/20 hover:bg-accent/5 mt-2"
-                  onClick={() => setTempComponentes([...tempComponentes, { id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }])}
+                  onClick={() => setTempComponentes([...tempComponentes, { id: crypto.randomUUID(), componente: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", situacao: "", cod_gfip: "" }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Componente
                 </Button>
