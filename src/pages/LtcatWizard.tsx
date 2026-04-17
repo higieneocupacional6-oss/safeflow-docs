@@ -1223,6 +1223,18 @@ export default function LtcatWizard() {
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
         console.log("🎨 [LTCAT] AGENTE NORMALIZADO:", normalized_agente_nome, { is_agente_fisico, is_agente_quimico, is_agente_biologico });
 
+        // Enriquecer cada avaliação com is_nocivo/is_seguro para coloração condicional no template
+        const avaliacoesEnriched = (avaliacoes || []).map((a: any) => {
+          const sit = String(a.situacao || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return {
+            ...a,
+            situacao: a.situacao || "",
+            is_nocivo: sit === "nocivo",
+            is_seguro: sit === "seguro" || sit === "segura",
+          };
+        });
+        console.log("🟥🟩 [LTCAT] SITUAÇÕES:", avaliacoesEnriched.map((a: any) => ({ colab: a.colaborador, situacao: a.situacao, is_nocivo: a.is_nocivo, is_seguro: a.is_seguro })));
+
         return {
           agente_nome: first.agente_nome || "",
           tipo_agente: first.tipo_agente || "",
