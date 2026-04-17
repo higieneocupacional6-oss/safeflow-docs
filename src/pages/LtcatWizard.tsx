@@ -2930,7 +2930,7 @@ export default function LtcatWizard() {
                   variant="outline"
                   size="sm"
                   className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempFuncaoRows([...tempFuncaoRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }])}
+                  onClick={() => setTempFuncaoRows([...tempFuncaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
