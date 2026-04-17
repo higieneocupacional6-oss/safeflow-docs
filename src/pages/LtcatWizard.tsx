@@ -3038,6 +3038,25 @@ export default function LtcatWizard() {
                           }} />
                         </div>
                       </div>
+                      {/* COMPONENTE AVALIADO — apenas para QUÍMICO */}
+                      {(riskForm.tipo_agente || "").toUpperCase().includes("QUIMI") && (
+                        <div className="grid grid-cols-1 gap-3 items-end">
+                          <div>
+                            <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
+                              Componente Avaliado <span className="text-accent">(Químico)</span>
+                            </Label>
+                            <Input
+                              placeholder="Ex: Benzeno, Sílica Livre, Poeira Respirável"
+                              value={res.componente_avaliado || ""}
+                              onChange={e => {
+                                const updated = [...tempResultados];
+                                updated[index].componente_avaliado = e.target.value;
+                                setTempResultados(updated);
+                              }}
+                            />
+                          </div>
+                        </div>
+                      )}
                       {/* LINHA 2: Resultado, Unidade, Limite, Unidade Limite */}
                       <div className="grid grid-cols-4 gap-3 items-end">
                         <div>
