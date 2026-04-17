@@ -290,6 +290,26 @@ export function LtcatTemplateHelper() {
                     {quimicoBlock}
                   </pre>
                 </div>
+
+                <div>
+                  <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+                    📌 Tabela Químico Simples (com Componente Avaliado)
+                  </h4>
+                  <div className="relative">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="absolute top-2 right-2 z-10 gap-1.5"
+                      onClick={() => handleCopyBlock("quimico-simples", quimicoTabelaSimples)}
+                    >
+                      {copiedKey === "quimico-simples" ? <Check className="w-3.5 h-3.5 text-success" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copiedKey === "quimico-simples" ? "Copiado!" : "Copiar Bloco"}
+                    </Button>
+                    <pre className="bg-muted/60 border border-border rounded-lg p-4 pt-12 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-all max-h-[35vh] overflow-y-auto">
+                      {quimicoTabelaSimples}
+                    </pre>
+                  </div>
+                </div>
               </div>
             )}
           </div>
