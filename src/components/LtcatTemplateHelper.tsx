@@ -74,10 +74,10 @@ RECONHECIMENTO DO RISCO QUÍMICO
 AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOLOGIA | TEMPO DE COLETA
 {{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}} | {{tempo_coleta}} {{unidade_tempo_coleta}}
 
-COMPONENTES / RESULTADOS DAS AVALIAÇÕES
-DATA | COLABORADOR | FUNÇÃO | CBO | CÓD eSOCIAL | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+RESULTADOS DAS AVALIAÇÕES
+DATA | COLABORADOR | FUNÇÃO | COMPONENTE AVALIADO | RESULTADO | LIMITE | SITUAÇÃO | GFIP
 {{#avaliacoes}}
-{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{cbo_codigo}} | {{codigo_esocial}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{componente_avaliado}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
 {{/avaliacoes}}
 
 EQUIPAMENTOS UTILIZADOS NA AVALIAÇÃO
@@ -104,6 +104,21 @@ PARECER TÉCNICO
 
 ENSEJADOR DE APOSENTADORIA ESPECIAL
 {{aposentadoria_especial}}
+
+{{/is_quimico}}
+{{/riscos}}
+{{/setores}}`;
+
+const quimicoTabelaSimples = `{{#setores}}
+{{#riscos}}
+{{#is_quimico}}
+
+{{agente_nome}}
+
+DATA | COLABORADOR | FUNÇÃO | COMPONENTE | RESULTADO | LIMITE | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{componente_avaliado}} | {{resultado}} {{unidade_resultado}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
 
 {{/is_quimico}}
 {{/riscos}}
