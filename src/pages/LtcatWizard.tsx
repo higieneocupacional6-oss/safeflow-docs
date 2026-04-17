@@ -961,10 +961,10 @@ export default function LtcatWizard() {
 
           const mapResult = (res: any) => {
             const dbParecer = findDBParecer(res.colaborador, res.funcao_id, sId, aId);
-            const resNum = parseFloat(res.resultado);
+            const resNum = parseFloat(res.resultado || res.exposicao);
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
-            const situacao = hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "";
+            const situacao = res.situacao || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
