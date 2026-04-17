@@ -1335,13 +1335,23 @@ export default function LtcatWizard() {
 
       const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
       const agenteNomeLower = (r.agente_nome || "").toLowerCase().trim();
+      const normalized_agente_nome = (r.agente_nome || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
+      const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
+      const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
+      const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
+      const _isF = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
+      const _isB = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
-        is_quimico: tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI"),
-        is_fisico: tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI"),
-        is_biologico: tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG"),
+        normalized_agente_nome,
+        is_quimico: _isQ,
+        is_fisico: _isF,
+        is_biologico: _isB,
+        is_agente_fisico: _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
+        is_agente_quimico: _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
+        is_agente_biologico: _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung"),
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
         is_calor: agenteNomeLower.includes("calor"),
         is_vibracao: agenteNomeLower.includes("vibra"),
