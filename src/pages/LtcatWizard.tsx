@@ -1351,6 +1351,17 @@ export default function LtcatWizard() {
     console.log("📳 [LTCAT] VIBRACAO VCI:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_corpo_inteiro));
     console.log("🤚 [LTCAT] VIBRACAO VMB:", templateData.setores.flatMap((s: any) => s.riscos).filter((r: any) => r.is_vibracao_maos_bracos));
 
+    // 🔍 Diagnóstico: lista campos vazios por avaliação para detectar mapeamento ausente
+    const allAvals = templateData.setores.flatMap((s: any) =>
+      s.riscos.flatMap((r: any) => (r.avaliacoes || []).map((a: any) => ({ agente: r.agente_nome, ...a })))
+    );
+    const checkFields = ["data_avaliacao", "colaborador", "funcao", "resultado", "limite_tolerancia", "situacao", "cod_gfip"];
+    const empty = allAvals.map(a => {
+      const missing = checkFields.filter(k => !a[k] || a[k] === "");
+      return missing.length ? { agente: a.agente, colaborador: a.colaborador, missing } : null;
+    }).filter(Boolean);
+    if (empty.length) console.warn("⚠️ [LTCAT] AVALIACOES com campos vazios:", empty);
+
     const riscosSemParecer = templateData.setores
       .flatMap((s: any) => s.riscos)
       .filter((r: any) => !r.parecer_tecnico || !r.aposentadoria_especial);
