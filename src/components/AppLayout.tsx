@@ -1,20 +1,21 @@
-import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { AppSidebar } from "@/components/AppSidebar";
+import { TopNav } from "@/components/TopNav";
+import techBg from "@/assets/tech-bg.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <SidebarProvider>
-      <div className="min-h-screen flex w-full">
-        <AppSidebar />
-        <div className="flex-1 flex flex-col min-w-0">
-          <header className="h-14 flex items-center border-b border-border bg-card/50 backdrop-blur-sm px-4 sticky top-0 z-10">
-            <SidebarTrigger className="mr-4" />
-          </header>
-          <main className="flex-1 p-6">
-            {children}
-          </main>
+    <div className="min-h-screen flex flex-col w-full relative">
+      {/* Tech background overlay */}
+      <div
+        aria-hidden
+        className="fixed inset-0 pointer-events-none opacity-[0.07] z-0 bg-no-repeat bg-cover bg-center"
+        style={{ backgroundImage: `url(${techBg})` }}
+      />
+      <TopNav />
+      <main className="flex-1 relative z-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+          {children}
         </div>
-      </div>
-    </SidebarProvider>
+      </main>
+    </div>
   );
 }
