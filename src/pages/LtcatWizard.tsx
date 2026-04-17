@@ -1276,7 +1276,7 @@ export default function LtcatWizard() {
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
           parecer_tecnico: riscoParecerTecnico,
           aposentadoria_especial: riscoAposentadoria,
-          avaliacoes,
+          avaliacoes: avaliacoesEnriched,
           epis,
           epcs,
           equipamentos_avaliacao: (first.equipamentos_avaliacao || []).length > 0
