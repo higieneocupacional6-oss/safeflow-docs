@@ -1198,10 +1198,21 @@ export default function LtcatWizard() {
         // Flags de tipo de agente para uso condicional no template
         const tipoAgenteUpper = (first.tipo_agente || "").toUpperCase();
         const agenteNomeLower = (first.agente_nome || "").toLowerCase().trim();
+        const normalized_agente_nome = (first.agente_nome || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
         const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
+        const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
+        const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
         const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
         const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
         const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+        // Flags por NOME do agente (para coloração condicional no template DOCX)
+        const is_agente_fisico = is_fisico || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+        const is_agente_quimico = is_quimico || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+        const is_agente_biologico = is_biologico || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
         const is_calor = agenteNomeLower.includes("calor");
         const is_vibracao = agenteNomeLower.includes("vibra");
@@ -1210,6 +1221,7 @@ export default function LtcatWizard() {
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
+        console.log("🎨 [LTCAT] AGENTE NORMALIZADO:", normalized_agente_nome, { is_agente_fisico, is_agente_quimico, is_agente_biologico });
 
         return {
           agente_nome: first.agente_nome || "",
@@ -1217,6 +1229,10 @@ export default function LtcatWizard() {
           is_quimico,
           is_fisico,
           is_biologico,
+          is_agente_fisico,
+          is_agente_quimico,
+          is_agente_biologico,
+          normalized_agente_nome,
           is_ruido,
           is_calor,
           is_vibracao,
