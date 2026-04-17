@@ -1198,10 +1198,21 @@ export default function LtcatWizard() {
         // Flags de tipo de agente para uso condicional no template
         const tipoAgenteUpper = (first.tipo_agente || "").toUpperCase();
         const agenteNomeLower = (first.agente_nome || "").toLowerCase().trim();
+        const normalized_agente_nome = (first.agente_nome || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .trim();
         const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
+        const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
+        const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
         const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
         const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
         const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+        // Flags por NOME do agente (para coloração condicional no template DOCX)
+        const is_agente_fisico = is_fisico || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+        const is_agente_quimico = is_quimico || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+        const is_agente_biologico = is_biologico || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
         const is_calor = agenteNomeLower.includes("calor");
         const is_vibracao = agenteNomeLower.includes("vibra");
@@ -1210,6 +1221,19 @@ export default function LtcatWizard() {
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
+        console.log("🎨 [LTCAT] AGENTE NORMALIZADO:", normalized_agente_nome, { is_agente_fisico, is_agente_quimico, is_agente_biologico });
+
+        // Enriquecer cada avaliação com is_nocivo/is_seguro para coloração condicional no template
+        const avaliacoesEnriched = (avaliacoes || []).map((a: any) => {
+          const sit = String(a.situacao || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+          return {
+            ...a,
+            situacao: a.situacao || "",
+            is_nocivo: sit === "nocivo",
+            is_seguro: sit === "seguro" || sit === "segura",
+          };
+        });
+        console.log("🟥🟩 [LTCAT] SITUAÇÕES:", avaliacoesEnriched.map((a: any) => ({ colab: a.colaborador, situacao: a.situacao, is_nocivo: a.is_nocivo, is_seguro: a.is_seguro })));
 
         return {
           agente_nome: first.agente_nome || "",
@@ -1217,6 +1241,10 @@ export default function LtcatWizard() {
           is_quimico,
           is_fisico,
           is_biologico,
+          is_agente_fisico,
+          is_agente_quimico,
+          is_agente_biologico,
+          normalized_agente_nome,
           is_ruido,
           is_calor,
           is_vibracao,
@@ -1248,7 +1276,7 @@ export default function LtcatWizard() {
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
           parecer_tecnico: riscoParecerTecnico,
           aposentadoria_especial: riscoAposentadoria,
-          avaliacoes,
+          avaliacoes: avaliacoesEnriched,
           epis,
           epcs,
           equipamentos_avaliacao: (first.equipamentos_avaliacao || []).length > 0
@@ -1319,13 +1347,23 @@ export default function LtcatWizard() {
 
       const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
       const agenteNomeLower = (r.agente_nome || "").toLowerCase().trim();
+      const normalized_agente_nome = (r.agente_nome || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
+      const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
+      const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
+      const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
+      const _isF = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
+      const _isB = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
-        is_quimico: tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI"),
-        is_fisico: tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI"),
-        is_biologico: tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG"),
+        normalized_agente_nome,
+        is_quimico: _isQ,
+        is_fisico: _isF,
+        is_biologico: _isB,
+        is_agente_fisico: _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
+        is_agente_quimico: _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
+        is_agente_biologico: _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung"),
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
         is_calor: agenteNomeLower.includes("calor"),
         is_vibracao: agenteNomeLower.includes("vibra"),

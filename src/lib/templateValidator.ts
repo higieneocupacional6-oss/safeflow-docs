@@ -21,6 +21,8 @@ const KNOWN_VARS = [
   "epi_nome", "epi_ca", "epi_atenuacao", "epi_eficaz", "epc_nome", "epc_eficaz",
   "is_quimico", "is_fisico", "is_biologico", "is_ruido", "is_calor", "is_vibracao",
   "is_qualitativo", "is_quantitativo", "descricao_avaliacao",
+  "is_agente_fisico", "is_agente_quimico", "is_agente_biologico", "normalized_agente_nome",
+  "is_nocivo", "is_seguro",
 ];
 
 export function parseDocxErrors(err: any): TemplateIssue[] {

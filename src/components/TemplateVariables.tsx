@@ -133,6 +133,21 @@ const variableGroups = [
     ],
   },
   {
+    title: "Coloração Condicional do Agente (LTCAT)",
+    vars: [
+      "{{#is_agente_fisico}}", "{{agente_nome}}", "{{/is_agente_fisico}}",
+      "{{#is_agente_quimico}}", "{{agente_nome}}", "{{/is_agente_quimico}}",
+      "{{#is_agente_biologico}}", "{{agente_nome}}", "{{/is_agente_biologico}}",
+    ],
+  },
+  {
+    title: "Coloração Condicional da Situação (LTCAT)",
+    vars: [
+      "{{#is_nocivo}}", "{{situacao}}", "{{/is_nocivo}}",
+      "{{#is_seguro}}", "{{situacao}}", "{{/is_seguro}}",
+    ],
+  },
+  {
     title: "Variáveis de Agente Qualitativo (LTCAT)",
     vars: [
       "{{#is_qualitativo}}", "{{agente_nome}}", "{{funcoes_ges}}", "{{tipo_avaliacao}}",
