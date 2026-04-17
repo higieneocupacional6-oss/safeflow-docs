@@ -1,7 +1,8 @@
-import { Building2, FileText, LayoutTemplate, Database, Shield, Users, Menu, X } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Users, Menu, X } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import safedocLogo from "@/assets/safedoc-logo.png";
 
 const menuItems = [
   { title: "Empresas", url: "/empresas", icon: Building2 },
@@ -20,9 +21,11 @@ export function TopNav() {
         <div className="flex h-16 items-center justify-between">
           {/* Brand */}
           <NavLink to="/empresas" className="flex items-center gap-3 group">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center shadow-[var(--shadow-glow-primary)] transition-transform group-hover:scale-105">
-              <Shield className="w-5 h-5 text-primary-foreground" />
-            </div>
+            <img
+              src={safedocLogo}
+              alt="SAFEDOC"
+              className="h-10 w-10 object-contain rounded-xl bg-white/95 p-1 shadow-[var(--shadow-glow-primary)] transition-transform group-hover:scale-105"
+            />
             <div className="hidden sm:block">
               <h1 className="font-heading text-base font-bold tracking-tight text-foreground">
                 SAFE<span className="text-gradient-mint">DOC</span>
