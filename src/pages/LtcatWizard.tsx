@@ -1039,10 +1039,13 @@ export default function LtcatWizard() {
           if (r.resultados_calor?.length) return r.resultados_calor.map(mapResult);
           if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(mapResult);
           if (r.resultados_componentes?.length) {
-            return r.resultados_componentes.map(rc => {
+            // Explode componentes em avaliacoes individuais (1 linha por componente)
+            const rows: any[] = [];
+            r.resultados_componentes.forEach((rc: any) => {
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
-              return {
+              const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
+              const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
                 funcao: rc.funcao_nome || f?.nome_funcao || "",
@@ -1052,16 +1055,8 @@ export default function LtcatWizard() {
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
-                data_avaliacao: rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "",
-                componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
+                data_avaliacao: dataAv,
                 dose_percentual: "",
-                resultado: "Amostra Comp.",
-                unidade_resultado: "",
-                unidade: "",
-                limite_tolerancia: "",
-                unidade_limite: "",
-                situacao: "",
-                cod_gfip: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
                 epi_nome,
@@ -1072,7 +1067,44 @@ export default function LtcatWizard() {
                 local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "",
                 resultado_calor: "", unidade_resultado_calor: "", limite_tolerancia_calor: "", unidade_limite_calor: "",
               };
+              const comps = rc.componentes || [];
+              if (!comps.length) {
+                rows.push({
+                  ...baseRow,
+                  componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
+                  resultado: "",
+                  unidade_resultado: "",
+                  unidade: "",
+                  limite_tolerancia: "",
+                  unidade_limite: "",
+                  situacao: "",
+                  cod_gfip: "",
+                });
+                return;
+              }
+              comps.forEach((c: any) => {
+                const uRes = unidades.find((u: any) => u.id === c.unidade_resultado_id)?.simbolo || "";
+                const uLim = unidades.find((u: any) => u.id === c.unidade_limite_id)?.simbolo || "";
+                const resN = parseFloat(String(c.resultado).replace(",", "."));
+                const ltN = parseFloat(String(c.limite_tolerancia).replace(",", "."));
+                let situacao = c.situacao || "";
+                if (!situacao && !isNaN(resN) && !isNaN(ltN) && ltN > 0) {
+                  situacao = resN > ltN ? "Nocivo" : "Seguro";
+                }
+                rows.push({
+                  ...baseRow,
+                  componente_avaliado: c.componente || c.nome_componente || "",
+                  resultado: c.resultado != null ? String(c.resultado) : "",
+                  unidade_resultado: uRes,
+                  unidade: uRes,
+                  limite_tolerancia: c.limite_tolerancia != null ? String(c.limite_tolerancia) : "",
+                  unidade_limite: uLim,
+                  situacao,
+                  cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                });
+              });
             });
+            return rows;
           }
           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(mapResult);
 
