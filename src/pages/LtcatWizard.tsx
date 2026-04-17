@@ -3426,29 +3426,51 @@ export default function LtcatWizard() {
               </DialogHeader>
 
               <div className="space-y-4 py-4">
-                {tempCalorRows.map((row, ri) => (
+                {tempCalorRows.map((row, ri) => {
+                  const expoNum = parseFloat(row.exposicao);
+                  const ltNum = parseFloat(row.limite_tolerancia);
+                  const hasBoth = !isNaN(expoNum) && !isNaN(ltNum) && ltNum > 0;
+                  const situacao = hasBoth ? (expoNum > ltNum ? "Nocivo" : "Seguro") : "";
+                  const updateField = (field: string, value: any) => {
+                    const updated = [...tempCalorRows];
+                    updated[ri] = { ...updated[ri], [field]: value };
+                    // recalcula situação automaticamente
+                    const e = parseFloat(updated[ri].exposicao);
+                    const l = parseFloat(updated[ri].limite_tolerancia);
+                    if (!isNaN(e) && !isNaN(l) && l > 0) {
+                      updated[ri].situacao = e > l ? "Nocivo" : "Seguro";
+                    } else {
+                      updated[ri].situacao = "";
+                    }
+                    setTempCalorRows(updated);
+                  };
+                  return (
                   <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
-                    <div className="flex gap-3 items-end">
-                      <div className="flex-[2]">
+                    {/* Linha 1: Data + Colaborador + Função + remover */}
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data Avaliação</Label>
+                        <Input
+                          type="date" className="mt-1 h-8 text-sm"
+                          value={row.data_avaliacao || ""}
+                          onChange={e => updateField("data_avaliacao", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-4">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
                         <Input
                           className="mt-1 h-8 text-sm" placeholder="Nome" value={row.colaborador}
-                          onChange={e => {
-                            const updated = [...tempCalorRows];
-                            updated[ri].colaborador = e.target.value;
-                            setTempCalorRows(updated);
-                          }}
+                          onChange={e => updateField("colaborador", e.target.value)}
                         />
                       </div>
-                      <div className="flex-[2]">
+                      <div className="col-span-4">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Função Avaliada</Label>
                         <Select
                           value={row.funcao_id}
                           onValueChange={v => {
-                            const updated = [...tempCalorRows];
-                            updated[ri].funcao_id = v;
                             const fn = funcoes.find((f: any) => f.id === v);
-                            updated[ri].funcao_nome = fn?.nome_funcao || "";
+                            const updated = [...tempCalorRows];
+                            updated[ri] = { ...updated[ri], funcao_id: v, funcao_nome: fn?.nome_funcao || "" };
                             setTempCalorRows(updated);
                           }}
                         >
@@ -3460,52 +3482,147 @@ export default function LtcatWizard() {
                           </SelectContent>
                         </Select>
                       </div>
+                      <div className="col-span-1 flex justify-end">
+                        {ri > 0 && (
+                          <Button
+                            variant="ghost" size="icon" className="text-destructive h-8 w-8"
+                            onClick={() => setTempCalorRows(tempCalorRows.filter((_, i) => i !== ri))}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Linha 2: Tipo de atividade + Taxa metabólica */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tipo de Atividade</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: Trabalho moderado em pé"
+                          value={row.tipo_atividade || ""}
+                          onChange={e => updateField("tipo_atividade", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Taxa Metabólica</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: 220 W"
+                          value={row.taxa_metabolica || ""}
+                          onChange={e => updateField("taxa_metabolica", e.target.value)}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Linha 3: Exposição + Unidade + LT + Unidade */}
+                    <div className="grid grid-cols-12 gap-2">
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Exposição</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: 28.5"
+                          value={row.exposicao || ""}
+                          onChange={e => updateField("exposicao", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Un. Exposição</Label>
+                        <Select
+                          value={row.unidade_exposicao_id || ""}
+                          onValueChange={v => updateField("unidade_exposicao_id", v)}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Un." /></SelectTrigger>
+                          <SelectContent>
+                            {unidades.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Limite Tolerância</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: 26.7"
+                          value={row.limite_tolerancia || ""}
+                          onChange={e => updateField("limite_tolerancia", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Un. Limite</Label>
+                        <Select
+                          value={row.unidade_limite_id || ""}
+                          onValueChange={v => updateField("unidade_limite_id", v)}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Un." /></SelectTrigger>
+                          <SelectContent>
+                            {unidades.map((u: any) => (
+                              <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Linha 4: Situação (auto) + Cód GFIP */}
+                    <div className="grid grid-cols-2 gap-2 items-end">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
+                        <div
+                          className={`mt-1 h-8 rounded-md border px-3 text-sm flex items-center font-semibold ${
+                            situacao === "Nocivo"
+                              ? "bg-destructive/10 border-destructive/30 text-destructive"
+                              : situacao === "Seguro"
+                              ? "bg-success/10 border-success/30 text-success"
+                              : "bg-muted/30 border-border text-muted-foreground"
+                          }`}
+                        >
+                          {situacao || "—"}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
+                        <Select
+                          value={row.cod_gfip || ""}
+                          onValueChange={v => updateField("cod_gfip", v)}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                            <SelectItem value="03">03</SelectItem>
+                            <SelectItem value="04">04</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Botão Amostra (equipamentos) */}
+                    <div className="flex justify-end">
                       <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 shrink-0 h-8"
+                        className="gap-1.5 text-accent border-accent/20 hover:bg-accent/5 h-8"
                         onClick={() => {
                           setCurrentCalorIndex(ri);
                           setTempCalorAmostra({ ...row });
                           setCalorAmostraModalOpen(true);
                         }}
                       >
-                        <FileText className="w-4 h-4" /> Amostra
+                        <FileText className="w-4 h-4" /> Amostra / Equipamentos
                       </Button>
-                      {ri > 0 && (
-                        <Button
-                          variant="ghost" size="icon" className="text-destructive shrink-0 h-8 w-8"
-                          onClick={() => setTempCalorRows(tempCalorRows.filter((_, i) => i !== ri))}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
                     </div>
-
-                    {/* Preview Calor */}
-                    {(row.resultado) && (
-                      <div className="pl-3 border-l-2 border-accent/30 space-y-0.5">
-                        <p className="text-2xl font-bold uppercase tracking-wider text-foreground mb-1">{currentRiskSetor?.nome_setor}</p>
-                        <p className="text-base font-bold uppercase tracking-wider text-muted-foreground mb-1">{row.funcao_nome || "Função"}</p>
-
-                        <div className="text-sm mt-1">
-                          <span className="font-medium">Res:</span>{" "}
-                          <span className="font-mono">{row.resultado} {unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo}</span>
-                        </div>
-                        {row.limite_tolerancia && (
-                          <div className="text-sm">
-                            <span className="font-medium">LT:</span>{" "}
-                            <span className="font-mono">{row.limite_tolerancia} {unidades.find((u: any) => u.id === row.unidade_limite_id)?.simbolo}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
                   </div>
-                ))}
+                  );
+                })}
 
                 <Button
                   variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempCalorRows([...tempCalorRows, { id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }])}
+                  onClick={() => setTempCalorRows([...tempCalorRows, {
+                    id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "",
+                    data_avaliacao: "", tipo_atividade: "", taxa_metabolica: "",
+                    exposicao: "", unidade_exposicao_id: "",
+                    limite_tolerancia: "", unidade_limite_id: "",
+                    situacao: "", cod_gfip: "",
+                  }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
