@@ -1293,6 +1293,7 @@ export default function LtcatWizard() {
       agente: r.agente_nome,
       parecer_tecnico: r.parecer_tecnico,
       aposentadoria_especial: r.aposentadoria_especial,
+    })));
     console.log("🏷️ [LTCAT] RISCOS COM FLAGS:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
       agente: r.agente_nome, tipo: r.tipo_agente,
       is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
