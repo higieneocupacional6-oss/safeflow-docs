@@ -951,6 +951,9 @@ export default function LtcatWizard() {
           data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
           data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
         })))(first);
+        if (equipamentosAvaliacaoLoop.length > 0) {
+          console.log(`🔧 [LTCAT] EQUIPAMENTOS (${first.agente_nome}):`, equipamentosAvaliacaoLoop);
+        }
 
         // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
         const enrichWithFuncao = (av: any, funcaoId: string) => {
