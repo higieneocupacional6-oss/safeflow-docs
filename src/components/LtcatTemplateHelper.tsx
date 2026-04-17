@@ -169,6 +169,88 @@ ENSEJADOR DE APOSENTADORIA ESPECIAL
 {{/riscos}}
 {{/setores}}`;
 
+const vciBlock = `{{#setores}}
+{{#riscos}}
+{{#is_vibracao_corpo_inteiro}}
+
+═══════════════════════════════════════
+VIBRAÇÃO DE CORPO INTEIRO (VCI): {{agente_nome}}
+═══════════════════════════════════════
+
+SETOR: {{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RESULTADOS DAS AVALIAÇÕES — VCI
+DATA | COLABORADOR | FUNÇÃO | EQUIPAMENTO | AREN | LIMITE AREN | VDVR | LIMITE VDVR | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{equipamento_avaliado}} | {{resultado_aren}} {{unidade_aren}} | {{limite_aren}} {{unidade_limite_aren}} | {{resultado_vdvr}} {{unidade_vdvr}} | {{limite_vdvr}} {{unidade_limite_vdvr}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+MEDIDAS DE CONTROLE
+EPI | CA | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_vibracao_corpo_inteiro}}
+{{/riscos}}
+{{/setores}}`;
+
+const vmbBlock = `{{#setores}}
+{{#riscos}}
+{{#is_vibracao_maos_bracos}}
+
+═══════════════════════════════════════
+VIBRAÇÃO DE MÃOS E BRAÇOS (VMB): {{agente_nome}}
+═══════════════════════════════════════
+
+SETOR: {{setor}}
+GES: {{ghe_ges}} | Local: {{local_trabalho}} | Jornada: {{jornada_trabalho}}
+
+Descrição do Setor:
+{{descricao_ambiente}}
+
+RESULTADOS DAS AVALIAÇÕES — VMB
+DATA | COLABORADOR | FUNÇÃO | EQUIPAMENTO | AREN | LIMITE AREN | SITUAÇÃO | GFIP
+{{#avaliacoes}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{equipamento_avaliado}} | {{resultado_aren}} {{unidade_aren}} | {{limite_aren}} {{unidade_limite_aren}} | {{situacao}} | {{cod_gfip}}
+{{/avaliacoes}}
+
+MEDIDAS DE CONTROLE
+EPI | CA | EFICAZ
+{{#epis}}
+{{epi_nome}} | {{epi_ca}} | {{epi_eficaz}}
+{{/epis}}
+
+EPC | EFICAZ
+{{#epcs}}
+{{epc_nome}} | {{epc_eficaz}}
+{{/epcs}}
+
+PARECER TÉCNICO
+{{parecer_tecnico}}
+
+ENSEJADOR DE APOSENTADORIA ESPECIAL
+{{aposentadoria_especial}}
+
+{{/is_vibracao_maos_bracos}}
+{{/riscos}}
+{{/setores}}`;
+
 const rules = [
   "NÃO alterar {{}} das variáveis",
   "NÃO remover loops (# e /)",
