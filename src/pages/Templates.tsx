@@ -262,7 +262,7 @@ export default function Templates() {
               </div>
             ))}
             {validationIssues.length === 0 && (
-              <div className="flex items-center gap-2 text-sm text-emerald-600">
+              <div className="flex items-center gap-2 text-sm text-success">
                 <CheckCircle2 className="w-4 h-4" /> Nenhum problema encontrado.
               </div>
             )}
