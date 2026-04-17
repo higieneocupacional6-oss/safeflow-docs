@@ -857,9 +857,21 @@ export default function LtcatWizard() {
   };
 
   const openCalorModal = () => {
-    const initial = riskForm.resultados_calor?.length
-      ? riskForm.resultados_calor
-      : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "" }];
+    const blank = {
+      id: crypto.randomUUID(),
+      colaborador: "",
+      funcao_id: "",
+      funcao_nome: "",
+      data_avaliacao: "",
+      tipo_atividade: "",
+      taxa_metabolica: "",
+      exposicao: "",
+      unidade_exposicao_id: "",
+      limite_tolerancia: "",
+      unidade_limite_id: "",
+      cod_gfip: "",
+    };
+    const initial = riskForm.resultados_calor?.length ? riskForm.resultados_calor : [blank];
     setTempCalorRows(initial);
     setCalorModalOpen(true);
   };
