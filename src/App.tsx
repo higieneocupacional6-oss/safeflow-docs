@@ -4,16 +4,24 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
+import { AuthProvider } from "@/hooks/useAuth";
+import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
+import Login from "./pages/Login";
 import Empresas from "./pages/Empresas";
 import Cadastros from "./pages/Cadastros";
 import Templates from "./pages/Templates";
 import Documentos from "./pages/Documentos";
 import LtcatWizard from "./pages/LtcatWizard";
 import SetoresFuncoes from "./pages/SetoresFuncoes";
+import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+const Protected = ({ children, admin }: { children: React.ReactNode; admin?: boolean }) => (
+  <ProtectedRoute requireAdmin={admin}><AppLayout>{children}</AppLayout></ProtectedRoute>
+);
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -21,19 +29,21 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route element={<AppLayout><Routes><Route path="*" element={null} /></Routes></AppLayout>}>
-          </Route>
-          <Route path="/empresas" element={<AppLayout><Empresas /></AppLayout>} />
-          <Route path="/cadastros" element={<AppLayout><Cadastros /></AppLayout>} />
-          <Route path="/templates" element={<AppLayout><Templates /></AppLayout>} />
-          <Route path="/setores-funcoes" element={<AppLayout><SetoresFuncoes /></AppLayout>} />
-          <Route path="/documentos" element={<AppLayout><Documentos /></AppLayout>} />
-          <Route path="/documentos/ltcat/novo" element={<AppLayout><LtcatWizard /></AppLayout>} />
-          <Route path="/documentos/ltcat/editar/:documentoId" element={<AppLayout><LtcatWizard /></AppLayout>} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <AuthProvider>
+          <Routes>
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/empresas" element={<Protected><Empresas /></Protected>} />
+            <Route path="/cadastros" element={<Protected><Cadastros /></Protected>} />
+            <Route path="/templates" element={<Protected><Templates /></Protected>} />
+            <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
+            <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
+            <Route path="/documentos/ltcat/novo" element={<Protected><LtcatWizard /></Protected>} />
+            <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard /></Protected>} />
+            <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
