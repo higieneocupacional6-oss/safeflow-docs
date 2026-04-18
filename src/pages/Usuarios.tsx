@@ -88,9 +88,14 @@ export default function Usuarios() {
         const { data, error } = await supabase.auth.signUp({
           email: form.email.trim(),
           password: form.password,
-          options: { emailRedirectTo: redirectUrl, data: { nome: form.nome, role: form.role } },
+          options: { emailRedirectTo: redirectUrl, data: { nome: form.nome } },
         });
         if (error) throw error;
+        // Promove para admin se necessário (trigger sempre cria como 'usuario')
+        if (form.role === "admin" && data.user) {
+          await supabase.from("user_roles").delete().eq("user_id", data.user.id);
+          await supabase.from("user_roles").insert({ user_id: data.user.id, role: "admin" });
+        }
         // Ajusta ativo se necessário
         if (!form.ativo && data.user) {
           await supabase.from("profiles").update({ ativo: false }).eq("user_id", data.user.id);
