@@ -118,10 +118,15 @@ const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
 };
 
-export default function LtcatWizard() {
+type WizardModo = "ltcat" | "insalubridade";
+
+export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
   const navigate = useNavigate();
   const { documentoId } = useParams<{ documentoId?: string }>();
   const isEditMode = !!documentoId;
+  const tipoDocumento: WizardModo = modo;
+  const tipoDocLabel = modo === "insalubridade" ? "INSALUBRIDADE" : "LTCAT";
+  const tituloDocumento = modo === "insalubridade" ? "Laudo de Insalubridade" : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
@@ -171,13 +176,14 @@ export default function LtcatWizard() {
   const [empresaId, setEmpresaId] = useState("");
 
   const { data: cachedPareceres = [] } = useQuery({
-    queryKey: ["ltcat_pareceres", empresaId],
+    queryKey: ["ltcat_pareceres", empresaId, tipoDocumento],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_pareceres")
         .select("*")
         .eq("empresa_id", empresaId)
+        .eq("tipo_documento", tipoDocumento)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -186,13 +192,14 @@ export default function LtcatWizard() {
   });
 
   const { data: dbEvaluations = [] } = useQuery({
-    queryKey: ["ltcat_avaliacoes", empresaId],
+    queryKey: ["ltcat_avaliacoes", empresaId, tipoDocumento],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_avaliacoes")
         .select("*")
-        .eq("empresa_id", empresaId);
+        .eq("empresa_id", empresaId)
+        .eq("tipo_documento", tipoDocumento);
       if (error) throw error;
       return data;
     },
@@ -835,9 +842,10 @@ export default function LtcatWizard() {
           parecer_tecnico: riskForm.parecer_tecnico,
           aposentadoria_especial: riskForm.aposentadoria_especial,
         }));
-        await supabase.from("ltcat_pareceres").upsert(pareceresPayload, {
-          onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome",
-        });
+        await supabase.from("ltcat_pareceres").upsert(
+          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoDocumento })),
+          { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
+        );
       }
     } catch (e) {
       console.warn("[LTCAT] Falha ao persistir parecer no DB:", e);
@@ -1499,6 +1507,9 @@ export default function LtcatWizard() {
       parecer_tecnico: r.parecer_tecnico,
       aposentadoria_especial: r.aposentadoria_especial,
     })));
+    if (modo === "insalubridade") {
+      console.log("INSALUBRIDADE - DADOS:", templateData);
+    }
     console.log("🏷️ [LTCAT] RISCOS COM FLAGS:", templateData.setores.flatMap((s: any) => s.riscos).map((r: any) => ({
       agente: r.agente_nome, tipo: r.tipo_agente,
       is_ruido: r.is_ruido, is_calor: r.is_calor, is_vibracao: r.is_vibracao,
@@ -1687,6 +1698,7 @@ export default function LtcatWizard() {
             .from("ltcat_avaliacoes")
             .insert({
               documento_id: docId,
+              tipo_documento: tipoDocumento,
               empresa_id: empresaId,
               setor_id: r.setor_id || null,
               funcao_id: it.funcao_id || null,
@@ -1718,7 +1730,7 @@ export default function LtcatWizard() {
           const avId = avRow.id;
 
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
-            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, ...extra(x, i) }));
+            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(r.resultados_componentes, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
@@ -1798,6 +1810,7 @@ export default function LtcatWizard() {
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
+              tipo_documento: tipoDocumento,
               epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
               epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
               epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
@@ -1892,7 +1905,7 @@ export default function LtcatWizard() {
         docId = documentoId;
       } else {
         const { data: inserted } = await supabase.from("documentos").insert({
-          tipo: "LTCAT",
+          tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
           template_id: selectedTemplate,
@@ -1969,7 +1982,7 @@ export default function LtcatWizard() {
             .from("documentos")
             .select("id")
             .eq("empresa_id", empresaId)
-            .eq("tipo", "LTCAT")
+            .eq("tipo", tipoDocLabel)
             .eq("status", "rascunho")
             .order("created_at", { ascending: false })
             .limit(1);
@@ -1979,7 +1992,7 @@ export default function LtcatWizard() {
             docId = existing[0].id;
           } else {
             const { data: inserted } = await supabase.from("documentos").insert({
-              tipo: "LTCAT",
+              tipo: tipoDocLabel,
               empresa_id: empresaId || null,
               empresa_nome: empresaNome,
               template_id: selectedTemplate,
@@ -2045,7 +2058,7 @@ export default function LtcatWizard() {
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
       const year = new Date().getFullYear();
-      const fileName = `LTCAT_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
+      const fileName = `${tipoDocLabel}_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
 
       // Upload to storage
       const storagePath = `documentos/${Date.now()}_${fileName}`;
@@ -2058,7 +2071,7 @@ export default function LtcatWizard() {
         .from("documentos")
         .select("id")
         .eq("empresa_id", empresaId)
-        .eq("tipo", "LTCAT")
+        .eq("tipo", tipoDocLabel)
         .eq("status", "concluido")
         .is("file_path", null)
         .order("created_at", { ascending: false })
@@ -2071,7 +2084,7 @@ export default function LtcatWizard() {
         }).eq("id", existing[0].id);
       } else {
         await supabase.from("documentos").insert({
-          tipo: "LTCAT",
+          tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
           template_id: selectedTemplate,
@@ -2461,7 +2474,7 @@ export default function LtcatWizard() {
             <div className="space-y-6 max-w-2xl">
               <div className="glass-card rounded-xl p-8 text-center">
                 <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
-                <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
+                <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento {tituloDocumento}</h2>
                 <p className="text-muted-foreground mb-6">Selecione o template, salve, valide e gere o documento final</p>
                 <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); setDocumentValidated(false); }}>
                   <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>

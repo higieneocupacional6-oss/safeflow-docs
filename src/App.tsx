@@ -38,8 +38,10 @@ const App = () => (
             <Route path="/templates" element={<Protected><Templates /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
-            <Route path="/documentos/ltcat/novo" element={<Protected><LtcatWizard /></Protected>} />
-            <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard /></Protected>} />
+            <Route path="/documentos/ltcat/novo" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
+            <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
+            <Route path="/documentos/insalubridade/novo" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
+            <Route path="/documentos/insalubridade/editar/:documentoId" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

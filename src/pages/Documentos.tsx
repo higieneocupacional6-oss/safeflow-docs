@@ -8,6 +8,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
@@ -25,6 +26,7 @@ const statusConfig: Record<string, { label: string; icon: any; className: string
 
 export default function Documentos() {
   const [open, setOpen] = useState(false);
+  const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -44,6 +46,8 @@ export default function Documentos() {
     setOpen(false);
     if (typeId === "ltcat") {
       navigate("/documentos/ltcat/novo");
+    } else if (typeId === "insalubridade") {
+      setTimeout(() => setInsalubridadeOpen(true), 100);
     }
   };
 
@@ -74,8 +78,11 @@ export default function Documentos() {
   };
 
   const handleEdit = (doc: any) => {
-    if (doc.tipo === "LTCAT") {
+    const tipo = (doc.tipo || "").toUpperCase();
+    if (tipo === "LTCAT") {
       navigate(`/documentos/ltcat/editar/${doc.id}`);
+    } else if (tipo === "INSALUBRIDADE") {
+      navigate(`/documentos/insalubridade/editar/${doc.id}`);
     }
   };
 
@@ -179,6 +186,8 @@ export default function Documentos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
     </div>
   );
 }

@@ -269,6 +269,7 @@ export type Database = {
           nome_equipamento: string | null
           serie_equipamento: string | null
           setor_id: string | null
+          tipo_documento: string
         }
         Insert: {
           agente_nome?: string | null
@@ -282,6 +283,7 @@ export type Database = {
           nome_equipamento?: string | null
           serie_equipamento?: string | null
           setor_id?: string | null
+          tipo_documento?: string
         }
         Update: {
           agente_nome?: string | null
@@ -295,6 +297,7 @@ export type Database = {
           nome_equipamento?: string | null
           serie_equipamento?: string | null
           setor_id?: string | null
+          tipo_documento?: string
         }
         Relationships: [
           {
@@ -390,6 +393,7 @@ export type Database = {
           situacao: string | null
           taxa_metabolica: string | null
           tipo_atividade: string | null
+          tipo_documento: string
         }
         Insert: {
           aposentadoria_especial?: string | null
@@ -409,6 +413,7 @@ export type Database = {
           situacao?: string | null
           taxa_metabolica?: string | null
           tipo_atividade?: string | null
+          tipo_documento?: string
         }
         Update: {
           aposentadoria_especial?: string | null
@@ -428,6 +433,7 @@ export type Database = {
           situacao?: string | null
           taxa_metabolica?: string | null
           tipo_atividade?: string | null
+          tipo_documento?: string
         }
         Relationships: [
           {
@@ -459,6 +465,7 @@ export type Database = {
           resultado: number | null
           situacao: string | null
           tempo_coleta: string | null
+          tipo_documento: string
           unidade_limite_id: string | null
           unidade_resultado_id: string | null
           unidade_tempo_coleta: string | null
@@ -482,6 +489,7 @@ export type Database = {
           resultado?: number | null
           situacao?: string | null
           tempo_coleta?: string | null
+          tipo_documento?: string
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
           unidade_tempo_coleta?: string | null
@@ -505,6 +513,7 @@ export type Database = {
           resultado?: number | null
           situacao?: string | null
           tempo_coleta?: string | null
+          tipo_documento?: string
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
           unidade_tempo_coleta?: string | null
@@ -530,6 +539,7 @@ export type Database = {
           epi_eficaz: string | null
           epi_id: string | null
           id: string
+          tipo_documento: string
         }
         Insert: {
           avaliacao_id: string
@@ -541,6 +551,7 @@ export type Database = {
           epi_eficaz?: string | null
           epi_id?: string | null
           id?: string
+          tipo_documento?: string
         }
         Update: {
           avaliacao_id?: string
@@ -552,6 +563,7 @@ export type Database = {
           epi_eficaz?: string | null
           epi_id?: string | null
           id?: string
+          tipo_documento?: string
         }
         Relationships: [
           {
@@ -575,6 +587,7 @@ export type Database = {
           nome_equipamento: string | null
           ordem: number
           serie_equipamento: string | null
+          tipo_documento: string
         }
         Insert: {
           agente_nome?: string | null
@@ -587,6 +600,7 @@ export type Database = {
           nome_equipamento?: string | null
           ordem?: number
           serie_equipamento?: string | null
+          tipo_documento?: string
         }
         Update: {
           agente_nome?: string | null
@@ -599,6 +613,7 @@ export type Database = {
           nome_equipamento?: string | null
           ordem?: number
           serie_equipamento?: string | null
+          tipo_documento?: string
         }
         Relationships: [
           {
@@ -628,6 +643,7 @@ export type Database = {
           resultado: number | null
           situacao: string | null
           tempo_coleta: string | null
+          tipo_documento: string
           unidade_limite_id: string | null
           unidade_resultado_id: string | null
           unidade_tempo_coleta: string | null
@@ -649,6 +665,7 @@ export type Database = {
           resultado?: number | null
           situacao?: string | null
           tempo_coleta?: string | null
+          tipo_documento?: string
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
           unidade_tempo_coleta?: string | null
@@ -670,6 +687,7 @@ export type Database = {
           resultado?: number | null
           situacao?: string | null
           tempo_coleta?: string | null
+          tipo_documento?: string
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
           unidade_tempo_coleta?: string | null
@@ -701,6 +719,7 @@ export type Database = {
           situacao: string | null
           tempo_exposicao: string | null
           tipo: string | null
+          tipo_documento: string
           vdvr: number | null
           vdvr_limite: number | null
         }
@@ -720,6 +739,7 @@ export type Database = {
           situacao?: string | null
           tempo_exposicao?: string | null
           tipo?: string | null
+          tipo_documento?: string
           vdvr?: number | null
           vdvr_limite?: number | null
         }
@@ -739,6 +759,7 @@ export type Database = {
           situacao?: string | null
           tempo_exposicao?: string | null
           tipo?: string | null
+          tipo_documento?: string
           vdvr?: number | null
           vdvr_limite?: number | null
         }
@@ -783,6 +804,7 @@ export type Database = {
           tempo_coleta: string | null
           tipo_agente: string | null
           tipo_avaliacao: string | null
+          tipo_documento: string
           tipo_exposicao: string | null
           unidade_limite_id: string | null
           unidade_resultado_id: string | null
@@ -818,6 +840,7 @@ export type Database = {
           tempo_coleta?: string | null
           tipo_agente?: string | null
           tipo_avaliacao?: string | null
+          tipo_documento?: string
           tipo_exposicao?: string | null
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
@@ -853,6 +876,7 @@ export type Database = {
           tempo_coleta?: string | null
           tipo_agente?: string | null
           tipo_avaliacao?: string | null
+          tipo_documento?: string
           tipo_exposicao?: string | null
           unidade_limite_id?: string | null
           unidade_resultado_id?: string | null
@@ -936,6 +960,7 @@ export type Database = {
           id: string
           parecer_tecnico: string | null
           setor_id: string
+          tipo_documento: string
           updated_at: string | null
         }
         Insert: {
@@ -949,6 +974,7 @@ export type Database = {
           id?: string
           parecer_tecnico?: string | null
           setor_id: string
+          tipo_documento?: string
           updated_at?: string | null
         }
         Update: {
@@ -962,6 +988,7 @@ export type Database = {
           id?: string
           parecer_tecnico?: string | null
           setor_id?: string
+          tipo_documento?: string
           updated_at?: string | null
         }
         Relationships: [
