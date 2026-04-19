@@ -186,6 +186,8 @@ export default function Documentos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
     </div>
   );
 }
