@@ -1727,7 +1727,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const avId = avRow.id;
 
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
-            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, ...extra(x, i) }));
+            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(r.resultados_componentes, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
@@ -1807,6 +1807,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
+              tipo_documento: tipoDocumento,
               epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
               epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
               epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
@@ -1901,7 +1902,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         docId = documentoId;
       } else {
         const { data: inserted } = await supabase.from("documentos").insert({
-          tipo: "LTCAT",
+          tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
           template_id: selectedTemplate,
@@ -1978,7 +1979,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             .from("documentos")
             .select("id")
             .eq("empresa_id", empresaId)
-            .eq("tipo", "LTCAT")
+            .eq("tipo", tipoDocLabel)
             .eq("status", "rascunho")
             .order("created_at", { ascending: false })
             .limit(1);
@@ -1988,7 +1989,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             docId = existing[0].id;
           } else {
             const { data: inserted } = await supabase.from("documentos").insert({
-              tipo: "LTCAT",
+              tipo: tipoDocLabel,
               empresa_id: empresaId || null,
               empresa_nome: empresaNome,
               template_id: selectedTemplate,
@@ -2054,7 +2055,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
       const year = new Date().getFullYear();
-      const fileName = `LTCAT_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
+      const fileName = `${tipoDocLabel}_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${year}.docx`;
 
       // Upload to storage
       const storagePath = `documentos/${Date.now()}_${fileName}`;
@@ -2067,7 +2068,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .from("documentos")
         .select("id")
         .eq("empresa_id", empresaId)
-        .eq("tipo", "LTCAT")
+        .eq("tipo", tipoDocLabel)
         .eq("status", "concluido")
         .is("file_path", null)
         .order("created_at", { ascending: false })
@@ -2080,7 +2081,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         }).eq("id", existing[0].id);
       } else {
         await supabase.from("documentos").insert({
-          tipo: "LTCAT",
+          tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
           template_id: selectedTemplate,
@@ -2470,7 +2471,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             <div className="space-y-6 max-w-2xl">
               <div className="glass-card rounded-xl p-8 text-center">
                 <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
-                <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento LTCAT</h2>
+                <h2 className="font-heading text-xl font-bold mb-2">Gerar Documento {tituloDocumento}</h2>
                 <p className="text-muted-foreground mb-6">Selecione o template, salve, valide e gere o documento final</p>
                 <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setTemplateErrors([]); setDocumentValidated(false); }}>
                   <SelectTrigger className="max-w-xs mx-auto mb-4"><SelectValue placeholder="Selecione um template" /></SelectTrigger>
