@@ -118,10 +118,15 @@ const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
 };
 
-export default function LtcatWizard() {
+type WizardModo = "ltcat" | "insalubridade";
+
+export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
   const navigate = useNavigate();
   const { documentoId } = useParams<{ documentoId?: string }>();
   const isEditMode = !!documentoId;
+  const tipoDocumento: WizardModo = modo;
+  const tipoDocLabel = modo === "insalubridade" ? "INSALUBRIDADE" : "LTCAT";
+  const tituloDocumento = modo === "insalubridade" ? "Laudo de Insalubridade" : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
@@ -171,13 +176,14 @@ export default function LtcatWizard() {
   const [empresaId, setEmpresaId] = useState("");
 
   const { data: cachedPareceres = [] } = useQuery({
-    queryKey: ["ltcat_pareceres", empresaId],
+    queryKey: ["ltcat_pareceres", empresaId, tipoDocumento],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_pareceres")
         .select("*")
         .eq("empresa_id", empresaId)
+        .eq("tipo_documento", tipoDocumento)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -186,13 +192,14 @@ export default function LtcatWizard() {
   });
 
   const { data: dbEvaluations = [] } = useQuery({
-    queryKey: ["ltcat_avaliacoes", empresaId],
+    queryKey: ["ltcat_avaliacoes", empresaId, tipoDocumento],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_avaliacoes")
         .select("*")
-        .eq("empresa_id", empresaId);
+        .eq("empresa_id", empresaId)
+        .eq("tipo_documento", tipoDocumento);
       if (error) throw error;
       return data;
     },
@@ -835,9 +842,10 @@ export default function LtcatWizard() {
           parecer_tecnico: riskForm.parecer_tecnico,
           aposentadoria_especial: riskForm.aposentadoria_especial,
         }));
-        await supabase.from("ltcat_pareceres").upsert(pareceresPayload, {
-          onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome",
-        });
+        await supabase.from("ltcat_pareceres").upsert(
+          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoDocumento })),
+          { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
+        );
       }
     } catch (e) {
       console.warn("[LTCAT] Falha ao persistir parecer no DB:", e);
@@ -1687,6 +1695,7 @@ export default function LtcatWizard() {
             .from("ltcat_avaliacoes")
             .insert({
               documento_id: docId,
+              tipo_documento: tipoDocumento,
               empresa_id: empresaId,
               setor_id: r.setor_id || null,
               funcao_id: it.funcao_id || null,
