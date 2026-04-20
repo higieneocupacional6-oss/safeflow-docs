@@ -53,9 +53,9 @@ export async function renderHtmlTemplateToDocx(
   </style></head><body>${rendered}</body></html>`;
 
   // Dynamic import: keeps it out of the initial bundle and avoids SSR/Node-only side effects on boot.
-  const mod: any = await import("html-docx-js/dist/html-docx");
-  const htmlDocx = mod.default ?? mod;
-  const out = htmlDocx.asBlob(fullHtml);
+  const mod: any = await import("html-docx-js-typescript");
+  const asBlob = mod.asBlob ?? mod.default?.asBlob;
+  const out = await asBlob(fullHtml);
   return out instanceof Blob
     ? out
     : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
