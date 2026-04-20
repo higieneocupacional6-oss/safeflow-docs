@@ -52,6 +52,7 @@
     "docxtemplater": "^3.68.4",
     "embla-carousel-react": "^8.6.0",
     "file-saver": "^2.0.5",
+    "html-docx-js": "^0.3.1",
     "html-to-docx-buffer": "^0.1.1",
     "input-otp": "^1.4.2",
     "lucide-react": "^0.462.0",
