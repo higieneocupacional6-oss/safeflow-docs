@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { validateDocxTemplate, type TemplateIssue } from "@/lib/templateValidator";
+import { validateHtmlTemplate } from "@/lib/htmlTemplate";
 
 export default function Templates() {
   const [open, setOpen] = useState(false);
@@ -39,8 +40,9 @@ export default function Templates() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
     if (f) {
-      if (!f.name.endsWith(".docx")) {
-        toast.error("Apenas arquivos .docx são aceitos");
+      const lower = f.name.toLowerCase();
+      if (!lower.endsWith(".docx") && !lower.endsWith(".html") && !lower.endsWith(".htm")) {
+        toast.error("Apenas arquivos .docx ou .html são aceitos");
         return;
       }
       setFile(f);
@@ -72,8 +74,12 @@ export default function Templates() {
 
     setSaving(true);
     try {
-      // 1) Valida o template antes de salvar
-      const issues = await validateDocxTemplate(file);
+      // 1) Valida o template antes de salvar (DOCX ou HTML)
+      const lower = file.name.toLowerCase();
+      const isHtml = lower.endsWith(".html") || lower.endsWith(".htm");
+      const issues = isHtml
+        ? await validateHtmlTemplate(file)
+        : await validateDocxTemplate(file);
       const blocking = issues.filter((i) => i.severidade === "erro");
 
       if (blocking.length > 0) {
@@ -187,7 +193,7 @@ export default function Templates() {
                 <input
                   ref={fileRef}
                   type="file"
-                  accept=".docx"
+                  accept=".docx,.html,.htm"
                   onChange={handleFileChange}
                   className="hidden"
                 />
@@ -197,8 +203,11 @@ export default function Templates() {
                   className="w-full justify-start gap-2"
                 >
                   <Upload className="w-4 h-4" />
-                  {file ? file.name : "Selecionar arquivo .docx"}
+                  {file ? file.name : "Selecionar arquivo .docx ou .html"}
                 </Button>
+                <p className="text-[11px] text-muted-foreground mt-1.5">
+                  Aceitamos <strong>.docx</strong> e <strong>.html</strong>. O documento final é sempre gerado em <strong>.docx</strong>.
+                </p>
               </div>
               <p className="text-[11px] text-muted-foreground mt-1.5">
                 Ao clicar em <strong>Salvar</strong>, validamos o template antes de enviar. Se houver erros, mostraremos uma lista para correção.
