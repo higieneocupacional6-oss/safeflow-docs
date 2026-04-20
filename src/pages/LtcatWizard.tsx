@@ -16,6 +16,7 @@ import { useQuery } from "@tanstack/react-query";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -1658,7 +1659,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return issues;
   };
 
-  // Helper: load template and create docxtemplater instance
+  // Helper: load template (supports .docx via Docxtemplater and .html via Mustache→DOCX)
+  // Returns a uniform object with render() and toBlob() so callers stay agnostic.
   const loadTemplateDoc = async () => {
     const template = templates.find((t: any) => t.id === selectedTemplate);
     if (!template) throw new Error("Template não encontrado");
@@ -1668,15 +1670,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       .download(template.file_path);
     if (downloadError) throw downloadError;
 
+    const path: string = String(template.file_path || "").toLowerCase();
+    const isHtml = path.endsWith(".html") || path.endsWith(".htm");
+
+    if (isHtml) {
+      const htmlSource = await fileData.text();
+      let lastData: any = null;
+      const wrapper: any = {
+        kind: "html",
+        render(data: any) { lastData = data; },
+        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+        // Compat: expose getZip().generate() shape used by current callers
+        getZip() {
+          return {
+            generate: async () => await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}),
+          };
+        },
+      };
+      return wrapper;
+    }
+
     const arrayBuffer = await fileData.arrayBuffer();
     const zip = new PizZip(arrayBuffer);
-
     const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
     });
-
     return doc;
   };
 
@@ -2050,10 +2070,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
-      const output = doc.getZip().generate({
-        type: "blob",
-        mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      });
+      const output: Blob = doc.kind === "html"
+        ? await doc.toBlob()
+        : doc.getZip().generate({
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          });
 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
