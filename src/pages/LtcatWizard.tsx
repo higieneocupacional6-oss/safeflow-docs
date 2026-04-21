@@ -119,15 +119,22 @@ const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
 };
 
-type WizardModo = "ltcat" | "insalubridade";
+type WizardModo = "ltcat" | "insalubridade" | "periculosidade";
 
 export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
   const navigate = useNavigate();
   const { documentoId } = useParams<{ documentoId?: string }>();
   const isEditMode = !!documentoId;
   const tipoDocumento: WizardModo = modo;
-  const tipoDocLabel = modo === "insalubridade" ? "INSALUBRIDADE" : "LTCAT";
-  const tituloDocumento = modo === "insalubridade" ? "Laudo de Insalubridade" : "LTCAT";
+  const isPericulosidade = modo === "periculosidade";
+  const tipoDocLabel =
+    modo === "insalubridade" ? "INSALUBRIDADE"
+    : modo === "periculosidade" ? "PERICULOSIDADE"
+    : "LTCAT";
+  const tituloDocumento =
+    modo === "insalubridade" ? "Laudo de Insalubridade"
+    : modo === "periculosidade" ? "Laudo de Periculosidade"
+    : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
   const [riskDialogOpen, setRiskDialogOpen] = useState(false);
@@ -220,7 +227,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [riskForm, setRiskForm] = useState({
     items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
     tipo_avaliacao: "qualitativa",
-    tipo_agente: "",
+    tipo_agente: isPericulosidade ? "Acidente" : "",
     agente_id: "",
     agente_nome: "",
     codigo_esocial: "",
@@ -599,7 +606,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setRiskForm({
         ...riskForm,
         agente_id: agentId,
-        tipo_agente: agent.tipo || "",
+        // Periculosidade: tipo_agente é sempre "Acidente"
+        tipo_agente: isPericulosidade ? "Acidente" : (agent.tipo || ""),
         agente_nome: agent.nome || "",
         codigo_esocial: agent.codigo_esocial || "",
         descricao_esocial: agent.descricao_esocial || "",
@@ -2617,7 +2625,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           <Dialog open={riskDialogOpen} onOpenChange={setRiskDialogOpen}>
             <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto p-0">
               <DialogHeader className="p-6 pb-0">
-                <DialogTitle className="font-heading text-2xl font-bold text-accent uppercase tracking-tight">Avaliação de Risco por Setor (LTCAT)</DialogTitle>
+                <DialogTitle className="font-heading text-2xl font-bold text-accent uppercase tracking-tight">Avaliação de Risco por Setor ({tipoDocLabel})</DialogTitle>
               </DialogHeader>
 
               <div className="p-8 pt-4 space-y-10">
@@ -2630,17 +2638,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-8 bg-muted/5 p-6 rounded-xl border border-muted-foreground/10">
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Avaliação *</Label>
-                      <Select value={riskForm.tipo_avaliacao} onValueChange={(v) => setRiskForm({ ...riskForm, tipo_avaliacao: v })}>
+                      <Select
+                        value={riskForm.tipo_avaliacao}
+                        onValueChange={(v) => setRiskForm({ ...riskForm, tipo_avaliacao: v })}
+                        disabled={isPericulosidade}
+                      >
                         <SelectTrigger className="mt-1 h-12 text-base border-muted-foreground/20 hover:border-accent/50 transition-colors"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="qualitativa">Qualitativa</SelectItem>
-                          <SelectItem value="quantitativa">Quantitativa</SelectItem>
+                          {!isPericulosidade && <SelectItem value="quantitativa">Quantitativa</SelectItem>}
                         </SelectContent>
                       </Select>
+                      {isPericulosidade && (
+                        <p className="text-[10px] text-muted-foreground">Periculosidade é sempre qualitativa.</p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Agente</Label>
-                      <Input value={riskForm.tipo_agente} readOnly className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium" placeholder="Auto-preenchido" />
+                      <Input
+                        value={riskForm.tipo_agente}
+                        readOnly
+                        className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium"
+                        placeholder={isPericulosidade ? "Acidente" : "Auto-preenchido"}
+                      />
                     </div>
                   </div>
                 </section>
