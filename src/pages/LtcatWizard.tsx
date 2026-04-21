@@ -1314,6 +1314,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return {
           agente_nome: first.agente_nome || "",
           tipo_agente: first.tipo_agente || "",
+          is_periculosidade: tipoDocumento === "periculosidade",
+          is_insalubridade: tipoDocumento === "insalubridade",
+          is_ltcat: tipoDocumento === "ltcat",
           is_quimico,
           is_fisico,
           is_biologico,
@@ -1433,6 +1436,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
+        is_periculosidade: tipoDocumento === "periculosidade",
+        is_insalubridade: tipoDocumento === "insalubridade",
+        is_ltcat: tipoDocumento === "ltcat",
         normalized_agente_nome,
         is_quimico: _isQ,
         is_fisico: _isF,
@@ -2962,8 +2968,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   );
                 })()}
 
-                {/* SEÇÃO 6: RESULTADOS — Only for quantitative evaluations */}
+                {/* SEÇÃO 6: RESULTADOS — Only for quantitative evaluations (oculta em Periculosidade) */}
                 {(() => {
+                  if (isPericulosidade) return null;
                   const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
                   const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
                   const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
