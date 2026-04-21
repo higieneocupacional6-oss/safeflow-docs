@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
+import { PericulosidadeStartModal } from "@/components/PericulosidadeStartModal";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
@@ -27,6 +28,7 @@ const statusConfig: Record<string, { label: string; icon: any; className: string
 export default function Documentos() {
   const [open, setOpen] = useState(false);
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
+  const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -48,6 +50,8 @@ export default function Documentos() {
       navigate("/documentos/ltcat/novo");
     } else if (typeId === "insalubridade") {
       setTimeout(() => setInsalubridadeOpen(true), 100);
+    } else if (typeId === "periculosidade") {
+      setTimeout(() => setPericulosidadeOpen(true), 100);
     }
   };
 
@@ -83,6 +87,8 @@ export default function Documentos() {
       navigate(`/documentos/ltcat/editar/${doc.id}`);
     } else if (tipo === "INSALUBRIDADE") {
       navigate(`/documentos/insalubridade/editar/${doc.id}`);
+    } else if (tipo === "PERICULOSIDADE") {
+      navigate(`/documentos/periculosidade/editar/${doc.id}`);
     }
   };
 
@@ -188,6 +194,7 @@ export default function Documentos() {
       </Dialog>
 
       <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
+      <PericulosidadeStartModal open={periculosidadeOpen} onOpenChange={setPericulosidadeOpen} />
     </div>
   );
 }
