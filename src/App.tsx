@@ -42,6 +42,8 @@ const App = () => (
             <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
             <Route path="/documentos/insalubridade/novo" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
             <Route path="/documentos/insalubridade/editar/:documentoId" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
+            <Route path="/documentos/periculosidade/novo" element={<Protected><LtcatWizard modo="periculosidade" /></Protected>} />
+            <Route path="/documentos/periculosidade/editar/:documentoId" element={<Protected><LtcatWizard modo="periculosidade" /></Protected>} />
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
