@@ -317,7 +317,15 @@ export default function AetWizard() {
           setDataElaboracao(data.data_elaboracao || "");
           setAlteracoes(data.alteracoes_documento || "");
           setRevisoes((data.revisoes as any) || []);
-          setSetoresAet((data.setores as any) || []);
+          const loadedSetores = ((data.setores as any) || []).map((s: any) => ({
+            ...s,
+            colaboradores: s.colaboradores || [],
+            avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
+            ferramentas: s.ferramentas || [],
+            plano_acao: s.plano_acao || [],
+            avaliacoes_psicossociais: s.avaliacoes_psicossociais || [],
+          }));
+          setSetoresAet(loadedSetores);
         }
       } catch (e: any) {
         toast.error("Erro ao carregar AET: " + e.message);
