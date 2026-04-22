@@ -85,6 +85,40 @@ const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", pra
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
 const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
 
+const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
+
+const formatDate = (value?: string | null) => (
+  value ? new Date(value + "T00:00:00").toLocaleDateString("pt-BR") : ""
+);
+
+const createEmptyPsicoBlocos = () => Object.fromEntries(
+  PSICO_BLOCK_KEYS.map((key) => [key, { media: "", classificacao: "" }]),
+) as Record<(typeof PSICO_BLOCK_KEYS)[number], { media: string; classificacao: string }>;
+
+const normalizePsicoBlocos = (blocos?: Record<string, { media?: unknown; classificacao?: unknown }>) => {
+  const vazios = createEmptyPsicoBlocos();
+  for (const key of PSICO_BLOCK_KEYS) {
+    const media = blocos?.[key]?.media;
+    const classificacao = blocos?.[key]?.classificacao;
+    vazios[key] = {
+      media: media === undefined || media === null || media === "" ? "" : Number(media) || 0,
+      classificacao: String(classificacao || ""),
+    };
+  }
+  return vazios;
+};
+
+const hasMissingPsicossocial = (data: {
+  setores?: Array<{ setor_nome?: string; blocos?: Record<string, { media?: unknown; classificacao?: unknown }> }>;
+}) => {
+  return (data.setores || []).some((setor) =>
+    PSICO_BLOCK_KEYS.some((key) => {
+      const bloco = setor.blocos?.[key];
+      return bloco?.media === "" || !String(bloco?.classificacao || "").trim();
+    }),
+  );
+};
+
 const newSetor = (s: any): SetorAet => ({
   setor_id: s.id,
   setor_nome: s.nome_setor || "",
@@ -244,7 +278,10 @@ export default function AetWizard() {
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-aet"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id,razao_social,nome_fantasia,cnpj,cnae_principal,grau_risco,endereco,preposto_telefone,preposto_email,preposto_nome,total_funcionarios,numero_funcionarios_masc,numero_funcionarios_fem,jornada_trabalho,nome_contratante,cnpj_contratante,numero_contrato,vigencia_inicio,vigencia_fim,escopo_contrato,gestor_nome,gestor_email,gestor_telefone,fiscal_nome,fiscal_email,fiscal_telefone,local_trabalho")
+        .order("razao_social");
       if (error) throw error;
       return data;
     },
@@ -335,7 +372,8 @@ export default function AetWizard() {
     })();
   }, [documentoId]);
 
-  const empresaNome = empresas.find((e: any) => e.id === empresaId)?.razao_social || "";
+  const empresaSelecionada = empresas.find((e: any) => e.id === empresaId);
+  const empresaNome = empresaSelecionada?.razao_social || "";
   const allSetoresSalvos = setoresAet.length > 0 && setoresAet.every((s) => s._salvo);
 
   const handleConfirmSetores = () => {
