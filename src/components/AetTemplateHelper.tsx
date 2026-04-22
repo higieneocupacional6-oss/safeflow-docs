@@ -52,7 +52,7 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
   {
     title: "Avaliações quantitativas",
     vars: [
-      { code: "{{#avaliacoes_quantitativas}}\n{{especificacao_setor}} | Ruído: {{ruido_valor}} {{ruido_unidade}} | Lux: {{iluminancia_valor}} {{iluminancia_unidade}} | Temp: {{temperatura_valor}} {{temperatura_unidade}}\n{{/avaliacoes_quantitativas}}", desc: "Loop de medições quantitativas" },
+      { code: "{{#avaliacoes_quantitativas}}\n{{especificacao_setor}}\nRuído: {{ruido_valor}} {{ruido_unidade}} | Limite: {{limite_ruido}} {{unidade_limite_ruido}}\nIluminância: {{iluminancia_valor}} {{iluminancia_unidade}} | Limite: {{limite_iluminancia}} {{unidade_limite_iluminancia}}\nTemperatura: {{temperatura_valor}} {{temperatura_unidade}} | Limite: {{limite_temperatura}}\n{{/avaliacoes_quantitativas}}", desc: "Loop de medições + limites (NBR 10152 / NBR ISO 8995)" },
     ],
   },
   {
@@ -62,16 +62,31 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
     ],
   },
   {
-    title: "Ferramentas ergonômicas (Fase 2)",
+    title: "Ferramentas ergonômicas",
     vars: [
-      { code: "{{#ferramentas}}\n{{tipo}} - {{resultado}}\n{{/ferramentas}}", desc: "RULA/REBA/OCRA/NIOSH/OWAS/Moore-Garg" },
+      { code: "{{#ferramentas}}\nTipo: {{tipo}}\nResultado: {{resultado}}\n{{/ferramentas}}", desc: "RULA/REBA/OCRA/NIOSH/OWAS/Moore-Garg" },
     ],
   },
   {
-    title: "Imagens (Fase 2)",
+    title: "Descrição das imagens",
     vars: [
-      { code: "{{#imagens_ambiente}}{{.}}{{/imagens_ambiente}}", desc: "URLs das imagens do ambiente (6cm x 4cm)" },
-      { code: "{{#imagens_funcao}}{{.}}{{/imagens_funcao}}", desc: "URLs das imagens da função (6cm x 4cm)" },
+      { code: "{{descricao_imagens_ambiente}}", desc: "Descrição textual das imagens do ambiente" },
+      { code: "{{descricao_imagens_funcao}}", desc: "Descrição textual das imagens da função" },
+    ],
+  },
+  {
+    title: "Avaliação Psicossocial (COPSOQ)",
+    vars: [
+      { code: "{{#avaliacoes_psicossociais}}\nColaborador: {{colaborador_nome}} ({{data_avaliacao}})\nResultado: {{resultado_psicossocial}}\nRiscos: {{riscos_psicossociais}}\n{{/avaliacoes_psicossociais}}", desc: "Loop de avaliações psicossociais por colaborador" },
+      { code: "{{resultado_psicossocial}}", desc: "Texto-resumo automático do colaborador" },
+      { code: "{{riscos_psicossociais}}", desc: "Riscos psicossociais identificados" },
+      { code: "{{blocos.exigencias.media}} / {{blocos.exigencias.classificacao}}", desc: "Bloco Exigências (média + classificação)" },
+      { code: "{{blocos.controle.media}} / {{blocos.controle.classificacao}}", desc: "Bloco Controle" },
+      { code: "{{blocos.apoio.media}} / {{blocos.apoio.classificacao}}", desc: "Bloco Apoio" },
+      { code: "{{blocos.reconhecimento.media}} / {{blocos.reconhecimento.classificacao}}", desc: "Bloco Reconhecimento" },
+      { code: "{{blocos.seguranca.media}} / {{blocos.seguranca.classificacao}}", desc: "Bloco Segurança" },
+      { code: "{{blocos.conflitos.media}} / {{blocos.conflitos.classificacao}}", desc: "Bloco Conflitos" },
+      { code: "{{blocos.sintomas.media}} / {{blocos.sintomas.classificacao}}", desc: "Bloco Sintomas" },
     ],
   },
 ];

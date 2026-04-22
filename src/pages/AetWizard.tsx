@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  Wrench, Image as ImageIcon, Upload, X, FileDown, FileCheck2,
+  Wrench, FileDown, FileCheck2, ExternalLink, Brain,
 } from "lucide-react";
+import { PsicossocialModal, AvaliacaoPsicossocial, calcularPsicossocial } from "@/components/PsicossocialModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -27,8 +28,11 @@ type Colaborador = { nome_colaborador: string; data_avaliacao: string };
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
+  limite_ruido: string; unidade_limite_ruido: string;
   iluminancia_valor: string; iluminancia_unidade: string;
+  limite_iluminancia: string; unidade_limite_iluminancia: string;
   temperatura_valor: string; temperatura_unidade: string;
+  limite_temperatura: string;
 };
 type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
 type Ferramenta = { tipo: string; dados_avaliacao: string; resultado: string };
@@ -55,8 +59,9 @@ type SetorAet = {
   conclusao: string;
   plano_acao: PlanoAcao[];
   ferramentas: Ferramenta[];
-  imagens_ambiente: string[];
-  imagens_funcao: string[];
+  descricao_imagens_ambiente: string;
+  descricao_imagens_funcao: string;
+  avaliacoes_psicossociais: AvaliacaoPsicossocial[];
   _salvo?: boolean;
 };
 
@@ -70,8 +75,11 @@ const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
+  limite_ruido: "", unidade_limite_ruido: "dB(A)",
   iluminancia_valor: "", iluminancia_unidade: "lux",
+  limite_iluminancia: "", unidade_limite_iluminancia: "lux",
   temperatura_valor: "", temperatura_unidade: "°C",
+  limite_temperatura: "20°C a 23°C",
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
@@ -99,8 +107,9 @@ const newSetor = (s: any): SetorAet => ({
   conclusao: "",
   plano_acao: [],
   ferramentas: [],
-  imagens_ambiente: [],
-  imagens_funcao: [],
+  descricao_imagens_ambiente: "",
+  descricao_imagens_funcao: "",
+  avaliacoes_psicossociais: [],
   _salvo: false,
 });
 
@@ -194,91 +203,8 @@ function FerramentasModal({
   );
 }
 
-// ─────────── IMAGE UPLOADER ───────────
-function ImageUploader({
-  label, images, onChange, max = 4,
-}: {
-  label: string;
-  images: string[];
-  onChange: (imgs: string[]) => void;
-  max?: number;
-}) {
-  const [uploading, setUploading] = useState(false);
+// (ImageUploader removido — agora usamos descrição em texto)
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-    if (images.length + files.length > max) {
-      toast.error(`Máximo de ${max} imagens`);
-      return;
-    }
-    setUploading(true);
-    try {
-      const urls: string[] = [];
-      for (const f of files) {
-        const ext = f.name.split(".").pop() || "jpg";
-        const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
-        const { error } = await supabase.storage.from("aet-imagens").upload(path, f);
-        if (error) throw error;
-        const { data } = supabase.storage.from("aet-imagens").getPublicUrl(path);
-        urls.push(data.publicUrl);
-      }
-      onChange([...images, ...urls]);
-      toast.success(`${urls.length} imagem(ns) enviada(s)`);
-    } catch (err: any) {
-      toast.error("Erro no upload: " + err.message);
-    } finally {
-      setUploading(false);
-      e.target.value = "";
-    }
-  };
-
-  const remove = (i: number) => onChange(images.filter((_, k) => k !== i));
-
-  return (
-    <div>
-      <div className="flex items-center justify-between mb-2">
-        <Label className="text-sm">{label} ({images.length}/{max})</Label>
-        <Button size="sm" variant="outline" disabled={uploading || images.length >= max} asChild>
-          <label className="cursor-pointer">
-            {uploading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1" />}
-            Enviar
-            <input
-              type="file"
-              accept="image/*"
-              multiple
-              className="hidden"
-              onChange={handleUpload}
-              disabled={uploading}
-            />
-          </label>
-        </Button>
-      </div>
-      <div className="grid grid-cols-4 gap-2">
-        {images.map((url, i) => (
-          <div key={i} className="relative group aspect-[3/2] border border-border rounded-lg overflow-hidden bg-muted">
-            <img src={url} alt={`${label} ${i + 1}`} className="w-full h-full object-cover" />
-            <Button
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={() => remove(i)}
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          </div>
-        ))}
-        {images.length === 0 && (
-          <div className="col-span-4 text-xs text-muted-foreground text-center py-4 border-2 border-dashed border-border rounded-lg">
-            Nenhuma imagem enviada
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─────────── MAIN COMPONENT ───────────
 export default function AetWizard() {
   const { documentoId } = useParams();
   const navigate = useNavigate();
@@ -298,6 +224,7 @@ export default function AetWizard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
+  const [psicoOpen, setPsicoOpen] = useState(false);
 
   // Generation step
   const [showGerar, setShowGerar] = useState(false);
@@ -560,10 +487,15 @@ export default function AetWizard() {
           especificacao_setor: a.especificacao_setor || "",
           ruido_valor: a.ruido_valor || "",
           ruido_unidade: a.ruido_unidade || "",
+          limite_ruido: a.limite_ruido || "",
+          unidade_limite_ruido: a.unidade_limite_ruido || "",
           iluminancia_valor: a.iluminancia_valor || "",
           iluminancia_unidade: a.iluminancia_unidade || "",
+          limite_iluminancia: a.limite_iluminancia || "",
+          unidade_limite_iluminancia: a.unidade_limite_iluminancia || "",
           temperatura_valor: a.temperatura_valor || "",
           temperatura_unidade: a.temperatura_unidade || "",
+          limite_temperatura: a.limite_temperatura || "",
         })),
         plano_acao: (s.plano_acao || []).map((p) => ({
           o_que: p.o_que || "",
@@ -576,8 +508,21 @@ export default function AetWizard() {
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
         })),
-        imagens_ambiente: s.imagens_ambiente || [],
-        imagens_funcao: s.imagens_funcao || [],
+        descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
+        descricao_imagens_funcao: s.descricao_imagens_funcao || "",
+        avaliacoes_psicossociais: (s.avaliacoes_psicossociais || []).map((p) => {
+          const calc = calcularPsicossocial(p);
+          return {
+            colaborador_nome: calc.colaborador_nome || "",
+            data_avaliacao: calc.data_avaliacao
+              ? new Date(calc.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
+              : "",
+            resultado_psicossocial: calc.resultado_psicossocial || "",
+            riscos_psicossociais: calc.riscos_psicossociais || "",
+            blocos: calc.blocos || {},
+            alertas: calc.alertas || {},
+          };
+        }),
       })),
     };
     console.log("JSON AET FINAL:", data);
@@ -927,7 +872,33 @@ export default function AetWizard() {
           </div>
         </Card>
 
-        {/* Ferramentas Ergonômicas */}
+        {/* Avaliação Psicossocial (COPSOQ) */}
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-heading font-semibold flex items-center gap-2">
+                <Brain className="w-4 h-4" />Avaliação Psicossocial
+              </h2>
+              <p className="text-xs text-muted-foreground">Aplicação do questionário COPSOQ por colaborador</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setPsicoOpen(true)}>
+              {setor.avaliacoes_psicossociais.length > 0
+                ? `Editar (${setor.avaliacoes_psicossociais.length})`
+                : "Registrar Avaliação"}
+            </Button>
+          </div>
+          {setor.avaliacoes_psicossociais.length > 0 && (
+            <div className="space-y-1.5">
+              {setor.avaliacoes_psicossociais.map((p, i) => (
+                <div key={i} className="text-xs border border-border rounded-lg p-2">
+                  <p className="font-semibold">{p.colaborador_nome || "Sem nome"}</p>
+                  <p className="text-muted-foreground line-clamp-2">{p.resultado_psicossocial}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <div>
@@ -962,60 +933,101 @@ export default function AetWizard() {
             </Button>
           </div>
           <div className="space-y-3">
-            {setor.avaliacoes_quantitativas.map((a, i) => (
-              <div key={i} className="border border-border rounded-lg p-3 space-y-2">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label className="text-xs">Especificação do setor/posto</Label>
-                    <Input
-                      value={a.especificacao_setor}
-                      onChange={(e) => {
-                        const arr = [...setor.avaliacoes_quantitativas];
-                        arr[i] = { ...arr[i], especificacao_setor: e.target.value };
-                        updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                      }}
-                    />
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
-                    updateSetor(editingSetorIdx, { avaliacoes_quantitativas: setor.avaliacoes_quantitativas.filter((_, k) => k !== i) })
-                  }>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    ["Ruído", "ruido_valor", "ruido_unidade"],
-                    ["Iluminância", "iluminancia_valor", "iluminancia_unidade"],
-                    ["Temperatura", "temperatura_valor", "temperatura_unidade"],
-                  ] as const).map(([label, vKey, uKey]) => (
-                    <div key={vKey}>
-                      <Label className="text-xs">{label}</Label>
-                      <div className="flex gap-1">
-                        <Input
-                          placeholder="valor"
-                          value={(a as any)[vKey]}
-                          onChange={(e) => {
-                            const arr = [...setor.avaliacoes_quantitativas];
-                            arr[i] = { ...arr[i], [vKey]: e.target.value };
-                            updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                          }}
-                        />
-                        <Input
-                          className="w-20"
-                          placeholder="un"
-                          value={(a as any)[uKey]}
-                          onChange={(e) => {
-                            const arr = [...setor.avaliacoes_quantitativas];
-                            arr[i] = { ...arr[i], [uKey]: e.target.value };
-                            updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                          }}
-                        />
-                      </div>
+            {setor.avaliacoes_quantitativas.map((a, i) => {
+              const updateA = (patch: Partial<AvalQuant>) => {
+                const arr = [...setor.avaliacoes_quantitativas];
+                arr[i] = { ...arr[i], ...patch };
+                updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
+              };
+              const RUIDO_NORMA = "https://www2.uesb.br/biblioteca/wp-content/uploads/2022/03/ABNT-NBR10152-AC%C3%9ASTICA-N%C3%8DVEIS-DE-PRESS%C3%83O-SONORA-EM-AMBIENTES-INTERNOS-E-EDIFICA%C3%87%C3%95ES.pdf";
+              const ILUM_NORMA = "https://drb-assessoria.com.br/drbr/nbrisocie8995.pdf";
+              return (
+                <div key={i} className="border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Label className="text-xs">Especificação do setor/posto</Label>
+                      <Input
+                        value={a.especificacao_setor}
+                        onChange={(e) => updateA({ especificacao_setor: e.target.value })}
+                      />
                     </div>
-                  ))}
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                      updateSetor(editingSetorIdx, { avaliacoes_quantitativas: setor.avaliacoes_quantitativas.filter((_, k) => k !== i) })
+                    }>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* RUÍDO */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        Ruído
+                        <a href={RUIDO_NORMA} target="_blank" rel="noopener noreferrer" title="ABNT NBR 10152" className="text-accent hover:text-accent/80">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </Label>
+                    </div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.ruido_valor} onChange={(e) => updateA({ ruido_valor: e.target.value })} /></div>
+                    <div className="col-span-2">
+                      <Select value={a.ruido_unidade} onValueChange={(v) => updateA({ ruido_unidade: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["dB(A)", "dB(C)", "dB"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-3"><Input placeholder="limite" value={a.limite_ruido} onChange={(e) => updateA({ limite_ruido: e.target.value })} /></div>
+                    <div className="col-span-3">
+                      <Select value={a.unidade_limite_ruido} onValueChange={(v) => updateA({ unidade_limite_ruido: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["dB(A)", "dB(C)", "dB"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* ILUMINÂNCIA */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        Iluminância
+                        <a href={ILUM_NORMA} target="_blank" rel="noopener noreferrer" title="NBR ISO/CIE 8995" className="text-accent hover:text-accent/80">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </Label>
+                    </div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.iluminancia_valor} onChange={(e) => updateA({ iluminancia_valor: e.target.value })} /></div>
+                    <div className="col-span-2">
+                      <Select value={a.iluminancia_unidade} onValueChange={(v) => updateA({ iluminancia_unidade: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["lux", "fc"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-3"><Input placeholder="limite" value={a.limite_iluminancia} onChange={(e) => updateA({ limite_iluminancia: e.target.value })} /></div>
+                    <div className="col-span-3">
+                      <Select value={a.unidade_limite_iluminancia} onValueChange={(v) => updateA({ unidade_limite_iluminancia: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["lux", "fc"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* TEMPERATURA */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2"><Label className="text-xs">Temperatura</Label></div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.temperatura_valor} onChange={(e) => updateA({ temperatura_valor: e.target.value })} /></div>
+                    <div className="col-span-2"><Input placeholder="un" value={a.temperatura_unidade} onChange={(e) => updateA({ temperatura_unidade: e.target.value })} /></div>
+                    <div className="col-span-6"><Input placeholder="limite" value={a.limite_temperatura} onChange={(e) => updateA({ limite_temperatura: e.target.value })} /></div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {setor.avaliacoes_quantitativas.length === 0 && (
               <p className="text-xs text-muted-foreground">Nenhuma avaliação adicionada.</p>
             )}
@@ -1099,22 +1111,28 @@ export default function AetWizard() {
           </div>
         </Card>
 
-        {/* Imagens */}
+        {/* Descrição das imagens */}
         <Card className="p-5 mb-4">
-          <h2 className="font-heading font-semibold mb-3 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" />Imagens
-          </h2>
-          <div className="space-y-4">
-            <ImageUploader
-              label="Imagens do ambiente"
-              images={setor.imagens_ambiente}
-              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_ambiente: imgs })}
-            />
-            <ImageUploader
-              label="Imagens da função"
-              images={setor.imagens_funcao}
-              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_funcao: imgs })}
-            />
+          <h2 className="font-heading font-semibold mb-3">Descrição das imagens</h2>
+          <div className="space-y-3">
+            <div>
+              <Label>Descrição das Imagens do Ambiente</Label>
+              <Textarea
+                rows={3}
+                value={setor.descricao_imagens_ambiente}
+                onChange={(e) => updateSetor(editingSetorIdx, { descricao_imagens_ambiente: e.target.value })}
+                placeholder="Descreva o que as imagens do ambiente retratam (layout, condições, equipamentos visíveis, etc.)"
+              />
+            </div>
+            <div>
+              <Label>Descrição das Imagens da Função</Label>
+              <Textarea
+                rows={3}
+                value={setor.descricao_imagens_funcao}
+                onChange={(e) => updateSetor(editingSetorIdx, { descricao_imagens_funcao: e.target.value })}
+                placeholder="Descreva o que as imagens da função retratam (postura, movimentos, ferramentas utilizadas, etc.)"
+              />
+            </div>
           </div>
         </Card>
 
@@ -1133,6 +1151,12 @@ export default function AetWizard() {
           onOpenChange={setFerramentasOpen}
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
+        />
+        <PsicossocialModal
+          open={psicoOpen}
+          onOpenChange={setPsicoOpen}
+          avaliacoes={setor.avaliacoes_psicossociais}
+          onChange={(a) => updateSetor(editingSetorIdx, { avaliacoes_psicossociais: a })}
         />
       </div>
     );
