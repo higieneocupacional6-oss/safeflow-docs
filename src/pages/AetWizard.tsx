@@ -622,8 +622,16 @@ export default function AetWizard() {
       })),
     };
     console.log("JSON AET FINAL:", data);
-    console.log("EMPRESA AET:", data.empresa);
-    console.log("CONTRATO AET:", data.contrato);
+    console.log("EMPRESA AET:", {
+      razao_social: data.razao_social,
+      cnpj: data.cnpj,
+      endereco: data.endereco,
+    });
+    console.log("CONTRATO AET:", {
+      numero_contrato: data.numero_contrato,
+      gestor_nome: data.gestor_nome,
+      fiscal_nome: data.fiscal_nome,
+    });
     console.log("BLOCOS PSICOSSOCIAIS:", data.setores.map((s) => s.blocos));
     return data;
   };
