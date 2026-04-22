@@ -17,6 +17,7 @@ const docTypes = [
   { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
+  { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
 ];
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
@@ -52,6 +53,8 @@ export default function Documentos() {
       setTimeout(() => setInsalubridadeOpen(true), 100);
     } else if (typeId === "periculosidade") {
       setTimeout(() => setPericulosidadeOpen(true), 100);
+    } else if (typeId === "aet") {
+      navigate("/documentos/aet/novo");
     }
   };
 
@@ -89,6 +92,8 @@ export default function Documentos() {
       navigate(`/documentos/insalubridade/editar/${doc.id}`);
     } else if (tipo === "PERICULOSIDADE") {
       navigate(`/documentos/periculosidade/editar/${doc.id}`);
+    } else if (tipo === "AET") {
+      navigate(`/documentos/aet/editar/${doc.id}`);
     }
   };
 

@@ -1,6 +1,7 @@
 import { useState, useRef } from "react";
 import { TemplateVariables } from "@/components/TemplateVariables";
 import { LtcatTemplateHelper } from "@/components/LtcatTemplateHelper";
+import { AetTemplateHelper } from "@/components/AetTemplateHelper";
 import { Plus, FileText, Upload, Trash2, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -167,6 +168,7 @@ export default function Templates() {
         </div>
         <div className="flex gap-2">
           <LtcatTemplateHelper />
+          <AetTemplateHelper />
           <TemplateVariables />
         </div>
       </div>
