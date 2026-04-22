@@ -486,10 +486,15 @@ export default function AetWizard() {
           especificacao_setor: a.especificacao_setor || "",
           ruido_valor: a.ruido_valor || "",
           ruido_unidade: a.ruido_unidade || "",
+          limite_ruido: a.limite_ruido || "",
+          unidade_limite_ruido: a.unidade_limite_ruido || "",
           iluminancia_valor: a.iluminancia_valor || "",
           iluminancia_unidade: a.iluminancia_unidade || "",
+          limite_iluminancia: a.limite_iluminancia || "",
+          unidade_limite_iluminancia: a.unidade_limite_iluminancia || "",
           temperatura_valor: a.temperatura_valor || "",
           temperatura_unidade: a.temperatura_unidade || "",
+          limite_temperatura: a.limite_temperatura || "",
         })),
         plano_acao: (s.plano_acao || []).map((p) => ({
           o_que: p.o_que || "",
@@ -502,8 +507,21 @@ export default function AetWizard() {
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
         })),
-        imagens_ambiente: s.imagens_ambiente || [],
-        imagens_funcao: s.imagens_funcao || [],
+        descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
+        descricao_imagens_funcao: s.descricao_imagens_funcao || "",
+        avaliacoes_psicossociais: (s.avaliacoes_psicossociais || []).map((p) => {
+          const calc = calcularPsicossocial(p);
+          return {
+            colaborador_nome: calc.colaborador_nome || "",
+            data_avaliacao: calc.data_avaliacao
+              ? new Date(calc.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
+              : "",
+            resultado_psicossocial: calc.resultado_psicossocial || "",
+            riscos_psicossociais: calc.riscos_psicossociais || "",
+            blocos: calc.blocos || {},
+            alertas: calc.alertas || {},
+          };
+        }),
       })),
     };
     console.log("JSON AET FINAL:", data);
