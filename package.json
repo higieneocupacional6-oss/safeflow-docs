@@ -56,6 +56,7 @@
     "html-docx-js-typescript": "^0.1.5",
     "html-to-docx-buffer": "^0.1.1",
     "input-otp": "^1.4.2",
+    "jspdf": "^4.2.1",
     "lucide-react": "^0.462.0",
     "mustache": "^4.2.0",
     "next-themes": "^0.3.0",
