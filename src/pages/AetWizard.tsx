@@ -224,6 +224,7 @@ export default function AetWizard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
+  const [psicoOpen, setPsicoOpen] = useState(false);
 
   // Generation step
   const [showGerar, setShowGerar] = useState(false);
