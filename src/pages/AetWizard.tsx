@@ -1152,6 +1152,12 @@ export default function AetWizard() {
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
         />
+        <PsicossocialModal
+          open={psicoOpen}
+          onOpenChange={setPsicoOpen}
+          avaliacoes={setor.avaliacoes_psicossociais}
+          onChange={(a) => updateSetor(editingSetorIdx, { avaliacoes_psicossociais: a })}
+        />
       </div>
     );
   }
