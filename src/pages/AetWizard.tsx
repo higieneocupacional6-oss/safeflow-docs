@@ -490,44 +490,44 @@ export default function AetWizard() {
   };
 
   // ─── BUILD TEMPLATE DATA ───
+  // Padrão LTCAT: variáveis de empresa e contrato na RAIZ do JSON (sem objetos aninhados)
   const buildTemplateData = () => {
-    const empresa = {
-      razao_social: empresaSelecionada?.razao_social || "",
-      nome_fantasia: empresaSelecionada?.nome_fantasia || "",
-      cnpj: empresaSelecionada?.cnpj || "",
-      cnae_principal: empresaSelecionada?.cnae_principal || "",
-      grau_risco: empresaSelecionada?.grau_risco || "",
-      endereco: empresaSelecionada?.endereco || "",
-      preposto_telefone: empresaSelecionada?.preposto_telefone || "",
-      preposto_email: empresaSelecionada?.preposto_email || "",
-      preposto_nome: empresaSelecionada?.preposto_nome || "",
-      total_funcionarios: empresaSelecionada?.total_funcionarios || "",
-      numero_funcionarios_masc: empresaSelecionada?.numero_funcionarios_masc || "",
-      numero_funcionarios_fem: empresaSelecionada?.numero_funcionarios_fem || "",
-      jornada_trabalho: empresaSelecionada?.jornada_trabalho || "",
-    };
-
-    const contrato = {
-      nome_contratante: empresaSelecionada?.nome_contratante || "",
-      cnpj_contratante: empresaSelecionada?.cnpj_contratante || "",
-      numero_contrato: empresaSelecionada?.numero_contrato || "",
-      vigencia_inicio: formatDate(empresaSelecionada?.vigencia_inicio),
-      vigencia_fim: formatDate(empresaSelecionada?.vigencia_fim),
-      escopo_contrato: empresaSelecionada?.escopo_contrato || "",
-      gestor_nome: empresaSelecionada?.gestor_nome || "",
-      gestor_email: empresaSelecionada?.gestor_email || "",
-      gestor_telefone: empresaSelecionada?.gestor_telefone || "",
-      fiscal_nome: empresaSelecionada?.fiscal_nome || "",
-      fiscal_email: empresaSelecionada?.fiscal_email || "",
-      fiscal_telefone: empresaSelecionada?.fiscal_telefone || "",
-      local_trabalho: empresaSelecionada?.local_trabalho || "",
-    };
+    const emp = empresaSelecionada || ({} as any);
 
     const data = {
-      empresa_nome: empresaNome || "",
-      razao_social: empresaNome || "",
-      empresa,
-      contrato,
+      // ─── EMPRESA (raiz, padrão LTCAT) ───
+      empresa: emp?.razao_social || emp?.nome_fantasia || empresaNome || "",
+      empresa_nome: empresaNome || emp?.razao_social || "",
+      razao_social: emp?.razao_social || empresaNome || "",
+      nome_fantasia: emp?.nome_fantasia || "",
+      cnpj: emp?.cnpj || "",
+      cnae_principal: emp?.cnae_principal || "",
+      cnae: emp?.cnae_principal || "",
+      grau_risco: emp?.grau_risco || "",
+      endereco: emp?.endereco || "",
+      preposto_nome: emp?.preposto_nome || "",
+      preposto_email: emp?.preposto_email || "",
+      preposto_telefone: emp?.preposto_telefone || "",
+      total_funcionarios: emp?.total_funcionarios?.toString() || "",
+      numero_funcionarios_masc: emp?.numero_funcionarios_masc?.toString() || "",
+      numero_funcionarios_fem: emp?.numero_funcionarios_fem?.toString() || "",
+      jornada_trabalho: emp?.jornada_trabalho || "",
+
+      // ─── CONTRATO (raiz, padrão LTCAT) ───
+      nome_contratante: emp?.nome_contratante || "",
+      cnpj_contratante: emp?.cnpj_contratante || "",
+      numero_contrato: emp?.numero_contrato || "",
+      vigencia_inicio: formatDate(emp?.vigencia_inicio),
+      vigencia_fim: formatDate(emp?.vigencia_fim),
+      escopo_contrato: emp?.escopo_contrato || "",
+      gestor_nome: emp?.gestor_nome || "",
+      gestor_email: emp?.gestor_email || "",
+      gestor_telefone: emp?.gestor_telefone || "",
+      fiscal_nome: emp?.fiscal_nome || "",
+      fiscal_email: emp?.fiscal_email || "",
+      fiscal_telefone: emp?.fiscal_telefone || "",
+      local_trabalho: emp?.local_trabalho || "",
+
       responsavel_tecnico: responsavelTecnico || "",
       crea: crea || "",
       cargo: cargo || "",
@@ -622,8 +622,16 @@ export default function AetWizard() {
       })),
     };
     console.log("JSON AET FINAL:", data);
-    console.log("EMPRESA AET:", data.empresa);
-    console.log("CONTRATO AET:", data.contrato);
+    console.log("EMPRESA AET:", {
+      razao_social: data.razao_social,
+      cnpj: data.cnpj,
+      endereco: data.endereco,
+    });
+    console.log("CONTRATO AET:", {
+      numero_contrato: data.numero_contrato,
+      gestor_nome: data.gestor_nome,
+      fiscal_nome: data.fiscal_nome,
+    });
     console.log("BLOCOS PSICOSSOCIAIS:", data.setores.map((s) => s.blocos));
     return data;
   };
