@@ -85,6 +85,40 @@ const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", pra
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
 const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
 
+const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
+
+const formatDate = (value?: string | null) => (
+  value ? new Date(value + "T00:00:00").toLocaleDateString("pt-BR") : ""
+);
+
+const createEmptyPsicoBlocos = () => Object.fromEntries(
+  PSICO_BLOCK_KEYS.map((key) => [key, { media: "", classificacao: "" }]),
+) as Record<(typeof PSICO_BLOCK_KEYS)[number], { media: string | number; classificacao: string }>;
+
+const normalizePsicoBlocos = (blocos?: Record<string, { media?: unknown; classificacao?: unknown }>) => {
+  const vazios = createEmptyPsicoBlocos();
+  for (const key of PSICO_BLOCK_KEYS) {
+    const media = blocos?.[key]?.media;
+    const classificacao = blocos?.[key]?.classificacao;
+    vazios[key] = {
+      media: media === undefined || media === null || media === "" ? "" : Number(media) || 0,
+      classificacao: String(classificacao || ""),
+    };
+  }
+  return vazios;
+};
+
+const hasMissingPsicossocial = (data: {
+  setores?: Array<{ setor_nome?: string; blocos?: Record<string, { media?: unknown; classificacao?: unknown }> }>;
+}) => {
+  return (data.setores || []).some((setor) =>
+    PSICO_BLOCK_KEYS.some((key) => {
+      const bloco = setor.blocos?.[key];
+      return bloco?.media === "" || !String(bloco?.classificacao || "").trim();
+    }),
+  );
+};
+
 const newSetor = (s: any): SetorAet => ({
   setor_id: s.id,
   setor_nome: s.nome_setor || "",
@@ -244,7 +278,10 @@ export default function AetWizard() {
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-aet"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id,razao_social,nome_fantasia,cnpj,cnae_principal,grau_risco,endereco,preposto_telefone,preposto_email,preposto_nome,total_funcionarios,numero_funcionarios_masc,numero_funcionarios_fem,jornada_trabalho,nome_contratante,cnpj_contratante,numero_contrato,vigencia_inicio,vigencia_fim,escopo_contrato,gestor_nome,gestor_email,gestor_telefone,fiscal_nome,fiscal_email,fiscal_telefone,local_trabalho")
+        .order("razao_social");
       if (error) throw error;
       return data;
     },
@@ -335,7 +372,8 @@ export default function AetWizard() {
     })();
   }, [documentoId]);
 
-  const empresaNome = empresas.find((e: any) => e.id === empresaId)?.razao_social || "";
+  const empresaSelecionada = empresas.find((e: any) => e.id === empresaId);
+  const empresaNome = empresaSelecionada?.razao_social || "";
   const allSetoresSalvos = setoresAet.length > 0 && setoresAet.every((s) => s._salvo);
 
   const handleConfirmSetores = () => {
@@ -453,20 +491,50 @@ export default function AetWizard() {
 
   // ─── BUILD TEMPLATE DATA ───
   const buildTemplateData = () => {
+    const empresa = {
+      razao_social: empresaSelecionada?.razao_social || "",
+      nome_fantasia: empresaSelecionada?.nome_fantasia || "",
+      cnpj: empresaSelecionada?.cnpj || "",
+      cnae_principal: empresaSelecionada?.cnae_principal || "",
+      grau_risco: empresaSelecionada?.grau_risco || "",
+      endereco: empresaSelecionada?.endereco || "",
+      preposto_telefone: empresaSelecionada?.preposto_telefone || "",
+      preposto_email: empresaSelecionada?.preposto_email || "",
+      preposto_nome: empresaSelecionada?.preposto_nome || "",
+      total_funcionarios: empresaSelecionada?.total_funcionarios || "",
+      numero_funcionarios_masc: empresaSelecionada?.numero_funcionarios_masc || "",
+      numero_funcionarios_fem: empresaSelecionada?.numero_funcionarios_fem || "",
+      jornada_trabalho: empresaSelecionada?.jornada_trabalho || "",
+    };
+
+    const contrato = {
+      nome_contratante: empresaSelecionada?.nome_contratante || "",
+      cnpj_contratante: empresaSelecionada?.cnpj_contratante || "",
+      numero_contrato: empresaSelecionada?.numero_contrato || "",
+      vigencia_inicio: formatDate(empresaSelecionada?.vigencia_inicio),
+      vigencia_fim: formatDate(empresaSelecionada?.vigencia_fim),
+      escopo_contrato: empresaSelecionada?.escopo_contrato || "",
+      gestor_nome: empresaSelecionada?.gestor_nome || "",
+      gestor_email: empresaSelecionada?.gestor_email || "",
+      gestor_telefone: empresaSelecionada?.gestor_telefone || "",
+      fiscal_nome: empresaSelecionada?.fiscal_nome || "",
+      fiscal_email: empresaSelecionada?.fiscal_email || "",
+      fiscal_telefone: empresaSelecionada?.fiscal_telefone || "",
+      local_trabalho: empresaSelecionada?.local_trabalho || "",
+    };
+
     const data = {
       empresa_nome: empresaNome || "",
       razao_social: empresaNome || "",
+      empresa,
+      contrato,
       responsavel_tecnico: responsavelTecnico || "",
       crea: crea || "",
       cargo: cargo || "",
-      data_elaboracao: dataElaboracao
-        ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
-        : "",
+      data_elaboracao: formatDate(dataElaboracao),
       alteracoes_documento: alteracoes || "",
       revisoes: revisoes.map((r) => ({
-        data_revisao: r.data_revisao
-          ? new Date(r.data_revisao + "T00:00:00").toLocaleDateString("pt-BR")
-          : "",
+        data_revisao: formatDate(r.data_revisao),
         descricao_revisao: r.descricao_revisao || "",
       })),
       setores: setoresAet.map((s) => ({
@@ -487,9 +555,7 @@ export default function AetWizard() {
         conclusao: s.conclusao || "",
         colaboradores: (s.colaboradores || []).map((c) => ({
           nome_colaborador: c.nome_colaborador || "",
-          data_avaliacao: c.data_avaliacao
-            ? new Date(c.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
-            : "",
+          data_avaliacao: formatDate(c.data_avaliacao),
         })),
         avaliacoes_quantitativas: (s.avaliacoes_quantitativas || []).map((a) => ({
           especificacao_setor: a.especificacao_setor || "",
@@ -519,32 +585,13 @@ export default function AetWizard() {
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
         ...(() => {
-          const emptyBloco = { media: "", classificacao: "" };
-          const blocosVazios = {
-            exigencias: { ...emptyBloco },
-            controle: { ...emptyBloco },
-            apoio: { ...emptyBloco },
-            reconhecimento: { ...emptyBloco },
-            seguranca: { ...emptyBloco },
-            conflitos: { ...emptyBloco },
-            sintomas: { ...emptyBloco },
-          };
+          const blocosVazios = createEmptyPsicoBlocos();
           const lista = (s.avaliacoes_psicossociais || []).map((p) => {
             const calc = calcularPsicossocial(p);
-            const blocosNorm: Record<string, { media: any; classificacao: any }> = {
-              ...blocosVazios,
-            };
-            for (const k of Object.keys(calc.blocos || {})) {
-              blocosNorm[k] = {
-                media: calc.blocos[k]?.media ?? "",
-                classificacao: calc.blocos[k]?.classificacao ?? "",
-              };
-            }
+            const blocosNorm = normalizePsicoBlocos(calc.blocos);
             return {
               colaborador_nome: calc.colaborador_nome || "",
-              data_avaliacao: calc.data_avaliacao
-                ? new Date(calc.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
-                : "",
+              data_avaliacao: formatDate(calc.data_avaliacao),
               resultado_psicossocial: calc.resultado_psicossocial || "",
               riscos_psicossociais: calc.riscos_psicossociais || "",
               blocos: blocosNorm,
@@ -567,8 +614,7 @@ export default function AetWizard() {
           return {
             avaliacoes_psicossociais: lista,
             avaliacao_psicossocial,
-            // Aliases nível raiz do setor para uso direto em {{blocos.exigencias.media}}
-            blocos: avaliacao_psicossocial.blocos || blocosVazios,
+            blocos: normalizePsicoBlocos(avaliacao_psicossocial.blocos),
             resultado_psicossocial: avaliacao_psicossocial.resultado_psicossocial || "",
             riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
           };
@@ -576,10 +622,9 @@ export default function AetWizard() {
       })),
     };
     console.log("JSON AET FINAL:", data);
-    if (data.setores?.[0]) {
-      console.log("PSICOSSOCIAL JSON:", data.setores[0].avaliacao_psicossocial);
-      console.log("BLOCOS:", data.setores[0].blocos);
-    }
+    console.log("EMPRESA AET:", data.empresa);
+    console.log("CONTRATO AET:", data.contrato);
+    console.log("BLOCOS PSICOSSOCIAIS:", data.setores.map((s) => s.blocos));
     return data;
   };
 
@@ -628,6 +673,10 @@ export default function AetWizard() {
     try {
       const doc = await loadTemplateDoc();
       const data = buildTemplateData();
+      if (hasMissingPsicossocial(data)) {
+        toast.error("Avaliação psicossocial não preenchida");
+        return;
+      }
       try {
         doc.render(data);
         setValidated(true);
@@ -659,6 +708,10 @@ export default function AetWizard() {
     try {
       const doc = await loadTemplateDoc();
       const data = buildTemplateData();
+      if (hasMissingPsicossocial(data)) {
+        toast.error("Avaliação psicossocial não preenchida");
+        return;
+      }
       doc.render(data);
 
       const output: Blob = (doc as any).kind === "html"
