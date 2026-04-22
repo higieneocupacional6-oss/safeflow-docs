@@ -518,22 +518,68 @@ export default function AetWizard() {
         })),
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
-        avaliacoes_psicossociais: (s.avaliacoes_psicossociais || []).map((p) => {
-          const calc = calcularPsicossocial(p);
-          return {
-            colaborador_nome: calc.colaborador_nome || "",
-            data_avaliacao: calc.data_avaliacao
-              ? new Date(calc.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
-              : "",
-            resultado_psicossocial: calc.resultado_psicossocial || "",
-            riscos_psicossociais: calc.riscos_psicossociais || "",
-            blocos: calc.blocos || {},
-            alertas: calc.alertas || {},
+        ...(() => {
+          const emptyBloco = { media: "", classificacao: "" };
+          const blocosVazios = {
+            exigencias: { ...emptyBloco },
+            controle: { ...emptyBloco },
+            apoio: { ...emptyBloco },
+            reconhecimento: { ...emptyBloco },
+            seguranca: { ...emptyBloco },
+            conflitos: { ...emptyBloco },
+            sintomas: { ...emptyBloco },
           };
-        }),
+          const lista = (s.avaliacoes_psicossociais || []).map((p) => {
+            const calc = calcularPsicossocial(p);
+            const blocosNorm: Record<string, { media: any; classificacao: any }> = {
+              ...blocosVazios,
+            };
+            for (const k of Object.keys(calc.blocos || {})) {
+              blocosNorm[k] = {
+                media: calc.blocos[k]?.media ?? "",
+                classificacao: calc.blocos[k]?.classificacao ?? "",
+              };
+            }
+            return {
+              colaborador_nome: calc.colaborador_nome || "",
+              data_avaliacao: calc.data_avaliacao
+                ? new Date(calc.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
+                : "",
+              resultado_psicossocial: calc.resultado_psicossocial || "",
+              riscos_psicossociais: calc.riscos_psicossociais || "",
+              blocos: blocosNorm,
+              alertas: {
+                alerta_amarelo: calc.alertas?.alerta_amarelo ? "SIM" : "Não",
+                alerta_vermelho: calc.alertas?.alerta_vermelho ? "SIM" : "Não",
+                recomendacao_imediata: calc.alertas?.recomendacao_imediata ? "SIM" : "Não",
+              },
+            };
+          });
+          const primeira = lista[0];
+          const avaliacao_psicossocial = primeira || {
+            colaborador_nome: "",
+            data_avaliacao: "",
+            resultado_psicossocial: "",
+            riscos_psicossociais: "",
+            blocos: blocosVazios,
+            alertas: { alerta_amarelo: "Não", alerta_vermelho: "Não", recomendacao_imediata: "Não" },
+          };
+          return {
+            avaliacoes_psicossociais: lista,
+            avaliacao_psicossocial,
+            // Aliases nível raiz do setor para uso direto em {{blocos.exigencias.media}}
+            blocos: avaliacao_psicossocial.blocos || blocosVazios,
+            resultado_psicossocial: avaliacao_psicossocial.resultado_psicossocial || "",
+            riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
+          };
+        })(),
       })),
     };
     console.log("JSON AET FINAL:", data);
+    if (data.setores?.[0]) {
+      console.log("PSICOSSOCIAL JSON:", data.setores[0].avaliacao_psicossocial);
+      console.log("BLOCOS:", data.setores[0].blocos);
+    }
     return data;
   };
 
