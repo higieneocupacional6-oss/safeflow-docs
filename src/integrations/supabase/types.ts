@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      aet_documentos: {
+        Row: {
+          alteracoes_documento: string | null
+          cargo: string | null
+          crea: string | null
+          created_at: string
+          created_by: string | null
+          data_elaboracao: string | null
+          documento_id: string | null
+          empresa_id: string | null
+          id: string
+          responsavel_tecnico: string | null
+          revisoes: Json
+          setores: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_elaboracao?: string | null
+          documento_id?: string | null
+          empresa_id?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          setores?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_elaboracao?: string | null
+          documento_id?: string | null
+          empresa_id?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          setores?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "aet_documentos_documento_id_fkey"
+            columns: ["documento_id"]
+            isOneToOne: false
+            referencedRelation: "documentos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "aet_documentos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
           created_at: string
