@@ -28,8 +28,11 @@ type Colaborador = { nome_colaborador: string; data_avaliacao: string };
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
+  limite_ruido: string; unidade_limite_ruido: string;
   iluminancia_valor: string; iluminancia_unidade: string;
+  limite_iluminancia: string; unidade_limite_iluminancia: string;
   temperatura_valor: string; temperatura_unidade: string;
+  limite_temperatura: string;
 };
 type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
 type Ferramenta = { tipo: string; dados_avaliacao: string; resultado: string };
