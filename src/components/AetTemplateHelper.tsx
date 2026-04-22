@@ -109,7 +109,7 @@ export function AetTemplateHelper() {
                       className="w-full text-left flex items-start gap-2 p-2 rounded-lg hover:bg-muted transition-colors group"
                     >
                       {copied === v.code ? (
-                        <Check className="w-3.5 h-3.5 mt-1 text-emerald-600 shrink-0" />
+                        <Check className="w-3.5 h-3.5 mt-1 text-accent shrink-0" />
                       ) : (
                         <Copy className="w-3.5 h-3.5 mt-1 text-muted-foreground/60 group-hover:text-foreground shrink-0" />
                       )}
