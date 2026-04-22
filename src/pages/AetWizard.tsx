@@ -872,7 +872,33 @@ export default function AetWizard() {
           </div>
         </Card>
 
-        {/* Ferramentas Ergonômicas */}
+        {/* Avaliação Psicossocial (COPSOQ) */}
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-heading font-semibold flex items-center gap-2">
+                <Brain className="w-4 h-4" />Avaliação Psicossocial
+              </h2>
+              <p className="text-xs text-muted-foreground">Aplicação do questionário COPSOQ por colaborador</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setPsicoOpen(true)}>
+              {setor.avaliacoes_psicossociais.length > 0
+                ? `Editar (${setor.avaliacoes_psicossociais.length})`
+                : "Registrar Avaliação"}
+            </Button>
+          </div>
+          {setor.avaliacoes_psicossociais.length > 0 && (
+            <div className="space-y-1.5">
+              {setor.avaliacoes_psicossociais.map((p, i) => (
+                <div key={i} className="text-xs border border-border rounded-lg p-2">
+                  <p className="font-semibold">{p.colaborador_nome || "Sem nome"}</p>
+                  <p className="text-muted-foreground line-clamp-2">{p.resultado_psicossocial}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
             <div>
