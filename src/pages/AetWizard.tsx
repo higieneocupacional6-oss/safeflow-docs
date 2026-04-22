@@ -1043,22 +1043,28 @@ export default function AetWizard() {
           </div>
         </Card>
 
-        {/* Imagens */}
+        {/* Descrição das imagens */}
         <Card className="p-5 mb-4">
-          <h2 className="font-heading font-semibold mb-3 flex items-center gap-2">
-            <ImageIcon className="w-4 h-4" />Imagens
-          </h2>
-          <div className="space-y-4">
-            <ImageUploader
-              label="Imagens do ambiente"
-              images={setor.imagens_ambiente}
-              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_ambiente: imgs })}
-            />
-            <ImageUploader
-              label="Imagens da função"
-              images={setor.imagens_funcao}
-              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_funcao: imgs })}
-            />
+          <h2 className="font-heading font-semibold mb-3">Descrição das imagens</h2>
+          <div className="space-y-3">
+            <div>
+              <Label>Descrição das Imagens do Ambiente</Label>
+              <Textarea
+                rows={3}
+                value={setor.descricao_imagens_ambiente}
+                onChange={(e) => updateSetor(editingSetorIdx, { descricao_imagens_ambiente: e.target.value })}
+                placeholder="Descreva o que as imagens do ambiente retratam (layout, condições, equipamentos visíveis, etc.)"
+              />
+            </div>
+            <div>
+              <Label>Descrição das Imagens da Função</Label>
+              <Textarea
+                rows={3}
+                value={setor.descricao_imagens_funcao}
+                onChange={(e) => updateSetor(editingSetorIdx, { descricao_imagens_funcao: e.target.value })}
+                placeholder="Descreva o que as imagens da função retratam (postura, movimentos, ferramentas utilizadas, etc.)"
+              />
+            </div>
           </div>
         </Card>
 
