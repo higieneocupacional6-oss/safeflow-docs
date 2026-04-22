@@ -75,8 +75,11 @@ const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
+  limite_ruido: "", unidade_limite_ruido: "dB(A)",
   iluminancia_valor: "", iluminancia_unidade: "lux",
+  limite_iluminancia: "", unidade_limite_iluminancia: "lux",
   temperatura_valor: "", temperatura_unidade: "°C",
+  limite_temperatura: "20°C a 23°C",
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
