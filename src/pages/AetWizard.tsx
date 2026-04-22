@@ -59,8 +59,9 @@ type SetorAet = {
   conclusao: string;
   plano_acao: PlanoAcao[];
   ferramentas: Ferramenta[];
-  imagens_ambiente: string[];
-  imagens_funcao: string[];
+  descricao_imagens_ambiente: string;
+  descricao_imagens_funcao: string;
+  avaliacoes_psicossociais: AvaliacaoPsicossocial[];
   _salvo?: boolean;
 };
 
