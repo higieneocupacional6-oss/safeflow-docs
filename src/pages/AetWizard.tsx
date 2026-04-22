@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, FileText, Settings2 } from "lucide-react";
+import {
+  ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
+  Wrench, Image as ImageIcon, Upload, X, FileDown, FileCheck2,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,9 +12,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import { parseDocxErrors } from "@/lib/templateValidator";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string };
@@ -22,6 +31,7 @@ type AvalQuant = {
   temperatura_valor: string; temperatura_unidade: string;
 };
 type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
+type Ferramenta = { tipo: string; dados_avaliacao: string; resultado: string };
 
 type SetorAet = {
   setor_id: string;
@@ -44,10 +54,17 @@ type SetorAet = {
   diagnostico_ergonomico: string;
   conclusao: string;
   plano_acao: PlanoAcao[];
-  ferramentas: any[];
+  ferramentas: Ferramenta[];
   imagens_ambiente: string[];
   imagens_funcao: string[];
+  _salvo?: boolean;
 };
+
+const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
+  { categoria: "Membros superiores", itens: ["RULA", "REBA", "OCRA"] },
+  { categoria: "Movimentação de carga", itens: ["NIOSH"] },
+  { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
+];
 
 const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "" });
 const emptyAval = (): AvalQuant => ({
@@ -58,6 +75,7 @@ const emptyAval = (): AvalQuant => ({
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
+const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
 
 const newSetor = (s: any): SetorAet => ({
   setor_id: s.id,
@@ -83,8 +101,184 @@ const newSetor = (s: any): SetorAet => ({
   ferramentas: [],
   imagens_ambiente: [],
   imagens_funcao: [],
+  _salvo: false,
 });
 
+// ─────────── FERRAMENTAS MODAL ───────────
+function FerramentasModal({
+  open, onOpenChange, ferramentas, onChange,
+}: {
+  open: boolean;
+  onOpenChange: (v: boolean) => void;
+  ferramentas: Ferramenta[];
+  onChange: (f: Ferramenta[]) => void;
+}) {
+  const add = (tipo: string) => onChange([...ferramentas, emptyFerr(tipo)]);
+  const update = (i: number, patch: Partial<Ferramenta>) =>
+    onChange(ferramentas.map((f, k) => (k === i ? { ...f, ...patch } : f)));
+  const remove = (i: number) => onChange(ferramentas.filter((_, k) => k !== i));
+
+  const handleClose = () => {
+    const invalid = ferramentas.find((f) => !f.resultado.trim());
+    if (invalid) {
+      toast.error(`Preencha o resultado para ${invalid.tipo}`);
+      return;
+    }
+    onOpenChange(false);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="font-heading">Ferramentas Ergonômicas</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            {FERRAMENTAS_CATEGORIAS.map((c) => (
+              <div key={c.categoria}>
+                <p className="text-xs font-bold uppercase text-muted-foreground mb-1.5">{c.categoria}</p>
+                <div className="flex flex-wrap gap-2">
+                  {c.itens.map((it) => (
+                    <Button key={it} size="sm" variant="outline" onClick={() => add(it)}>
+                      <Plus className="w-3.5 h-3.5 mr-1" />{it}
+                    </Button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="border-t border-border pt-4 space-y-3">
+            {ferramentas.length === 0 && (
+              <p className="text-sm text-muted-foreground text-center py-4">
+                Nenhuma ferramenta adicionada. Clique em uma das categorias acima.
+              </p>
+            )}
+            {ferramentas.map((f, i) => (
+              <Card key={i} className="p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <Badge variant="outline" className="font-mono">{f.tipo}</Badge>
+                  <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => remove(i)}>
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </Button>
+                </div>
+                <div>
+                  <Label className="text-xs">Dados da avaliação</Label>
+                  <Textarea
+                    rows={2}
+                    value={f.dados_avaliacao}
+                    onChange={(e) => update(i, { dados_avaliacao: e.target.value })}
+                    placeholder="Descreva os parâmetros observados, scores parciais, etc."
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs">Resultado *</Label>
+                  <Input
+                    value={f.resultado}
+                    onChange={(e) => update(i, { resultado: e.target.value })}
+                    placeholder="Ex: Risco moderado / Score 5"
+                  />
+                </div>
+              </Card>
+            ))}
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button onClick={handleClose}>Concluir</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ─────────── IMAGE UPLOADER ───────────
+function ImageUploader({
+  label, images, onChange, max = 4,
+}: {
+  label: string;
+  images: string[];
+  onChange: (imgs: string[]) => void;
+  max?: number;
+}) {
+  const [uploading, setUploading] = useState(false);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (files.length === 0) return;
+    if (images.length + files.length > max) {
+      toast.error(`Máximo de ${max} imagens`);
+      return;
+    }
+    setUploading(true);
+    try {
+      const urls: string[] = [];
+      for (const f of files) {
+        const ext = f.name.split(".").pop() || "jpg";
+        const path = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}.${ext}`;
+        const { error } = await supabase.storage.from("aet-imagens").upload(path, f);
+        if (error) throw error;
+        const { data } = supabase.storage.from("aet-imagens").getPublicUrl(path);
+        urls.push(data.publicUrl);
+      }
+      onChange([...images, ...urls]);
+      toast.success(`${urls.length} imagem(ns) enviada(s)`);
+    } catch (err: any) {
+      toast.error("Erro no upload: " + err.message);
+    } finally {
+      setUploading(false);
+      e.target.value = "";
+    }
+  };
+
+  const remove = (i: number) => onChange(images.filter((_, k) => k !== i));
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <Label className="text-sm">{label} ({images.length}/{max})</Label>
+        <Button size="sm" variant="outline" disabled={uploading || images.length >= max} asChild>
+          <label className="cursor-pointer">
+            {uploading ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" /> : <Upload className="w-3.5 h-3.5 mr-1" />}
+            Enviar
+            <input
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+          </label>
+        </Button>
+      </div>
+      <div className="grid grid-cols-4 gap-2">
+        {images.map((url, i) => (
+          <div key={i} className="relative group aspect-[3/2] border border-border rounded-lg overflow-hidden bg-muted">
+            <img src={url} alt={`${label} ${i + 1}`} className="w-full h-full object-cover" />
+            <Button
+              variant="destructive"
+              size="icon"
+              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={() => remove(i)}
+            >
+              <X className="w-3 h-3" />
+            </Button>
+          </div>
+        ))}
+        {images.length === 0 && (
+          <div className="col-span-4 text-xs text-muted-foreground text-center py-4 border-2 border-dashed border-border rounded-lg">
+            Nenhuma imagem enviada
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────── MAIN COMPONENT ───────────
 export default function AetWizard() {
   const { documentoId } = useParams();
   const navigate = useNavigate();
@@ -103,6 +297,16 @@ export default function AetWizard() {
   const [selectModalOpen, setSelectModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
+  const [ferramentasOpen, setFerramentasOpen] = useState(false);
+
+  // Generation step
+  const [showGerar, setShowGerar] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [validated, setValidated] = useState(false);
+  const [validating, setValidating] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [errorsModalOpen, setErrorsModalOpen] = useState(false);
+  const [errorList, setErrorList] = useState<{ tipo: string; explicacao: string; correcao: string }[]>([]);
 
   const [aetId, setAetId] = useState<string | null>(null);
   const [docId, setDocId] = useState<string | null>(documentoId || null);
@@ -148,6 +352,24 @@ export default function AetWizard() {
     enabled: setoresAet.length > 0,
   });
 
+  // Templates AET
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-aet"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("templates")
+        .select("id,title,file_path")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const templatesAet = templates.filter((t: any) =>
+    /aet|ergon/i.test(t.title || "")
+  );
+  const templatesToShow = templatesAet.length > 0 ? templatesAet : templates;
+
   // Carregar AET existente
   useEffect(() => {
     if (!documentoId) return;
@@ -179,6 +401,7 @@ export default function AetWizard() {
   }, [documentoId]);
 
   const empresaNome = empresas.find((e: any) => e.id === empresaId)?.razao_social || "";
+  const allSetoresSalvos = setoresAet.length > 0 && setoresAet.every((s) => s._salvo);
 
   const handleConfirmSetores = () => {
     const novos = setoresEmpresa
@@ -195,22 +418,23 @@ export default function AetWizard() {
   };
 
   const updateSetor = (idx: number, patch: Partial<SetorAet>) => {
-    setSetoresAet(setoresAet.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+    setSetoresAet(setoresAet.map((s, i) => (i === idx ? { ...s, ...patch, _salvo: patch._salvo ?? false } : s)));
   };
 
-  const persist = async (status: "rascunho" | "concluido") => {
+  // Persistência
+  const persist = async (status: "rascunho" | "concluido", silent = false): Promise<string | null> => {
     if (!empresaId) {
       toast.error("Selecione a empresa");
-      return;
+      return null;
     }
     if (status === "concluido") {
       if (!responsavelTecnico.trim() || !dataElaboracao) {
         toast.error("Preencha responsável técnico e data de elaboração");
-        return;
+        return null;
       }
       if (setoresAet.length === 0) {
         toast.error("Adicione ao menos um setor");
-        return;
+        return null;
       }
     }
     setSaving(true);
@@ -259,19 +483,307 @@ export default function AetWizard() {
         setAetId(data.id);
       }
 
-      toast.success(status === "concluido" ? "AET finalizada!" : "Rascunho salvo");
-      if (status === "concluido") navigate("/documentos");
+      if (!silent) toast.success(status === "concluido" ? "AET finalizada!" : "Rascunho salvo");
+      return docIdLocal;
     } catch (e: any) {
       toast.error("Erro ao salvar: " + e.message);
+      return null;
     } finally {
       setSaving(false);
     }
+  };
+
+  // Salvar setor (marca como concluído visualmente)
+  const handleSalvarSetor = async () => {
+    if (editingSetorIdx === null) return;
+    const setor = setoresAet[editingSetorIdx];
+    if (!setor.funcao_id) {
+      toast.error("Selecione a função");
+      return;
+    }
+    if (!setor.descricao_atividade.trim()) {
+      toast.error("Descreva a atividade");
+      return;
+    }
+    const newSetores = setoresAet.map((s, i) =>
+      i === editingSetorIdx ? { ...s, _salvo: true } : s
+    );
+    setSetoresAet(newSetores);
+    // Persist with the updated array (state will update async)
+    setEditingSetorIdx(null);
+    toast.success(`Setor "${setor.setor_nome}" salvo`);
+    // Trigger save in background
+    setTimeout(() => persist("rascunho", true), 100);
+  };
+
+  // ─── BUILD TEMPLATE DATA ───
+  const buildTemplateData = () => {
+    const data = {
+      empresa_nome: empresaNome || "",
+      razao_social: empresaNome || "",
+      responsavel_tecnico: responsavelTecnico || "",
+      crea: crea || "",
+      cargo: cargo || "",
+      data_elaboracao: dataElaboracao
+        ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
+        : "",
+      alteracoes_documento: alteracoes || "",
+      revisoes: revisoes.map((r) => ({
+        data_revisao: r.data_revisao
+          ? new Date(r.data_revisao + "T00:00:00").toLocaleDateString("pt-BR")
+          : "",
+        descricao_revisao: r.descricao_revisao || "",
+      })),
+      setores: setoresAet.map((s) => ({
+        setor_nome: s.setor_nome || "",
+        ges: s.ges || "",
+        descricao_ambiente: s.descricao_ambiente || "",
+        funcao_nome: s.funcao_nome || "",
+        numero_funcionarios: s.numero_funcionarios || "",
+        posto_trabalho: s.posto_trabalho || "",
+        descricao_atividade: s.descricao_atividade || "",
+        analise_organizacional: s.analise_organizacional || "",
+        tarefas: s.tarefas || "",
+        riscos_observados: s.riscos_observados || "",
+        ritmo_complexidade: s.ritmo_complexidade || "",
+        jornada_aspectos: s.jornada_aspectos || "",
+        caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
+        diagnostico_ergonomico: s.diagnostico_ergonomico || "",
+        conclusao: s.conclusao || "",
+        colaboradores: (s.colaboradores || []).map((c) => ({
+          nome_colaborador: c.nome_colaborador || "",
+          data_avaliacao: c.data_avaliacao
+            ? new Date(c.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
+            : "",
+        })),
+        avaliacoes_quantitativas: (s.avaliacoes_quantitativas || []).map((a) => ({
+          especificacao_setor: a.especificacao_setor || "",
+          ruido_valor: a.ruido_valor || "",
+          ruido_unidade: a.ruido_unidade || "",
+          iluminancia_valor: a.iluminancia_valor || "",
+          iluminancia_unidade: a.iluminancia_unidade || "",
+          temperatura_valor: a.temperatura_valor || "",
+          temperatura_unidade: a.temperatura_unidade || "",
+        })),
+        plano_acao: (s.plano_acao || []).map((p) => ({
+          o_que: p.o_que || "",
+          como: p.como || "",
+          responsavel: p.responsavel || "",
+          prazo: p.prazo || "",
+        })),
+        ferramentas: (s.ferramentas || []).map((f) => ({
+          tipo: f.tipo || "",
+          dados_avaliacao: f.dados_avaliacao || "",
+          resultado: f.resultado || "",
+        })),
+        imagens_ambiente: s.imagens_ambiente || [],
+        imagens_funcao: s.imagens_funcao || [],
+      })),
+    };
+    console.log("JSON AET FINAL:", data);
+    return data;
+  };
+
+  const loadTemplateDoc = async () => {
+    const template = templates.find((t: any) => t.id === selectedTemplate);
+    if (!template) throw new Error("Template não encontrado");
+
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from("templates")
+      .download(template.file_path);
+    if (downloadError) throw downloadError;
+
+    const path: string = String(template.file_path || "").toLowerCase();
+    const isHtml = path.endsWith(".html") || path.endsWith(".htm");
+
+    if (isHtml) {
+      const htmlSource = await fileData.text();
+      let lastData: any = null;
+      const wrapper: any = {
+        kind: "html",
+        render(data: any) { lastData = data; },
+        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+        getZip() {
+          return { generate: async () => await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}) };
+        },
+      };
+      return wrapper;
+    }
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    const zip = new PizZip(arrayBuffer);
+    return new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{{", end: "}}" },
+    });
+  };
+
+  const handleValidate = async () => {
+    if (!selectedTemplate) {
+      toast.error("Selecione um template");
+      return;
+    }
+    setValidating(true);
+    setValidated(false);
+    try {
+      const doc = await loadTemplateDoc();
+      const data = buildTemplateData();
+      try {
+        doc.render(data);
+        setValidated(true);
+        setErrorList([]);
+        toast.success("✅ Documento pronto para geração");
+      } catch (renderErr: any) {
+        const errs = parseDocxErrors(renderErr).map((e) => ({
+          tipo: e.tipo,
+          explicacao: e.mensagem + " — " + e.explicacao,
+          correcao: e.correcao,
+        }));
+        setErrorList(errs);
+        setErrorsModalOpen(true);
+        toast.error(`${errs.length} erro(s) no template`);
+      }
+    } catch (e: any) {
+      toast.error("Erro ao validar: " + e.message);
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleGenerate = async () => {
+    if (!validated) {
+      toast.error("🚫 Valide o documento antes de gerar");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const doc = await loadTemplateDoc();
+      const data = buildTemplateData();
+      doc.render(data);
+
+      const output: Blob = (doc as any).kind === "html"
+        ? await (doc as any).toBlob()
+        : (doc as any).getZip().generate({
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          });
+
+      const fileName = `AET_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().getFullYear()}.docx`;
+      const storagePath = `documentos/${Date.now()}_${fileName}`;
+      const { error: upErr } = await supabase.storage.from("templates").upload(storagePath, output);
+
+      if (docId) {
+        await supabase.from("documentos").update({
+          file_path: storagePath,
+          template_id: selectedTemplate,
+          status: upErr ? "erro" : "concluido",
+        }).eq("id", docId);
+      }
+
+      saveAs(output, fileName);
+      toast.success("📄 Documento gerado com sucesso!");
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Erro ao gerar documento: " + (err.message || ""));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  // ─── EMITIR DOCUMENTO ───
+  const handleEmitir = async () => {
+    const id = await persist("rascunho", true);
+    if (id) setShowGerar(true);
   };
 
   if (loading) {
     return (
       <div className="flex justify-center py-20">
         <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  // ───── TELA: GERAR DOCUMENTO ─────
+  if (showGerar) {
+    return (
+      <div className="max-w-3xl mx-auto pb-20">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => { setShowGerar(false); setValidated(false); }}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="font-heading text-2xl font-bold">Gerar Documento AET</h1>
+            <p className="text-xs text-muted-foreground">{empresaNome}</p>
+          </div>
+        </div>
+
+        <Card className="p-8 text-center">
+          <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
+          <h2 className="font-heading text-xl font-bold mb-2">Selecione o template AET</h2>
+          <p className="text-muted-foreground mb-6 text-sm">
+            Escolha o template, valide as variáveis e gere o documento final
+          </p>
+
+          <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setValidated(false); }}>
+            <SelectTrigger className="max-w-md mx-auto"><SelectValue placeholder="Escolher template" /></SelectTrigger>
+            <SelectContent>
+              {templatesToShow.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground">Nenhum template cadastrado</div>
+              )}
+              {templatesToShow.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex justify-center gap-2 mt-6">
+            <Button
+              variant="outline"
+              onClick={handleValidate}
+              disabled={validating || !selectedTemplate}
+            >
+              {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileCheck2 className="w-4 h-4" />}
+              Validar Documento
+            </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !validated}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileDown className="w-4 h-4" />}
+              Gerar Documento
+            </Button>
+          </div>
+
+          {validated && (
+            <div className="mt-4 inline-flex items-center gap-1.5 text-sm text-emerald-700 bg-emerald-50 px-3 py-1.5 rounded-full">
+              <CheckCircle2 className="w-4 h-4" />Documento pronto para geração
+            </div>
+          )}
+        </Card>
+
+        {/* Errors modal */}
+        <Dialog open={errorsModalOpen} onOpenChange={setErrorsModalOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Erros encontrados no template</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              {errorList.map((e, i) => (
+                <Card key={i} className="p-3 border-destructive/30">
+                  <p className="text-sm font-semibold text-destructive">{e.tipo}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{e.explicacao}</p>
+                  <p className="text-xs mt-2"><strong>Correção:</strong> {e.correcao}</p>
+                </Card>
+              ))}
+            </div>
+            <DialogFooter>
+              <Button onClick={() => setErrorsModalOpen(false)}>Fechar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
@@ -293,7 +805,7 @@ export default function AetWizard() {
           </div>
         </div>
 
-        {/* Identificação do setor */}
+        {/* Identificação */}
         <Card className="p-5 mb-4">
           <h2 className="font-heading font-semibold mb-3">Identificação do setor</h2>
           <div className="grid md:grid-cols-2 gap-3">
@@ -313,7 +825,7 @@ export default function AetWizard() {
               />
             </div>
             <div>
-              <Label>Função</Label>
+              <Label>Função *</Label>
               <Select
                 value={setor.funcao_id}
                 onValueChange={(v) => {
@@ -395,7 +907,7 @@ export default function AetWizard() {
           <div className="space-y-3">
             {([
               ["posto_trabalho", "Posto de trabalho"],
-              ["descricao_atividade", "Descrição da atividade"],
+              ["descricao_atividade", "Descrição da atividade *"],
               ["analise_organizacional", "Análise organizacional"],
               ["tarefas", "Tarefas"],
               ["riscos_observados", "Riscos observados"],
@@ -413,6 +925,30 @@ export default function AetWizard() {
               </div>
             ))}
           </div>
+        </Card>
+
+        {/* Ferramentas Ergonômicas */}
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-heading font-semibold flex items-center gap-2">
+                <Wrench className="w-4 h-4" />Ferramentas Ergonômicas
+              </h2>
+              <p className="text-xs text-muted-foreground">RULA, REBA, OCRA, NIOSH, OWAS, Moore-Garg</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setFerramentasOpen(true)}>
+              {setor.ferramentas.length > 0 ? `Editar (${setor.ferramentas.length})` : "Adicionar"}
+            </Button>
+          </div>
+          {setor.ferramentas.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {setor.ferramentas.map((f, i) => (
+                <Badge key={i} variant="secondary" className="font-mono text-xs">
+                  {f.tipo}: {f.resultado || "—"}
+                </Badge>
+              ))}
+            </div>
+          )}
         </Card>
 
         {/* Avaliações quantitativas */}
@@ -563,25 +1099,41 @@ export default function AetWizard() {
           </div>
         </Card>
 
-        {/* Placeholders fase 2 */}
-        <Card className="p-5 mb-4 border-dashed">
-          <div className="flex items-center gap-2 text-muted-foreground">
-            <Settings2 className="w-4 h-4" />
-            <p className="text-sm">
-              <strong>Fase 2:</strong> Ferramentas ergonômicas (RULA, REBA, OCRA, NIOSH, OWAS, Moore-Garg) e upload de imagens serão adicionados em breve.
-            </p>
+        {/* Imagens */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3 flex items-center gap-2">
+            <ImageIcon className="w-4 h-4" />Imagens
+          </h2>
+          <div className="space-y-4">
+            <ImageUploader
+              label="Imagens do ambiente"
+              images={setor.imagens_ambiente}
+              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_ambiente: imgs })}
+            />
+            <ImageUploader
+              label="Imagens da função"
+              images={setor.imagens_funcao}
+              onChange={(imgs) => updateSetor(editingSetorIdx, { imagens_funcao: imgs })}
+            />
           </div>
         </Card>
 
         <div className="flex justify-end gap-2 sticky bottom-4 bg-background/80 backdrop-blur p-3 rounded-xl border border-border">
           <Button variant="outline" onClick={() => setEditingSetorIdx(null)}>
-            Voltar para lista
+            Voltar sem salvar
           </Button>
-          <Button onClick={() => persist("rascunho")} disabled={saving}>
+          <Button onClick={handleSalvarSetor} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-            Salvar rascunho
+            Salvar
           </Button>
         </div>
+
+        <FerramentasModal
+          open={ferramentasOpen}
+          onOpenChange={setFerramentasOpen}
+          ferramentas={setor.ferramentas}
+          onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
+        />
       </div>
     );
   }
@@ -689,18 +1241,36 @@ export default function AetWizard() {
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
             {setoresAet.map((s, i) => (
-              <div key={s.setor_id} className="border border-border rounded-lg p-4 hover:border-accent transition-colors">
+              <div
+                key={s.setor_id}
+                className={`border rounded-lg p-4 transition-colors ${
+                  s._salvo
+                    ? "border-emerald-500/50 bg-emerald-50/50"
+                    : "border-border hover:border-accent"
+                }`}
+              >
                 <div className="flex items-start justify-between mb-2">
-                  <div>
-                    <h3 className="font-semibold">{s.setor_nome}</h3>
+                  <div className="flex-1">
+                    <h3 className="font-semibold flex items-center gap-2">
+                      {s.setor_nome}
+                      {s._salvo && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
+                    </h3>
                     {s.ges && <p className="text-xs text-muted-foreground">GES: {s.ges}</p>}
+                    {s._salvo && (
+                      <p className="text-xs text-emerald-700 font-medium mt-0.5">Cadastro concluído</p>
+                    )}
                   </div>
                   <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetor(i)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
-                <Button size="sm" className="w-full mt-2" onClick={() => setEditingSetorIdx(i)}>
-                  Registrar
+                <Button
+                  size="sm"
+                  variant={s._salvo ? "outline" : "default"}
+                  className="w-full mt-2"
+                  onClick={() => setEditingSetorIdx(i)}
+                >
+                  {s._salvo ? "Editar" : "Registrar"}
                 </Button>
               </div>
             ))}
@@ -713,9 +1283,15 @@ export default function AetWizard() {
           {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
           Salvar rascunho
         </Button>
-        <Button onClick={() => persist("concluido")} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
-          Finalizar AET
-        </Button>
+        {allSetoresSalvos && (
+          <Button
+            onClick={handleEmitir}
+            disabled={saving}
+            className="bg-accent text-accent-foreground hover:bg-accent/90"
+          >
+            <FileDown className="w-4 h-4 mr-2" />Emitir Documento
+          </Button>
+        )}
       </div>
 
       {/* Modal de seleção de setores */}
