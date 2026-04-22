@@ -107,8 +107,9 @@ const newSetor = (s: any): SetorAet => ({
   conclusao: "",
   plano_acao: [],
   ferramentas: [],
-  imagens_ambiente: [],
-  imagens_funcao: [],
+  descricao_imagens_ambiente: "",
+  descricao_imagens_funcao: "",
+  avaliacoes_psicossociais: [],
   _salvo: false,
 });
 
