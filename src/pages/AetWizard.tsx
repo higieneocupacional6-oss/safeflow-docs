@@ -906,60 +906,101 @@ export default function AetWizard() {
             </Button>
           </div>
           <div className="space-y-3">
-            {setor.avaliacoes_quantitativas.map((a, i) => (
-              <div key={i} className="border border-border rounded-lg p-3 space-y-2">
-                <div className="flex items-end gap-2">
-                  <div className="flex-1">
-                    <Label className="text-xs">Especificação do setor/posto</Label>
-                    <Input
-                      value={a.especificacao_setor}
-                      onChange={(e) => {
-                        const arr = [...setor.avaliacoes_quantitativas];
-                        arr[i] = { ...arr[i], especificacao_setor: e.target.value };
-                        updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                      }}
-                    />
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
-                    updateSetor(editingSetorIdx, { avaliacoes_quantitativas: setor.avaliacoes_quantitativas.filter((_, k) => k !== i) })
-                  }>
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
-                <div className="grid grid-cols-3 gap-2">
-                  {([
-                    ["Ruído", "ruido_valor", "ruido_unidade"],
-                    ["Iluminância", "iluminancia_valor", "iluminancia_unidade"],
-                    ["Temperatura", "temperatura_valor", "temperatura_unidade"],
-                  ] as const).map(([label, vKey, uKey]) => (
-                    <div key={vKey}>
-                      <Label className="text-xs">{label}</Label>
-                      <div className="flex gap-1">
-                        <Input
-                          placeholder="valor"
-                          value={(a as any)[vKey]}
-                          onChange={(e) => {
-                            const arr = [...setor.avaliacoes_quantitativas];
-                            arr[i] = { ...arr[i], [vKey]: e.target.value };
-                            updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                          }}
-                        />
-                        <Input
-                          className="w-20"
-                          placeholder="un"
-                          value={(a as any)[uKey]}
-                          onChange={(e) => {
-                            const arr = [...setor.avaliacoes_quantitativas];
-                            arr[i] = { ...arr[i], [uKey]: e.target.value };
-                            updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
-                          }}
-                        />
-                      </div>
+            {setor.avaliacoes_quantitativas.map((a, i) => {
+              const updateA = (patch: Partial<AvalQuant>) => {
+                const arr = [...setor.avaliacoes_quantitativas];
+                arr[i] = { ...arr[i], ...patch };
+                updateSetor(editingSetorIdx, { avaliacoes_quantitativas: arr });
+              };
+              const RUIDO_NORMA = "https://www2.uesb.br/biblioteca/wp-content/uploads/2022/03/ABNT-NBR10152-AC%C3%9ASTICA-N%C3%8DVEIS-DE-PRESS%C3%83O-SONORA-EM-AMBIENTES-INTERNOS-E-EDIFICA%C3%87%C3%95ES.pdf";
+              const ILUM_NORMA = "https://drb-assessoria.com.br/drbr/nbrisocie8995.pdf";
+              return (
+                <div key={i} className="border border-border rounded-lg p-3 space-y-3">
+                  <div className="flex items-end gap-2">
+                    <div className="flex-1">
+                      <Label className="text-xs">Especificação do setor/posto</Label>
+                      <Input
+                        value={a.especificacao_setor}
+                        onChange={(e) => updateA({ especificacao_setor: e.target.value })}
+                      />
                     </div>
-                  ))}
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                      updateSetor(editingSetorIdx, { avaliacoes_quantitativas: setor.avaliacoes_quantitativas.filter((_, k) => k !== i) })
+                    }>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  {/* RUÍDO */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        Ruído
+                        <a href={RUIDO_NORMA} target="_blank" rel="noopener noreferrer" title="ABNT NBR 10152" className="text-accent hover:text-accent/80">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </Label>
+                    </div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.ruido_valor} onChange={(e) => updateA({ ruido_valor: e.target.value })} /></div>
+                    <div className="col-span-2">
+                      <Select value={a.ruido_unidade} onValueChange={(v) => updateA({ ruido_unidade: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["dB(A)", "dB(C)", "dB"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-3"><Input placeholder="limite" value={a.limite_ruido} onChange={(e) => updateA({ limite_ruido: e.target.value })} /></div>
+                    <div className="col-span-3">
+                      <Select value={a.unidade_limite_ruido} onValueChange={(v) => updateA({ unidade_limite_ruido: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["dB(A)", "dB(C)", "dB"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* ILUMINÂNCIA */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2">
+                      <Label className="text-xs flex items-center gap-1">
+                        Iluminância
+                        <a href={ILUM_NORMA} target="_blank" rel="noopener noreferrer" title="NBR ISO/CIE 8995" className="text-accent hover:text-accent/80">
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </Label>
+                    </div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.iluminancia_valor} onChange={(e) => updateA({ iluminancia_valor: e.target.value })} /></div>
+                    <div className="col-span-2">
+                      <Select value={a.iluminancia_unidade} onValueChange={(v) => updateA({ iluminancia_unidade: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["lux", "fc"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="col-span-3"><Input placeholder="limite" value={a.limite_iluminancia} onChange={(e) => updateA({ limite_iluminancia: e.target.value })} /></div>
+                    <div className="col-span-3">
+                      <Select value={a.unidade_limite_iluminancia} onValueChange={(v) => updateA({ unidade_limite_iluminancia: v })}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          {["lux", "fc"].map((u) => <SelectItem key={u} value={u}>{u}</SelectItem>)}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* TEMPERATURA */}
+                  <div className="grid grid-cols-12 gap-2 items-end">
+                    <div className="col-span-2"><Label className="text-xs">Temperatura</Label></div>
+                    <div className="col-span-2"><Input placeholder="valor" value={a.temperatura_valor} onChange={(e) => updateA({ temperatura_valor: e.target.value })} /></div>
+                    <div className="col-span-2"><Input placeholder="un" value={a.temperatura_unidade} onChange={(e) => updateA({ temperatura_unidade: e.target.value })} /></div>
+                    <div className="col-span-6"><Input placeholder="limite" value={a.limite_temperatura} onChange={(e) => updateA({ limite_temperatura: e.target.value })} /></div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             {setor.avaliacoes_quantitativas.length === 0 && (
               <p className="text-xs text-muted-foreground">Nenhuma avaliação adicionada.</p>
             )}
