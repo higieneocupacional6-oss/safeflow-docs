@@ -70,6 +70,14 @@ interface ResultadoCadastrado {
   colaborador?: string | null;
 }
 
+interface ContextoNen {
+  empresa?: string;
+  setor?: string;
+  colaboradores?: string;
+  funcoes?: string;
+  agente?: string;
+}
+
 interface Props {
   enabled: boolean;
   /** Resultados cadastrados (do modal "+ Resultados"). */
@@ -78,9 +86,11 @@ interface Props {
   value?: NenResultado | null;
   /** Callback ao salvar/atualizar cálculo. */
   onChange?: (r: NenResultado) => void;
+  /** Contexto opcional usado no PDF. */
+  contexto?: ContextoNen;
 }
 
-export function NenCalculator({ enabled, resultados = [], value, onChange }: Props) {
+export function NenCalculator({ enabled, resultados = [], value, onChange, contexto }: Props) {
   const [calcOpen, setCalcOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [resultado, setResultado] = useState<NenResultado | null>(value || null);
