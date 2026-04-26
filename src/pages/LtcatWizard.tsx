@@ -18,6 +18,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
+import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
