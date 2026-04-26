@@ -17,6 +17,7 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -3155,12 +3156,30 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {/* RUÍDO — múltiplas medições (botão exclusivo) */}
                       {!isCompAgent && isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
-                          <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
-                            <Plus className="w-4 h-4" /> + Resultados
-                          </Button>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
+                              <Plus className="w-4 h-4" /> + Resultados
+                            </Button>
+                            {(() => {
+                              const nomeLow = (riskForm.agente_nome || "").toLowerCase();
+                              const isRuidoCI = nomeLow.includes("ruído contínuo") || nomeLow.includes("ruido continuo") || nomeLow.includes("ruído intermitente") || nomeLow.includes("ruido intermitente") || (nomeLow.includes("ruído") && nomeLow.includes("intermitente")) || (nomeLow.includes("ruido") && nomeLow.includes("intermitente"));
+                              const qtd = riskForm.resultados_detalhados?.length || 0;
+                              if (!isRuidoCI || qtd <= 1) return null;
+                              return (
+                                <NenCalculator
+                                  enabled
+                                  value={(riskForm as any).nen_calc as NenResultado | undefined}
+                                  onChange={(r) => setRiskForm(prev => ({ ...prev, nen_calc: r } as any))}
+                                />
+                              );
+                            })()}
+                          </div>
                           {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
                             <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
                               <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s).
+                              {(riskForm as any).nen_calc?.nen_medio != null && (
+                                <span className="ml-2">• <strong>NEN Médio:</strong> {(riskForm as any).nen_calc.nen_medio.toFixed(1)} dB ({(riskForm as any).nen_calc.classificacao})</span>
+                              )}
                             </div>
                           )}
                         </div>
