@@ -1433,6 +1433,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
               }))
             : [],
+          // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
+          ...(() => {
+            const allRes = agentEntries.flatMap((r: any) => r.resultados_detalhados || []);
+            const allComp = agentEntries.flatMap((r: any) => r.resultados_componentes || []);
+            const nenSaved = agentEntries.find((r: any) => (r as any).nen_calc?.nen_medio != null) as any;
+            const quimicoSaved = agentEntries.find((r: any) => (r as any).quimico_calc) as any;
+            const nen_medio =
+              nenSaved?.nen_calc?.nen_medio != null
+                ? Number(nenSaved.nen_calc.nen_medio).toFixed(1)
+                : computeNenMedio(allRes);
+            const dose_media = computeDoseMedia(allRes);
+            const q = computeQuimicoMedias(allComp);
+            const media_concentracao =
+              quimicoSaved?.quimico_calc?.media_concentracao != null
+                ? String(quimicoSaved.quimico_calc.media_concentracao)
+                : q.media_concentracao;
+            const media_limite_tolerancia =
+              quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
+                ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
+                : q.media_limite_tolerancia;
+            return {
+              nen_medio: nen_medio || "",
+              dose_media: dose_media || "",
+              media_concentracao: media_concentracao || "",
+              media_limite_tolerancia: media_limite_tolerancia || "",
+            };
+          })(),
         };
       });
 
