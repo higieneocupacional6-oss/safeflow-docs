@@ -631,6 +631,100 @@ export function LtcatTemplateHelper() {
             )}
           </div>
 
+          {/* Variáveis de cálculo (NEN / Dose média / Químicos) */}
+          <div className="mt-3 border border-border rounded-lg overflow-hidden">
+            <div className="p-4 bg-muted/30">
+              <div className="flex items-center gap-2 mb-2">
+                <Badge className="bg-primary text-primary-foreground">Cálculo</Badge>
+                <span className="font-heading font-semibold">VARIÁVEIS DE CÁLCULO — LTCAT / INSALUBRIDADE</span>
+              </div>
+              <p className="text-xs text-muted-foreground italic mb-3">
+                Use dentro do loop <code className="bg-muted px-1 rounded">{"{{#riscos}}"}</code> (ou{" "}
+                <code className="bg-muted px-1 rounded">{"{{#setores}}{{#riscos}}"}</code>). Os valores são
+                calculados automaticamente a partir dos resultados cadastrados — retornam string vazia quando
+                não houver dados suficientes.
+              </p>
+              <ul className="text-xs space-y-1.5 mb-3">
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{nen_medio}}")}
+                  >
+                    {"{{nen_medio}}"}
+                    {copiedKey === "{{nen_medio}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    NEN médio (energético) em dB — NHO-01 (1 casa decimal). Para <strong>Ruído</strong>.
+                  </span>
+                </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{dose_media}}")}
+                  >
+                    {"{{dose_media}}"}
+                    {copiedKey === "{{dose_media}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Dose média (%) — média aritmética das doses cadastradas (2 casas). Usada na{" "}
+                    <strong>Insalubridade</strong> para Ruído.
+                  </span>
+                </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{media_concentracao}}")}
+                  >
+                    {"{{media_concentracao}}"}
+                    {copiedKey === "{{media_concentracao}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Média das concentrações (mg/m³) cadastradas para <strong>Químicos</strong>.
+                  </span>
+                </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{media_limite_tolerancia}}")}
+                  >
+                    {"{{media_limite_tolerancia}}"}
+                    {copiedKey === "{{media_limite_tolerancia}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Média dos limites de tolerância informados para <strong>Químicos</strong>.
+                  </span>
+                </li>
+              </ul>
+              <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
+{`{{#riscos}}
+  NEN médio: {{nen_medio}} dB
+  Dose média: {{dose_media}} %
+  Concentração média: {{media_concentracao}}
+  LT médio: {{media_limite_tolerancia}}
+{{/riscos}}`}
+              </pre>
+            </div>
+          </div>
 
           <div className="border border-border rounded-lg overflow-hidden">
             <button

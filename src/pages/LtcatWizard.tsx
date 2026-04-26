@@ -121,6 +121,65 @@ const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
 };
 
+// ---------------------------------------------------------------------------
+// Helpers de cálculo de variáveis derivadas (NEN, dose média, química)
+// ---------------------------------------------------------------------------
+const _toNumber = (v: any): number | null => {
+  if (v == null) return null;
+  const s = String(v).replace("%", "").replace(",", ".").trim();
+  if (!s) return null;
+  const n = Number(s);
+  return isFinite(n) ? n : null;
+};
+const _parseDoseDecimal = (v: any): number | null => {
+  const n = _toNumber(v);
+  if (n == null || n <= 0) return null;
+  return n > 10 ? n / 100 : n; // 80 => 0.8 ; 0.8 => 0.8
+};
+
+/** NEN médio (energético) — NHO-01 a partir das doses (%) cadastradas. "" se não houver ≥2 medições. */
+export function computeNenMedio(resultados: any[] | undefined): string {
+  const doses = (resultados || [])
+    .map((r) => _parseDoseDecimal(r?.dose_percentual ?? r?.dose))
+    .filter((x): x is number => x != null);
+  if (doses.length < 2) return "";
+  const nens = doses.map((d) => 85 + 10 * Math.log10(d));
+  const li = nens.map((n) => Math.pow(10, n / 10));
+  const media = li.reduce((a, b) => a + b, 0) / li.length;
+  return (Math.round(10 * Math.log10(media) * 10) / 10).toFixed(1);
+}
+
+/** Dose média (%) — média aritmética simples das doses cadastradas. "" se não houver. */
+export function computeDoseMedia(resultados: any[] | undefined): string {
+  const doses = (resultados || [])
+    .map((r) => _toNumber(r?.dose_percentual ?? r?.dose))
+    .filter((x): x is number => x != null && x > 0);
+  if (!doses.length) return "";
+  const m = doses.reduce((a, b) => a + b, 0) / doses.length;
+  return m.toFixed(2);
+}
+
+/** Média de concentração e de limite de tolerância para QUÍMICOS (achatando componentes). */
+export function computeQuimicoMedias(resultadosComponentes: any[] | undefined): { media_concentracao: string; media_limite_tolerancia: string } {
+  const flat: { res: number | null; lt: number | null }[] = [];
+  (resultadosComponentes || []).forEach((row: any) => {
+    const comps = row?.componentes;
+    if (Array.isArray(comps) && comps.length) {
+      comps.forEach((c: any) => flat.push({ res: _toNumber(c?.resultado), lt: _toNumber(c?.limite_tolerancia) }));
+    } else {
+      flat.push({ res: _toNumber(row?.resultado), lt: _toNumber(row?.limite_tolerancia) });
+    }
+  });
+  const reses = flat.map((f) => f.res).filter((x): x is number => x != null);
+  const lts = flat.map((f) => f.lt).filter((x): x is number => x != null);
+  const mC = reses.length ? reses.reduce((a, b) => a + b, 0) / reses.length : null;
+  const mL = lts.length ? lts.reduce((a, b) => a + b, 0) / lts.length : null;
+  return {
+    media_concentracao: mC == null ? "" : (Math.round(mC * 1000) / 1000).toString(),
+    media_limite_tolerancia: mL == null ? "" : (Math.round(mL * 1000) / 1000).toString(),
+  };
+}
+
 type WizardModo = "ltcat" | "insalubridade" | "periculosidade";
 
 export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
@@ -538,7 +597,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: (editRisk as any).unidade_tempo_coleta || "",
         parecer_tecnico: editRisk.parecer_tecnico || "",
         aposentadoria_especial: editRisk.aposentadoria_especial || "",
-      });
+        nen_calc: (editRisk as any).nen_calc,
+        quimico_calc: (editRisk as any).quimico_calc,
+      } as any);
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
         epi_ca: editRisk.epi_ca || "",
@@ -839,6 +900,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       unidade_tempo_coleta: riskForm.unidade_tempo_coleta,
       parecer_tecnico: riskForm.parecer_tecnico,
       aposentadoria_especial: riskForm.aposentadoria_especial,
+      nen_calc: (riskForm as any).nen_calc,
+      quimico_calc: (riskForm as any).quimico_calc,
     } as RiscoEntry;
 
     // Persistir parecer técnico vinculado ao risco (todas as funções/colaboradores deste risco)
@@ -1370,6 +1433,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
               }))
             : [],
+          // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
+          ...(() => {
+            const allRes = agentEntries.flatMap((r: any) => r.resultados_detalhados || []);
+            const allComp = agentEntries.flatMap((r: any) => r.resultados_componentes || []);
+            const nenSaved = agentEntries.find((r: any) => (r as any).nen_calc?.nen_medio != null) as any;
+            const quimicoSaved = agentEntries.find((r: any) => (r as any).quimico_calc) as any;
+            const nen_medio =
+              nenSaved?.nen_calc?.nen_medio != null
+                ? Number(nenSaved.nen_calc.nen_medio).toFixed(1)
+                : computeNenMedio(allRes);
+            const dose_media = computeDoseMedia(allRes);
+            const q = computeQuimicoMedias(allComp);
+            const media_concentracao =
+              quimicoSaved?.quimico_calc?.media_concentracao != null
+                ? String(quimicoSaved.quimico_calc.media_concentracao)
+                : q.media_concentracao;
+            const media_limite_tolerancia =
+              quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
+                ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
+                : q.media_limite_tolerancia;
+            return {
+              nen_medio: nen_medio || "",
+              dose_media: dose_media || "",
+              media_concentracao: media_concentracao || "",
+              media_limite_tolerancia: media_limite_tolerancia || "",
+            };
+          })(),
         };
       });
 
@@ -1459,6 +1549,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
         aposentadoria_especial,
+        // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
+        nen_medio: ((r as any).nen_calc?.nen_medio != null
+          ? Number((r as any).nen_calc.nen_medio).toFixed(1)
+          : computeNenMedio(r.resultados_detalhados)) || "",
+        dose_media: computeDoseMedia(r.resultados_detalhados) || "",
+        media_concentracao: ((r as any).quimico_calc?.media_concentracao != null
+          ? String((r as any).quimico_calc.media_concentracao)
+          : computeQuimicoMedias(r.resultados_componentes).media_concentracao) || "",
+        media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia != null
+          ? String((r as any).quimico_calc.media_limite_tolerancia)
+          : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
       };
     });
 
