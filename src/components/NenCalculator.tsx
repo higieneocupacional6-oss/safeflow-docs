@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calculator, Eye } from "lucide-react";
+import { Calculator, Eye, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 /** Converte um valor de dose (string|number) em decimal (1.0 = 100%). */
 function parseDose(raw: any): number | null {
