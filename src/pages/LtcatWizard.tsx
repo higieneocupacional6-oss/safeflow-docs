@@ -900,6 +900,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       unidade_tempo_coleta: riskForm.unidade_tempo_coleta,
       parecer_tecnico: riskForm.parecer_tecnico,
       aposentadoria_especial: riskForm.aposentadoria_especial,
+      nen_calc: (riskForm as any).nen_calc,
+      quimico_calc: (riskForm as any).quimico_calc,
     } as RiscoEntry;
 
     // Persistir parecer técnico vinculado ao risco (todas as funções/colaboradores deste risco)
