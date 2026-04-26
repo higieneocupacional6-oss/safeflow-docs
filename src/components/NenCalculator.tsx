@@ -465,6 +465,15 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
             )}
           </div>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              onClick={() => gerarPDF(resultado)}
+              disabled={!resultado}
+            >
+              <FileDown className="w-4 h-4" /> Baixar PDF
+            </Button>
             <Button variant="outline" onClick={() => setViewOpen(false)}>
               Fechar
             </Button>
