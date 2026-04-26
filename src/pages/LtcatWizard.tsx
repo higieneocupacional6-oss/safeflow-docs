@@ -3110,9 +3110,51 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {/* COMPONENTES QUÍMICOS */}
                       {isCompAgent && (
                         <div className="space-y-4">
-                          <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openComponentesModal}>
-                            <Plus className="w-4 h-4" /> + Resultado
-                          </Button>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openComponentesModal}>
+                              <Plus className="w-4 h-4" /> + Resultado
+                            </Button>
+                            {(() => {
+                              const tipoUp = (riskForm.tipo_agente || "").toUpperCase();
+                              const isQuim = tipoUp.includes("QUIMI") || tipoUp.includes("QUÍMI");
+                              if (!isQuim) return null;
+                              // Achata resultados_componentes em formato esperado
+                              const flat: any[] = [];
+                              (riskForm.resultados_componentes || []).forEach((row: any) => {
+                                (row.componentes || []).forEach((c: any) => {
+                                  flat.push({
+                                    componente_avaliado: c.componente || c.nome_componente || c.componente_avaliado || "",
+                                    resultado: c.resultado,
+                                    limite_tolerancia: c.limite_tolerancia ?? c.lt,
+                                  });
+                                });
+                              });
+                              if (flat.length <= 1) return null;
+                              const grupos: Record<string, number> = {};
+                              flat.forEach(f => {
+                                const k = String(f.componente_avaliado || "").trim();
+                                if (!k) return;
+                                grupos[k] = (grupos[k] || 0) + 1;
+                              });
+                              const temMultiplas = Object.values(grupos).some(v => v > 1);
+                              if (!temMultiplas) return null;
+                              return (
+                                <QuimicoCalculator
+                                  enabled
+                                  resultados={flat}
+                                  value={(riskForm as any).quimico_calc as QuimicoResultado | undefined}
+                                  onChange={(r) => setRiskForm(prev => ({ ...prev, quimico_calc: r } as any))}
+                                  contexto={{
+                                    empresa: empresas.find((e: any) => e.id === empresaId)?.razao_social || empresas.find((e: any) => e.id === empresaId)?.nome_fantasia || "",
+                                    setor: currentRiskSetor?.nome_setor || "",
+                                    colaboradores: (riskForm.resultados_componentes || []).map((i: any) => i.colaborador).filter(Boolean).join(", "),
+                                    funcoes: (riskForm.resultados_componentes || []).map((i: any) => i.funcao_nome).filter(Boolean).join(", "),
+                                    agente: riskForm.agente_nome || "",
+                                  }}
+                                />
+                              );
+                            })()}
+                          </div>
                           {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (
                             <div className="space-y-2">
                               {riskForm.resultados_componentes.map((row: any, ri: number) => (
