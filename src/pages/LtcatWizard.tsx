@@ -3168,6 +3168,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               return (
                                 <NenCalculator
                                   enabled
+                                  resultados={riskForm.resultados_detalhados || []}
                                   value={(riskForm as any).nen_calc as NenResultado | undefined}
                                   onChange={(r) => setRiskForm(prev => ({ ...prev, nen_calc: r } as any))}
                                 />
