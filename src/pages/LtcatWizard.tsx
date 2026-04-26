@@ -597,7 +597,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: (editRisk as any).unidade_tempo_coleta || "",
         parecer_tecnico: editRisk.parecer_tecnico || "",
         aposentadoria_especial: editRisk.aposentadoria_especial || "",
-      });
+        nen_calc: (editRisk as any).nen_calc,
+        quimico_calc: (editRisk as any).quimico_calc,
+      } as any);
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
         epi_ca: editRisk.epi_ca || "",
