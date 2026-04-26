@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
-import { Calculator, Eye } from "lucide-react";
+import { Calculator, Eye, FileDown } from "lucide-react";
+import jsPDF from "jspdf";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "sonner";
 
 /** Converte um valor de dose (string|number) em decimal (1.0 = 100%). */
 function parseDose(raw: any): number | null {
@@ -68,6 +70,14 @@ interface ResultadoCadastrado {
   colaborador?: string | null;
 }
 
+interface ContextoNen {
+  empresa?: string;
+  setor?: string;
+  colaboradores?: string;
+  funcoes?: string;
+  agente?: string;
+}
+
 interface Props {
   enabled: boolean;
   /** Resultados cadastrados (do modal "+ Resultados"). */
@@ -76,9 +86,11 @@ interface Props {
   value?: NenResultado | null;
   /** Callback ao salvar/atualizar cálculo. */
   onChange?: (r: NenResultado) => void;
+  /** Contexto opcional usado no PDF. */
+  contexto?: ContextoNen;
 }
 
-export function NenCalculator({ enabled, resultados = [], value, onChange }: Props) {
+export function NenCalculator({ enabled, resultados = [], value, onChange, contexto }: Props) {
   const [calcOpen, setCalcOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [resultado, setResultado] = useState<NenResultado | null>(value || null);
@@ -231,6 +243,149 @@ export function NenCalculator({ enabled, resultados = [], value, onChange }: Pro
     </div>
   );
 
+  const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
+
+  const gerarPDF = (r: NenResultado | null) => {
+    if (!r || !r.linhas?.length) {
+      toast.error("Nenhum dado disponível para exportação");
+      return;
+    }
+    const doc = new jsPDF({ unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const margin = 15;
+    let y = margin;
+
+    // Cabeçalho
+    doc.setFillColor(15, 23, 42);
+    doc.rect(0, 0, pageW, 22, "F");
+    doc.setTextColor(255, 255, 255);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.text("CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
+    doc.setFontSize(8);
+    doc.setFont("helvetica", "normal");
+    doc.text("Relatório técnico gerado automaticamente", pageW / 2, 18, { align: "center" });
+
+    y = 30;
+    doc.setTextColor(0, 0, 0);
+
+    // Identificação
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("IDENTIFICAÇÃO", margin, y);
+    y += 2;
+    doc.setDrawColor(15, 23, 42);
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    const dataAval = new Date().toLocaleDateString("pt-BR");
+    const linhasIdent: [string, string][] = [
+      ["Empresa:", contexto?.empresa || "—"],
+      ["Setor:", contexto?.setor || "—"],
+      ["Colaborador(es):", contexto?.colaboradores || "—"],
+      ["Função(ões):", contexto?.funcoes || "—"],
+      ["Agente:", contexto?.agente || "Ruído contínuo ou intermitente"],
+      ["Data da avaliação:", dataAval],
+    ];
+    linhasIdent.forEach(([k, v]) => {
+      doc.setFont("helvetica", "bold");
+      doc.text(k, margin, y);
+      doc.setFont("helvetica", "normal");
+      const lines = doc.splitTextToSize(String(v || "—"), pageW - margin * 2 - 40);
+      doc.text(lines, margin + 38, y);
+      y += 5 * Math.max(1, lines.length);
+    });
+
+    y += 4;
+
+    // Tabela
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("RESULTADOS DAS MEDIÇÕES", margin, y);
+    y += 2;
+    doc.line(margin, y, pageW - margin, y);
+    y += 4;
+
+    const colX = [margin, margin + 45, margin + 85, margin + 125, margin + 160];
+    const headers = ["Dose informada", "Dose convertida", "NEN (dB)", "Classificação"];
+    doc.setFillColor(230, 230, 235);
+    doc.rect(margin, y, pageW - margin * 2, 7, "F");
+    doc.setFontSize(9);
+    headers.forEach((h, i) => doc.text(h, colX[i] + 2, y + 5));
+    y += 7;
+
+    doc.setFont("helvetica", "normal");
+    r.linhas.forEach((l, idx) => {
+      if (y > 270) { doc.addPage(); y = margin; }
+      if (idx % 2 === 0) {
+        doc.setFillColor(248, 248, 250);
+        doc.rect(margin, y, pageW - margin * 2, 7, "F");
+      }
+      doc.text(String(l.raw || "—"), colX[0] + 2, y + 5);
+      doc.text(`${(l.dose * 100).toFixed(1)}%`, colX[1] + 2, y + 5);
+      doc.text(l.nen.toFixed(1), colX[2] + 2, y + 5);
+      doc.text(l.classificacao, colX[3] + 2, y + 5);
+      y += 7;
+    });
+
+    y += 6;
+
+    // Passo a passo
+    if (r.passos) {
+      if (y > 240) { doc.addPage(); y = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.text("CÁLCULO – PASSO A PASSO (NHO-01)", margin, y);
+      y += 2;
+      doc.line(margin, y, pageW - margin, y);
+      y += 5;
+
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(9);
+      const blocos: string[] = [
+        "1. NEN individual: NEN = 85 + 10 x log10(D)",
+        ...r.linhas.map((l) => `   D = ${l.dose.toFixed(4)}  =>  NEN = ${l.nen.toFixed(1)} dB`),
+        "",
+        "2. Conversão energética: Li = 10^(NEN/10)",
+        `   [${r.passos.li.map((v) => v.toExponential(3)).join(", ")}]`,
+        "",
+        "3. Soma e média:",
+        `   Soma Li = ${r.passos.soma.toExponential(3)}`,
+        `   Lm = Soma / n = ${r.passos.media.toExponential(3)}`,
+        "",
+        "4. NEN médio: 10 x log10(Lm)",
+        `   NEN médio = ${r.nen_medio.toFixed(1)} dB`,
+      ];
+      blocos.forEach((linha) => {
+        const wrapped = doc.splitTextToSize(linha, pageW - margin * 2);
+        if (y + wrapped.length * 4.5 > 280) { doc.addPage(); y = margin; }
+        doc.text(wrapped, margin, y);
+        y += wrapped.length * 4.5;
+      });
+      y += 4;
+    }
+
+    // Resultado final
+    if (y > 250) { doc.addPage(); y = margin; }
+    const acima = r.classificacao === "Acima do limite";
+    if (acima) doc.setFillColor(254, 226, 226);
+    else doc.setFillColor(220, 252, 231);
+    doc.roundedRect(margin, y, pageW - margin * 2, 22, 2, 2, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(acima ? 153 : 6, acima ? 27 : 95, acima ? 27 : 70);
+    doc.text(`NEN Médio: ${r.nen_medio.toFixed(1)} dB`, pageW / 2, y + 9, { align: "center" });
+    doc.setFontSize(10);
+    doc.text(r.classificacao, pageW / 2, y + 16, { align: "center" });
+    doc.setTextColor(0, 0, 0);
+
+    const colab = sanitize(contexto?.colaboradores?.split(",")[0] || "colaborador");
+    const dataFile = new Date().toISOString().slice(0, 10);
+    doc.save(`NEN_Ruido_${colab}_${dataFile}.pdf`);
+  };
+
   return (
     <>
       <div className="flex gap-2">
@@ -274,6 +429,15 @@ export function NenCalculator({ enabled, resultados = [], value, onChange }: Pro
           </div>
 
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              onClick={() => gerarPDF(computed.data || resultado)}
+              disabled={!computed.data && !resultado}
+            >
+              <FileDown className="w-4 h-4" /> Baixar PDF
+            </Button>
             <Button variant="outline" onClick={() => setCalcOpen(false)}>
               Fechar
             </Button>
@@ -301,6 +465,15 @@ export function NenCalculator({ enabled, resultados = [], value, onChange }: Pro
             )}
           </div>
           <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              className="gap-2"
+              onClick={() => gerarPDF(resultado)}
+              disabled={!resultado}
+            >
+              <FileDown className="w-4 h-4" /> Baixar PDF
+            </Button>
             <Button variant="outline" onClick={() => setViewOpen(false)}>
               Fechar
             </Button>
