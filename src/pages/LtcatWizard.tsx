@@ -3171,6 +3171,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   resultados={riskForm.resultados_detalhados || []}
                                   value={(riskForm as any).nen_calc as NenResultado | undefined}
                                   onChange={(r) => setRiskForm(prev => ({ ...prev, nen_calc: r } as any))}
+                                  contexto={{
+                                    empresa: empresas.find((e: any) => e.id === empresaId)?.razao_social || empresas.find((e: any) => e.id === empresaId)?.nome_fantasia || "",
+                                    setor: currentRiskSetor?.nome_setor || "",
+                                    colaboradores: (riskForm.items || []).map((i: any) => i.colaborador).filter(Boolean).join(", "),
+                                    funcoes: (riskForm.items || []).map((i: any) => i.funcao_nome).filter(Boolean).join(", "),
+                                    agente: riskForm.agente_nome || "",
+                                  }}
                                 />
                               );
                             })()}
