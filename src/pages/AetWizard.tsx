@@ -295,10 +295,9 @@ export default function AetWizard() {
       const { data, error } = await supabase
         .from("setores")
         .select("id,nome_setor,ghe_ges,descricao_ambiente")
-        .eq("empresa_id", empresaId)
-        .order("nome_setor");
+        .eq("empresa_id", empresaId);
       if (error) throw error;
-      return data;
+      return sortByGes(data || []);
     },
     enabled: !!empresaId,
   });
