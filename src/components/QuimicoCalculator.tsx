@@ -83,17 +83,21 @@ function classificarVariabilidade(v: number): Variabilidade {
 export function calcularExposicaoPorComponente(
   dados: ResultadoCadastrado[],
 ): QuimicoComponenteResultado[] {
-  const grupos: Record<string, { linhas: QuimicoLinha[]; lt: number | null }> = {};
+  const grupos: Record<string, { linhas: QuimicoLinha[]; lts: number[]; unidade: string }> = {};
   for (const d of dados || []) {
     const nome = String(d.componente_avaliado || d.componente || "").trim();
     if (!nome) continue;
     const valor = parseConc(d.resultado);
+    const ltVal = parseConc(d.limite_tolerancia);
+    if (!grupos[nome]) grupos[nome] = { linhas: [], lts: [], unidade: String(d.unidade || "") };
+    if (!grupos[nome].unidade && d.unidade) grupos[nome].unidade = String(d.unidade);
+    if (ltVal != null) grupos[nome].lts.push(ltVal);
     if (valor == null) continue;
-    if (!grupos[nome]) grupos[nome] = { linhas: [], lt: parseConc(d.limite_tolerancia) };
-    if (grupos[nome].lt == null) grupos[nome].lt = parseConc(d.limite_tolerancia);
     grupos[nome].linhas.push({ raw: String(d.resultado ?? ""), valor });
   }
   return Object.entries(grupos).map(([componente, g]) => {
+    const lt_media = g.lts.length ? g.lts.reduce((a, b) => a + b, 0) / g.lts.length : null;
+    const lt = g.lts.length ? g.lts[0] : null;
     if (g.linhas.length === 0) {
       return {
         componente,
@@ -103,7 +107,9 @@ export function calcularExposicaoPorComponente(
         max: 0,
         variacao_pct: 0,
         variabilidade: "Baixa",
-        lt: g.lt,
+        lt,
+        lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+        unidade: g.unidade || "",
         situacao: "Sem LT",
         erro: "Componente sem medições válidas",
       } as QuimicoComponenteResultado;
@@ -117,7 +123,7 @@ export function calcularExposicaoPorComponente(
       media > 0 ? Math.round(((max - min) / media) * 100 * 10) / 10 : 0;
     const variabilidade = classificarVariabilidade(variacao_pct);
     const situacao: Situacao =
-      g.lt == null ? "Sem LT" : media >= g.lt ? "Acima do limite" : "Abaixo do limite";
+      lt_media == null ? "Sem LT" : media >= lt_media ? "Acima do limite" : "Abaixo do limite";
     return {
       componente,
       linhas: g.linhas,
@@ -126,7 +132,9 @@ export function calcularExposicaoPorComponente(
       max: Math.round(max * 100) / 100,
       variacao_pct,
       variabilidade,
-      lt: g.lt,
+      lt,
+      lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+      unidade: g.unidade || "",
       situacao,
     };
   });
