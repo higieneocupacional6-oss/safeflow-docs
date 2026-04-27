@@ -243,27 +243,58 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     );
   };
 
-  const renderResultadoFinal = (r: NenResultado) => (
-    <div
-      className={`rounded-xl border p-5 text-center ${
-        r.classificacao === "Acima do limite"
-          ? "bg-red-50 border-red-200"
-          : "bg-emerald-50 border-emerald-200"
-      }`}
-    >
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">
-        NEN Médio (energético) — NHO-01
-      </p>
-      <p
-        className={`text-3xl font-heading font-bold mt-1 ${
-          r.classificacao === "Acima do limite" ? "text-red-700" : "text-emerald-700"
+  const renderResultadoFinal = (r: NenResultado) => {
+    if (isInsalubridade) {
+      const dm = r.dose_media ?? 0;
+      return (
+        <div className="space-y-3">
+          <div className="rounded-xl border p-5 text-center bg-primary/5 border-primary/30">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Dose Média (NR-15) — Resultado principal
+            </p>
+            <p className="text-3xl font-heading font-bold mt-1 text-primary">
+              {dm.toFixed(2)} %
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Média aritmética simples das doses cadastradas
+            </p>
+          </div>
+          <div className="rounded-lg border p-3 text-center bg-muted/30">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              NEN Médio (informativo) — NHO-01
+            </p>
+            <p className="text-lg font-heading font-semibold">
+              {r.nen_medio.toFixed(1)} dB <span className="text-xs font-normal text-muted-foreground">• {r.classificacao}</span>
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`rounded-xl border p-5 text-center ${
+          r.classificacao === "Acima do limite"
+            ? "bg-red-50 border-red-200"
+            : "bg-emerald-50 border-emerald-200"
         }`}
       >
-        {r.nen_medio.toFixed(1)} dB
-      </p>
-      <p className="text-sm font-medium mt-1">{r.classificacao}</p>
-    </div>
-  );
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          NEN Médio (energético) — NHO-01
+        </p>
+        <p
+          className={`text-3xl font-heading font-bold mt-1 ${
+            r.classificacao === "Acima do limite" ? "text-red-700" : "text-emerald-700"
+          }`}
+        >
+          {r.nen_medio.toFixed(1)} dB
+        </p>
+        <p className="text-sm font-medium mt-1">{r.classificacao}</p>
+        {r.dose_media != null && (
+          <p className="text-xs text-muted-foreground mt-2">Dose média: <strong>{r.dose_media.toFixed(2)}%</strong></p>
+        )}
+      </div>
+    );
+  };
 
   const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
 
