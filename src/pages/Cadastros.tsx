@@ -101,6 +101,15 @@ export default function Cadastros() {
       toast.error("Informe o nome do EPI/EPC");
       return;
     }
+    // Duplicidade (mesmo nome + mesmo tipo)
+    const nomeNorm = epiEpcForm.nome.trim().toLowerCase();
+    const dup = (epiEpcList as any[]).find(
+      (i) => i.id !== editingId && i.tipo === epiEpcForm.tipo && (i.nome || "").trim().toLowerCase() === nomeNorm
+    );
+    if (dup) {
+      toast.error(`Já existe um ${epiEpcForm.tipo} com este nome.`);
+      return;
+    }
     setEpiEpcSaving(true);
     try {
       if (editingId) {
