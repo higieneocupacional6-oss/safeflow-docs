@@ -44,6 +44,8 @@ export interface NenRow {
 export interface NenResultado {
   linhas: NenRow[];
   nen_medio: number;
+  /** Dose média (%) — média aritmética das doses cadastradas, prioritária para Insalubridade (NR-15). */
+  dose_media?: number;
   classificacao: "Aceitável" | "Acima do limite";
   passos?: {
     li: number[];
@@ -61,6 +63,14 @@ export function calcularNEN(doses: number[]): { nens: number[]; nen_medio: numbe
   const media = soma / li.length;
   const nen_medio = Math.round(10 * Math.log10(media) * 10) / 10;
   return { nens, nen_medio, li, soma, media };
+}
+
+/** Dose média (%) — média aritmética simples. NR-15. */
+export function calcularDoseMedia(dosesDecimal: number[]): number {
+  if (!dosesDecimal.length) return 0;
+  const pcts = dosesDecimal.map((d) => d * 100);
+  const m = pcts.reduce((a, b) => a + b, 0) / pcts.length;
+  return Math.round(m * 100) / 100;
 }
 
 interface ResultadoCadastrado {
