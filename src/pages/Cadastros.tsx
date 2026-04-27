@@ -27,7 +27,7 @@ export default function Cadastros() {
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
   const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
-  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", certificado: "" });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
@@ -173,7 +173,7 @@ export default function Cadastros() {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+      setEquipmentForm({ nome: "", marca: "", certificado: "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({ nome: "", referencia: "" });
@@ -199,8 +199,7 @@ export default function Cadastros() {
       setEquipmentForm({
         nome: item.nome,
         marca: item.marca || "",
-        serie_equipamento: item.serie_equipamento || "",
-        data_calibracao: item.data_calibracao || ""
+        certificado: item.certificado || ""
       });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
@@ -272,7 +271,14 @@ export default function Cadastros() {
       const { error } = await supabase.from(tableMap[type]).delete().eq("id", id);
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: [type === "tecnicas" ? "tecnicas_amostragem" : type] });
+      const queryKeyMap: Record<string, string> = {
+        riscos: "riscos",
+        tecnicas: "tecnicas_amostragem",
+        equipamentos: "equipamentos_ho",
+        unidades: "unidades",
+        epi_epc: "epi_epc",
+      };
+      await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
     } catch (err: any) {
       toast.error("Erro ao excluir: " + (err.message || "Tente novamente"));
@@ -381,21 +387,16 @@ export default function Cadastros() {
 
           <TabsContent value="equipamentos" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Série</TableHead><TableHead>Calibração</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado / Série</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
                 ) : (
                   equipamentos_ho.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nome}</TableCell>
                       <TableCell>{e.marca || "—"}</TableCell>
-                      <TableCell>{e.serie_equipamento || "—"}</TableCell>
-                      <TableCell>
-                        {e.data_calibracao ? (
-                          <Badge variant="secondary">{new Date(e.data_calibracao).toLocaleDateString("pt-BR")}</Badge>
-                        ) : "—"}
-                      </TableCell>
+                      <TableCell>{e.certificado || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
@@ -612,23 +613,14 @@ export default function Cadastros() {
                     />
                   </div>
                   <div>
-                    <Label>Série do Equipamento</Label>
+                    <Label>Certificado / Nº Série</Label>
                     <Input 
                       className="mt-1" 
-                      placeholder="Ex: SN12345" 
-                      value={equipmentForm.serie_equipamento}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, serie_equipamento: e.target.value })}
+                      placeholder="Ex: SN12345 / RBC 2024" 
+                      value={equipmentForm.certificado}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, certificado: e.target.value })}
                     />
                   </div>
-                </div>
-                <div>
-                  <Label>Data de Calibração</Label>
-                  <Input 
-                    type="date" 
-                    className="mt-1" 
-                    value={equipmentForm.data_calibracao}
-                    onChange={e => setEquipmentForm({ ...equipmentForm, data_calibracao: e.target.value })}
-                  />
                 </div>
               </>
             )}
@@ -657,7 +649,7 @@ export default function Cadastros() {
                     const payload = {
                       nome: equipmentForm.nome.trim(),
                       marca: equipmentForm.marca.trim() || null,
-                      certificado: equipmentForm.serie_equipamento?.trim() || null,
+                      certificado: equipmentForm.certificado?.trim() || null,
                     };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
