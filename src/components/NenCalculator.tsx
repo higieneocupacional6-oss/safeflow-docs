@@ -314,7 +314,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
+    doc.text(isInsalubridade ? "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – DOSE MÉDIA (NR-15)" : "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Relatório técnico gerado automaticamente", pageW / 2, 18, { align: "center" });
