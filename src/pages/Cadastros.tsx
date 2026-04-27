@@ -647,7 +647,7 @@ export default function Cadastros() {
                     const payload = {
                       nome: equipmentForm.nome.trim(),
                       marca: equipmentForm.marca.trim() || null,
-                      certificado: equipmentForm.serie_equipamento?.trim() || null,
+                      certificado: equipmentForm.certificado?.trim() || null,
                     };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
