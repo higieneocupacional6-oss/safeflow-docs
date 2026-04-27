@@ -35,6 +35,18 @@ export default function Cadastros() {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
+  // Realtime sync: any change made in this session OR in another open tab/user
+  // triggers an automatic refetch of the lists used here AND in other modals
+  // (LTCAT, Insalubridade, AET) since they share the same query keys.
+  useRealtimeSync([
+    { table: "riscos", queryKey: ["riscos"] },
+    { table: "tecnicas_amostragem", queryKey: ["tecnicas_amostragem"] },
+    { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
+    { table: "unidades", queryKey: ["unidades"] },
+    { table: "epi_epc", queryKey: ["epi_epc"] },
+    { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
+  ]);
+
   const { data: riscos = [] } = useQuery({
     queryKey: ["riscos"],
     queryFn: async () => {
