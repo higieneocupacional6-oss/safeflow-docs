@@ -21,8 +21,7 @@ export function useRealtimeSync(
     const channel = supabase.channel(channelName);
 
     subscriptions.forEach(({ table, queryKey }) => {
-      channel.on(
-        // @ts-expect-error - postgres_changes types are loose
+      (channel as any).on(
         "postgres_changes",
         { event: "*", schema: "public", table },
         () => {
