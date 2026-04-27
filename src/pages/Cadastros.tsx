@@ -27,7 +27,7 @@ export default function Cadastros() {
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
   const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
-  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", certificado: "" });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
