@@ -676,8 +676,7 @@ export function LtcatTemplateHelper() {
                     )}
                   </Badge>{" "}
                   <span className="text-muted-foreground">
-                    Dose média (%) — média aritmética das doses cadastradas (2 casas). Usada na{" "}
-                    <strong>Insalubridade</strong> para Ruído.
+                    Dose média (%) — média aritmética das doses cadastradas (2 casas). Informativo para <strong>Insalubridade</strong>.
                   </span>
                 </li>
                 <li>
