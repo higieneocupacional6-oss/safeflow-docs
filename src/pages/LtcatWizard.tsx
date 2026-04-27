@@ -429,9 +429,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryKey: ["setores", empresaId],
     queryFn: async () => {
       if (!empresaId) return [];
-      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId).order("nome_setor");
+      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId);
       if (error) throw error;
-      return data;
+      return sortByGes(data || []);
     },
     enabled: !!empresaId,
   });
