@@ -1494,7 +1494,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               nenSaved?.nen_calc?.nen_medio != null
                 ? Number(nenSaved.nen_calc.nen_medio).toFixed(1)
                 : computeNenMedio(allRes);
-            const dose_media = computeDoseMedia(allRes);
+            const dose_media =
+              nenSaved?.nen_calc?.dose_media != null
+                ? Number(nenSaved.nen_calc.dose_media).toFixed(2)
+                : computeDoseMedia(allRes);
             const q = computeQuimicoMedias(allComp);
             const media_concentracao =
               quimicoSaved?.quimico_calc?.media_concentracao != null
