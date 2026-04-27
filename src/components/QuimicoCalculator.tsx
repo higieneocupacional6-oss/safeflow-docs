@@ -252,8 +252,8 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
               <p className="font-mono">{c.variacao_pct.toFixed(1)}%</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
-              <p className="text-xs uppercase text-muted-foreground tracking-wider">LT</p>
-              <p className="font-mono">{c.lt != null ? c.lt.toFixed(2) : "—"}</p>
+              <p className="text-xs uppercase text-muted-foreground tracking-wider">LT (média)</p>
+              <p className="font-mono">{c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
             </div>
           </div>
         </>
