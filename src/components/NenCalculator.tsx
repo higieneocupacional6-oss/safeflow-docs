@@ -250,21 +250,21 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
         <div className="space-y-3">
           <div className="rounded-xl border p-5 text-center bg-primary/5 border-primary/30">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Dose Média (NR-15) — Resultado principal
+              NEN Médio (NR-15) — Resultado principal
             </p>
             <p className="text-3xl font-heading font-bold mt-1 text-primary">
-              {dm.toFixed(2)} %
+              {r.nen_medio.toFixed(1)} dB
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Média aritmética simples das doses cadastradas
+              Média energética das doses cadastradas (NHO-01)
             </p>
           </div>
           <div className="rounded-lg border p-3 text-center bg-muted/30">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              NEN Médio (informativo) — NHO-01
+              Dose Média (informativo) — NR-15
             </p>
             <p className="text-lg font-heading font-semibold">
-              {r.nen_medio.toFixed(1)} dB <span className="text-xs font-normal text-muted-foreground">• {r.classificacao}</span>
+              {dm.toFixed(2)} % <span className="text-xs font-normal text-muted-foreground">• Média aritmética simples</span>
             </p>
           </div>
         </div>
