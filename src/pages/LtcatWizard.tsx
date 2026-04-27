@@ -1509,6 +1509,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               dose_media: dose_media || "",
               media_concentracao: media_concentracao || "",
               media_limite_tolerancia: media_limite_tolerancia || "",
+              componentes_resumo: computeComponentesResumo(allComp, unidades),
             };
           })(),
         };
