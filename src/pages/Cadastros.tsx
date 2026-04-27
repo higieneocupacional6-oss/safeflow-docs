@@ -380,21 +380,16 @@ export default function Cadastros() {
 
           <TabsContent value="equipamentos" className="m-0">
             <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Série</TableHead><TableHead>Calibração</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
+              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado / Série</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
               <TableBody>
                 {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={5} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
                 ) : (
                   equipamentos_ho.map((e: any) => (
                     <TableRow key={e.id}>
                       <TableCell className="font-medium">{e.nome}</TableCell>
                       <TableCell>{e.marca || "—"}</TableCell>
-                      <TableCell>{e.serie_equipamento || "—"}</TableCell>
-                      <TableCell>
-                        {e.data_calibracao ? (
-                          <Badge variant="secondary">{new Date(e.data_calibracao).toLocaleDateString("pt-BR")}</Badge>
-                        ) : "—"}
-                      </TableCell>
+                      <TableCell>{e.certificado || "—"}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
