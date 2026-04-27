@@ -1086,7 +1086,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   };
 
   const buildTemplateData = () => {
-    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
+    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)))
+      .sort((a, b) => {
+        const sa = setores.find(s => s.id === a);
+        const sb = setores.find(s => s.id === b);
+        return sortByGes([sa, sb].filter(Boolean) as any).findIndex((s: any) => s.id === a) -
+               sortByGes([sa, sb].filter(Boolean) as any).findIndex((s: any) => s.id === b);
+      });
     const empresa = empresas.find((e: any) => e.id === empresaId);
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
