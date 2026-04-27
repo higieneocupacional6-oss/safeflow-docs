@@ -647,6 +647,11 @@ export default function Cadastros() {
               onClick={async () => { 
                 if (tab === "equipamentos") {
                   if (!equipmentForm.nome.trim()) { toast.error("Informe o nome do equipamento"); return; }
+                  const nomeNorm = equipmentForm.nome.trim().toLowerCase();
+                  const dup = (equipamentos_ho as any[]).find(
+                    (i) => i.id !== editingId && (i.nome || "").trim().toLowerCase() === nomeNorm
+                  );
+                  if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
                     const payload = {
@@ -657,11 +662,11 @@ export default function Cadastros() {
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
-                      toast.success("Equipamento atualizado!");
+                      toast.success("Equipamento atualizado com sucesso!");
                     } else {
                       const { error } = await supabase.from("equipamentos_ho").insert(payload);
                       if (error) throw error;
-                      toast.success("Equipamento cadastrado!");
+                      toast.success("Equipamento cadastrado com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                     setDialogOpen(false);
@@ -672,17 +677,22 @@ export default function Cadastros() {
                   }
                 } else if (tab === "tecnicas") {
                   if (!tecnicasForm.nome.trim()) { toast.error("Informe o nome da técnica"); return; }
+                  const nomeNorm = tecnicasForm.nome.trim().toLowerCase();
+                  const dup = (tecnicas as any[]).find(
+                    (i) => i.id !== editingId && (i.nome || "").trim().toLowerCase() === nomeNorm
+                  );
+                  if (dup) { toast.error("Já existe uma técnica com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
                     const payload = { nome: tecnicasForm.nome.trim(), referencia: tecnicasForm.referencia.trim() || null };
                     if (editingId) {
                       const { error } = await supabase.from("tecnicas_amostragem").update(payload).eq("id", editingId);
                       if (error) throw error;
-                      toast.success("Técnica atualizada!");
+                      toast.success("Técnica atualizada com sucesso!");
                     } else {
                       const { error } = await supabase.from("tecnicas_amostragem").insert(payload);
                       if (error) throw error;
-                      toast.success("Técnica cadastrada!");
+                      toast.success("Técnica cadastrada com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["tecnicas_amostragem"] });
                     setDialogOpen(false);
@@ -693,17 +703,22 @@ export default function Cadastros() {
                   }
                 } else if (tab === "unidades") {
                   if (!unidadesForm.simbolo.trim()) { toast.error("Informe o símbolo"); return; }
+                  const simNorm = unidadesForm.simbolo.trim().toLowerCase();
+                  const dup = (unidades as any[]).find(
+                    (i) => i.id !== editingId && (i.simbolo || "").trim().toLowerCase() === simNorm
+                  );
+                  if (dup) { toast.error("Já existe uma unidade com este símbolo."); return; }
                   setEquipmentSaving(true);
                   try {
                     const payload = { simbolo: unidadesForm.simbolo.trim(), nome: unidadesForm.nome.trim() || null };
                     if (editingId) {
                       const { error } = await supabase.from("unidades").update(payload).eq("id", editingId);
                       if (error) throw error;
-                      toast.success("Unidade atualizada!");
+                      toast.success("Unidade atualizada com sucesso!");
                     } else {
                       const { error } = await supabase.from("unidades").insert(payload);
                       if (error) throw error;
-                      toast.success("Unidade cadastrada!");
+                      toast.success("Unidade cadastrada com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["unidades"] });
                     setDialogOpen(false);
