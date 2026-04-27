@@ -438,7 +438,10 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
           </DialogHeader>
           <div className="space-y-4 py-2">
             {resultado?.componentes?.length ? (
-              resultado.componentes.map((c) => renderComponente(c))
+              <>
+                {resultado.componentes.map((c) => renderComponente(c))}
+                {renderResumo(resultado.componentes)}
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum cálculo salvo.</p>
             )}
