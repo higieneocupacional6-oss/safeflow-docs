@@ -47,6 +47,8 @@ export interface QuimicoComponenteResultado {
   variacao_pct: number;
   variabilidade: Variabilidade;
   lt: number | null;
+  lt_media: number | null;
+  unidade: string;
   situacao: Situacao;
   erro?: string;
 }
@@ -60,6 +62,7 @@ interface ResultadoCadastrado {
   componente?: string | null;
   resultado?: string | number | null;
   limite_tolerancia?: string | number | null;
+  unidade?: string | null;
 }
 
 interface ContextoQuimico {
