@@ -1608,7 +1608,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nen_medio: ((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
           : computeNenMedio(r.resultados_detalhados)) || "",
-        dose_media: computeDoseMedia(r.resultados_detalhados) || "",
+        dose_media: ((r as any).nen_calc?.dose_media != null
+          ? Number((r as any).nen_calc.dose_media).toFixed(2)
+          : computeDoseMedia(r.resultados_detalhados)) || "",
         media_concentracao: ((r as any).quimico_calc?.media_concentracao != null
           ? String((r as any).quimico_calc.media_concentracao)
           : computeQuimicoMedias(r.resultados_componentes).media_concentracao) || "",
