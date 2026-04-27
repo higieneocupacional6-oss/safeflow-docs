@@ -44,6 +44,8 @@ export interface NenRow {
 export interface NenResultado {
   linhas: NenRow[];
   nen_medio: number;
+  /** Dose média (%) — média aritmética das doses cadastradas, prioritária para Insalubridade (NR-15). */
+  dose_media?: number;
   classificacao: "Aceitável" | "Acima do limite";
   passos?: {
     li: number[];
@@ -61,6 +63,14 @@ export function calcularNEN(doses: number[]): { nens: number[]; nen_medio: numbe
   const media = soma / li.length;
   const nen_medio = Math.round(10 * Math.log10(media) * 10) / 10;
   return { nens, nen_medio, li, soma, media };
+}
+
+/** Dose média (%) — média aritmética simples. NR-15. */
+export function calcularDoseMedia(dosesDecimal: number[]): number {
+  if (!dosesDecimal.length) return 0;
+  const pcts = dosesDecimal.map((d) => d * 100);
+  const m = pcts.reduce((a, b) => a + b, 0) / pcts.length;
+  return Math.round(m * 100) / 100;
 }
 
 interface ResultadoCadastrado {
@@ -88,9 +98,19 @@ interface Props {
   onChange?: (r: NenResultado) => void;
   /** Contexto opcional usado no PDF. */
   contexto?: ContextoNen;
+  /** Tipo de documento — adapta título e prioridade do cálculo. */
+  modo?: "ltcat" | "insalubridade" | "periculosidade";
 }
 
-export function NenCalculator({ enabled, resultados = [], value, onChange, contexto }: Props) {
+export function NenCalculator({ enabled, resultados = [], value, onChange, contexto, modo = "ltcat" }: Props) {
+  const isInsalubridade = modo === "insalubridade";
+  const tituloModal = isInsalubridade
+    ? "Cálculo de média - Ruído (NR-15)"
+    : "Cálculo de NEN – Ruído (NHO-01)";
+  const tituloVisualizar = isInsalubridade
+    ? "Visualizar cálculo de média - Ruído (NR-15)"
+    : "Visualizar Cálculo de NEN — Ruído (NHO-01)";
+  const tituloBotao = isInsalubridade ? "Calcular média (NR-15)" : "Calcular NEN";
   const [calcOpen, setCalcOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [resultado, setResultado] = useState<NenResultado | null>(value || null);
@@ -125,10 +145,12 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
       colaborador: p.colaborador,
       classificacao: nens[i] >= 85 ? "Acima do limite" : "Aceitável",
     }));
+    const dose_media = calcularDoseMedia(parsed.map((p) => p.dose));
     return {
       data: {
         linhas,
         nen_medio,
+        dose_media,
         classificacao: nen_medio >= 85 ? "Acima do limite" : "Aceitável",
         passos: { li, soma, media },
       },
@@ -221,27 +243,58 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     );
   };
 
-  const renderResultadoFinal = (r: NenResultado) => (
-    <div
-      className={`rounded-xl border p-5 text-center ${
-        r.classificacao === "Acima do limite"
-          ? "bg-red-50 border-red-200"
-          : "bg-emerald-50 border-emerald-200"
-      }`}
-    >
-      <p className="text-xs uppercase tracking-wider text-muted-foreground">
-        NEN Médio (energético) — NHO-01
-      </p>
-      <p
-        className={`text-3xl font-heading font-bold mt-1 ${
-          r.classificacao === "Acima do limite" ? "text-red-700" : "text-emerald-700"
+  const renderResultadoFinal = (r: NenResultado) => {
+    if (isInsalubridade) {
+      const dm = r.dose_media ?? 0;
+      return (
+        <div className="space-y-3">
+          <div className="rounded-xl border p-5 text-center bg-primary/5 border-primary/30">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">
+              Dose Média (NR-15) — Resultado principal
+            </p>
+            <p className="text-3xl font-heading font-bold mt-1 text-primary">
+              {dm.toFixed(2)} %
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Média aritmética simples das doses cadastradas
+            </p>
+          </div>
+          <div className="rounded-lg border p-3 text-center bg-muted/30">
+            <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+              NEN Médio (informativo) — NHO-01
+            </p>
+            <p className="text-lg font-heading font-semibold">
+              {r.nen_medio.toFixed(1)} dB <span className="text-xs font-normal text-muted-foreground">• {r.classificacao}</span>
+            </p>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div
+        className={`rounded-xl border p-5 text-center ${
+          r.classificacao === "Acima do limite"
+            ? "bg-red-50 border-red-200"
+            : "bg-emerald-50 border-emerald-200"
         }`}
       >
-        {r.nen_medio.toFixed(1)} dB
-      </p>
-      <p className="text-sm font-medium mt-1">{r.classificacao}</p>
-    </div>
-  );
+        <p className="text-xs uppercase tracking-wider text-muted-foreground">
+          NEN Médio (energético) — NHO-01
+        </p>
+        <p
+          className={`text-3xl font-heading font-bold mt-1 ${
+            r.classificacao === "Acima do limite" ? "text-red-700" : "text-emerald-700"
+          }`}
+        >
+          {r.nen_medio.toFixed(1)} dB
+        </p>
+        <p className="text-sm font-medium mt-1">{r.classificacao}</p>
+        {r.dose_media != null && (
+          <p className="text-xs text-muted-foreground mt-2">Dose média: <strong>{r.dose_media.toFixed(2)}%</strong></p>
+        )}
+      </div>
+    );
+  };
 
   const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
 
@@ -261,7 +314,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text("CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
+    doc.text(isInsalubridade ? "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – DOSE MÉDIA (NR-15)" : "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Relatório técnico gerado automaticamente", pageW / 2, 18, { align: "center" });
@@ -390,7 +443,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     <>
       <div className="flex gap-2">
         <Button type="button" variant="outline" className="gap-2" onClick={() => setCalcOpen(true)}>
-          <Calculator className="w-4 h-4" /> Calcular NEN
+          <Calculator className="w-4 h-4" /> {tituloBotao}
         </Button>
         {resultado && (
           <Button type="button" variant="outline" className="gap-2" onClick={() => setViewOpen(true)}>
@@ -404,7 +457,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading uppercase">
-              Cálculo de NEN – Ruído (NHO-01)
+              {tituloModal}
             </DialogTitle>
           </DialogHeader>
 
@@ -450,7 +503,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading uppercase">
-              Visualizar Cálculo de NEN — Ruído (NHO-01)
+              {tituloVisualizar}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-2">

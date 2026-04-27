@@ -1494,7 +1494,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               nenSaved?.nen_calc?.nen_medio != null
                 ? Number(nenSaved.nen_calc.nen_medio).toFixed(1)
                 : computeNenMedio(allRes);
-            const dose_media = computeDoseMedia(allRes);
+            const dose_media =
+              nenSaved?.nen_calc?.dose_media != null
+                ? Number(nenSaved.nen_calc.dose_media).toFixed(2)
+                : computeDoseMedia(allRes);
             const q = computeQuimicoMedias(allComp);
             const media_concentracao =
               quimicoSaved?.quimico_calc?.media_concentracao != null
@@ -1605,7 +1608,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nen_medio: ((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
           : computeNenMedio(r.resultados_detalhados)) || "",
-        dose_media: computeDoseMedia(r.resultados_detalhados) || "",
+        dose_media: ((r as any).nen_calc?.dose_media != null
+          ? Number((r as any).nen_calc.dose_media).toFixed(2)
+          : computeDoseMedia(r.resultados_detalhados)) || "",
         media_concentracao: ((r as any).quimico_calc?.media_concentracao != null
           ? String((r as any).quimico_calc.media_concentracao)
           : computeQuimicoMedias(r.resultados_componentes).media_concentracao) || "",
@@ -3367,6 +3372,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               return (
                                 <NenCalculator
                                   enabled
+                                  modo={modo}
                                   resultados={riskForm.resultados_detalhados || []}
                                   value={(riskForm as any).nen_calc as NenResultado | undefined}
                                   onChange={(r) => setRiskForm(prev => ({ ...prev, nen_calc: r } as any))}
@@ -3384,6 +3390,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
                             <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
                               <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s).
+                              {(riskForm as any).nen_calc?.dose_media != null && modo === "insalubridade" && (
+                                <span className="ml-2">• <strong>Dose Média:</strong> {Number((riskForm as any).nen_calc.dose_media).toFixed(2)}%</span>
+                              )}
                               {(riskForm as any).nen_calc?.nen_medio != null && (
                                 <span className="ml-2">• <strong>NEN Médio:</strong> {(riskForm as any).nen_calc.nen_medio.toFixed(1)} dB ({(riskForm as any).nen_calc.classificacao})</span>
                               )}
