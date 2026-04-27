@@ -271,7 +271,14 @@ export default function Cadastros() {
       const { error } = await supabase.from(tableMap[type]).delete().eq("id", id);
       if (error) throw error;
 
-      queryClient.invalidateQueries({ queryKey: [type === "tecnicas" ? "tecnicas_amostragem" : type] });
+      const queryKeyMap: Record<string, string> = {
+        riscos: "riscos",
+        tecnicas: "tecnicas_amostragem",
+        equipamentos: "equipamentos_ho",
+        unidades: "unidades",
+        epi_epc: "epi_epc",
+      };
+      await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
     } catch (err: any) {
       toast.error("Erro ao excluir: " + (err.message || "Tente novamente"));
