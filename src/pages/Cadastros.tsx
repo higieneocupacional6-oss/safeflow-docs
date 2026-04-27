@@ -199,8 +199,7 @@ export default function Cadastros() {
       setEquipmentForm({
         nome: item.nome,
         marca: item.marca || "",
-        serie_equipamento: item.serie_equipamento || "",
-        data_calibracao: item.data_calibracao || ""
+        certificado: item.certificado || ""
       });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
