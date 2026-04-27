@@ -611,23 +611,14 @@ export default function Cadastros() {
                     />
                   </div>
                   <div>
-                    <Label>Série do Equipamento</Label>
+                    <Label>Certificado / Nº Série</Label>
                     <Input 
                       className="mt-1" 
-                      placeholder="Ex: SN12345" 
-                      value={equipmentForm.serie_equipamento}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, serie_equipamento: e.target.value })}
+                      placeholder="Ex: SN12345 / RBC 2024" 
+                      value={equipmentForm.certificado}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, certificado: e.target.value })}
                     />
                   </div>
-                </div>
-                <div>
-                  <Label>Data de Calibração</Label>
-                  <Input 
-                    type="date" 
-                    className="mt-1" 
-                    value={equipmentForm.data_calibracao}
-                    onChange={e => setEquipmentForm({ ...equipmentForm, data_calibracao: e.target.value })}
-                  />
                 </div>
               </>
             )}
