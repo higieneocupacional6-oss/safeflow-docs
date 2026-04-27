@@ -19,6 +19,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
+import { sortByGes } from "@/lib/sortGes";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -428,9 +429,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryKey: ["setores", empresaId],
     queryFn: async () => {
       if (!empresaId) return [];
-      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId).order("nome_setor");
+      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId);
       if (error) throw error;
-      return data;
+      return sortByGes(data || []);
     },
     enabled: !!empresaId,
   });
@@ -1085,7 +1086,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   };
 
   const buildTemplateData = () => {
-    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)));
+    const activeSectorIds = new Set(riscos.map(r => r.setor_id));
+    // Ordena pelos setores já ordenados por GES
+    const activeSectors = sortByGes(setores.filter((s: any) => activeSectorIds.has(s.id)))
+      .map((s: any) => s.id);
     const empresa = empresas.find((e: any) => e.id === empresaId);
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {

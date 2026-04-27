@@ -22,6 +22,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
+import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string };
@@ -295,10 +296,9 @@ export default function AetWizard() {
       const { data, error } = await supabase
         .from("setores")
         .select("id,nome_setor,ghe_ges,descricao_ambiente")
-        .eq("empresa_id", empresaId)
-        .order("nome_setor");
+        .eq("empresa_id", empresaId);
       if (error) throw error;
-      return data;
+      return sortByGes(data || []);
     },
     enabled: !!empresaId,
   });
