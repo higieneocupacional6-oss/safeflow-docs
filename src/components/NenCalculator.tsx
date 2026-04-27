@@ -105,12 +105,12 @@ interface Props {
 export function NenCalculator({ enabled, resultados = [], value, onChange, contexto, modo = "ltcat" }: Props) {
   const isInsalubridade = modo === "insalubridade";
   const tituloModal = isInsalubridade
-    ? "Cálculo de média - Ruído (NR-15)"
+    ? "Cálculo de NEN – Ruído (NR-15)"
     : "Cálculo de NEN – Ruído (NHO-01)";
   const tituloVisualizar = isInsalubridade
-    ? "Visualizar cálculo de média - Ruído (NR-15)"
+    ? "Visualizar Cálculo de NEN — Ruído (NR-15)"
     : "Visualizar Cálculo de NEN — Ruído (NHO-01)";
-  const tituloBotao = isInsalubridade ? "Calcular média (NR-15)" : "Calcular NEN";
+  const tituloBotao = isInsalubridade ? "Calcular NEN (NR-15)" : "Calcular NEN";
   const [calcOpen, setCalcOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [resultado, setResultado] = useState<NenResultado | null>(value || null);
@@ -250,21 +250,21 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
         <div className="space-y-3">
           <div className="rounded-xl border p-5 text-center bg-primary/5 border-primary/30">
             <p className="text-xs uppercase tracking-wider text-muted-foreground">
-              Dose Média (NR-15) — Resultado principal
+              NEN Médio (NR-15) — Resultado principal
             </p>
             <p className="text-3xl font-heading font-bold mt-1 text-primary">
-              {dm.toFixed(2)} %
+              {r.nen_medio.toFixed(1)} dB
             </p>
             <p className="text-xs text-muted-foreground mt-1">
-              Média aritmética simples das doses cadastradas
+              Média energética das doses cadastradas (NHO-01)
             </p>
           </div>
           <div className="rounded-lg border p-3 text-center bg-muted/30">
             <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
-              NEN Médio (informativo) — NHO-01
+              Dose Média (informativo) — NR-15
             </p>
             <p className="text-lg font-heading font-semibold">
-              {r.nen_medio.toFixed(1)} dB <span className="text-xs font-normal text-muted-foreground">• {r.classificacao}</span>
+              {dm.toFixed(2)} % <span className="text-xs font-normal text-muted-foreground">• Média aritmética simples</span>
             </p>
           </div>
         </div>
@@ -314,7 +314,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     doc.setTextColor(255, 255, 255);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(13);
-    doc.text(isInsalubridade ? "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – DOSE MÉDIA (NR-15)" : "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
+    doc.text(isInsalubridade ? "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NR-15)" : "CÁLCULO DE EXPOSIÇÃO AO RUÍDO – NEN (NHO-01)", pageW / 2, 13, { align: "center" });
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
     doc.text("Relatório técnico gerado automaticamente", pageW / 2, 18, { align: "center" });

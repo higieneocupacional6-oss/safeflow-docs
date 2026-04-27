@@ -3390,11 +3390,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           {riskForm.resultados_detalhados && riskForm.resultados_detalhados.length > 0 && (
                             <div className="text-sm text-foreground p-3 border rounded-lg bg-muted/20">
                               <strong>{riskForm.resultados_detalhados.length}</strong> resultado(s) cadastrado(s).
-                              {(riskForm as any).nen_calc?.dose_media != null && modo === "insalubridade" && (
-                                <span className="ml-2">• <strong>Dose Média:</strong> {Number((riskForm as any).nen_calc.dose_media).toFixed(2)}%</span>
+                              {(riskForm as any).nen_calc?.nen_medio != null && modo === "insalubridade" && (
+                                <span className="ml-2">• <strong>NEN Médio:</strong> {Number((riskForm as any).nen_calc.nen_medio).toFixed(1)} dB</span>
                               )}
-                              {(riskForm as any).nen_calc?.nen_medio != null && (
-                                <span className="ml-2">• <strong>NEN Médio:</strong> {(riskForm as any).nen_calc.nen_medio.toFixed(1)} dB ({(riskForm as any).nen_calc.classificacao})</span>
+                              {(riskForm as any).nen_calc?.dose_media != null && (
+                                <span className="ml-2">• <strong>Dose Média:</strong> {Number((riskForm as any).nen_calc.dose_media).toFixed(2)}% (informativo)</span>
                               )}
                             </div>
                           )}
