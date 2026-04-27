@@ -180,6 +180,57 @@ export function computeQuimicoMedias(resultadosComponentes: any[] | undefined): 
   };
 }
 
+/** Resumo agrupado por componente_avaliado: média da concentração, média do LT e unidade. */
+export function computeComponentesResumo(
+  resultadosComponentes: any[] | undefined,
+  unidadesList: any[] = [],
+): Array<{ componente_nome: string; media_concentracao: string; media_limite_tolerancia: string; unidade: string }> {
+  const grupos: Record<string, { reses: number[]; lts: number[]; unidade: string }> = {};
+  const resolveUnidade = (row: any, comp?: any): string => {
+    const direct = comp?.unidade || comp?.unidade_resultado || row?.unidade || row?.unidade_resultado || "";
+    if (direct) return String(direct);
+    const id = comp?.unidade_resultado_id || row?.unidade_resultado_id;
+    if (id && Array.isArray(unidadesList)) {
+      const u = unidadesList.find((x: any) => x?.id === id);
+      if (u?.simbolo) return String(u.simbolo);
+    }
+    return "";
+  };
+  (resultadosComponentes || []).forEach((row: any) => {
+    const comps = Array.isArray(row?.componentes) && row.componentes.length ? row.componentes : null;
+    if (comps) {
+      comps.forEach((c: any) => {
+        const nome = String(c?.componente_avaliado || c?.componente || "").trim();
+        if (!nome) return;
+        if (!grupos[nome]) grupos[nome] = { reses: [], lts: [], unidade: resolveUnidade(row, c) };
+        if (!grupos[nome].unidade) grupos[nome].unidade = resolveUnidade(row, c);
+        const r = _toNumber(c?.resultado); const l = _toNumber(c?.limite_tolerancia);
+        if (r != null) grupos[nome].reses.push(r);
+        if (l != null) grupos[nome].lts.push(l);
+      });
+    } else {
+      const nome = String(row?.componente_avaliado || row?.componente || "").trim();
+      if (!nome) return;
+      if (!grupos[nome]) grupos[nome] = { reses: [], lts: [], unidade: resolveUnidade(row) };
+      if (!grupos[nome].unidade) grupos[nome].unidade = resolveUnidade(row);
+      const r = _toNumber(row?.resultado); const l = _toNumber(row?.limite_tolerancia);
+      if (r != null) grupos[nome].reses.push(r);
+      if (l != null) grupos[nome].lts.push(l);
+    }
+  });
+  const fmt = (n: number) => (Math.round(n * 1000) / 1000).toString();
+  return Object.entries(grupos).map(([componente_nome, g]) => {
+    const mC = g.reses.length ? g.reses.reduce((a, b) => a + b, 0) / g.reses.length : null;
+    const mL = g.lts.length ? g.lts.reduce((a, b) => a + b, 0) / g.lts.length : null;
+    return {
+      componente_nome: componente_nome || "",
+      media_concentracao: mC == null ? "" : fmt(mC),
+      media_limite_tolerancia: mL == null ? "" : fmt(mL),
+      unidade: g.unidade || "",
+    };
+  });
+}
+
 type WizardModo = "ltcat" | "insalubridade" | "periculosidade";
 
 export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
@@ -1458,6 +1509,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               dose_media: dose_media || "",
               media_concentracao: media_concentracao || "",
               media_limite_tolerancia: media_limite_tolerancia || "",
+              componentes_resumo: computeComponentesResumo(allComp, unidades),
             };
           })(),
         };
@@ -1560,6 +1612,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia != null
           ? String((r as any).quimico_calc.media_limite_tolerancia)
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
+        componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
       };
     });
 
@@ -3222,11 +3275,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               // Achata resultados_componentes em formato esperado
                               const flat: any[] = [];
                               (riskForm.resultados_componentes || []).forEach((row: any) => {
+                                const uSym = unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo || "";
                                 (row.componentes || []).forEach((c: any) => {
                                   flat.push({
                                     componente_avaliado: c.componente || c.nome_componente || c.componente_avaliado || "",
                                     resultado: c.resultado,
                                     limite_tolerancia: c.limite_tolerancia ?? c.lt,
+                                    unidade: c.unidade || uSym || "",
                                   });
                                 });
                               });

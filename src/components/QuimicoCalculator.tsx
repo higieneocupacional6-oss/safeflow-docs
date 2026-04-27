@@ -47,6 +47,8 @@ export interface QuimicoComponenteResultado {
   variacao_pct: number;
   variabilidade: Variabilidade;
   lt: number | null;
+  lt_media: number | null;
+  unidade: string;
   situacao: Situacao;
   erro?: string;
 }
@@ -60,6 +62,7 @@ interface ResultadoCadastrado {
   componente?: string | null;
   resultado?: string | number | null;
   limite_tolerancia?: string | number | null;
+  unidade?: string | null;
 }
 
 interface ContextoQuimico {
@@ -80,17 +83,21 @@ function classificarVariabilidade(v: number): Variabilidade {
 export function calcularExposicaoPorComponente(
   dados: ResultadoCadastrado[],
 ): QuimicoComponenteResultado[] {
-  const grupos: Record<string, { linhas: QuimicoLinha[]; lt: number | null }> = {};
+  const grupos: Record<string, { linhas: QuimicoLinha[]; lts: number[]; unidade: string }> = {};
   for (const d of dados || []) {
     const nome = String(d.componente_avaliado || d.componente || "").trim();
     if (!nome) continue;
     const valor = parseConc(d.resultado);
+    const ltVal = parseConc(d.limite_tolerancia);
+    if (!grupos[nome]) grupos[nome] = { linhas: [], lts: [], unidade: String(d.unidade || "") };
+    if (!grupos[nome].unidade && d.unidade) grupos[nome].unidade = String(d.unidade);
+    if (ltVal != null) grupos[nome].lts.push(ltVal);
     if (valor == null) continue;
-    if (!grupos[nome]) grupos[nome] = { linhas: [], lt: parseConc(d.limite_tolerancia) };
-    if (grupos[nome].lt == null) grupos[nome].lt = parseConc(d.limite_tolerancia);
     grupos[nome].linhas.push({ raw: String(d.resultado ?? ""), valor });
   }
   return Object.entries(grupos).map(([componente, g]) => {
+    const lt_media = g.lts.length ? g.lts.reduce((a, b) => a + b, 0) / g.lts.length : null;
+    const lt = g.lts.length ? g.lts[0] : null;
     if (g.linhas.length === 0) {
       return {
         componente,
@@ -100,7 +107,9 @@ export function calcularExposicaoPorComponente(
         max: 0,
         variacao_pct: 0,
         variabilidade: "Baixa",
-        lt: g.lt,
+        lt,
+        lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+        unidade: g.unidade || "",
         situacao: "Sem LT",
         erro: "Componente sem medições válidas",
       } as QuimicoComponenteResultado;
@@ -114,7 +123,7 @@ export function calcularExposicaoPorComponente(
       media > 0 ? Math.round(((max - min) / media) * 100 * 10) / 10 : 0;
     const variabilidade = classificarVariabilidade(variacao_pct);
     const situacao: Situacao =
-      g.lt == null ? "Sem LT" : media >= g.lt ? "Acima do limite" : "Abaixo do limite";
+      lt_media == null ? "Sem LT" : media >= lt_media ? "Acima do limite" : "Abaixo do limite";
     return {
       componente,
       linhas: g.linhas,
@@ -123,7 +132,9 @@ export function calcularExposicaoPorComponente(
       max: Math.round(max * 100) / 100,
       variacao_pct,
       variabilidade,
-      lt: g.lt,
+      lt,
+      lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+      unidade: g.unidade || "",
       situacao,
     };
   });
@@ -241,12 +252,39 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
               <p className="font-mono">{c.variacao_pct.toFixed(1)}%</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
-              <p className="text-xs uppercase text-muted-foreground tracking-wider">LT</p>
-              <p className="font-mono">{c.lt != null ? c.lt.toFixed(2) : "—"}</p>
+              <p className="text-xs uppercase text-muted-foreground tracking-wider">LT (média)</p>
+              <p className="font-mono">{c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
             </div>
           </div>
         </>
       )}
+    </div>
+  );
+
+  const renderResumo = (componentes: QuimicoComponenteResultado[]) => (
+    <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+      <h4 className="font-heading font-bold uppercase tracking-wide text-sm">
+        Resumo por componente
+      </h4>
+      <div className="space-y-3">
+        {componentes.map((c) => (
+          <div key={`resumo-${c.componente}`} className="rounded-lg border bg-card p-3 text-sm space-y-1">
+            <p className="font-bold uppercase tracking-wide">Componente: {c.componente}</p>
+            <p>
+              <span className="text-muted-foreground">Média da concentração: </span>
+              <span className="font-mono font-semibold">
+                {c.linhas.length ? `${c.media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Limite de tolerância (média): </span>
+              <span className="font-mono font-semibold">
+                {c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+              </span>
+            </p>
+          </div>
+        ))}
+      </div>
     </div>
   );
 
@@ -357,6 +395,30 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       y += 6;
     });
 
+    // Resumo final por componente (média da concentração + LT médio + unidade)
+    if (y > 240) { doc.addPage(); y = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("RESUMO POR COMPONENTE", margin, y);
+    y += 2;
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+    r.componentes.forEach((c) => {
+      const u = c.unidade ? ` ${c.unidade}` : "";
+      const linhas = [
+        `Componente: ${c.componente}`,
+        `Média da concentração: ${c.linhas.length ? c.media.toFixed(2) + u : "—"}`,
+        `Limite de tolerância (média): ${c.lt_media != null ? c.lt_media.toFixed(2) + u : "—"}`,
+      ];
+      if (y + linhas.length * 5 + 4 > 285) { doc.addPage(); y = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(linhas[0], margin, y); y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.text(linhas[1], margin, y); y += 5;
+      doc.text(linhas[2], margin, y); y += 7;
+    });
+
     const nome = sanitize(contexto?.colaboradores?.split(",")[0] || "quimico");
     const dataFile = new Date().toISOString().slice(0, 10);
     doc.save(`Quimico_NHO08_${nome}_${dataFile}.pdf`);
@@ -399,6 +461,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
               </div>
             )}
             {computed.data?.componentes.map((c) => renderComponente(c))}
+            {computed.data?.componentes?.length ? renderResumo(computed.data.componentes) : null}
           </div>
           <DialogFooter>
             <Button
@@ -426,7 +489,10 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
           </DialogHeader>
           <div className="space-y-4 py-2">
             {resultado?.componentes?.length ? (
-              resultado.componentes.map((c) => renderComponente(c))
+              <>
+                {resultado.componentes.map((c) => renderComponente(c))}
+                {renderResumo(resultado.componentes)}
+              </>
             ) : (
               <p className="text-sm text-muted-foreground">Nenhum cálculo salvo.</p>
             )}
