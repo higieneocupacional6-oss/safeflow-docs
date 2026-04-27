@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 // Mock data removed in favor of real database queries
 
