@@ -443,7 +443,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
     <>
       <div className="flex gap-2">
         <Button type="button" variant="outline" className="gap-2" onClick={() => setCalcOpen(true)}>
-          <Calculator className="w-4 h-4" /> Calcular NEN
+          <Calculator className="w-4 h-4" /> {tituloBotao}
         </Button>
         {resultado && (
           <Button type="button" variant="outline" className="gap-2" onClick={() => setViewOpen(true)}>
