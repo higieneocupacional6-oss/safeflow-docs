@@ -145,10 +145,12 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
       colaborador: p.colaborador,
       classificacao: nens[i] >= 85 ? "Acima do limite" : "Aceitável",
     }));
+    const dose_media = calcularDoseMedia(parsed.map((p) => p.dose));
     return {
       data: {
         linhas,
         nen_medio,
+        dose_media,
         classificacao: nen_medio >= 85 ? "Acima do limite" : "Aceitável",
         passos: { li, soma, media },
       },
