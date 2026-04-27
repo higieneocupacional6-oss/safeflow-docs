@@ -22,6 +22,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
+import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string };
