@@ -395,6 +395,30 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       y += 6;
     });
 
+    // Resumo final por componente (média da concentração + LT médio + unidade)
+    if (y > 240) { doc.addPage(); y = margin; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text("RESUMO POR COMPONENTE", margin, y);
+    y += 2;
+    doc.line(margin, y, pageW - margin, y);
+    y += 5;
+    r.componentes.forEach((c) => {
+      const u = c.unidade ? ` ${c.unidade}` : "";
+      const linhas = [
+        `Componente: ${c.componente}`,
+        `Média da concentração: ${c.linhas.length ? c.media.toFixed(2) + u : "—"}`,
+        `Limite de tolerância (média): ${c.lt_media != null ? c.lt_media.toFixed(2) + u : "—"}`,
+      ];
+      if (y + linhas.length * 5 + 4 > 285) { doc.addPage(); y = margin; }
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.text(linhas[0], margin, y); y += 5;
+      doc.setFont("helvetica", "normal");
+      doc.text(linhas[1], margin, y); y += 5;
+      doc.text(linhas[2], margin, y); y += 7;
+    });
+
     const nome = sanitize(contexto?.colaboradores?.split(",")[0] || "quimico");
     const dataFile = new Date().toISOString().slice(0, 10);
     doc.save(`Quimico_NHO08_${nome}_${dataFile}.pdf`);
