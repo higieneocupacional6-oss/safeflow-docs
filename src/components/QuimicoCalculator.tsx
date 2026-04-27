@@ -410,6 +410,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
               </div>
             )}
             {computed.data?.componentes.map((c) => renderComponente(c))}
+            {computed.data?.componentes?.length ? renderResumo(computed.data.componentes) : null}
           </div>
           <DialogFooter>
             <Button
