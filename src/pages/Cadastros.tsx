@@ -173,7 +173,7 @@ export default function Cadastros() {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: "", marca: "", serie_equipamento: "", data_calibracao: "" });
+      setEquipmentForm({ nome: "", marca: "", certificado: "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({ nome: "", referencia: "" });
