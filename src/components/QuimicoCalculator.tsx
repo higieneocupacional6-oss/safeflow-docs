@@ -261,6 +261,33 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
     </div>
   );
 
+  const renderResumo = (componentes: QuimicoComponenteResultado[]) => (
+    <div className="rounded-xl border-2 border-primary/30 bg-primary/5 p-4 space-y-3">
+      <h4 className="font-heading font-bold uppercase tracking-wide text-sm">
+        Resumo por componente
+      </h4>
+      <div className="space-y-3">
+        {componentes.map((c) => (
+          <div key={`resumo-${c.componente}`} className="rounded-lg border bg-card p-3 text-sm space-y-1">
+            <p className="font-bold uppercase tracking-wide">Componente: {c.componente}</p>
+            <p>
+              <span className="text-muted-foreground">Média da concentração: </span>
+              <span className="font-mono font-semibold">
+                {c.linhas.length ? `${c.media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Limite de tolerância (média): </span>
+              <span className="font-mono font-semibold">
+                {c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+              </span>
+            </p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
   const sanitize = (s: string) => (s || "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
 
   const gerarPDF = (r: QuimicoResultado | null) => {
