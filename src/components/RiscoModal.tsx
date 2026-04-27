@@ -69,6 +69,19 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
       toast.error("Preencha o nome do agente e o tipo.");
       return;
     }
+    // Duplicidade (mesmo nome + mesmo tipo)
+    const { data: existentes } = await supabase
+      .from("riscos")
+      .select("id, nome, tipo")
+      .eq("tipo", tipo);
+    const nomeNorm = nome.trim().toLowerCase();
+    const dup = (existentes || []).find(
+      (r) => r.id !== editingId && (r.nome || "").trim().toLowerCase() === nomeNorm
+    );
+    if (dup) {
+      toast.error("Já existe um agente com este nome e tipo.");
+      return;
+    }
     setSaving(true);
     const payload = {
       nome: nome.trim(),
