@@ -3275,11 +3275,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               // Achata resultados_componentes em formato esperado
                               const flat: any[] = [];
                               (riskForm.resultados_componentes || []).forEach((row: any) => {
+                                const uSym = unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo || "";
                                 (row.componentes || []).forEach((c: any) => {
                                   flat.push({
                                     componente_avaliado: c.componente || c.nome_componente || c.componente_avaliado || "",
                                     resultado: c.resultado,
                                     limite_tolerancia: c.limite_tolerancia ?? c.lt,
+                                    unidade: c.unidade || uSym || "",
                                   });
                                 });
                               });
