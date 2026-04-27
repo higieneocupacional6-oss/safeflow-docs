@@ -1086,13 +1086,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   };
 
   const buildTemplateData = () => {
-    const activeSectors = Array.from(new Set(riscos.map(r => r.setor_id)))
-      .sort((a, b) => {
-        const sa = setores.find(s => s.id === a);
-        const sb = setores.find(s => s.id === b);
-        return sortByGes([sa, sb].filter(Boolean) as any).findIndex((s: any) => s.id === a) -
-               sortByGes([sa, sb].filter(Boolean) as any).findIndex((s: any) => s.id === b);
-      });
+    const activeSectorIds = new Set(riscos.map(r => r.setor_id));
+    // Ordena pelos setores já ordenados por GES
+    const activeSectors = sortByGes(setores.filter((s: any) => activeSectorIds.has(s.id)))
+      .map((s: any) => s.id);
     const empresa = empresas.find((e: any) => e.id === empresaId);
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
