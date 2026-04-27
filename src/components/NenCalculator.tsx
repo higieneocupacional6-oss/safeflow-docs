@@ -457,7 +457,7 @@ export function NenCalculator({ enabled, resultados = [], value, onChange, conte
         <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading uppercase">
-              Cálculo de NEN – Ruído (NHO-01)
+              {tituloModal}
             </DialogTitle>
           </DialogHeader>
 
