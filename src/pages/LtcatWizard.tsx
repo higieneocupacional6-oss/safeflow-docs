@@ -19,6 +19,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
+import { sortByGes } from "@/lib/sortGes";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
