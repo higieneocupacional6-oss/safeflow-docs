@@ -105,12 +105,12 @@ interface Props {
 export function NenCalculator({ enabled, resultados = [], value, onChange, contexto, modo = "ltcat" }: Props) {
   const isInsalubridade = modo === "insalubridade";
   const tituloModal = isInsalubridade
-    ? "Cálculo de média - Ruído (NR-15)"
+    ? "Cálculo de NEN – Ruído (NR-15)"
     : "Cálculo de NEN – Ruído (NHO-01)";
   const tituloVisualizar = isInsalubridade
-    ? "Visualizar cálculo de média - Ruído (NR-15)"
+    ? "Visualizar Cálculo de NEN — Ruído (NR-15)"
     : "Visualizar Cálculo de NEN — Ruído (NHO-01)";
-  const tituloBotao = isInsalubridade ? "Calcular média (NR-15)" : "Calcular NEN";
+  const tituloBotao = isInsalubridade ? "Calcular NEN (NR-15)" : "Calcular NEN";
   const [calcOpen, setCalcOpen] = useState(false);
   const [viewOpen, setViewOpen] = useState(false);
   const [resultado, setResultado] = useState<NenResultado | null>(value || null);
