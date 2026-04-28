@@ -285,23 +285,23 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Média</p>
-              <p className="font-mono font-bold text-base">{c.media.toFixed(2)}</p>
+              <p className="font-mono font-bold text-base break-all">{fmtFull(c.media)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Mínimo</p>
-              <p className="font-mono">{c.min.toFixed(2)}</p>
+              <p className="font-mono break-all">{fmtFull(c.min)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Máximo</p>
-              <p className="font-mono">{c.max.toFixed(2)}</p>
+              <p className="font-mono break-all">{fmtFull(c.max)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Variação</p>
-              <p className="font-mono">{c.variacao_pct.toFixed(1)}%</p>
+              <p className="font-mono">{fmtFull(c.variacao_pct)}%</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">LT (média)</p>
-              <p className="font-mono">{c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
+              <p className="font-mono break-all">{c.lt_media != null ? `${fmtFull(c.lt_media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
             </div>
           </div>
         </>
