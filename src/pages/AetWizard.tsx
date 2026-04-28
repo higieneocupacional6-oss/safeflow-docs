@@ -479,8 +479,12 @@ export default function AetWizard() {
   const handleSalvarSetor = async () => {
     if (editingSetorIdx === null) return;
     const setor = setoresAet[editingSetorIdx];
-    if (!setor.funcao_id) {
-      toast.error("Selecione a função");
+    if (!setor.funcoes_selecionadas || setor.funcoes_selecionadas.length === 0) {
+      toast.error("Selecione ao menos uma função");
+      return;
+    }
+    if (setor.colaboradores.some((c) => c.nome_colaborador.trim() && !c.funcao)) {
+      toast.error("Defina a função de cada colaborador avaliado");
       return;
     }
     if (!setor.descricao_atividade.trim()) {
