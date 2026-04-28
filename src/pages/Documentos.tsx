@@ -22,7 +22,7 @@ const docTypes = [
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
   concluido: { label: "Concluído", icon: CheckCircle2, className: "bg-emerald-100 text-emerald-700" },
-  rascunho: { label: "Rascunho", icon: Clock, className: "bg-amber-100 text-amber-700" },
+  rascunho: { label: "Rascunho", icon: Clock, className: "bg-amber-100 text-amber-700 border border-amber-300" },
   erro: { label: "Erro", icon: AlertCircle, className: "bg-red-100 text-red-700" },
 };
 
