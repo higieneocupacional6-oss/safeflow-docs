@@ -2975,8 +2975,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
-                    // Auto-save ao avançar
-                    if (empresaId) await handleSaveDraft(true);
+                    // Auto-save ao avançar (somente se já carregou os dados em modo edição)
+                    if (empresaId && (!isEditMode || docLoaded)) {
+                      await handleSaveDraft(true);
+                    }
                     setStep(step + 1);
                   }}
                   disabled={!canAdvance()}
