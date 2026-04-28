@@ -25,7 +25,7 @@ import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
-type Colaborador = { nome_colaborador: string; data_avaliacao: string };
+type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
