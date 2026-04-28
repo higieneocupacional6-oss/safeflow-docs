@@ -128,6 +128,7 @@ const newSetor = (s: any): SetorAet => ({
   descricao_ambiente: s.descricao_ambiente || "",
   funcao_id: "",
   funcao_nome: "",
+  funcoes_selecionadas: [],
   numero_funcionarios: "",
   colaboradores: [],
   posto_trabalho: "",
