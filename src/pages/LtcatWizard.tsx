@@ -1660,6 +1660,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           ? String((r as any).quimico_calc.media_limite_tolerancia)
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
         componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
+        componentes_calculo: computeComponentesCalculo(r.resultados_componentes, unidades),
       };
     });
 
