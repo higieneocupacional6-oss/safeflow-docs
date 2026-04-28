@@ -987,7 +987,29 @@ export default function AetWizard() {
           <div className="space-y-2">
             {setor.colaboradores.map((c, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-7">
+                <div className="col-span-3">
+                  <Label className="text-xs">Função</Label>
+                  <Select
+                    value={c.funcao || ""}
+                    onValueChange={(v) => {
+                      const arr = [...setor.colaboradores];
+                      arr[i] = { ...arr[i], funcao: v };
+                      updateSetor(editingSetorIdx, { colaboradores: arr });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        setor.funcoes_selecionadas.length === 0 ? "Selecione função no topo" : "Selecione"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {setor.funcoes_selecionadas.map((f) => (
+                        <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-5">
                   <Label className="text-xs">Nome</Label>
                   <Input
                     value={c.nome_colaborador}
@@ -998,7 +1020,7 @@ export default function AetWizard() {
                     }}
                   />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-3">
                   <Label className="text-xs">Data avaliação</Label>
                   <Input
                     type="date"
