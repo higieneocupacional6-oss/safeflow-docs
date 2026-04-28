@@ -358,7 +358,14 @@ export default function AetWizard() {
           setRevisoes((data.revisoes as any) || []);
           const loadedSetores = ((data.setores as any) || []).map((s: any) => ({
             ...s,
-            colaboradores: s.colaboradores || [],
+            funcoes_selecionadas: Array.isArray(s.funcoes_selecionadas) && s.funcoes_selecionadas.length > 0
+              ? s.funcoes_selecionadas
+              : (s.funcao_id ? [{ id: s.funcao_id, nome: s.funcao_nome || "" }] : []),
+            colaboradores: (s.colaboradores || []).map((c: any) => ({
+              nome_colaborador: c.nome_colaborador || "",
+              data_avaliacao: c.data_avaliacao || "",
+              funcao: c.funcao || s.funcao_nome || "",
+            })),
             avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
             ferramentas: s.ferramentas || [],
             plano_acao: s.plano_acao || [],
