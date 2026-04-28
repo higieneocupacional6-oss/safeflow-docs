@@ -292,7 +292,10 @@ export function calcularPsicossocial(av: AvaliacaoPsicossocial): AvaliacaoPsicos
   let total_negativas = 0;
   for (const b of BLOCOS_COPSOQ) {
     const respostas = (av.respostas[b.key] || []).filter((r) => r >= 0);
-    const media = respostas.length > 0 ? respostas.reduce((a, c) => a + c, 0) / respostas.length : 0;
+    // Para blocos positivos (controle, apoio, reconhecimento, segurança),
+    // invertemos o valor: "Sempre" tem autonomia → risco baixo.
+    const respostasRisco = respostas.map((r) => valorRisco(r, b.key));
+    const media = respostasRisco.length > 0 ? respostasRisco.reduce((a, c) => a + c, 0) / respostasRisco.length : 0;
     blocos[b.key] = { media: Math.round(media * 10) / 10, classificacao: classificar(media) };
     for (const r of respostas) {
       if (classificarResposta(r, b.key) === "positiva") total_positivas++;
