@@ -3477,15 +3477,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   });
                                 }
                               });
-                              if (flat.length <= 1) return null;
-                              const grupos: Record<string, number> = {};
-                              flat.forEach(f => {
-                                const k = String(f.componente_avaliado || "").trim();
-                                if (!k) return;
-                                grupos[k] = (grupos[k] || 0) + 1;
-                              });
-                              const temMultiplas = Object.values(grupos).some(v => v > 1);
-                              if (!temMultiplas) return null;
+                              // Mostra o ícone sempre que houver 2+ medições (qualquer combinação de componentes)
+                              if (flat.length < 2) return null;
                               return (
                                 <QuimicoCalculator
                                   enabled
@@ -3495,30 +3488,53 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   contexto={{
                                     empresa: empresas.find((e: any) => e.id === empresaId)?.razao_social || empresas.find((e: any) => e.id === empresaId)?.nome_fantasia || "",
                                     setor: currentRiskSetor?.nome_setor || "",
-                                    colaboradores: (riskForm.resultados_componentes || []).map((i: any) => i.colaborador).filter(Boolean).join(", "),
-                                    funcoes: (riskForm.resultados_componentes || []).map((i: any) => i.funcao_nome).filter(Boolean).join(", "),
+                                    colaboradores: Array.from(new Set((riskForm.resultados_componentes || []).map((i: any) => i.colaborador).filter(Boolean))).join(", "),
+                                    funcoes: Array.from(new Set((riskForm.resultados_componentes || []).map((i: any) => i.funcao_nome).filter(Boolean))).join(", "),
                                     agente: riskForm.agente_nome || "",
                                   }}
                                 />
                               );
                             })()}
                           </div>
-                          {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (
-                            <div className="space-y-2">
-                              {riskForm.resultados_componentes.map((row: any, ri: number) => (
-                                <div key={ri} className="p-3 border rounded-lg bg-muted/20">
-                                  <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
-                                  {Array.isArray(row.componentes) && row.componentes.length > 0 ? (
-                                    row.componentes.map((c: any, ci: number) => (
+                          {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (() => {
+                            // Agrupa linhas por colaborador+funcao para evitar duplicar o cabeçalho
+                            // quando há múltiplos componentes para a mesma pessoa (ex: Poeira + Sílica).
+                            const grupos = new Map<string, { funcao_nome: string; colaborador: string; comps: { componente: string; resultado: any }[] }>();
+                            (riskForm.resultados_componentes || []).forEach((row: any) => {
+                              const key = `${row.funcao_id || row.funcao_nome || ""}|${row.colaborador || ""}`;
+                              if (!grupos.has(key)) {
+                                grupos.set(key, { funcao_nome: row.funcao_nome || "", colaborador: row.colaborador || "", comps: [] });
+                              }
+                              const g = grupos.get(key)!;
+                              if (Array.isArray(row.componentes) && row.componentes.length > 0) {
+                                row.componentes.forEach((c: any) => {
+                                  const nome = c.componente || c.nome_componente || c.componente_avaliado || "";
+                                  if (!nome && c.resultado == null) return;
+                                  // Dedup
+                                  if (!g.comps.some(x => x.componente === nome && String(x.resultado) === String(c.resultado))) {
+                                    g.comps.push({ componente: nome, resultado: c.resultado });
+                                  }
+                                });
+                              } else if (row.componente || row.componente_avaliado) {
+                                const nome = row.componente || row.componente_avaliado;
+                                if (!g.comps.some(x => x.componente === nome && String(x.resultado) === String(row.resultado))) {
+                                  g.comps.push({ componente: nome, resultado: row.resultado });
+                                }
+                              }
+                            });
+                            return (
+                              <div className="space-y-2">
+                                {Array.from(grupos.values()).map((g, ri) => (
+                                  <div key={ri} className="p-3 border rounded-lg bg-muted/20">
+                                    <div className="font-bold text-sm">{g.funcao_nome} — {g.colaborador}</div>
+                                    {g.comps.map((c, ci) => (
                                       <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado}</div>
-                                    ))
-                                  ) : (row.componente || row.componente_avaliado) ? (
-                                    <div className="text-xs text-muted-foreground ml-2">• {row.componente || row.componente_avaliado}: {row.resultado}</div>
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                                    ))}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          })()}
                         </div>
                       )}
 
