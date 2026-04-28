@@ -430,9 +430,9 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       y += 5;
       doc.setFont("helvetica", "normal");
       const linhasResumo = [
-        `Média: ${c.media.toFixed(2)}  |  Mín: ${c.min.toFixed(2)}  |  Máx: ${c.max.toFixed(2)}`,
-        `Variabilidade: ${c.variacao_pct.toFixed(1)}% (${c.variabilidade})`,
-        `LT: ${c.lt != null ? c.lt.toFixed(2) : "—"}  =>  ${c.situacao}`,
+        `Média: ${fmtFull(c.media)}  |  Mín: ${fmtFull(c.min)}  |  Máx: ${fmtFull(c.max)}`,
+        `Variabilidade: ${fmtFull(c.variacao_pct)}% (${c.variabilidade})`,
+        `LT: ${c.lt != null ? fmtFull(c.lt) : "—"}  |  LT (média): ${c.lt_media != null ? fmtFull(c.lt_media) : "—"}  =>  ${c.situacao}`,
       ];
       linhasResumo.forEach((l) => {
         const wrapped = doc.splitTextToSize(l, pageW - margin * 2);
