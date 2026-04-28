@@ -621,6 +621,10 @@ export default function AetWizard() {
               data_avaliacao: formatDate(calc.data_avaliacao),
               resultado_psicossocial: calc.resultado_psicossocial || "",
               riscos_psicossociais: calc.riscos_psicossociais || "",
+              copsoq_resultado_resumido: calc.copsoq_resultado_resumido || "",
+              copsoq_riscos_identificados: calc.copsoq_riscos_identificados || "",
+              total_positivas: calc.total_positivas ?? 0,
+              total_negativas: calc.total_negativas ?? 0,
               blocos: blocosNorm,
               alertas: {
                 alerta_amarelo: calc.alertas?.alerta_amarelo ? "SIM" : "Não",
@@ -635,6 +639,10 @@ export default function AetWizard() {
             data_avaliacao: "",
             resultado_psicossocial: "",
             riscos_psicossociais: "",
+            copsoq_resultado_resumido: "",
+            copsoq_riscos_identificados: "",
+            total_positivas: 0,
+            total_negativas: 0,
             blocos: blocosVazios,
             alertas: { alerta_amarelo: "Não", alerta_vermelho: "Não", recomendacao_imediata: "Não" },
           };
@@ -644,6 +652,8 @@ export default function AetWizard() {
             blocos: normalizePsicoBlocos(avaliacao_psicossocial.blocos),
             resultado_psicossocial: avaliacao_psicossocial.resultado_psicossocial || "",
             riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
+            copsoq_resultado_resumido: avaliacao_psicossocial.copsoq_resultado_resumido || "",
+            copsoq_riscos_identificados: avaliacao_psicossocial.copsoq_riscos_identificados || "",
           };
         })(),
         };
