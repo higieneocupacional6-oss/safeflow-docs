@@ -646,7 +646,8 @@ export default function AetWizard() {
             riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
           };
         })(),
-      })),
+        };
+      }),
     };
     console.log("JSON AET FINAL:", data);
     console.log("EMPRESA AET:", {
