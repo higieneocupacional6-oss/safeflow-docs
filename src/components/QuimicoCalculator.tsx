@@ -192,7 +192,13 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
     if (componentes.length === 0) {
       return { data: null, erro: "Nenhum componente com medições válidas." };
     }
-    return { data: { componentes }, erro: null };
+    const componentes_calculo = buildComponentesCalculo(componentes);
+    // Compat: expor médias agregadas no objeto raiz para o template legado
+    const todasMedias = componentes_calculo.map((c) => c.media_concentracao);
+    const todosLT = componentes_calculo.map((c) => c.media_limite).filter((x): x is number => x != null);
+    const media_concentracao = todasMedias.length ? todasMedias.reduce((a, b) => a + b, 0) / todasMedias.length : undefined;
+    const media_limite_tolerancia = todosLT.length ? todosLT.reduce((a, b) => a + b, 0) / todosLT.length : undefined;
+    return { data: { componentes, componentes_calculo, media_concentracao, media_limite_tolerancia }, erro: null };
   }, [resultados]);
 
   useEffect(() => {
