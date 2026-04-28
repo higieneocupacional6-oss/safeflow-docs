@@ -20,6 +20,18 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
+/** Formata número preservando TODAS as casas decimais (sem arredondar/truncar). */
+function fmtFull(n: number | null | undefined): string {
+  if (n == null || !isFinite(n as number)) return "—";
+  // Usa representação nativa do JS — mantém todos os decimais significativos.
+  let s = String(n);
+  if (s.includes("e") || s.includes("E")) {
+    // Evita notação científica para números muito pequenos/grandes
+    s = (n as number).toFixed(20).replace(/0+$/, "").replace(/\.$/, "");
+  }
+  return s;
+}
+
 /** Converte valor em número (vírgula→ponto). Retorna null se inválido ou ≤ 0. */
 function parseConc(raw: any): number | null {
   if (raw == null) return null;
@@ -264,7 +276,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
                 <TableRow key={i}>
                   <TableCell className="font-mono">{i + 1}</TableCell>
                   <TableCell className="font-mono">{l.raw || "—"}</TableCell>
-                  <TableCell className="font-mono font-semibold">{l.valor.toFixed(2)}</TableCell>
+                  <TableCell className="font-mono font-semibold">{fmtFull(l.valor)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -273,23 +285,23 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3 text-sm">
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Média</p>
-              <p className="font-mono font-bold text-base">{c.media.toFixed(2)}</p>
+              <p className="font-mono font-bold text-base break-all">{fmtFull(c.media)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Mínimo</p>
-              <p className="font-mono">{c.min.toFixed(2)}</p>
+              <p className="font-mono break-all">{fmtFull(c.min)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Máximo</p>
-              <p className="font-mono">{c.max.toFixed(2)}</p>
+              <p className="font-mono break-all">{fmtFull(c.max)}</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">Variação</p>
-              <p className="font-mono">{c.variacao_pct.toFixed(1)}%</p>
+              <p className="font-mono">{fmtFull(c.variacao_pct)}%</p>
             </div>
             <div className="rounded-lg border bg-card p-3">
               <p className="text-xs uppercase text-muted-foreground tracking-wider">LT (média)</p>
-              <p className="font-mono">{c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
+              <p className="font-mono break-all">{c.lt_media != null ? `${fmtFull(c.lt_media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}</p>
             </div>
           </div>
         </>
@@ -309,13 +321,13 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
             <p>
               <span className="text-muted-foreground">Média da concentração: </span>
               <span className="font-mono font-semibold">
-                {c.linhas.length ? `${c.media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+                {c.linhas.length ? `${fmtFull(c.media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
               </span>
             </p>
             <p>
               <span className="text-muted-foreground">Limite de tolerância (média): </span>
               <span className="font-mono font-semibold">
-                {c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+                {c.lt_media != null ? `${fmtFull(c.lt_media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
               </span>
             </p>
           </div>
@@ -408,7 +420,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
         }
         doc.text(String(idx + 1), colX[0] + 2, y + 4.5);
         doc.text(String(l.raw || "—"), colX[1] + 2, y + 4.5);
-        doc.text(l.valor.toFixed(2), colX[2] + 2, y + 4.5);
+        doc.text(fmtFull(l.valor), colX[2] + 2, y + 4.5);
         y += 6;
       });
       y += 2;
@@ -418,9 +430,9 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       y += 5;
       doc.setFont("helvetica", "normal");
       const linhasResumo = [
-        `Média: ${c.media.toFixed(2)}  |  Mín: ${c.min.toFixed(2)}  |  Máx: ${c.max.toFixed(2)}`,
-        `Variabilidade: ${c.variacao_pct.toFixed(1)}% (${c.variabilidade})`,
-        `LT: ${c.lt != null ? c.lt.toFixed(2) : "—"}  =>  ${c.situacao}`,
+        `Média: ${fmtFull(c.media)}  |  Mín: ${fmtFull(c.min)}  |  Máx: ${fmtFull(c.max)}`,
+        `Variabilidade: ${fmtFull(c.variacao_pct)}% (${c.variabilidade})`,
+        `LT: ${c.lt != null ? fmtFull(c.lt) : "—"}  |  LT (média): ${c.lt_media != null ? fmtFull(c.lt_media) : "—"}  =>  ${c.situacao}`,
       ];
       linhasResumo.forEach((l) => {
         const wrapped = doc.splitTextToSize(l, pageW - margin * 2);
@@ -443,8 +455,8 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       const u = c.unidade ? ` ${c.unidade}` : "";
       const linhas = [
         `Componente: ${c.componente}`,
-        `Média da concentração: ${c.linhas.length ? c.media.toFixed(2) + u : "—"}`,
-        `Limite de tolerância (média): ${c.lt_media != null ? c.lt_media.toFixed(2) + u : "—"}`,
+        `Média da concentração: ${c.linhas.length ? fmtFull(c.media) + u : "—"}`,
+        `Limite de tolerância (média): ${c.lt_media != null ? fmtFull(c.lt_media) + u : "—"}`,
       ];
       if (y + linhas.length * 5 + 4 > 285) { doc.addPage(); y = margin; }
       doc.setFont("helvetica", "bold");
