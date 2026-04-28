@@ -2651,7 +2651,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {step === 2 && (
             <div className="space-y-8 animate-in fade-in duration-500">
               {(() => {
-                const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)));
+                const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)))
+                  .sort((a, b) => {
+                    const sa = setores.find((s: any) => s.id === a);
+                    const sb = setores.find((s: any) => s.id === b);
+                    const da = gesOrder(sa?.ghe_ges);
+                    const db = gesOrder(sb?.ghe_ges);
+                    if (da !== db) return da - db;
+                    const na = sa?.nome_setor || riscos.find(r => r.setor_id === a)?.setor_nome || "";
+                    const nb = sb?.nome_setor || riscos.find(r => r.setor_id === b)?.setor_nome || "";
+                    return String(na).localeCompare(String(nb), "pt-BR");
+                  });
 
                 if (riscos.length === 0) {
                   return (
