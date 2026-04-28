@@ -60,7 +60,9 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
       { code: "{{setor_nome}}", desc: "Nome do setor" },
       { code: "{{ges}}", desc: "GES/GHE" },
       { code: "{{descricao_ambiente}}", desc: "Descrição do ambiente" },
-      { code: "{{funcao_nome}}", desc: "Função analisada" },
+      { code: "{{funcao_nome}}", desc: "Função(ões) analisada(s) — concatenadas" },
+      { code: "{{funcoes_lista}}", desc: "Lista de funções selecionadas (texto)" },
+      { code: "{{#funcoes_selecionadas}}{{nome}}, {{/funcoes_selecionadas}}", desc: "Loop com as funções selecionadas no setor" },
       { code: "{{numero_funcionarios}}", desc: "Número de funcionários" },
       { code: "{{posto_trabalho}}", desc: "Posto de trabalho" },
       { code: "{{descricao_atividade}}", desc: "Descrição da atividade" },
@@ -75,9 +77,10 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
     ],
   },
   {
-    title: "Colaboradores (loop dentro do setor)",
+    title: "Colaboradores avaliados (loop dentro do setor)",
     vars: [
-      { code: "{{#colaboradores}}\n{{nome_colaborador}} - {{data_avaliacao}}\n{{/colaboradores}}", desc: "Lista de colaboradores avaliados" },
+      { code: "{{#colaboradores_avaliados}}\n{{nome}} | {{funcao}} | {{data_avaliacao}}\n{{/colaboradores_avaliados}}", desc: "Loop com nome, função e data por colaborador" },
+      { code: "{{#colaboradores}}\n{{nome_colaborador}} | {{funcao}} | {{data_avaliacao}}\n{{/colaboradores}}", desc: "Loop alternativo (compatibilidade)" },
     ],
   },
   {

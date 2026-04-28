@@ -25,7 +25,7 @@ import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
-type Colaborador = { nome_colaborador: string; data_avaliacao: string };
+type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
@@ -45,6 +45,7 @@ type SetorAet = {
   descricao_ambiente: string;
   funcao_id: string;
   funcao_nome: string;
+  funcoes_selecionadas: { id: string; nome: string }[];
   numero_funcionarios: string;
   colaboradores: Colaborador[];
   posto_trabalho: string;
@@ -72,7 +73,7 @@ const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
   { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
 ];
 
-const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "" });
+const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "", funcao: "" });
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
@@ -127,6 +128,7 @@ const newSetor = (s: any): SetorAet => ({
   descricao_ambiente: s.descricao_ambiente || "",
   funcao_id: "",
   funcao_nome: "",
+  funcoes_selecionadas: [],
   numero_funcionarios: "",
   colaboradores: [],
   posto_trabalho: "",
@@ -356,7 +358,14 @@ export default function AetWizard() {
           setRevisoes((data.revisoes as any) || []);
           const loadedSetores = ((data.setores as any) || []).map((s: any) => ({
             ...s,
-            colaboradores: s.colaboradores || [],
+            funcoes_selecionadas: Array.isArray(s.funcoes_selecionadas) && s.funcoes_selecionadas.length > 0
+              ? s.funcoes_selecionadas
+              : (s.funcao_id ? [{ id: s.funcao_id, nome: s.funcao_nome || "" }] : []),
+            colaboradores: (s.colaboradores || []).map((c: any) => ({
+              nome_colaborador: c.nome_colaborador || "",
+              data_avaliacao: c.data_avaliacao || "",
+              funcao: c.funcao || s.funcao_nome || "",
+            })),
             avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
             ferramentas: s.ferramentas || [],
             plano_acao: s.plano_acao || [],
@@ -470,8 +479,12 @@ export default function AetWizard() {
   const handleSalvarSetor = async () => {
     if (editingSetorIdx === null) return;
     const setor = setoresAet[editingSetorIdx];
-    if (!setor.funcao_id) {
-      toast.error("Selecione a função");
+    if (!setor.funcoes_selecionadas || setor.funcoes_selecionadas.length === 0) {
+      toast.error("Selecione ao menos uma função");
+      return;
+    }
+    if (setor.colaboradores.some((c) => c.nome_colaborador.trim() && !c.funcao)) {
+      toast.error("Defina a função de cada colaborador avaliado");
       return;
     }
     if (!setor.descricao_atividade.trim()) {
@@ -537,26 +550,40 @@ export default function AetWizard() {
         data_revisao: formatDate(r.data_revisao),
         descricao_revisao: r.descricao_revisao || "",
       })),
-      setores: setoresAet.map((s) => ({
-        setor_nome: s.setor_nome || "",
-        ges: s.ges || "",
-        descricao_ambiente: s.descricao_ambiente || "",
-        funcao_nome: s.funcao_nome || "",
-        numero_funcionarios: s.numero_funcionarios || "",
-        posto_trabalho: s.posto_trabalho || "",
-        descricao_atividade: s.descricao_atividade || "",
-        analise_organizacional: s.analise_organizacional || "",
-        tarefas: s.tarefas || "",
-        riscos_observados: s.riscos_observados || "",
-        ritmo_complexidade: s.ritmo_complexidade || "",
-        jornada_aspectos: s.jornada_aspectos || "",
-        caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
-        diagnostico_ergonomico: s.diagnostico_ergonomico || "",
-        conclusao: s.conclusao || "",
-        colaboradores: (s.colaboradores || []).map((c) => ({
-          nome_colaborador: c.nome_colaborador || "",
-          data_avaliacao: formatDate(c.data_avaliacao),
-        })),
+      setores: setoresAet.map((s) => {
+        const funcoesSel = (s.funcoes_selecionadas && s.funcoes_selecionadas.length > 0)
+          ? s.funcoes_selecionadas
+          : (s.funcao_nome ? [{ id: s.funcao_id, nome: s.funcao_nome }] : []);
+        const funcoesNomes = funcoesSel.map((f) => f.nome).filter(Boolean);
+        return {
+          setor_nome: s.setor_nome || "",
+          ges: s.ges || "",
+          descricao_ambiente: s.descricao_ambiente || "",
+          funcao_nome: funcoesNomes.join(", ") || s.funcao_nome || "",
+          funcoes_selecionadas: funcoesNomes.map((nome) => ({ nome })),
+          funcoes_lista: funcoesNomes.join(", "),
+          numero_funcionarios: s.numero_funcionarios || "",
+          posto_trabalho: s.posto_trabalho || "",
+          descricao_atividade: s.descricao_atividade || "",
+          analise_organizacional: s.analise_organizacional || "",
+          tarefas: s.tarefas || "",
+          riscos_observados: s.riscos_observados || "",
+          ritmo_complexidade: s.ritmo_complexidade || "",
+          jornada_aspectos: s.jornada_aspectos || "",
+          caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
+          diagnostico_ergonomico: s.diagnostico_ergonomico || "",
+          conclusao: s.conclusao || "",
+          colaboradores: (s.colaboradores || []).map((c) => ({
+            nome_colaborador: c.nome_colaborador || "",
+            nome: c.nome_colaborador || "",
+            funcao: c.funcao || "",
+            data_avaliacao: formatDate(c.data_avaliacao),
+          })),
+          colaboradores_avaliados: (s.colaboradores || []).map((c) => ({
+            nome: c.nome_colaborador || "",
+            funcao: c.funcao || "",
+            data_avaliacao: formatDate(c.data_avaliacao),
+          })),
         avaliacoes_quantitativas: (s.avaliacoes_quantitativas || []).map((a) => ({
           especificacao_setor: a.especificacao_setor || "",
           ruido_valor: a.ruido_valor || "",
@@ -619,7 +646,8 @@ export default function AetWizard() {
             riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
           };
         })(),
-      })),
+        };
+      }),
     };
     console.log("JSON AET FINAL:", data);
     console.log("EMPRESA AET:", {
@@ -884,22 +912,56 @@ export default function AetWizard() {
                 onChange={(e) => updateSetor(editingSetorIdx, { descricao_ambiente: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Função *</Label>
-              <Select
-                value={setor.funcao_id}
-                onValueChange={(v) => {
-                  const f = funcoesSetor.find((x: any) => x.id === v);
-                  updateSetor(editingSetorIdx, { funcao_id: v, funcao_nome: f?.nome_funcao || "" });
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {funcoesSetor.map((f: any) => (
-                    <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+            <div className="md:col-span-2">
+              <Label>Funções avaliadas *</Label>
+              <div className="border rounded-lg p-3 bg-card max-h-44 overflow-y-auto space-y-1.5">
+                {funcoesSetor.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhuma função cadastrada para este setor.</p>
+                )}
+                {funcoesSetor.map((f: any) => {
+                  const checked = setor.funcoes_selecionadas.some((x) => x.id === f.id);
+                  return (
+                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          let next = [...setor.funcoes_selecionadas];
+                          if (v) {
+                            if (!checked) next.push({ id: f.id, nome: f.nome_funcao });
+                          } else {
+                            next = next.filter((x) => x.id !== f.id);
+                          }
+                          // Limpa colaboradores que apontavam para função removida
+                          const nomesValidos = new Set(next.map((x) => x.nome));
+                          const colabsAjustados = setor.colaboradores.map((c) =>
+                            c.funcao && !nomesValidos.has(c.funcao) ? { ...c, funcao: "" } : c
+                          );
+                          const removidos = setor.colaboradores.some(
+                            (c) => c.funcao && !nomesValidos.has(c.funcao)
+                          );
+                          if (removidos) {
+                            toast.warning("Função removida — revise os colaboradores afetados");
+                          }
+                          updateSetor(editingSetorIdx, {
+                            funcoes_selecionadas: next,
+                            funcao_id: next[0]?.id || "",
+                            funcao_nome: next.map((x) => x.nome).join(", "),
+                            colaboradores: colabsAjustados,
+                          });
+                        }}
+                      />
+                      {f.nome_funcao}
+                    </label>
+                  );
+                })}
+              </div>
+              {setor.funcoes_selecionadas.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {setor.funcoes_selecionadas.map((f) => (
+                    <Badge key={f.id} variant="secondary" className="text-xs">{f.nome}</Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
             <div>
               <Label>Nº de funcionários</Label>
@@ -925,7 +987,29 @@ export default function AetWizard() {
           <div className="space-y-2">
             {setor.colaboradores.map((c, i) => (
               <div key={i} className="grid grid-cols-12 gap-2 items-end">
-                <div className="col-span-7">
+                <div className="col-span-3">
+                  <Label className="text-xs">Função</Label>
+                  <Select
+                    value={c.funcao || ""}
+                    onValueChange={(v) => {
+                      const arr = [...setor.colaboradores];
+                      arr[i] = { ...arr[i], funcao: v };
+                      updateSetor(editingSetorIdx, { colaboradores: arr });
+                    }}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder={
+                        setor.funcoes_selecionadas.length === 0 ? "Selecione função no topo" : "Selecione"
+                      } />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {setor.funcoes_selecionadas.map((f) => (
+                        <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="col-span-5">
                   <Label className="text-xs">Nome</Label>
                   <Input
                     value={c.nome_colaborador}
@@ -936,7 +1020,7 @@ export default function AetWizard() {
                     }}
                   />
                 </div>
-                <div className="col-span-4">
+                <div className="col-span-3">
                   <Label className="text-xs">Data avaliação</Label>
                   <Input
                     type="date"
