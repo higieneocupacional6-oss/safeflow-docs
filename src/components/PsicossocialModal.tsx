@@ -107,7 +107,19 @@ export type AvaliacaoPsicossocial = {
   };
   resultado_psicossocial: string;
   riscos_psicossociais: string;
+  /** Total de respostas classificadas como positivas (somando todos os blocos). */
+  total_positivas?: number;
+  /** Total de respostas classificadas como negativas. */
+  total_negativas?: number;
+  /** Resumo automático em linguagem natural — variável {{copsoq_resultado_resumido}}. */
+  copsoq_resultado_resumido?: string;
+  /** Riscos derivados da predominância de respostas negativas — {{copsoq_riscos_identificados}}. */
+  copsoq_riscos_identificados?: string;
 };
+
+/** Blocos cujas respostas altas (Sempre/Frequentemente) representam ASPECTO NEGATIVO.
+ *  Para os demais blocos, respostas altas representam aspecto POSITIVO. */
+const BLOCOS_INVERTIDOS = new Set(["exigencias", "conflitos", "sintomas"]);
 
 export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
   colaborador_nome: "",
@@ -119,6 +131,10 @@ export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
   alertas: { alerta_amarelo: false, alerta_vermelho: false, recomendacao_imediata: false },
   resultado_psicossocial: "",
   riscos_psicossociais: "",
+  total_positivas: 0,
+  total_negativas: 0,
+  copsoq_resultado_resumido: "",
+  copsoq_riscos_identificados: "",
 });
 
 function classificar(media: number): string {
