@@ -276,7 +276,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
                 <TableRow key={i}>
                   <TableCell className="font-mono">{i + 1}</TableCell>
                   <TableCell className="font-mono">{l.raw || "—"}</TableCell>
-                  <TableCell className="font-mono font-semibold">{l.valor.toFixed(2)}</TableCell>
+                  <TableCell className="font-mono font-semibold">{fmtFull(l.valor)}</TableCell>
                 </TableRow>
               ))}
             </TableBody>
