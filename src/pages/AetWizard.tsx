@@ -912,22 +912,56 @@ export default function AetWizard() {
                 onChange={(e) => updateSetor(editingSetorIdx, { descricao_ambiente: e.target.value })}
               />
             </div>
-            <div>
-              <Label>Função *</Label>
-              <Select
-                value={setor.funcao_id}
-                onValueChange={(v) => {
-                  const f = funcoesSetor.find((x: any) => x.id === v);
-                  updateSetor(editingSetorIdx, { funcao_id: v, funcao_nome: f?.nome_funcao || "" });
-                }}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
-                <SelectContent>
-                  {funcoesSetor.map((f: any) => (
-                    <SelectItem key={f.id} value={f.id}>{f.nome_funcao}</SelectItem>
+            <div className="md:col-span-2">
+              <Label>Funções avaliadas *</Label>
+              <div className="border rounded-lg p-3 bg-card max-h-44 overflow-y-auto space-y-1.5">
+                {funcoesSetor.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nenhuma função cadastrada para este setor.</p>
+                )}
+                {funcoesSetor.map((f: any) => {
+                  const checked = setor.funcoes_selecionadas.some((x) => x.id === f.id);
+                  return (
+                    <label key={f.id} className="flex items-center gap-2 text-sm cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          let next = [...setor.funcoes_selecionadas];
+                          if (v) {
+                            if (!checked) next.push({ id: f.id, nome: f.nome_funcao });
+                          } else {
+                            next = next.filter((x) => x.id !== f.id);
+                          }
+                          // Limpa colaboradores que apontavam para função removida
+                          const nomesValidos = new Set(next.map((x) => x.nome));
+                          const colabsAjustados = setor.colaboradores.map((c) =>
+                            c.funcao && !nomesValidos.has(c.funcao) ? { ...c, funcao: "" } : c
+                          );
+                          const removidos = setor.colaboradores.some(
+                            (c) => c.funcao && !nomesValidos.has(c.funcao)
+                          );
+                          if (removidos) {
+                            toast.warning("Função removida — revise os colaboradores afetados");
+                          }
+                          updateSetor(editingSetorIdx, {
+                            funcoes_selecionadas: next,
+                            funcao_id: next[0]?.id || "",
+                            funcao_nome: next.map((x) => x.nome).join(", "),
+                            colaboradores: colabsAjustados,
+                          });
+                        }}
+                      />
+                      {f.nome_funcao}
+                    </label>
+                  );
+                })}
+              </div>
+              {setor.funcoes_selecionadas.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-2">
+                  {setor.funcoes_selecionadas.map((f) => (
+                    <Badge key={f.id} variant="secondary" className="text-xs">{f.nome}</Badge>
                   ))}
-                </SelectContent>
-              </Select>
+                </div>
+              )}
             </div>
             <div>
               <Label>Nº de funcionários</Label>
