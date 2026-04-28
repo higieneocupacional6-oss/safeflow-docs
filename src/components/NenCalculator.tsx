@@ -14,21 +14,52 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
-/** Converte um valor de dose (string|number) em decimal (1.0 = 100%). */
+/**
+ * Converte um valor de dose (string|number) em decimal (1.0 = 100%).
+ * Regras:
+ *  - "8,02%" → 0.0802 (percentual explícito)
+ *  - "8.02"  → 0.0802 (sem %, mas > 1 ⇒ tratado como percentual)
+ *  - "0.5"   → 0.5    (≤ 1 ⇒ já é decimal, NÃO dividir novamente)
+ *  - "0,25"  → 0.25
+ */
 function parseDose(raw: any): number | null {
   if (raw == null) return null;
   const s = String(raw).trim();
   if (!s) return null;
-  let str = s.replace(",", ".");
+  // 1) normalizar vírgula decimal
+  let str = s.replace(/\./g, (m, i, full) => {
+    // manter ponto como decimal: só removemos pontos se forem separadores de milhar.
+    // Como entrada aqui é simples, mantemos o ponto.
+    return ".";
+  }).replace(",", ".");
+  // 2) detectar e remover %
   let pct = false;
   if (str.includes("%")) {
     pct = true;
     str = str.replace(/%/g, "").trim();
   }
-  const n = Number(str);
+  // 3) parse numérico
+  const n = parseFloat(str);
   if (!isFinite(n) || n <= 0) return null;
-  if (pct) return n / 100;
-  if (n > 10) return n / 100;
+  // 4) regra de conversão
+  // eslint-disable-next-line no-console
+  console.log("[parseDose] ORIGINAL:", raw, "| TRATADO:", str, "| NUM:", n, "| pct:", pct);
+  if (pct) {
+    const dec = n / 100;
+    // eslint-disable-next-line no-console
+    console.log("[parseDose] DECIMAL:", dec);
+    return dec;
+  }
+  // sem %: valores > 1 são percentuais (ex.: 8.02 ⇒ 8.02%)
+  if (n > 1) {
+    const dec = n / 100;
+    // eslint-disable-next-line no-console
+    console.log("[parseDose] DECIMAL (>1 tratado como %):", dec);
+    return dec;
+  }
+  // ≤ 1 já está em decimal
+  // eslint-disable-next-line no-console
+  console.log("[parseDose] DECIMAL (já decimal):", n);
   return n;
 }
 
