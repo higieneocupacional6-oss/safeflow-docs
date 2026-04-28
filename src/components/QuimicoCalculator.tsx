@@ -455,8 +455,8 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
       const u = c.unidade ? ` ${c.unidade}` : "";
       const linhas = [
         `Componente: ${c.componente}`,
-        `Média da concentração: ${c.linhas.length ? c.media.toFixed(2) + u : "—"}`,
-        `Limite de tolerância (média): ${c.lt_media != null ? c.lt_media.toFixed(2) + u : "—"}`,
+        `Média da concentração: ${c.linhas.length ? fmtFull(c.media) + u : "—"}`,
+        `Limite de tolerância (média): ${c.lt_media != null ? fmtFull(c.lt_media) + u : "—"}`,
       ];
       if (y + linhas.length * 5 + 4 > 285) { doc.addPage(); y = margin; }
       doc.setFont("helvetica", "bold");
