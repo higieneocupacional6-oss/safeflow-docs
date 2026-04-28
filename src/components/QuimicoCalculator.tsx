@@ -420,7 +420,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
         }
         doc.text(String(idx + 1), colX[0] + 2, y + 4.5);
         doc.text(String(l.raw || "—"), colX[1] + 2, y + 4.5);
-        doc.text(l.valor.toFixed(2), colX[2] + 2, y + 4.5);
+        doc.text(fmtFull(l.valor), colX[2] + 2, y + 4.5);
         y += 6;
       });
       y += 2;
