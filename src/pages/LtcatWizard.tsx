@@ -1972,8 +1972,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const persistAvaliacoes = async (docId: string) => {
     if (!docId || !empresaId) return;
     try {
+      // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
+      // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
+      // ou se o documento ainda não terminou de carregar. Isso evita o cenário onde o save é
+      // disparado antes da hidratação completa e apaga todos os dados sem reinserir.
       const { data: existentes } = await supabase
         .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
+      const totalExistentes = existentes?.length || 0;
+      const totalARecriar = (riscos || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
+
+      if (totalExistentes > 0 && totalARecriar === 0) {
+        console.warn(
+          "🛡️ [persistAvaliacoes] ABORTADO: documento tem",
+          totalExistentes,
+          "avaliações no banco, mas o estado local está vazio. Save bloqueado para evitar perda de dados.",
+        );
+        toast.error(
+          "Salvamento bloqueado: os riscos ainda não foram carregados. Aguarde o documento carregar completamente antes de salvar.",
+        );
+        return;
+      }
+
+      if (isEditMode && !docLoaded) {
+        console.warn("🛡️ [persistAvaliacoes] ABORTADO: documento ainda não carregado (docLoaded=false).");
+        toast.error("Aguarde o documento terminar de carregar antes de salvar.");
+        return;
+      }
+
       if (existentes && existentes.length > 0) {
         await supabase.from("ltcat_avaliacoes")
           .delete().in("id", existentes.map(e => e.id));
@@ -2950,8 +2975,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
-                    // Auto-save ao avançar
-                    if (empresaId) await handleSaveDraft(true);
+                    // Auto-save ao avançar (somente se já carregou os dados em modo edição)
+                    if (empresaId && (!isEditMode || docLoaded)) {
+                      await handleSaveDraft(true);
+                    }
                     setStep(step + 1);
                   }}
                   disabled={!canAdvance()}
