@@ -22,7 +22,7 @@ const docTypes = [
 
 const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
   concluido: { label: "Concluído", icon: CheckCircle2, className: "bg-emerald-100 text-emerald-700" },
-  rascunho: { label: "Rascunho", icon: Clock, className: "bg-amber-100 text-amber-700" },
+  rascunho: { label: "Rascunho", icon: Clock, className: "bg-amber-100 text-amber-700 border border-amber-300" },
   erro: { label: "Erro", icon: AlertCircle, className: "bg-red-100 text-red-700" },
 };
 
@@ -145,13 +145,14 @@ export default function Documentos() {
                     {st.label}
                   </Badge>
                   <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8"
+                    variant={doc.status === "rascunho" ? "outline" : "ghost"}
+                    size={doc.status === "rascunho" ? "sm" : "icon"}
+                    className={doc.status === "rascunho" ? "h-8 gap-1.5" : "h-8 w-8"}
                     onClick={() => handleEdit(doc)}
-                    title="Editar documento"
+                    title={doc.status === "rascunho" ? "Continuar edição" : "Editar documento"}
                   >
                     <Pencil className="w-4 h-4" />
+                    {doc.status === "rascunho" && <span className="text-xs">Continuar</span>}
                   </Button>
                   {doc.file_path && (
                     <Button
