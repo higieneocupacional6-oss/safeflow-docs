@@ -321,13 +321,13 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
             <p>
               <span className="text-muted-foreground">Média da concentração: </span>
               <span className="font-mono font-semibold">
-                {c.linhas.length ? `${c.media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+                {c.linhas.length ? `${fmtFull(c.media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
               </span>
             </p>
             <p>
               <span className="text-muted-foreground">Limite de tolerância (média): </span>
               <span className="font-mono font-semibold">
-                {c.lt_media != null ? `${c.lt_media.toFixed(2)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
+                {c.lt_media != null ? `${fmtFull(c.lt_media)}${c.unidade ? ` ${c.unidade}` : ""}` : "—"}
               </span>
             </p>
           </div>
