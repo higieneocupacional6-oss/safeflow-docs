@@ -587,24 +587,65 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const epiByAv: Record<string, any> = {};
         (epiEpc || []).forEach((r: any) => { epiByAv[r.avaliacao_id] = r; });
 
+        // HIDRATAÇÃO: buscar nomes de setores, funções e agentes referenciados
+        const setorIdsRef = Array.from(new Set(avaliacoes.map(a => a.setor_id).filter(Boolean)));
+        const funcaoIdsRef = Array.from(new Set(avaliacoes.map(a => a.funcao_id).filter(Boolean)));
+        const agenteIdsRef = Array.from(new Set(avaliacoes.map(a => a.agente_id).filter(Boolean)));
+
+        const [setoresHidrat, funcoesHidrat, agentesHidrat] = await Promise.all([
+          setorIdsRef.length
+            ? supabase.from("setores").select("id, nome_setor, ghe_ges").in("id", setorIdsRef)
+            : Promise.resolve({ data: [] as any[] }),
+          funcaoIdsRef.length
+            ? supabase.from("funcoes").select("id, nome_funcao").in("id", funcaoIdsRef)
+            : Promise.resolve({ data: [] as any[] }),
+          agenteIdsRef.length
+            ? supabase.from("riscos").select("id, nome").in("id", agenteIdsRef)
+            : Promise.resolve({ data: [] as any[] }),
+        ]);
+
+        const setorMap = new Map<string, any>((setoresHidrat.data || []).map((s: any) => [s.id, s]));
+        const funcaoMap = new Map<string, any>((funcoesHidrat.data || []).map((f: any) => [f.id, f]));
+        const agenteMap = new Map<string, any>((agentesHidrat.data || []).map((a: any) => [a.id, a]));
+
+        // Hidrata também funções dentro dos resultados detalhados (que têm funcao_id)
+        const allFuncIdsExtra = new Set<string>();
+        [...resultados, ...componentes, ...calor, ...vibracao].forEach((r: any) => {
+          if (r.funcao_id) allFuncIdsExtra.add(r.funcao_id);
+        });
+        const missingFuncIds = Array.from(allFuncIdsExtra).filter(id => !funcaoMap.has(id));
+        if (missingFuncIds.length) {
+          const { data: extraFuncs } = await supabase
+            .from("funcoes").select("id, nome_funcao").in("id", missingFuncIds);
+          (extraFuncs || []).forEach((f: any) => funcaoMap.set(f.id, f));
+        }
+
+        const hydrateRow = (r: any) => ({
+          ...r,
+          funcao_nome: r.funcao_nome || funcaoMap.get(r.funcao_id)?.nome_funcao || "",
+        });
+
         const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
           const epi = epiByAv[av.id] || {};
+          const setor = setorMap.get(av.setor_id);
+          const funcao = funcaoMap.get(av.funcao_id);
+          const agente = agenteMap.get(av.agente_id);
           return {
             id: av.id,
             setor_id: av.setor_id || "",
-            setor_nome: "",
+            setor_nome: setor?.nome_setor || "Setor não informado",
             funcoes_ges: av.funcoes_ges || "",
             data_avaliacao: av.data_avaliacao || "",
             items: [{
               id: crypto.randomUUID(),
               colaborador: av.colaborador || "",
               funcao_id: av.funcao_id || "",
-              funcao_nome: "",
+              funcao_nome: funcao?.nome_funcao || "",
             }],
             tipo_avaliacao: av.tipo_avaliacao || "qualitativa",
             tipo_agente: av.tipo_agente || "",
             agente_id: av.agente_id || "",
-            agente_nome: "",
+            agente_nome: agente?.nome || "",
             codigo_esocial: av.codigo_esocial || "",
             descricao_esocial: av.descricao_esocial || "",
             propagacao: av.propagacao || "",
@@ -623,10 +664,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             unidade_tempo_coleta: av.unidade_tempo_coleta || "",
             parecer_tecnico: av.parecer_tecnico || "",
             aposentadoria_especial: av.aposentadoria_especial || "",
-            resultados_detalhados: (resByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
-            resultados_componentes: (compByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
-            resultados_vibracao: (vibByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
-            resultados_calor: (calorByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
             epi_ca: epi.epi_ca || "",
@@ -638,6 +679,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         });
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
+        console.log("📦 [RASCUNHO CARREGADO]", {
+          setores: loadedRiscos.map(r => ({
+            setor_id: r.setor_id,
+            setor_nome: r.setor_nome,
+            agente_nome: r.agente_nome,
+            funcoes: r.items.map(i => ({ funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
+          })),
+        });
         setRiscos(loadedRiscos);
         setDocLoaded(true);
         toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
