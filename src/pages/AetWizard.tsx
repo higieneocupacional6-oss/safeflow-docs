@@ -550,26 +550,40 @@ export default function AetWizard() {
         data_revisao: formatDate(r.data_revisao),
         descricao_revisao: r.descricao_revisao || "",
       })),
-      setores: setoresAet.map((s) => ({
-        setor_nome: s.setor_nome || "",
-        ges: s.ges || "",
-        descricao_ambiente: s.descricao_ambiente || "",
-        funcao_nome: s.funcao_nome || "",
-        numero_funcionarios: s.numero_funcionarios || "",
-        posto_trabalho: s.posto_trabalho || "",
-        descricao_atividade: s.descricao_atividade || "",
-        analise_organizacional: s.analise_organizacional || "",
-        tarefas: s.tarefas || "",
-        riscos_observados: s.riscos_observados || "",
-        ritmo_complexidade: s.ritmo_complexidade || "",
-        jornada_aspectos: s.jornada_aspectos || "",
-        caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
-        diagnostico_ergonomico: s.diagnostico_ergonomico || "",
-        conclusao: s.conclusao || "",
-        colaboradores: (s.colaboradores || []).map((c) => ({
-          nome_colaborador: c.nome_colaborador || "",
-          data_avaliacao: formatDate(c.data_avaliacao),
-        })),
+      setores: setoresAet.map((s) => {
+        const funcoesSel = (s.funcoes_selecionadas && s.funcoes_selecionadas.length > 0)
+          ? s.funcoes_selecionadas
+          : (s.funcao_nome ? [{ id: s.funcao_id, nome: s.funcao_nome }] : []);
+        const funcoesNomes = funcoesSel.map((f) => f.nome).filter(Boolean);
+        return {
+          setor_nome: s.setor_nome || "",
+          ges: s.ges || "",
+          descricao_ambiente: s.descricao_ambiente || "",
+          funcao_nome: funcoesNomes.join(", ") || s.funcao_nome || "",
+          funcoes_selecionadas: funcoesNomes.map((nome) => ({ nome })),
+          funcoes_lista: funcoesNomes.join(", "),
+          numero_funcionarios: s.numero_funcionarios || "",
+          posto_trabalho: s.posto_trabalho || "",
+          descricao_atividade: s.descricao_atividade || "",
+          analise_organizacional: s.analise_organizacional || "",
+          tarefas: s.tarefas || "",
+          riscos_observados: s.riscos_observados || "",
+          ritmo_complexidade: s.ritmo_complexidade || "",
+          jornada_aspectos: s.jornada_aspectos || "",
+          caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
+          diagnostico_ergonomico: s.diagnostico_ergonomico || "",
+          conclusao: s.conclusao || "",
+          colaboradores: (s.colaboradores || []).map((c) => ({
+            nome_colaborador: c.nome_colaborador || "",
+            nome: c.nome_colaborador || "",
+            funcao: c.funcao || "",
+            data_avaliacao: formatDate(c.data_avaliacao),
+          })),
+          colaboradores_avaliados: (s.colaboradores || []).map((c) => ({
+            nome: c.nome_colaborador || "",
+            funcao: c.funcao || "",
+            data_avaliacao: formatDate(c.data_avaliacao),
+          })),
         avaliacoes_quantitativas: (s.avaliacoes_quantitativas || []).map((a) => ({
           especificacao_setor: a.especificacao_setor || "",
           ruido_valor: a.ruido_valor || "",
