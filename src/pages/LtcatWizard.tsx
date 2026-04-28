@@ -484,6 +484,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     },
   });
 
+  // Aviso ao sair com possíveis alterações não salvas
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!empresaId) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [empresaId]);
+
   // Load existing document data in edit mode (HIDRATAÇÃO COMPLETA)
   useEffect(() => {
     if (!isEditMode || docLoaded) return;
