@@ -111,6 +111,7 @@ export function calcularExposicaoPorComponente(
     grupos[nome].linhas.push({ raw: String(d.resultado ?? ""), valor });
   }
   return Object.entries(grupos).map(([componente, g]) => {
+    // PRECISÃO TOTAL — sem arredondamento aqui. Apenas exibição usa toFixed(n).
     const lt_media = g.lts.length ? g.lts.reduce((a, b) => a + b, 0) / g.lts.length : null;
     const lt = g.lts.length ? g.lts[0] : null;
     if (g.linhas.length === 0) {
@@ -123,7 +124,7 @@ export function calcularExposicaoPorComponente(
         variacao_pct: 0,
         variabilidade: "Baixa",
         lt,
-        lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+        lt_media,
         unidade: g.unidade || "",
         situacao: "Sem LT",
         erro: "Componente sem medições válidas",
@@ -131,11 +132,10 @@ export function calcularExposicaoPorComponente(
     }
     const valores = g.linhas.map((l) => l.valor);
     const soma = valores.reduce((a, b) => a + b, 0);
-    const media = Math.round((soma / valores.length) * 100) / 100;
+    const media = soma / valores.length; // sem arredondar
     const min = Math.min(...valores);
     const max = Math.max(...valores);
-    const variacao_pct =
-      media > 0 ? Math.round(((max - min) / media) * 100 * 10) / 10 : 0;
+    const variacao_pct = media > 0 ? ((max - min) / media) * 100 : 0;
     const variabilidade = classificarVariabilidade(variacao_pct);
     const situacao: Situacao =
       lt_media == null ? "Sem LT" : media >= lt_media ? "Acima do limite" : "Abaixo do limite";
@@ -143,16 +143,31 @@ export function calcularExposicaoPorComponente(
       componente,
       linhas: g.linhas,
       media,
-      min: Math.round(min * 100) / 100,
-      max: Math.round(max * 100) / 100,
+      min,
+      max,
       variacao_pct,
       variabilidade,
       lt,
-      lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+      lt_media,
       unidade: g.unidade || "",
       situacao,
     };
   });
+}
+
+/** Estrutura simplificada para uso no template (loop {{#componentes_calculo}}). */
+export function buildComponentesCalculo(
+  componentes: QuimicoComponenteResultado[],
+): QuimicoComponenteCalculo[] {
+  return (componentes || [])
+    .filter((c) => !c.erro)
+    .map((c) => ({
+      componente: c.componente,
+      media_concentracao: c.media,
+      media_limite: c.lt_media,
+      unidade: c.unidade || "",
+      situacao: c.situacao,
+    }));
 }
 
 interface Props {
