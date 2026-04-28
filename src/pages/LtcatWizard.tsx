@@ -2833,15 +2833,36 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           )}
 
           {/* Navigation */}
-          <div className="flex justify-between mt-6 max-w-2xl">
+          <div className="flex justify-between items-center gap-3 mt-6 max-w-2xl flex-wrap">
             <Button variant="outline" onClick={() => step > 0 ? setStep(step - 1) : navigate("/documentos")} className="gap-2">
               <ArrowLeft className="w-4 h-4" />{step === 0 ? "Voltar" : "Anterior"}
             </Button>
-            {step < steps.length - 1 && (
-              <Button onClick={() => setStep(step + 1)} disabled={!canAdvance()} className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2">
-                Avançar<ArrowRight className="w-4 h-4" />
+            <div className="flex gap-2 items-center">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => handleSaveDraft(false)}
+                disabled={savingDraft || !empresaId}
+                className="gap-2"
+                title="Salva o progresso atual sem validar"
+              >
+                {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                Salvar Rascunho
               </Button>
-            )}
+              {step < steps.length - 1 && (
+                <Button
+                  onClick={async () => {
+                    // Auto-save ao avançar
+                    if (empresaId) await handleSaveDraft(true);
+                    setStep(step + 1);
+                  }}
+                  disabled={!canAdvance()}
+                  className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2"
+                >
+                  Avançar<ArrowRight className="w-4 h-4" />
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Risk Dialog */}
