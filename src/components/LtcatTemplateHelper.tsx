@@ -732,6 +732,26 @@ export function LtcatTemplateHelper() {
                     <code>{"{{media_limite_tolerancia}}"}</code>, <code>{"{{unidade}}"}</code>.
                   </span>
                 </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{#componentes_calculo}}")}
+                  >
+                    {"{{#componentes_calculo}}…{{/componentes_calculo}}"}
+                    {copiedKey === "{{#componentes_calculo}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Loop NHO-08 com classificação automática. Variáveis internas:{" "}
+                    <code>{"{{componente}}"}</code>, <code>{"{{media_concentracao}}"}</code>,{" "}
+                    <code>{"{{media_limite}}"}</code>, <code>{"{{unidade}}"}</code>,{" "}
+                    <code>{"{{situacao}}"}</code> (Abaixo/Acima do limite).
+                  </span>
+                </li>
               </ul>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}
@@ -740,11 +760,12 @@ export function LtcatTemplateHelper() {
   Concentração média: {{media_concentracao}}
   LT médio: {{media_limite_tolerancia}}
 
-  {{#componentes_resumo}}
-  Componente: {{componente_nome}}
+  {{#componentes_calculo}}
+  Componente: {{componente}}
   Média da concentração: {{media_concentracao}} {{unidade}}
-  Limite de tolerância (média): {{media_limite_tolerancia}} {{unidade}}
-  {{/componentes_resumo}}
+  LT médio: {{media_limite}} {{unidade}}
+  Situação: {{situacao}}
+  {{/componentes_calculo}}
 {{/riscos}}`}
               </pre>
             </div>

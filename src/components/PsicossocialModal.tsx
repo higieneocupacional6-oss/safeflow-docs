@@ -107,7 +107,19 @@ export type AvaliacaoPsicossocial = {
   };
   resultado_psicossocial: string;
   riscos_psicossociais: string;
+  /** Total de respostas classificadas como positivas (somando todos os blocos). */
+  total_positivas?: number;
+  /** Total de respostas classificadas como negativas. */
+  total_negativas?: number;
+  /** Resumo automático em linguagem natural — variável {{copsoq_resultado_resumido}}. */
+  copsoq_resultado_resumido?: string;
+  /** Riscos derivados da predominância de respostas negativas — {{copsoq_riscos_identificados}}. */
+  copsoq_riscos_identificados?: string;
 };
+
+/** Blocos cujas respostas altas (Sempre/Frequentemente) representam ASPECTO NEGATIVO.
+ *  Para os demais blocos, respostas altas representam aspecto POSITIVO. */
+const BLOCOS_INVERTIDOS = new Set(["exigencias", "conflitos", "sintomas"]);
 
 export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
   colaborador_nome: "",
@@ -119,6 +131,10 @@ export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
   alertas: { alerta_amarelo: false, alerta_vermelho: false, recomendacao_imediata: false },
   resultado_psicossocial: "",
   riscos_psicossociais: "",
+  total_positivas: 0,
+  total_negativas: 0,
+  copsoq_resultado_resumido: "",
+  copsoq_riscos_identificados: "",
 });
 
 function classificar(media: number): string {
@@ -195,15 +211,84 @@ function gerarAnalise(blocos: Record<string, BlocoResultado>, respostasSintomas:
   };
 }
 
+/**
+ * Classifica uma resposta como POSITIVA ou NEGATIVA conforme a regra:
+ *   - Sempre / Frequentemente / Às vezes (≥ 50) → POSITIVA
+ *   - Raramente / Nunca (< 50) → NEGATIVA
+ * Em blocos invertidos (sintomas, exigências, conflitos) a lógica é trocada,
+ * pois "sempre sentir cansaço" é um aspecto negativo.
+ */
+function classificarResposta(valor: number, blocoKey: string): "positiva" | "negativa" {
+  const alta = valor >= 50;
+  const invertido = BLOCOS_INVERTIDOS.has(blocoKey);
+  return alta !== invertido ? "positiva" : "negativa";
+}
+
+function gerarResumoCopsoq(
+  total_positivas: number,
+  total_negativas: number,
+  blocos: Record<string, BlocoResultado>,
+): { copsoq_resultado_resumido: string; copsoq_riscos_identificados: string } {
+  const total = total_positivas + total_negativas;
+  if (!total) {
+    return { copsoq_resultado_resumido: "", copsoq_riscos_identificados: "" };
+  }
+  const pctPos = (total_positivas / total) * 100;
+
+  let copsoq_resultado_resumido: string;
+  if (pctPos >= 60) {
+    copsoq_resultado_resumido =
+      "Predominância de fatores positivos no ambiente de trabalho, com bom nível de apoio, autonomia e reconhecimento.";
+  } else if (pctPos >= 40) {
+    copsoq_resultado_resumido =
+      "Cenário misto: parte dos fatores psicossociais é favorável, porém há sinais relevantes de sobrecarga e/ou baixo apoio que merecem acompanhamento.";
+  } else {
+    copsoq_resultado_resumido =
+      "Identificada presença de fatores de risco psicossocial, com baixa autonomia, baixo apoio e sinais de insegurança organizacional.";
+  }
+
+  // Riscos automáticos quando negativas predominam
+  const riscos: string[] = [];
+  if (pctPos < 50) {
+    riscos.push(
+      "Estresse ocupacional",
+      "Baixo apoio organizacional",
+      "Insegurança no trabalho",
+      "Sobrecarga mental",
+    );
+  }
+  // Adiciona riscos específicos de blocos críticos
+  if (blocos["sintomas"]?.classificacao === "Crítico" && !riscos.includes("Estresse ocupacional")) {
+    riscos.push("Estresse ocupacional");
+  }
+  if (blocos["conflitos"]?.classificacao === "Crítico" || blocos["conflitos"]?.classificacao === "Alto") {
+    riscos.push("Conflitos interpessoais / risco de assédio");
+  }
+
+  return {
+    copsoq_resultado_resumido,
+    copsoq_riscos_identificados: riscos.length
+      ? Array.from(new Set(riscos)).join(", ")
+      : "Nenhum risco psicossocial significativo identificado",
+  };
+}
+
 export function calcularPsicossocial(av: AvaliacaoPsicossocial): AvaliacaoPsicossocial {
   const blocos: Record<string, BlocoResultado> = {};
+  let total_positivas = 0;
+  let total_negativas = 0;
   for (const b of BLOCOS_COPSOQ) {
     const respostas = (av.respostas[b.key] || []).filter((r) => r >= 0);
     const media = respostas.length > 0 ? respostas.reduce((a, c) => a + c, 0) / respostas.length : 0;
     blocos[b.key] = { media: Math.round(media * 10) / 10, classificacao: classificar(media) };
+    for (const r of respostas) {
+      if (classificarResposta(r, b.key) === "positiva") total_positivas++;
+      else total_negativas++;
+    }
   }
   const analise = gerarAnalise(blocos, av.respostas["sintomas"] || []);
-  return { ...av, blocos, ...analise };
+  const resumo = gerarResumoCopsoq(total_positivas, total_negativas, blocos);
+  return { ...av, blocos, ...analise, total_positivas, total_negativas, ...resumo };
 }
 
 // ─── MODAL ───

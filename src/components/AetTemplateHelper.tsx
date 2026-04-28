@@ -111,9 +111,13 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
   {
     title: "Avaliação Psicossocial (COPSOQ)",
     vars: [
-      { code: "{{#avaliacoes_psicossociais}}\nColaborador: {{colaborador_nome}} ({{data_avaliacao}})\nResultado: {{resultado_psicossocial}}\nRiscos: {{riscos_psicossociais}}\n{{/avaliacoes_psicossociais}}", desc: "Loop de avaliações psicossociais por colaborador" },
-      { code: "{{resultado_psicossocial}}", desc: "Texto-resumo automático do colaborador" },
-      { code: "{{riscos_psicossociais}}", desc: "Riscos psicossociais identificados" },
+      { code: "{{#avaliacoes_psicossociais}}\nColaborador: {{colaborador_nome}} ({{data_avaliacao}})\nResultado: {{resultado_psicossocial}}\nResumo: {{copsoq_resultado_resumido}}\nRiscos: {{copsoq_riscos_identificados}}\nPositivas: {{total_positivas}} | Negativas: {{total_negativas}}\n{{/avaliacoes_psicossociais}}", desc: "Loop de avaliações psicossociais por colaborador" },
+      { code: "{{copsoq_resultado_resumido}}", desc: "Resumo automático em linguagem natural (positivo/misto/negativo)" },
+      { code: "{{copsoq_riscos_identificados}}", desc: "Riscos psicossociais identificados automaticamente" },
+      { code: "{{total_positivas}}", desc: "Total de respostas classificadas como positivas" },
+      { code: "{{total_negativas}}", desc: "Total de respostas classificadas como negativas" },
+      { code: "{{resultado_psicossocial}}", desc: "Texto-resumo (legado) do colaborador" },
+      { code: "{{riscos_psicossociais}}", desc: "Riscos psicossociais (legado)" },
       { code: "{{blocos.exigencias.media}} / {{blocos.exigencias.classificacao}}", desc: "Bloco Exigências (média + classificação)" },
       { code: "{{blocos.controle.media}} / {{blocos.controle.classificacao}}", desc: "Bloco Controle" },
       { code: "{{blocos.apoio.media}} / {{blocos.apoio.classificacao}}", desc: "Bloco Apoio" },

@@ -232,6 +232,32 @@ export function computeComponentesResumo(
   });
 }
 
+/**
+ * Estrutura para o template DOCX/HTML — loop {{#componentes_calculo}}.
+ * Mantém precisão total no agrupamento por componente (NHO-08), só arredonda na exibição.
+ */
+export function computeComponentesCalculo(
+  resultadosComponentes: any[] | undefined,
+  unidadesList: any[] = [],
+): Array<{ componente: string; media_concentracao: string; media_limite: string; unidade: string; situacao: string }> {
+  const resumo = computeComponentesResumo(resultadosComponentes, unidadesList);
+  return resumo.map((g) => {
+    const mc = parseFloat(g.media_concentracao);
+    const ml = parseFloat(g.media_limite_tolerancia);
+    let situacao = "Sem LT";
+    if (!isNaN(mc) && !isNaN(ml)) {
+      situacao = mc >= ml ? "Acima do limite" : "Abaixo do limite";
+    }
+    return {
+      componente: g.componente_nome,
+      media_concentracao: g.media_concentracao,
+      media_limite: g.media_limite_tolerancia,
+      unidade: g.unidade,
+      situacao,
+    };
+  });
+}
+
 type WizardModo = "ltcat" | "insalubridade" | "periculosidade";
 
 export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
@@ -1528,6 +1554,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               media_concentracao: media_concentracao || "",
               media_limite_tolerancia: media_limite_tolerancia || "",
               componentes_resumo: computeComponentesResumo(allComp, unidades),
+              componentes_calculo: computeComponentesCalculo(allComp, unidades),
             };
           })(),
         };
@@ -1633,6 +1660,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           ? String((r as any).quimico_calc.media_limite_tolerancia)
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
         componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
+        componentes_calculo: computeComponentesCalculo(r.resultados_componentes, unidades),
       };
     });
 

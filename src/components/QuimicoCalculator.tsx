@@ -41,20 +41,35 @@ export interface QuimicoLinha {
 export interface QuimicoComponenteResultado {
   componente: string;
   linhas: QuimicoLinha[];
+  /** Média EXATA da concentração (sem arredondamento). Use toFixed apenas para exibição. */
   media: number;
   min: number;
   max: number;
   variacao_pct: number;
   variabilidade: Variabilidade;
   lt: number | null;
+  /** Média EXATA do limite de tolerância (sem arredondamento). */
   lt_media: number | null;
   unidade: string;
   situacao: Situacao;
   erro?: string;
 }
 
+export interface QuimicoComponenteCalculo {
+  componente: string;
+  media_concentracao: number;
+  media_limite: number | null;
+  unidade: string;
+  situacao: Situacao;
+}
+
 export interface QuimicoResultado {
   componentes: QuimicoComponenteResultado[];
+  /** Estrutura simplificada para uso direto no template DOCX. */
+  componentes_calculo?: QuimicoComponenteCalculo[];
+  /** Compat: também acessível em snake_case via array igual a componentes_calculo. */
+  media_concentracao?: number;
+  media_limite_tolerancia?: number;
 }
 
 interface ResultadoCadastrado {
@@ -96,6 +111,7 @@ export function calcularExposicaoPorComponente(
     grupos[nome].linhas.push({ raw: String(d.resultado ?? ""), valor });
   }
   return Object.entries(grupos).map(([componente, g]) => {
+    // PRECISÃO TOTAL — sem arredondamento aqui. Apenas exibição usa toFixed(n).
     const lt_media = g.lts.length ? g.lts.reduce((a, b) => a + b, 0) / g.lts.length : null;
     const lt = g.lts.length ? g.lts[0] : null;
     if (g.linhas.length === 0) {
@@ -108,7 +124,7 @@ export function calcularExposicaoPorComponente(
         variacao_pct: 0,
         variabilidade: "Baixa",
         lt,
-        lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+        lt_media,
         unidade: g.unidade || "",
         situacao: "Sem LT",
         erro: "Componente sem medições válidas",
@@ -116,11 +132,10 @@ export function calcularExposicaoPorComponente(
     }
     const valores = g.linhas.map((l) => l.valor);
     const soma = valores.reduce((a, b) => a + b, 0);
-    const media = Math.round((soma / valores.length) * 100) / 100;
+    const media = soma / valores.length; // sem arredondar
     const min = Math.min(...valores);
     const max = Math.max(...valores);
-    const variacao_pct =
-      media > 0 ? Math.round(((max - min) / media) * 100 * 10) / 10 : 0;
+    const variacao_pct = media > 0 ? ((max - min) / media) * 100 : 0;
     const variabilidade = classificarVariabilidade(variacao_pct);
     const situacao: Situacao =
       lt_media == null ? "Sem LT" : media >= lt_media ? "Acima do limite" : "Abaixo do limite";
@@ -128,16 +143,31 @@ export function calcularExposicaoPorComponente(
       componente,
       linhas: g.linhas,
       media,
-      min: Math.round(min * 100) / 100,
-      max: Math.round(max * 100) / 100,
+      min,
+      max,
       variacao_pct,
       variabilidade,
       lt,
-      lt_media: lt_media != null ? Math.round(lt_media * 100) / 100 : null,
+      lt_media,
       unidade: g.unidade || "",
       situacao,
     };
   });
+}
+
+/** Estrutura simplificada para uso no template (loop {{#componentes_calculo}}). */
+export function buildComponentesCalculo(
+  componentes: QuimicoComponenteResultado[],
+): QuimicoComponenteCalculo[] {
+  return (componentes || [])
+    .filter((c) => !c.erro)
+    .map((c) => ({
+      componente: c.componente,
+      media_concentracao: c.media,
+      media_limite: c.lt_media,
+      unidade: c.unidade || "",
+      situacao: c.situacao,
+    }));
 }
 
 interface Props {
@@ -162,7 +192,13 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
     if (componentes.length === 0) {
       return { data: null, erro: "Nenhum componente com medições válidas." };
     }
-    return { data: { componentes }, erro: null };
+    const componentes_calculo = buildComponentesCalculo(componentes);
+    // Compat: expor médias agregadas no objeto raiz para o template legado
+    const todasMedias = componentes_calculo.map((c) => c.media_concentracao);
+    const todosLT = componentes_calculo.map((c) => c.media_limite).filter((x): x is number => x != null);
+    const media_concentracao = todasMedias.length ? todasMedias.reduce((a, b) => a + b, 0) / todasMedias.length : undefined;
+    const media_limite_tolerancia = todosLT.length ? todosLT.reduce((a, b) => a + b, 0) / todosLT.length : undefined;
+    return { data: { componentes, componentes_calculo, media_concentracao, media_limite_tolerancia }, erro: null };
   }, [resultados]);
 
   useEffect(() => {
