@@ -41,20 +41,35 @@ export interface QuimicoLinha {
 export interface QuimicoComponenteResultado {
   componente: string;
   linhas: QuimicoLinha[];
+  /** Média EXATA da concentração (sem arredondamento). Use toFixed apenas para exibição. */
   media: number;
   min: number;
   max: number;
   variacao_pct: number;
   variabilidade: Variabilidade;
   lt: number | null;
+  /** Média EXATA do limite de tolerância (sem arredondamento). */
   lt_media: number | null;
   unidade: string;
   situacao: Situacao;
   erro?: string;
 }
 
+export interface QuimicoComponenteCalculo {
+  componente: string;
+  media_concentracao: number;
+  media_limite: number | null;
+  unidade: string;
+  situacao: Situacao;
+}
+
 export interface QuimicoResultado {
   componentes: QuimicoComponenteResultado[];
+  /** Estrutura simplificada para uso direto no template DOCX. */
+  componentes_calculo?: QuimicoComponenteCalculo[];
+  /** Compat: também acessível em snake_case via array igual a componentes_calculo. */
+  media_concentracao?: number;
+  media_limite_tolerancia?: number;
 }
 
 interface ResultadoCadastrado {
