@@ -679,6 +679,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         });
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
+        console.log("📦 [RASCUNHO CARREGADO]", {
+          setores: loadedRiscos.map(r => ({
+            setor_id: r.setor_id,
+            setor_nome: r.setor_nome,
+            agente_nome: r.agente_nome,
+            funcoes: r.items.map(i => ({ funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
+          })),
+        });
         setRiscos(loadedRiscos);
         setDocLoaded(true);
         toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
