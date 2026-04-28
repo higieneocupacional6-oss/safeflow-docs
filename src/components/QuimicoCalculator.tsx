@@ -20,6 +20,18 @@ import {
 } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 
+/** Formata número preservando TODAS as casas decimais (sem arredondar/truncar). */
+function fmtFull(n: number | null | undefined): string {
+  if (n == null || !isFinite(n as number)) return "—";
+  // Usa representação nativa do JS — mantém todos os decimais significativos.
+  let s = String(n);
+  if (s.includes("e") || s.includes("E")) {
+    // Evita notação científica para números muito pequenos/grandes
+    s = (n as number).toFixed(20).replace(/0+$/, "").replace(/\.$/, "");
+  }
+  return s;
+}
+
 /** Converte valor em número (vírgula→ponto). Retorna null se inválido ou ≤ 0. */
 function parseConc(raw: any): number | null {
   if (raw == null) return null;
