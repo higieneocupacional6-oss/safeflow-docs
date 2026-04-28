@@ -19,7 +19,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
-import { sortByGes } from "@/lib/sortGes";
+import { sortByGes, gesOrder } from "@/lib/sortGes";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -2651,7 +2651,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {step === 2 && (
             <div className="space-y-8 animate-in fade-in duration-500">
               {(() => {
-                const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)));
+                const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)))
+                  .sort((a, b) => {
+                    const sa = setores.find((s: any) => s.id === a);
+                    const sb = setores.find((s: any) => s.id === b);
+                    const da = gesOrder(sa?.ghe_ges);
+                    const db = gesOrder(sb?.ghe_ges);
+                    if (da !== db) return da - db;
+                    const na = sa?.nome_setor || riscos.find(r => r.setor_id === a)?.setor_nome || "";
+                    const nb = sb?.nome_setor || riscos.find(r => r.setor_id === b)?.setor_nome || "";
+                    return String(na).localeCompare(String(nb), "pt-BR");
+                  });
 
                 if (riscos.length === 0) {
                   return (
@@ -3443,17 +3453,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               const isQuim = tipoUp.includes("QUIMI") || tipoUp.includes("QUÍMI");
                               if (!isQuim) return null;
                               // Achata resultados_componentes em formato esperado
+                              // Compatível com 2 shapes:
+                              //  (a) novo (modal): { colaborador, funcao_id, componentes: [{componente,resultado,...}] }
+                              //  (b) carregado do BD: linha já flat com { componente, resultado, ... }
                               const flat: any[] = [];
                               (riskForm.resultados_componentes || []).forEach((row: any) => {
                                 const uSym = unidades.find((u: any) => u.id === row.unidade_resultado_id)?.simbolo || "";
-                                (row.componentes || []).forEach((c: any) => {
-                                  flat.push({
-                                    componente_avaliado: c.componente || c.nome_componente || c.componente_avaliado || "",
-                                    resultado: c.resultado,
-                                    limite_tolerancia: c.limite_tolerancia ?? c.lt,
-                                    unidade: c.unidade || uSym || "",
+                                if (Array.isArray(row.componentes) && row.componentes.length > 0) {
+                                  row.componentes.forEach((c: any) => {
+                                    flat.push({
+                                      componente_avaliado: c.componente || c.nome_componente || c.componente_avaliado || "",
+                                      resultado: c.resultado,
+                                      limite_tolerancia: c.limite_tolerancia ?? c.lt,
+                                      unidade: c.unidade || uSym || "",
+                                    });
                                   });
-                                });
+                                } else if (row.componente || row.componente_avaliado) {
+                                  flat.push({
+                                    componente_avaliado: row.componente || row.componente_avaliado || "",
+                                    resultado: row.resultado,
+                                    limite_tolerancia: row.limite_tolerancia,
+                                    unidade: uSym || "",
+                                  });
+                                }
                               });
                               if (flat.length <= 1) return null;
                               const grupos: Record<string, number> = {};
@@ -3486,9 +3508,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               {riskForm.resultados_componentes.map((row: any, ri: number) => (
                                 <div key={ri} className="p-3 border rounded-lg bg-muted/20">
                                   <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
-                                  {row.componentes?.map((c: any, ci: number) => (
-                                    <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado}</div>
-                                  ))}
+                                  {Array.isArray(row.componentes) && row.componentes.length > 0 ? (
+                                    row.componentes.map((c: any, ci: number) => (
+                                      <div key={ci} className="text-xs text-muted-foreground ml-2">• {c.componente}: {c.resultado}</div>
+                                    ))
+                                  ) : (row.componente || row.componente_avaliado) ? (
+                                    <div className="text-xs text-muted-foreground ml-2">• {row.componente || row.componente_avaliado}: {row.resultado}</div>
+                                  ) : null}
                                 </div>
                               ))}
                             </div>
