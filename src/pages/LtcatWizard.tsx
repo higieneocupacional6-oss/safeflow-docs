@@ -1554,6 +1554,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               media_concentracao: media_concentracao || "",
               media_limite_tolerancia: media_limite_tolerancia || "",
               componentes_resumo: computeComponentesResumo(allComp, unidades),
+              componentes_calculo: computeComponentesCalculo(allComp, unidades),
             };
           })(),
         };
