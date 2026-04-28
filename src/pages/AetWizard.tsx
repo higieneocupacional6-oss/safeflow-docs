@@ -45,6 +45,7 @@ type SetorAet = {
   descricao_ambiente: string;
   funcao_id: string;
   funcao_nome: string;
+  funcoes_selecionadas: { id: string; nome: string }[];
   numero_funcionarios: string;
   colaboradores: Colaborador[];
   posto_trabalho: string;
@@ -72,7 +73,7 @@ const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
   { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
 ];
 
-const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "" });
+const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "", funcao: "" });
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
