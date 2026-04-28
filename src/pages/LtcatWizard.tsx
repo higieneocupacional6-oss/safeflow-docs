@@ -2025,6 +2025,58 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
   };
 
+  // SALVAR RASCUNHO - sem validações, apenas persiste o que foi preenchido
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+
+  const handleSaveDraft = async (silent = false) => {
+    if (!empresaId) {
+      if (!silent) toast.error("Selecione uma empresa antes de salvar o rascunho");
+      return;
+    }
+    setSavingDraft(true);
+    try {
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+
+      let docId = currentDraftId;
+      if (docId) {
+        await supabase.from("documentos").update({
+          empresa_id: empresaId,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate || null,
+          status: "rascunho",
+        }).eq("id", docId);
+      } else {
+        const { data: inserted, error } = await supabase.from("documentos").insert({
+          tipo: tipoDocLabel,
+          empresa_id: empresaId,
+          empresa_nome: empresaNome,
+          template_id: selectedTemplate || null,
+          file_path: null,
+          status: "rascunho",
+        }).select("id").single();
+        if (error) throw error;
+        docId = inserted?.id || null;
+        setCurrentDraftId(docId);
+      }
+      if (docId) await persistAvaliacoes(docId);
+      if (!silent) toast.success("💾 Rascunho salvo com sucesso");
+    } catch (err: any) {
+      console.error("[handleSaveDraft]", err);
+      // Fallback: salvar localmente
+      try {
+        localStorage.setItem(
+          `draft_${tipoDocumento}_${empresaId}`,
+          JSON.stringify({ savedAt: Date.now() })
+        );
+      } catch {}
+      if (!silent) toast.error("Erro ao salvar rascunho: " + (err.message || ""));
+    } finally {
+      setSavingDraft(false);
+    }
+  };
+
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
     if (!selectedTemplate) {
