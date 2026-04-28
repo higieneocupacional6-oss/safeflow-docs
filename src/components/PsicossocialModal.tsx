@@ -121,6 +121,19 @@ export type AvaliacaoPsicossocial = {
  *  Para os demais blocos, respostas altas representam aspecto POSITIVO. */
 const BLOCOS_INVERTIDOS = new Set(["exigencias", "conflitos", "sintomas"]);
 
+/** Blocos POSITIVOS — quanto mais o colaborador responde "Sempre/Frequentemente",
+ *  MENOR é o risco. Para esses blocos invertemos o valor antes de calcular a média
+ *  de risco (100→0, 75→25, 50→50, 25→75, 0→100). */
+const BLOCOS_POSITIVOS = new Set(["controle", "apoio", "reconhecimento", "seguranca"]);
+
+function valorRisco(valor: number, blocoKey: string): number {
+  // Se o bloco é positivo, inverte: alta frequência = baixo risco
+  if (BLOCOS_POSITIVOS.has(blocoKey)) {
+    return 100 - valor;
+  }
+  return valor;
+}
+
 export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
   colaborador_nome: "",
   data_avaliacao: "",
@@ -279,7 +292,10 @@ export function calcularPsicossocial(av: AvaliacaoPsicossocial): AvaliacaoPsicos
   let total_negativas = 0;
   for (const b of BLOCOS_COPSOQ) {
     const respostas = (av.respostas[b.key] || []).filter((r) => r >= 0);
-    const media = respostas.length > 0 ? respostas.reduce((a, c) => a + c, 0) / respostas.length : 0;
+    // Para blocos positivos (controle, apoio, reconhecimento, segurança),
+    // invertemos o valor: "Sempre" tem autonomia → risco baixo.
+    const respostasRisco = respostas.map((r) => valorRisco(r, b.key));
+    const media = respostasRisco.length > 0 ? respostasRisco.reduce((a, c) => a + c, 0) / respostasRisco.length : 0;
     blocos[b.key] = { media: Math.round(media * 10) / 10, classificacao: classificar(media) };
     for (const r of respostas) {
       if (classificarResposta(r, b.key) === "positiva") total_positivas++;
