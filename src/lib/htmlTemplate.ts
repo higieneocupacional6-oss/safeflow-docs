@@ -43,19 +43,62 @@ export async function renderHtmlTemplateToDocx(
 ): Promise<Blob> {
   const rendered = Mustache.render(htmlTemplate, data);
 
-  // Wrap each GES/Setor block in a container with spacing + page-break controls.
-  // Mustache outputs each {{#setores}}...{{/setores}} iteration sequentially; we
-  // post-process the HTML to wrap consecutive content between GES markers in
-  // <div class="ges-block"> when the template doesn't already provide one.
-  // Insert a spacer paragraph after every closing </table> so consecutive GES
-  // tables never visually collide in the generated DOCX (html-docx-js doesn't
-  // honor margin between sibling tables reliably).
-  let wrapped = rendered.replace(
-    /<\/table>(\s*)(?=<table|<h[1-6]|<div|<p|<section)/gi,
+  // ──────────────────────────────────────────────────────────────────────────
+  // POST-PROCESSING: garantir que cada SETOR/GES seja um BLOCO INDEPENDENTE
+  // com sua PRÓPRIA tabela completa, fluxo vertical, espaçamento e quebra
+  // de página opcional. Tratamos 3 cenários:
+  //
+  //  (A) Template já envolve cada setor em <div class="setor-block">/<div data-setor>
+  //      → apenas garantimos espaçador depois do bloco.
+  //
+  //  (B) Template gera UMA tabela única com várias linhas, uma por setor
+  //      (ex.: <tr data-setor> ... </tr>). Esse é o caso problemático
+  //      relatado pelo usuário (sobreposição). Aqui dividimos a tabela em
+  //      várias tabelas independentes — uma por setor — preservando o
+  //      <thead> em cada uma.
+  //
+  //  (C) Template gera uma tabela por setor naturalmente. Apenas inserimos
+  //      espaçador entre tabelas consecutivas.
+  // ──────────────────────────────────────────────────────────────────────────
+  let wrapped = rendered;
+
+  // (B) Quebrar tabela única que contém múltiplas linhas marcadas como setor.
+  // Detectamos linhas marcadas (data-setor, class*="setor"/"ges") dentro de
+  // uma mesma <table> e transformamos cada uma em uma tabela autônoma.
+  wrapped = wrapped.replace(
+    /<table\b([^>]*)>([\s\S]*?)<\/table>/gi,
+    (full, tableAttrs: string, inner: string) => {
+      const setorRowRegex = /<tr\b[^>]*(?:data-setor|class\s*=\s*"[^"]*(?:setor|ges)[^"]*")[^>]*>[\s\S]*?<\/tr>/gi;
+      const setorRows = inner.match(setorRowRegex);
+      if (!setorRows || setorRows.length < 2) return full; // nada a dividir
+
+      // Extrai <thead> (se existir) para repetir em cada tabela nova
+      const theadMatch = inner.match(/<thead\b[\s\S]*?<\/thead>/i);
+      const thead = theadMatch ? theadMatch[0] : "";
+
+      const pieces = setorRows.map(
+        (row) =>
+          `<table${tableAttrs} class="setor-block">${thead}<tbody>${row}</tbody></table>` +
+          `<p class="block-spacer">&nbsp;</p>`,
+      );
+      return pieces.join("\n");
+    },
+  );
+
+  // (C) Espaçador entre tabelas consecutivas (caso o template já gere uma
+  // tabela por setor) e antes de novos blocos/cabeçalhos.
+  wrapped = wrapped.replace(
+    /<\/table>(\s*)(?=<table|<h[1-6]|<div|<section)/gi,
     "</table><p class=\"block-spacer\">&nbsp;</p>$1",
   );
-  // Always end orphan tables with at least one spacer too
+  // Sempre fechar tabelas órfãs no fim com um espaçador
   wrapped = wrapped.replace(/<\/table>(\s*)$/i, "</table><p class=\"block-spacer\">&nbsp;</p>");
+
+  // (A) Espaçador depois de cada container explícito de setor/GES
+  wrapped = wrapped.replace(
+    /<\/div>(\s*)(?=<div[^>]*(?:class\s*=\s*"[^"]*(?:setor-block|ges-block)[^"]*"|data-setor|data-ges))/gi,
+    "</div><p class=\"block-spacer\">&nbsp;</p>$1",
+  );
 
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; }
