@@ -34,6 +34,7 @@ const variableGroups = [
   {
     title: "Variáveis de Setor",
     vars: [
+      "{{inicio_setor}}", "{{fim_setor}}",
       "{{setor}}", "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}",
       "{{local_trabalho}}", "{{jornada_trabalho}}",
     ],
