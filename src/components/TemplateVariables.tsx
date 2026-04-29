@@ -199,6 +199,10 @@ export function TemplateVariables() {
             </p>
             <p className="text-accent font-medium text-xs">
               <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
+              <strong>Bloco por Setor (GES/GHE):</strong> use <code>{"{{inicio_setor}}"}</code> no início e <code>{"{{fim_setor}}"}</code> no fim de cada setor (dentro do loop <code>{"{{#setores}}...{{/setores}}"}</code>). O sistema empacota automaticamente o conteúdo entre eles em um bloco independente, evitando sobreposição de tabelas e mistura de dados entre setores. Os setores são ordenados por GHE/GES ao gerar o documento.
+            </p>
+            <p className="text-accent font-medium text-xs">
+              <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
               As variáveis de avaliação, calor e vibração são provenientes da etapa de avaliação de riscos por setor no LTCAT. Suportam repetição dinâmica (loop): <code>{"{{#setores}}{{#riscos}}{{#avaliacoes}}...{{/avaliacoes}}{{/riscos}}{{/setores}}"}</code>
             </p>
             <p className="text-accent font-medium text-xs">
