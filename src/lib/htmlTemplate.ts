@@ -47,7 +47,15 @@ export async function renderHtmlTemplateToDocx(
   // Mustache outputs each {{#setores}}...{{/setores}} iteration sequentially; we
   // post-process the HTML to wrap consecutive content between GES markers in
   // <div class="ges-block"> when the template doesn't already provide one.
-  const wrapped = rendered;
+  // Insert a spacer paragraph after every closing </table> so consecutive GES
+  // tables never visually collide in the generated DOCX (html-docx-js doesn't
+  // honor margin between sibling tables reliably).
+  let wrapped = rendered.replace(
+    /<\/table>(\s*)(?=<table|<h[1-6]|<div|<p|<section)/gi,
+    "</table><p class=\"block-spacer\">&nbsp;</p>$1",
+  );
+  // Always end orphan tables with at least one spacer too
+  wrapped = wrapped.replace(/<\/table>(\s*)$/i, "</table><p class=\"block-spacer\">&nbsp;</p>");
 
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; }
