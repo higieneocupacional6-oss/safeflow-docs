@@ -33,33 +33,141 @@ export async function validateHtmlTemplate(file: File): Promise<HtmlTemplateIssu
   return issues;
 }
 
+// ───────────────────────────────────────────────────────────────────────────
+// SANITIZAÇÃO HTML — remove tudo que costuma corromper DOCX no Word:
+//  • tabelas aninhadas (Word não aceita confiavelmente <table> dentro de <td>)
+//  • shapes/textbox/objetos flutuantes (<svg>, <object>, <embed>, <iframe>,
+//    <canvas>, <video>, <audio>, <form>, <input>, <button>, <textarea>)
+//  • alturas fixas em <tr>/<td>/<table> (height=, style="height:..")
+//  • atributos de posicionamento absoluto/float que quebram fluxo
+//  • <script>/<style> dentro do body, comentários condicionais MS Office
+// ───────────────────────────────────────────────────────────────────────────
+function sanitizeHtmlForDocx(html: string): string {
+  let out = html;
+
+  // Remover scripts e comentários condicionais Office
+  out = out.replace(/<script\b[\s\S]*?<\/script>/gi, "");
+  out = out.replace(/<!--\[if[\s\S]*?<!\[endif\]-->/gi, "");
+
+  // Remover elementos incompatíveis (shapes, textboxes, objetos flutuantes, form controls)
+  const incompatTags = [
+    "svg", "object", "embed", "iframe", "canvas", "video", "audio",
+    "form", "input", "button", "textarea", "select", "option",
+    "v:shape", "v:textbox", "v:rect", "v:line", "v:group", "o:OLEObject",
+    "w:drawing", "w:pict",
+  ];
+  for (const tag of incompatTags) {
+    const safe = tag.replace(":", "\\:");
+    out = out.replace(new RegExp(`<${safe}\\b[\\s\\S]*?<\\/${safe}>`, "gi"), "");
+    out = out.replace(new RegExp(`<${safe}\\b[^>]*\\/>`, "gi"), "");
+  }
+
+  // Remover alturas fixas em table/tr/td/th (tanto attr height= como style:height)
+  out = out.replace(/<(table|tr|td|th)\b([^>]*)>/gi, (_m, tag, attrs) => {
+    let a = attrs as string;
+    a = a.replace(/\s+height\s*=\s*"[^"]*"/gi, "");
+    a = a.replace(/\s+height\s*=\s*'[^']*'/gi, "");
+    a = a.replace(/\s+height\s*=\s*[^\s>]+/gi, "");
+    a = a.replace(/style\s*=\s*"([^"]*)"/gi, (_s, css) => {
+      const cleaned = (css as string)
+        .replace(/(^|;)\s*height\s*:[^;]+/gi, "$1")
+        .replace(/(^|;)\s*min-height\s*:[^;]+/gi, "$1")
+        .replace(/(^|;)\s*max-height\s*:[^;]+/gi, "$1")
+        .replace(/(^|;)\s*position\s*:\s*(absolute|fixed)[^;]*/gi, "$1")
+        .replace(/(^|;)\s*float\s*:[^;]+/gi, "$1")
+        .replace(/^;+|;+$/g, "");
+      return cleaned ? `style="${cleaned}"` : "";
+    });
+    return `<${tag}${a}>`;
+  });
+
+  // Achatamento de tabelas aninhadas: substitui <table> interno por <div>
+  // (loop até não haver mais aninhamento)
+  for (let i = 0; i < 5; i++) {
+    const before = out;
+    out = out.replace(
+      /<td\b([^>]*)>([\s\S]*?)<\/td>/gi,
+      (full, tdAttrs: string, inner: string) => {
+        if (!/<table\b/i.test(inner)) return full;
+        const flat = inner
+          .replace(/<table\b[^>]*>/gi, '<div class="flat-table">')
+          .replace(/<\/table>/gi, "</div>")
+          .replace(/<thead\b[^>]*>|<\/thead>|<tbody\b[^>]*>|<\/tbody>|<tfoot\b[^>]*>|<\/tfoot>/gi, "")
+          .replace(/<tr\b[^>]*>/gi, '<div class="flat-row">')
+          .replace(/<\/tr>/gi, "</div>")
+          .replace(/<t[hd]\b[^>]*>/gi, '<span class="flat-cell">')
+          .replace(/<\/t[hd]>/gi, "</span> ");
+        return `<td${tdAttrs}>${flat}</td>`;
+      },
+    );
+    if (out === before) break;
+  }
+
+  return out;
+}
+
+// ───────────────────────────────────────────────────────────────────────────
+// VALIDAÇÃO ZIP/XML — abre o .docx gerado, confere se é um ZIP válido,
+// se contém word/document.xml e se o XML faz parse. Em caso de problema,
+// lança erro claro para o caller exibir.
+// ───────────────────────────────────────────────────────────────────────────
+async function validateGeneratedDocx(blob: Blob): Promise<void> {
+  const PizZip = (await import("pizzip")).default;
+  const buf = await blob.arrayBuffer();
+  let zip: any;
+  try {
+    zip = new PizZip(buf);
+  } catch (e: any) {
+    throw new Error(`DOCX gerado não é um ZIP válido: ${e?.message || e}`);
+  }
+  const docFile = zip.file("word/document.xml");
+  if (!docFile) throw new Error("DOCX gerado não contém word/document.xml");
+  const xml = docFile.asText();
+  if (!xml || xml.length < 100) throw new Error("word/document.xml vazio ou truncado");
+  try {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(xml, "application/xml");
+    const errNode = doc.getElementsByTagName("parsererror")[0];
+    if (errNode) throw new Error(errNode.textContent || "XML inválido");
+  } catch (e: any) {
+    throw new Error(`word/document.xml inválido: ${e?.message || e}`);
+  }
+}
+
 /**
  * Render an HTML template with Mustache and convert to a .docx Blob.
- * Uses html-docx-js (browser-safe) loaded dynamically to avoid impacting initial bundle.
+ * Pipeline:
+ *   1. Render Mustache (com normalização de loops mal balanceados)
+ *   2. Post-processing de SETOR/GES (split de tabelas, espaçadores)
+ *   3. Sanitização (remove shapes/textbox/aninhamentos/alturas fixas)
+ *   4. Conversão html-docx-js
+ *   5. Validação ZIP/XML do DOCX final
  */
 export async function renderHtmlTemplateToDocx(
   htmlTemplate: string,
   data: Record<string, any>,
 ): Promise<Blob> {
-  const rendered = Mustache.render(htmlTemplate, data);
+  // (0) Normalização preventiva de loops Mustache mal formatados
+  //     — fecha seções abertas no fim do template para evitar render abortar.
+  let safeTemplate = htmlTemplate;
+  try {
+    Mustache.parse(safeTemplate);
+  } catch {
+    // Heurística simples: para cada {{#tag}} sem {{/tag}}, adiciona o fechamento no fim.
+    const opens = [...safeTemplate.matchAll(/\{\{\s*#\s*([\w.-]+)\s*\}\}/g)].map((m) => m[1]);
+    const closes = [...safeTemplate.matchAll(/\{\{\s*\/\s*([\w.-]+)\s*\}\}/g)].map((m) => m[1]);
+    const missing: string[] = [];
+    const closeCount: Record<string, number> = {};
+    closes.forEach((c) => (closeCount[c] = (closeCount[c] || 0) + 1));
+    opens.forEach((o) => {
+      if ((closeCount[o] || 0) > 0) closeCount[o]--;
+      else missing.push(o);
+    });
+    safeTemplate += missing.reverse().map((t) => `{{/${t}}}`).join("");
+  }
 
-  // ──────────────────────────────────────────────────────────────────────────
-  // POST-PROCESSING: cada SETOR (GES/GHE) é um BLOCO INDEPENDENTE.
-  //
-  // Marcadores injetados pelo payload:
-  //   {{inicio_setor}} -> <!--LV_SETOR_START:<id>-->
-  //   {{fim_setor}}    -> <!--LV_SETOR_END:<id>-->
-  //
-  // Cenários tratados:
-  //  (1) Tabela contém múltiplos START internamente: dividimos em N tabelas
-  //      independentes, uma por setor, repetindo o <thead>.
-  //  (2) Conteúdo entre START e END do mesmo id é empacotado em
-  //      <div class="setor-block"> com espaçador no final.
-  //  (3) Compatibilidade legada: tabela única com várias <tr data-setor>/
-  //      class*="setor"/"ges" também é dividida em N tabelas.
-  //  (4) Espaçador entre tabelas/blocos consecutivos (DOCX ignora margem
-  //      entre tabelas irmãs).
-  // ──────────────────────────────────────────────────────────────────────────
+  const rendered = Mustache.render(safeTemplate, data);
+
   let wrapped = rendered;
 
   // (1) Dividir tabelas que contenham marcadores LV_SETOR_START internamente.
@@ -78,7 +186,7 @@ export async function renderHtmlTemplateToDocx(
         .filter((p) => p.trim())
         .map(
           (part) =>
-            `<table${tableAttrs} class="setor-block">${thead}<tbody>${part}</tbody></table>` +
+            `<table${tableAttrs} class="setor-block page-break">${thead}<tbody>${part}</tbody></table>` +
             `<p class="block-spacer">&nbsp;</p>`,
         );
       return tables.join("\n");
@@ -89,7 +197,7 @@ export async function renderHtmlTemplateToDocx(
   wrapped = wrapped.replace(
     /<!--LV_SETOR_START:([^>]*?)-->([\s\S]*?)<!--LV_SETOR_END:\1-->/g,
     (_full, _id: string, content: string) =>
-      `<div class="setor-block">${content}</div><p class="block-spacer">&nbsp;</p>`,
+      `<div class="setor-block page-break">${content}</div><p class="block-spacer">&nbsp;</p>`,
   );
 
   // Limpa marcadores órfãos (sem par)
@@ -108,7 +216,7 @@ export async function renderHtmlTemplateToDocx(
 
       const pieces = setorRows.map(
         (row) =>
-          `<table${tableAttrs} class="setor-block">${thead}<tbody>${row}</tbody></table>` +
+          `<table${tableAttrs} class="setor-block page-break">${thead}<tbody>${row}</tbody></table>` +
           `<p class="block-spacer">&nbsp;</p>`,
       );
       return pieces.join("\n");
@@ -126,6 +234,9 @@ export async function renderHtmlTemplateToDocx(
     "</div><p class=\"block-spacer\">&nbsp;</p>$1",
   );
 
+  // (5) SANITIZAÇÃO FINAL — limpeza de elementos incompatíveis com Word.
+  wrapped = sanitizeHtmlForDocx(wrapped);
+
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; }
     h1 { font-size: 18pt; margin: 0 0 12pt 0; } 
@@ -133,31 +244,28 @@ export async function renderHtmlTemplateToDocx(
     h3 { font-size: 12pt; margin: 12pt 0 6pt 0; page-break-after: avoid; }
     p { margin: 4pt 0; }
 
-    /* GES / Setor block layout — each block flows independently with spacing */
     .ges-block, .setor-block, div[data-ges], div.ges {
       display: block;
       margin: 0 0 24pt 0;
       padding: 0;
       page-break-inside: auto;
-      page-break-after: auto;
+      page-break-after: always;  /* quebra automática entre GES/GHE */
       break-inside: auto;
+      break-after: page;
     }
-    /* Force a clean page between large blocks when explicitly marked */
     .ges-block.page-break, .setor-block.page-break {
       page-break-after: always;
       break-after: page;
     }
 
-    /* Tables: never overlap, always full-width, avoid splitting rows.
-       Cada SETOR vira sua PRÓPRIA tabela (ver post-processing acima).        */
     table {
       border-collapse: collapse;
       width: 100%;
       margin: 8pt 0 16pt 0;
       page-break-inside: auto;
       break-inside: auto;
-      table-layout: auto; /* expansão automática conforme conteúdo */
-      height: auto;       /* nunca usar altura fixa */
+      table-layout: auto;
+      height: auto;
     }
     tr { page-break-inside: avoid; break-inside: avoid; height: auto; }
     thead { display: table-header-group; }
@@ -169,11 +277,10 @@ export async function renderHtmlTemplateToDocx(
       word-wrap: break-word;
       overflow-wrap: break-word;
       white-space: normal;
-      height: auto;       /* células expandem conforme texto */
+      height: auto;
     }
     th { background: #eaeaea; }
 
-    /* Quebra de página opcional entre setores/GES quando marcado */
     table.setor-block.page-break,
     .setor-block.page-break,
     .ges-block.page-break,
@@ -182,15 +289,31 @@ export async function renderHtmlTemplateToDocx(
       break-before: page;
     }
 
-    /* Spacer paragraph used between consecutive tables/blocks in DOCX */
     .block-spacer { height: 12pt; line-height: 12pt; margin: 0; padding: 0; }
+    .flat-table { display: block; margin: 4pt 0; }
+    .flat-row { display: block; margin: 2pt 0; }
+    .flat-cell { display: inline-block; margin-right: 6pt; }
   </style></head><body>${wrapped}</body></html>`;
 
-  // Dynamic import: keeps it out of the initial bundle and avoids SSR/Node-only side effects on boot.
+  // Conversão HTML → DOCX
   const mod: any = await import("html-docx-js-typescript");
   const asBlob = mod.asBlob ?? mod.default?.asBlob;
   const out = await asBlob(fullHtml);
-  return out instanceof Blob
+  const blob: Blob = out instanceof Blob
     ? out
     : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+
+  // Validação final do DOCX gerado
+  try {
+    await validateGeneratedDocx(blob);
+  } catch (e: any) {
+    // Não bloqueia download, mas deixa rastro no console pra diagnóstico
+    console.error("[renderHtmlTemplateToDocx] validação DOCX falhou:", e?.message || e);
+    throw new Error(
+      `O documento gerado não passou na validação de integridade: ${e?.message || e}. ` +
+      `Revise o template (tabelas aninhadas, shapes ou loops Mustache desbalanceados).`,
+    );
+  }
+
+  return blob;
 }
