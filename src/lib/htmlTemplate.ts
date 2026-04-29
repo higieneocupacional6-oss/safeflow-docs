@@ -166,7 +166,29 @@ export async function renderHtmlTemplateToDocx(
     safeTemplate += missing.reverse().map((t) => `{{/${t}}}`).join("");
   }
 
-  const rendered = Mustache.render(safeTemplate, data);
+  // Wrapper de dados resiliente: variáveis ausentes => "" (string vazia),
+  // arrays ausentes => [] (loop não quebra). Preserva valores explícitos
+  // (incluindo 0, false, "") para não comer dados legítimos.
+  const safeData = createSafeDataProxy(data);
+
+  let rendered: string;
+  try {
+    rendered = Mustache.render(safeTemplate, safeData);
+  } catch (err) {
+    console.warn("[renderHtmlTemplateToDocx] Mustache.render falhou, aplicando fallback:", err);
+    // Fallback: renderiza o que conseguir; remove tags Mustache não resolvidas
+    // para garantir que o documento seja sempre finalizado.
+    try {
+      rendered = Mustache.render(stripUnresolvedSections(safeTemplate), safeData);
+    } catch {
+      rendered = safeTemplate
+        .replace(/\{\{[#^/][^}]*\}\}/g, "")
+        .replace(/\{\{[^}]*\}\}/g, "");
+    }
+  }
+
+  // Limpa quaisquer tags Mustache órfãs remanescentes (campo ausente => em branco)
+  rendered = rendered.replace(/\{\{\s*[#^/!>]?[^}]*\}\}/g, "");
 
   let wrapped = rendered;
 
