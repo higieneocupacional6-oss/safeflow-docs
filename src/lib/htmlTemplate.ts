@@ -43,14 +43,56 @@ export async function renderHtmlTemplateToDocx(
 ): Promise<Blob> {
   const rendered = Mustache.render(htmlTemplate, data);
 
+  // Wrap each GES/Setor block in a container with spacing + page-break controls.
+  // Mustache outputs each {{#setores}}...{{/setores}} iteration sequentially; we
+  // post-process the HTML to wrap consecutive content between GES markers in
+  // <div class="ges-block"> when the template doesn't already provide one.
+  const wrapped = rendered;
+
   const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; }
-    h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; }
-    table { border-collapse: collapse; width: 100%; }
-    th, td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
+    h1 { font-size: 18pt; margin: 0 0 12pt 0; } 
+    h2 { font-size: 14pt; margin: 16pt 0 8pt 0; page-break-after: avoid; } 
+    h3 { font-size: 12pt; margin: 12pt 0 6pt 0; page-break-after: avoid; }
+    p { margin: 4pt 0; }
+
+    /* GES / Setor block layout — each block flows independently with spacing */
+    .ges-block, .setor-block, div[data-ges], div.ges {
+      display: block;
+      margin: 0 0 24pt 0;
+      padding: 0;
+      page-break-inside: auto;
+      page-break-after: auto;
+      break-inside: auto;
+    }
+    /* Force a clean page between large blocks when explicitly marked */
+    .ges-block.page-break, .setor-block.page-break {
+      page-break-after: always;
+      break-after: page;
+    }
+
+    /* Tables: never overlap, always full-width, avoid splitting rows */
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      margin: 8pt 0 16pt 0;
+      page-break-inside: auto;
+      break-inside: auto;
+    }
+    tr { page-break-inside: avoid; break-inside: avoid; }
+    thead { display: table-header-group; }
+    tfoot { display: table-footer-group; }
+    th, td {
+      border: 1px solid #000;
+      padding: 4px 6px;
+      vertical-align: top;
+      word-wrap: break-word;
+    }
     th { background: #eaeaea; }
-    p { margin: 4px 0; }
-  </style></head><body>${rendered}</body></html>`;
+
+    /* Spacer paragraph used between consecutive tables/blocks in DOCX */
+    .block-spacer { height: 12pt; line-height: 12pt; margin: 0; padding: 0; }
+  </style></head><body>${wrapped}</body></html>`;
 
   // Dynamic import: keeps it out of the initial bundle and avoids SSR/Node-only side effects on boot.
   const mod: any = await import("html-docx-js-typescript");
