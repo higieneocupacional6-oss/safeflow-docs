@@ -1625,7 +1625,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         new Set(sectorRisks.map(r => r.funcoes_ges).filter(Boolean))
       ).join(", ") || "";
 
+      // Marcadores de bloco por setor (GES/GHE) — usados pelo pós-processamento
+      // do htmlTemplate.ts para empacotar cada setor em um container independente,
+      // evitando sobreposição de tabelas e mistura de dados entre setores.
+      const setorKey = `${sector?.id || sId}`;
+      const inicio_setor = `<!--LV_SETOR_START:${setorKey}-->`;
+      const fim_setor = `<!--LV_SETOR_END:${setorKey}-->`;
+
       return {
+        inicio_setor,
+        fim_setor,
         setor: sector?.nome_setor || "Setor",
         nome_setor: sector?.nome_setor || "Setor",
         ghe_ges: sector?.ghe_ges || "",

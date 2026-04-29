@@ -44,35 +44,65 @@ export async function renderHtmlTemplateToDocx(
   const rendered = Mustache.render(htmlTemplate, data);
 
   // ──────────────────────────────────────────────────────────────────────────
-  // POST-PROCESSING: garantir que cada SETOR/GES seja um BLOCO INDEPENDENTE
-  // com sua PRÓPRIA tabela completa, fluxo vertical, espaçamento e quebra
-  // de página opcional. Tratamos 3 cenários:
+  // POST-PROCESSING: cada SETOR (GES/GHE) é um BLOCO INDEPENDENTE.
   //
-  //  (A) Template já envolve cada setor em <div class="setor-block">/<div data-setor>
-  //      → apenas garantimos espaçador depois do bloco.
+  // Marcadores injetados pelo payload:
+  //   {{inicio_setor}} -> <!--LV_SETOR_START:<id>-->
+  //   {{fim_setor}}    -> <!--LV_SETOR_END:<id>-->
   //
-  //  (B) Template gera UMA tabela única com várias linhas, uma por setor
-  //      (ex.: <tr data-setor> ... </tr>). Esse é o caso problemático
-  //      relatado pelo usuário (sobreposição). Aqui dividimos a tabela em
-  //      várias tabelas independentes — uma por setor — preservando o
-  //      <thead> em cada uma.
-  //
-  //  (C) Template gera uma tabela por setor naturalmente. Apenas inserimos
-  //      espaçador entre tabelas consecutivas.
+  // Cenários tratados:
+  //  (1) Tabela contém múltiplos START internamente: dividimos em N tabelas
+  //      independentes, uma por setor, repetindo o <thead>.
+  //  (2) Conteúdo entre START e END do mesmo id é empacotado em
+  //      <div class="setor-block"> com espaçador no final.
+  //  (3) Compatibilidade legada: tabela única com várias <tr data-setor>/
+  //      class*="setor"/"ges" também é dividida em N tabelas.
+  //  (4) Espaçador entre tabelas/blocos consecutivos (DOCX ignora margem
+  //      entre tabelas irmãs).
   // ──────────────────────────────────────────────────────────────────────────
   let wrapped = rendered;
 
-  // (B) Quebrar tabela única que contém múltiplas linhas marcadas como setor.
-  // Detectamos linhas marcadas (data-setor, class*="setor"/"ges") dentro de
-  // uma mesma <table> e transformamos cada uma em uma tabela autônoma.
+  // (1) Dividir tabelas que contenham marcadores LV_SETOR_START internamente.
+  wrapped = wrapped.replace(
+    /<table\b([^>]*)>([\s\S]*?)<\/table>/gi,
+    (full, tableAttrs: string, inner: string) => {
+      const startMatches = inner.match(/<!--LV_SETOR_START:[^>]*?-->/g);
+      if (!startMatches || startMatches.length < 2) return full;
+
+      const theadMatch = inner.match(/<thead\b[\s\S]*?<\/thead>/i);
+      const thead = theadMatch ? theadMatch[0] : "";
+      const body = thead ? inner.replace(thead, "") : inner;
+
+      const parts = body.split(/(?=<!--LV_SETOR_START:[^>]*?-->)/);
+      const tables = parts
+        .filter((p) => p.trim())
+        .map(
+          (part) =>
+            `<table${tableAttrs} class="setor-block">${thead}<tbody>${part}</tbody></table>` +
+            `<p class="block-spacer">&nbsp;</p>`,
+        );
+      return tables.join("\n");
+    },
+  );
+
+  // (2) Empacotar conteúdo entre START/END do mesmo id em <div class="setor-block">.
+  wrapped = wrapped.replace(
+    /<!--LV_SETOR_START:([^>]*?)-->([\s\S]*?)<!--LV_SETOR_END:\1-->/g,
+    (_full, _id: string, content: string) =>
+      `<div class="setor-block">${content}</div><p class="block-spacer">&nbsp;</p>`,
+  );
+
+  // Limpa marcadores órfãos (sem par)
+  wrapped = wrapped.replace(/<!--LV_SETOR_(?:START|END):[^>]*?-->/g, "");
+
+  // (3) Compatibilidade legada: tabela única com múltiplas linhas marcadas como setor.
   wrapped = wrapped.replace(
     /<table\b([^>]*)>([\s\S]*?)<\/table>/gi,
     (full, tableAttrs: string, inner: string) => {
       const setorRowRegex = /<tr\b[^>]*(?:data-setor|class\s*=\s*"[^"]*(?:setor|ges)[^"]*")[^>]*>[\s\S]*?<\/tr>/gi;
       const setorRows = inner.match(setorRowRegex);
-      if (!setorRows || setorRows.length < 2) return full; // nada a dividir
+      if (!setorRows || setorRows.length < 2) return full;
 
-      // Extrai <thead> (se existir) para repetir em cada tabela nova
       const theadMatch = inner.match(/<thead\b[\s\S]*?<\/thead>/i);
       const thead = theadMatch ? theadMatch[0] : "";
 
@@ -85,16 +115,12 @@ export async function renderHtmlTemplateToDocx(
     },
   );
 
-  // (C) Espaçador entre tabelas consecutivas (caso o template já gere uma
-  // tabela por setor) e antes de novos blocos/cabeçalhos.
+  // (4) Espaçador entre tabelas/blocos consecutivos.
   wrapped = wrapped.replace(
     /<\/table>(\s*)(?=<table|<h[1-6]|<div|<section)/gi,
     "</table><p class=\"block-spacer\">&nbsp;</p>$1",
   );
-  // Sempre fechar tabelas órfãs no fim com um espaçador
   wrapped = wrapped.replace(/<\/table>(\s*)$/i, "</table><p class=\"block-spacer\">&nbsp;</p>");
-
-  // (A) Espaçador depois de cada container explícito de setor/GES
   wrapped = wrapped.replace(
     /<\/div>(\s*)(?=<div[^>]*(?:class\s*=\s*"[^"]*(?:setor-block|ges-block)[^"]*"|data-setor|data-ges))/gi,
     "</div><p class=\"block-spacer\">&nbsp;</p>$1",
