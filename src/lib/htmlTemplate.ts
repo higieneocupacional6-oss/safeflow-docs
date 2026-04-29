@@ -111,6 +111,45 @@ function sanitizeHtmlForDocx(html: string): string {
 // se contém word/document.xml e se o XML faz parse. Em caso de problema,
 // lança erro claro para o caller exibir.
 // ───────────────────────────────────────────────────────────────────────────
+/**
+ * Cria um proxy recursivo onde:
+ *  - variáveis ausentes => "" (string vazia, em branco no documento)
+ *  - arrays preservados (loops continuam funcionando)
+ *  - valores explícitos (0, false, "") preservados
+ * Mustache trata "" como falsy para seções, o que é o comportamento desejado:
+ * blocos opcionais somem se vazios; campos soltos ficam em branco.
+ */
+function createSafeDataProxy(data: any): any {
+  if (data === null || data === undefined) return {};
+  if (Array.isArray(data)) return data.map(createSafeDataProxy);
+  if (typeof data !== "object") return data;
+
+  return new Proxy(data, {
+    get(target, prop: string) {
+      if (prop in target) {
+        const v = (target as any)[prop];
+        if (v === null || v === undefined) return "";
+        if (Array.isArray(v)) return v.map(createSafeDataProxy);
+        if (typeof v === "object") return createSafeDataProxy(v);
+        return v;
+      }
+      // Mustache testa propriedades como "length", funções, etc.
+      // Retornar "" cobre o caso de variável ausente sem quebrar loops.
+      return "";
+    },
+    has() {
+      // força Mustache a sempre achar a chave (e usar nosso get -> "")
+      return true;
+    },
+  });
+}
+
+/** Remove seções Mustache (#/^/) potencialmente desbalanceadas como último recurso. */
+function stripUnresolvedSections(tpl: string): string {
+  return tpl.replace(/\{\{\s*[#^]\s*[\w.-]+\s*\}\}/g, "")
+            .replace(/\{\{\s*\/\s*[\w.-]+\s*\}\}/g, "");
+}
+
 async function validateGeneratedDocx(blob: Blob): Promise<void> {
   const PizZip = (await import("pizzip")).default;
   const buf = await blob.arrayBuffer();
@@ -166,7 +205,29 @@ export async function renderHtmlTemplateToDocx(
     safeTemplate += missing.reverse().map((t) => `{{/${t}}}`).join("");
   }
 
-  const rendered = Mustache.render(safeTemplate, data);
+  // Wrapper de dados resiliente: variáveis ausentes => "" (string vazia),
+  // arrays ausentes => [] (loop não quebra). Preserva valores explícitos
+  // (incluindo 0, false, "") para não comer dados legítimos.
+  const safeData = createSafeDataProxy(data);
+
+  let rendered: string;
+  try {
+    rendered = Mustache.render(safeTemplate, safeData);
+  } catch (err) {
+    console.warn("[renderHtmlTemplateToDocx] Mustache.render falhou, aplicando fallback:", err);
+    // Fallback: renderiza o que conseguir; remove tags Mustache não resolvidas
+    // para garantir que o documento seja sempre finalizado.
+    try {
+      rendered = Mustache.render(stripUnresolvedSections(safeTemplate), safeData);
+    } catch {
+      rendered = safeTemplate
+        .replace(/\{\{[#^/][^}]*\}\}/g, "")
+        .replace(/\{\{[^}]*\}\}/g, "");
+    }
+  }
+
+  // Limpa quaisquer tags Mustache órfãs remanescentes (campo ausente => em branco)
+  rendered = rendered.replace(/\{\{\s*[#^/!>]?[^}]*\}\}/g, "");
 
   let wrapped = rendered;
 
@@ -303,15 +364,16 @@ export async function renderHtmlTemplateToDocx(
     ? out
     : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
 
-  // Validação final do DOCX gerado
+  // Validação final do DOCX gerado — NÃO bloqueante.
+  // Requisito: o sistema sempre deve entregar um arquivo. Se a validação
+  // detectar problema, registramos no console mas devolvemos o blob mesmo
+  // assim, garantindo que o usuário receba o documento e possa abri-lo.
   try {
     await validateGeneratedDocx(blob);
   } catch (e: any) {
-    // Não bloqueia download, mas deixa rastro no console pra diagnóstico
-    console.error("[renderHtmlTemplateToDocx] validação DOCX falhou:", e?.message || e);
-    throw new Error(
-      `O documento gerado não passou na validação de integridade: ${e?.message || e}. ` +
-      `Revise o template (tabelas aninhadas, shapes ou loops Mustache desbalanceados).`,
+    console.warn(
+      "[renderHtmlTemplateToDocx] validação de integridade reportou aviso (download mantido):",
+      e?.message || e,
     );
   }
 
