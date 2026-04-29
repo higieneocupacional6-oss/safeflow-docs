@@ -122,15 +122,18 @@ export async function renderHtmlTemplateToDocx(
       break-after: page;
     }
 
-    /* Tables: never overlap, always full-width, avoid splitting rows */
+    /* Tables: never overlap, always full-width, avoid splitting rows.
+       Cada SETOR vira sua PRÓPRIA tabela (ver post-processing acima).        */
     table {
       border-collapse: collapse;
       width: 100%;
       margin: 8pt 0 16pt 0;
       page-break-inside: auto;
       break-inside: auto;
+      table-layout: auto; /* expansão automática conforme conteúdo */
+      height: auto;       /* nunca usar altura fixa */
     }
-    tr { page-break-inside: avoid; break-inside: avoid; }
+    tr { page-break-inside: avoid; break-inside: avoid; height: auto; }
     thead { display: table-header-group; }
     tfoot { display: table-footer-group; }
     th, td {
@@ -138,8 +141,20 @@ export async function renderHtmlTemplateToDocx(
       padding: 4px 6px;
       vertical-align: top;
       word-wrap: break-word;
+      overflow-wrap: break-word;
+      white-space: normal;
+      height: auto;       /* células expandem conforme texto */
     }
     th { background: #eaeaea; }
+
+    /* Quebra de página opcional entre setores/GES quando marcado */
+    table.setor-block.page-break,
+    .setor-block.page-break,
+    .ges-block.page-break,
+    tr.page-break {
+      page-break-before: always;
+      break-before: page;
+    }
 
     /* Spacer paragraph used between consecutive tables/blocks in DOCX */
     .block-spacer { height: 12pt; line-height: 12pt; margin: 0; padding: 0; }
