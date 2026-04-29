@@ -364,15 +364,16 @@ export async function renderHtmlTemplateToDocx(
     ? out
     : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
 
-  // Validação final do DOCX gerado
+  // Validação final do DOCX gerado — NÃO bloqueante.
+  // Requisito: o sistema sempre deve entregar um arquivo. Se a validação
+  // detectar problema, registramos no console mas devolvemos o blob mesmo
+  // assim, garantindo que o usuário receba o documento e possa abri-lo.
   try {
     await validateGeneratedDocx(blob);
   } catch (e: any) {
-    // Não bloqueia download, mas deixa rastro no console pra diagnóstico
-    console.error("[renderHtmlTemplateToDocx] validação DOCX falhou:", e?.message || e);
-    throw new Error(
-      `O documento gerado não passou na validação de integridade: ${e?.message || e}. ` +
-      `Revise o template (tabelas aninhadas, shapes ou loops Mustache desbalanceados).`,
+    console.warn(
+      "[renderHtmlTemplateToDocx] validação de integridade reportou aviso (download mantido):",
+      e?.message || e,
     );
   }
 
