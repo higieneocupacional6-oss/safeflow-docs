@@ -111,6 +111,45 @@ function sanitizeHtmlForDocx(html: string): string {
 // se contém word/document.xml e se o XML faz parse. Em caso de problema,
 // lança erro claro para o caller exibir.
 // ───────────────────────────────────────────────────────────────────────────
+/**
+ * Cria um proxy recursivo onde:
+ *  - variáveis ausentes => "" (string vazia, em branco no documento)
+ *  - arrays preservados (loops continuam funcionando)
+ *  - valores explícitos (0, false, "") preservados
+ * Mustache trata "" como falsy para seções, o que é o comportamento desejado:
+ * blocos opcionais somem se vazios; campos soltos ficam em branco.
+ */
+function createSafeDataProxy(data: any): any {
+  if (data === null || data === undefined) return {};
+  if (Array.isArray(data)) return data.map(createSafeDataProxy);
+  if (typeof data !== "object") return data;
+
+  return new Proxy(data, {
+    get(target, prop: string) {
+      if (prop in target) {
+        const v = (target as any)[prop];
+        if (v === null || v === undefined) return "";
+        if (Array.isArray(v)) return v.map(createSafeDataProxy);
+        if (typeof v === "object") return createSafeDataProxy(v);
+        return v;
+      }
+      // Mustache testa propriedades como "length", funções, etc.
+      // Retornar "" cobre o caso de variável ausente sem quebrar loops.
+      return "";
+    },
+    has() {
+      // força Mustache a sempre achar a chave (e usar nosso get -> "")
+      return true;
+    },
+  });
+}
+
+/** Remove seções Mustache (#/^/) potencialmente desbalanceadas como último recurso. */
+function stripUnresolvedSections(tpl: string): string {
+  return tpl.replace(/\{\{\s*[#^]\s*[\w.-]+\s*\}\}/g, "")
+            .replace(/\{\{\s*\/\s*[\w.-]+\s*\}\}/g, "");
+}
+
 async function validateGeneratedDocx(blob: Blob): Promise<void> {
   const PizZip = (await import("pizzip")).default;
   const buf = await blob.arrayBuffer();
