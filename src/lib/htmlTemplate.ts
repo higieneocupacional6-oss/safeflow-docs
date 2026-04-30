@@ -35,7 +35,11 @@ export async function validateHtmlTemplate(file: File): Promise<HtmlTemplateIssu
 
 /**
  * Render an HTML template with Mustache and convert to a .docx Blob.
- * Uses html-docx-js (browser-safe) loaded dynamically to avoid impacting initial bundle.
+ *
+ * Uses @turbodocx/html-to-docx which generates NATIVE Open XML (real <w:p>, <w:r>, <w:tbl>)
+ * instead of the altChunk/MHTML approach used by html-docx-js — that approach produced
+ * files that triggered "Erro no Word ao tentar abrir o arquivo" on certain Word versions
+ * because Word has to parse an embedded MHT part at open time and frequently rejects it.
  */
 export async function renderHtmlTemplateToDocx(
   htmlTemplate: string,
@@ -43,20 +47,38 @@ export async function renderHtmlTemplateToDocx(
 ): Promise<Blob> {
   const rendered = Mustache.render(htmlTemplate, data);
 
-  const fullHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
+  // Body-only HTML — turbodocx wraps it with proper Word document chrome.
+  const bodyHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><style>
     body { font-family: Arial, sans-serif; font-size: 11pt; color: #000; }
-    h1 { font-size: 18pt; } h2 { font-size: 14pt; } h3 { font-size: 12pt; }
+    h1 { font-size: 18pt; font-weight: bold; }
+    h2 { font-size: 14pt; font-weight: bold; }
+    h3 { font-size: 12pt; font-weight: bold; }
     table { border-collapse: collapse; width: 100%; }
     th, td { border: 1px solid #000; padding: 4px 6px; vertical-align: top; }
-    th { background: #eaeaea; }
+    th { background: #eaeaea; font-weight: bold; }
     p { margin: 4px 0; }
   </style></head><body>${rendered}</body></html>`;
 
-  // Dynamic import: keeps it out of the initial bundle and avoids SSR/Node-only side effects on boot.
-  const mod: any = await import("html-docx-js-typescript");
-  const asBlob = mod.asBlob ?? mod.default?.asBlob;
-  const out = await asBlob(fullHtml);
-  return out instanceof Blob
-    ? out
-    : new Blob([out], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+  const mod: any = await import("@turbodocx/html-to-docx");
+  const htmlToDocx = mod.default ?? mod;
+
+  const out: any = await htmlToDocx(bodyHtml, undefined, {
+    table: { row: { cantSplit: true } },
+    footer: false,
+    pageNumber: false,
+    font: "Arial",
+    margins: { top: 1440, right: 1440, bottom: 1440, left: 1440 },
+  });
+
+  // turbodocx returns Blob in browser, Buffer in Node. Normalize to Blob.
+  if (out instanceof Blob) return out;
+  if (typeof out?.arrayBuffer === "function") {
+    const ab = await out.arrayBuffer();
+    return new Blob([ab], {
+      type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    });
+  }
+  return new Blob([out], {
+    type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  });
 }
