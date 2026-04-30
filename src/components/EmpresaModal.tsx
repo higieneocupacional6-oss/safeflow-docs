@@ -167,7 +167,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
     setLoading(true);
     try {
-      const res = await fetch(`https://receitaws.com.br/v1/cnpj/${clean}`);
+      const res = await fetch(`https://https://brasilapi.com.br/cnpj/v1/${clean}`);
       if (!res.ok) throw new Error();
       const d = await res.json();
       const cnae = `${d.cnae_fiscal || ""} - ${d.cnae_fiscal_descricao || ""}`;
@@ -196,7 +196,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
     setLoadingContratante(true);
     try {
-      const res = await fetch(`https://receitaws.com.br/v1/cnpj/${clean}`);
+      const res = await fetch(`https://https://brasilapi.com.br/cnpj/v1/${clean}`);
       if (!res.ok) throw new Error();
       const d = await res.json();
       update("nome_contratante", d.razao_social || d.nome_fantasia || "");
