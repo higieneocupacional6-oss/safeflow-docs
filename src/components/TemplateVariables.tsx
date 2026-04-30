@@ -34,7 +34,6 @@ const variableGroups = [
   {
     title: "Variáveis de Setor",
     vars: [
-      "{{inicio_setor}}", "{{fim_setor}}",
       "{{setor}}", "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}",
       "{{local_trabalho}}", "{{jornada_trabalho}}",
     ],
@@ -196,10 +195,6 @@ export function TemplateVariables() {
             <p>
               <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
               Essas variáveis são provenientes do cadastro de empresa, contrato, setores/funções e riscos/agentes. Utilize-as para montar seus templates (.docx) e o sistema fará o preenchimento automático ao gerar o documento.
-            </p>
-            <p className="text-accent font-medium text-xs">
-              <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
-              <strong>Bloco por Setor (GES/GHE):</strong> use <code>{"{{inicio_setor}}"}</code> no início e <code>{"{{fim_setor}}"}</code> no fim de cada setor (dentro do loop <code>{"{{#setores}}...{{/setores}}"}</code>). O sistema empacota automaticamente o conteúdo entre eles em um bloco independente, evitando sobreposição de tabelas e mistura de dados entre setores. Os setores são ordenados por GHE/GES ao gerar o documento.
             </p>
             <p className="text-accent font-medium text-xs">
               <Check className="w-3 h-3 inline mr-1.5 -mt-0.5" />
