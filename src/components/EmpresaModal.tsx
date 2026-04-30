@@ -167,7 +167,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
     setLoading(true);
     try {
-      const res = await fetch(`//https://brasilapi.com.br/cnpj/v1/${clean}`);
+      const res = await fetch(`https://brasilapi.com.br/cnpj/v1/${clean}`);
       if (!res.ok) throw new Error();
       const d = await res.json();
       const cnae = `${d.cnae_fiscal || ""} - ${d.cnae_fiscal_descricao || ""}`;
