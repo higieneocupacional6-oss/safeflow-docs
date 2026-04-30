@@ -2367,7 +2367,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         }
         if (docId) await persistAvaliacoes(docId);
 
-        toast.success("✅ Documento VALIDADO! Pode gerar o documento final.");
+        toast.success("Documento validado com sucesso!", {
+          description: "Você já pode clicar em 'Gerar Documento' para baixar o arquivo final.",
+          duration: 6000,
+        });
       } catch (renderErr: any) {
         const errors = parseDocxErrors(renderErr);
         setTemplateErrors(errors);
