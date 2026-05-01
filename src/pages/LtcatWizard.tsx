@@ -812,7 +812,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               ...r,
               id: r.id,
               ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
-              equipamento_nome: equipamentos.find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
+              equipamento_nome: (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
             })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
