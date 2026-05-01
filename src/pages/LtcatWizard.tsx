@@ -5136,7 +5136,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* SUB-MODAL: CÁLCULO IBUTG (com/sem carga solar)               */}
           {/* ============================================================ */}
           <Dialog open={ibutgModalOpen} onOpenChange={setIbutgModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-accent" /> Cálculo IBUTG
