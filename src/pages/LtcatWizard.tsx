@@ -4461,7 +4461,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
                 <Button
                   variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
+                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", tempo_exposicao: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
