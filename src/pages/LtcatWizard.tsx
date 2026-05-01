@@ -1251,11 +1251,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         };
 
         const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
+          const equipamentoNomeRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
             tipo: r.tipo_agente || "",
             tipo_agente: r.tipo_agente || "",
+            // Equipamento vinculado ao risco (modal "Avaliação de Risco por Setor")
+            equipamento: equipamentoNomeRiscoBase,
           };
 
           const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
@@ -1342,11 +1345,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (r.resultados_vibracao?.length) return r.resultados_vibracao.map(mapResult);
           if (r.resultados_componentes?.length) {
             // Explode componentes em avaliacoes individuais (1 linha por componente)
+            // E também anexa um loop {{#componentes_amostra}} por avaliação (mesma colaborador/função)
+            // contendo TODOS os componentes daquele rc, para uso em templates de tabela.
             const rows: any[] = [];
             r.resultados_componentes.forEach((rc: any) => {
+              // Monta o array componentes_amostra desse rc (uma vez só)
+              const componentes_amostra = (rc.componentes || []).map((c: any) => {
+                const uRes = unidades.find((u: any) => u.id === c.unidade_resultado_id)?.simbolo || "";
+                const uLim = unidades.find((u: any) => u.id === c.unidade_limite_id)?.simbolo || "";
+                const resN = parseFloat(String(c.resultado).replace(",", "."));
+                const ltN = parseFloat(String(c.limite_tolerancia).replace(",", "."));
+                let situacao = c.situacao || "";
+                if (!situacao && !isNaN(resN) && !isNaN(ltN) && ltN > 0) {
+                  situacao = resN > ltN ? "Nocivo" : "Seguro";
+                }
+                const resultadoStr = c.resultado != null ? String(c.resultado) : "";
+                const limiteStr = c.limite_tolerancia != null ? String(c.limite_tolerancia) : "";
+                return {
+                  componente_avaliado: c.componente || c.nome_componente || "",
+                  resultado: resultadoStr,
+                  limite_tolerancia: limiteStr,
+                  unidade: uRes,
+                  unidade_resultado: uRes,
+                  unidade_limite: uLim,
+                  situacao,
+                  codigo_gfip: c.cod_gfip || rc.cod_gfip || "",
+                  cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                };
+              });
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
+              const equipamentoNomeRisco = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
               const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
@@ -1357,6 +1387,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+                // Loop dos componentes pertencentes a esta avaliação (rc atual)
+                componentes_amostra,
+                // Equipamento do risco (modal "Avaliação de Risco por Setor")
+                equipamento: equipamentoNomeRisco,
                 data_avaliacao: dataAv,
                 descricao_avaliacao: rc.descricao_avaliacao || rc.descricao_tecnica || (r as any).descricao_tecnica || "",
                 dose_percentual: "",
