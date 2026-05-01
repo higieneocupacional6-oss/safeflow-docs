@@ -5019,18 +5019,31 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   );
                 })}
 
-                <Button
-                  variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempCalorRows([...tempCalorRows, {
-                    id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "",
-                    data_avaliacao: "", tipo_atividade: "", taxa_metabolica: "",
-                    exposicao: "", unidade_exposicao_id: "",
-                    limite_tolerancia: "", unidade_limite_id: "",
-                    situacao: "", cod_gfip: "",
-                  }])}
-                >
-                  <Plus className="w-4 h-4" /> Adicionar Função
-                </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button
+                    variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
+                    onClick={() => setTempCalorRows([...tempCalorRows, {
+                      id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "",
+                      data_avaliacao: "", local_atividade: "", equipamento_id: "", equipamento_nome: "",
+                      tipo_atividade: "", taxa_metabolica: "",
+                      tempo_exposicao: "",
+                      ibutg_resultado: "", ibutg_tipo: "", tbn_valores: "", tg_valores: "", tbs_valores: "",
+                      exposicao: "", unidade_exposicao_id: "",
+                      limite_tolerancia: "", unidade_limite_id: "",
+                      situacao: "", cod_gfip: "",
+                    }])}
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar Avaliação
+                  </Button>
+                  {tempCalorRows.length > 1 && (
+                    <Button
+                      variant="outline" size="sm" className="gap-2 text-accent border-accent/30 hover:bg-accent/5"
+                      onClick={() => setMediaIbutgModalOpen(true)}
+                    >
+                      <Thermometer className="w-4 h-4" /> Média IBUTG
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
@@ -5038,6 +5051,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <Button
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => {
+                    // Validação obrigatória: tempo de exposição quando há mais de 1 avaliação
+                    if (tempCalorRows.length > 1) {
+                      const semTempo = tempCalorRows.some(r => !r.tempo_exposicao || !String(r.tempo_exposicao).trim());
+                      if (semTempo) {
+                        toast.error("Tempo de Exposição é obrigatório em todas as avaliações para cálculo da média IBUTG.");
+                        return;
+                      }
+                    }
                     setRiskForm(prev => ({ ...prev, resultados_calor: tempCalorRows }));
                     setCalorModalOpen(false);
                     toast.success(`${tempCalorRows.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
