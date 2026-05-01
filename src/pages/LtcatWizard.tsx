@@ -4472,6 +4472,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <Button
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => {
+                    // Validação: Tempo de Exposição é obrigatório em todas as linhas
+                    const linhaInvalida = tempVibracaoRows.findIndex(
+                      (r: any) => !r.tempo_exposicao || !String(r.tempo_exposicao).trim(),
+                    );
+                    if (linhaInvalida >= 0) {
+                      toast.error(
+                        `Linha ${linhaInvalida + 1}: o campo "Tempo de Exposição" é obrigatório para o cálculo da média.`,
+                      );
+                      return;
+                    }
                     setRiskForm(prev => ({ ...prev, resultados_vibracao: tempVibracaoRows }));
                     setVibracaoModalOpen(false);
                     toast.success(`${tempVibracaoRows.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
