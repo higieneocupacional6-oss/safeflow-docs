@@ -1695,6 +1695,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
                 : q.media_limite_tolerancia;
             const _nenMedioFinal = nen_medio || "";
+
+            // ---- Média ponderada A(8) — Vibração (VCI / VMB) ----
+            const allVib = agentEntries.flatMap((r: any) => r.resultados_vibracao || []);
+            const vibValidas = allVib.filter((r: any) => parseTempoExposicaoHoras(r?.tempo_exposicao) > 0);
+            const isVCI = isAgentVCI(first.agente_nome || "");
+            const isVMB = isAgentVMB(first.agente_nome || "");
+            // Só calcula com >1 medição (regra: média não se aplica a medição única)
+            const podeCalcular = vibValidas.length > 1;
+            const _mediaVciAren = (isVCI && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "aren_resultado", "vci") : null;
+            const _mediaVciVdvr = (isVCI && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "vdvr_resultado", "vci") : null;
+            const _mediaVmbAren = (isVMB && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "aren_resultado", "vmb") : null;
+            const fmtMed = (n: number | null) => (n == null ? "" : n.toFixed(4));
+            const media_vci_aren = fmtMed(_mediaVciAren);
+            const media_vci_vdvr = fmtMed(_mediaVciVdvr);
+            const media_vmb_aren = fmtMed(_mediaVmbAren);
+            const exibir_media_vibracao_vci = !!(media_vci_aren || media_vci_vdvr);
+            const exibir_media_vibracao_vmb = !!media_vmb_aren;
+
             return {
               nen_medio: _nenMedioFinal,
               dose_media: dose_media || "",
@@ -1705,6 +1723,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
               // true somente quando houver valor real em nen_medio
               exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== ""),
+              // Médias de Vibração (A(8))
+              media_vci_aren,
+              media_vci_vdvr,
+              media_vmb_aren,
+              exibir_media_vibracao_vci,
+              exibir_media_vibracao_vmb,
             };
           })(),
         };
