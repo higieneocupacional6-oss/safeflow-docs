@@ -143,10 +143,14 @@ AGENTE | FONTE GERADORA | PROPAGAÇÃO | EXPOSIÇÃO | DANOS À SAÚDE | METODOL
 {{agente_nome}} | {{fonte_geradora}} | {{propagacao}} | {{tipo_exposicao}} | {{danos_saude}} | {{tecnica_amostragem}}
 
 RESULTADOS DAS AVALIAÇÕES — CALOR
-DATA | COLABORADOR | FUNÇÃO | TIPO ATIVIDADE | TAXA METABÓLICA | EXPOSIÇÃO | LIMITE | SITUAÇÃO | GFIP
+DATA | COLABORADOR | FUNÇÃO | LOCAL | EQUIPAMENTO | TIPO ATIVIDADE | TAXA METABÓLICA | TEMPO EXP. | IBUTG | TIPO | LIMITE | SITUAÇÃO | GFIP
 {{#avaliacoes}}
-{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{tipo_atividade}} | {{taxa_metabolica}} | {{exposicao}} {{unidade_exposicao}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
+{{data_avaliacao}} | {{colaborador}} | {{funcao}} | {{local_atividade}} | {{equipamento_utilizado}} | {{tipo_atividade}} | {{taxa_metabolica}} | {{tempo_exposicao}} | {{ibutg_resultado}} °C | {{ibutg_tipo}} | {{limite_tolerancia}} {{unidade_limite}} | {{situacao}} | {{cod_gfip}}
 {{/avaliacoes}}
+
+{{#exibir_media_ibutg}}
+MÉDIA IBUTG (ponderada por tempo): {{ibutg_medio}} °C
+{{/exibir_media_ibutg}}
 
 MEDIDAS DE CONTROLE
 EPI | CA | EFICAZ
