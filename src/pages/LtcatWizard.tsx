@@ -182,6 +182,76 @@ const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
 };
 
+/**
+ * Faz o parse de uma string com múltiplos números separados por vírgula, ponto-e-vírgula
+ * ou quebras de linha. Aceita vírgula como separador decimal ("28,1; 29.2"). Retorna até `max` valores.
+ */
+export const parseMultiNumeros = (input: string, max = 60): number[] => {
+  if (!input) return [];
+  // Split por ; \n e tabs primeiro (mantém vírgula como possível decimal)
+  const parts = String(input).split(/[\n\r;\t]+/).flatMap((p) => {
+    // Se a parte tem múltiplas vírgulas, é provável que sejam separadores
+    const commas = (p.match(/,/g) || []).length;
+    const dots = (p.match(/\./g) || []).length;
+    if (commas >= 2 && dots === 0) {
+      // tratar vírgula como separador decimal? Não — múltiplas vírgulas: separador
+      return p.split(",");
+    }
+    return [p];
+  });
+  const nums: number[] = [];
+  for (const raw of parts) {
+    const t = String(raw).trim();
+    if (!t) continue;
+    // Substitui vírgula decimal por ponto
+    const norm = t.replace(",", ".");
+    const n = parseFloat(norm);
+    if (isFinite(n)) nums.push(n);
+    if (nums.length >= max) break;
+  }
+  return nums;
+};
+
+/** IBUTG com carga solar = 0.7*Tbn + 0.2*Tg + 0.1*Tbs */
+export const calcIbutgComCargaSolar = (
+  tbnVals: number[], tgVals: number[], tbsVals: number[],
+): { tbn: number; tg: number; tbs: number; ibutg: number } | null => {
+  if (!tbnVals.length || !tgVals.length || !tbsVals.length) return null;
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const tbn = avg(tbnVals);
+  const tg = avg(tgVals);
+  const tbs = avg(tbsVals);
+  const ibutg = 0.7 * tbn + 0.2 * tg + 0.1 * tbs;
+  return { tbn, tg, tbs, ibutg };
+};
+
+/** IBUTG sem carga solar = 0.7*Tbn + 0.3*Tg */
+export const calcIbutgSemCargaSolar = (
+  tbnVals: number[], tgVals: number[],
+): { tbn: number; tg: number; ibutg: number } | null => {
+  if (!tbnVals.length || !tgVals.length) return null;
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const tbn = avg(tbnVals);
+  const tg = avg(tgVals);
+  const ibutg = 0.7 * tbn + 0.3 * tg;
+  return { tbn, tg, ibutg };
+};
+
+/** IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i */
+export const calcIbutgMedio = (rows: any[]): number | null => {
+  if (!rows || !rows.length) return null;
+  let num = 0, den = 0;
+  for (const r of rows) {
+    const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+    const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+    if (!isFinite(ib) || ib <= 0 || T <= 0) continue;
+    num += ib * T;
+    den += T;
+  }
+  if (den <= 0) return null;
+  return num / den;
+};
+
 // ---------------------------------------------------------------------------
 // Helpers de cálculo de variáveis derivadas (NEN, dose média, química)
 // ---------------------------------------------------------------------------
