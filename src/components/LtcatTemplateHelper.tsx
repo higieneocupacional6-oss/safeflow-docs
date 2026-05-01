@@ -813,6 +813,7 @@ export function LtcatTemplateHelper() {
                     Disponível dentro de <code>{"{{#avaliacoes}}"}</code> (contexto por risco/avaliação).
                   </span>
                 </li>
+              </ul>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}
   NEN médio: {{nen_medio}} dB
