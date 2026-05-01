@@ -3542,15 +3542,43 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {/* VIBRAÇÃO */}
                       {isAgentVibracao(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
-                          <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openVibracaoModal}>
-                            <Plus className="w-4 h-4" /> + Resultado
-                          </Button>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openVibracaoModal}>
+                              <Plus className="w-4 h-4" /> + Resultado
+                            </Button>
+                            {/* Botão de Cálculo da Média — só com >1 registro */}
+                            {(riskForm.resultados_vibracao?.length ?? 0) > 1 && isAgentVCI(riskForm.agente_nome || "") && (
+                              <Button
+                                variant="outline"
+                                className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                                onClick={() => {
+                                  setMediaVibracaoTipo("vci");
+                                  setMediaVibracaoOpen(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> Cálculo da Média VCI
+                              </Button>
+                            )}
+                            {(riskForm.resultados_vibracao?.length ?? 0) > 1 && isAgentVMB(riskForm.agente_nome || "") && (
+                              <Button
+                                variant="outline"
+                                className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                                onClick={() => {
+                                  setMediaVibracaoTipo("vmb");
+                                  setMediaVibracaoOpen(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> Cálculo da Média VMB
+                              </Button>
+                            )}
+                          </div>
                           {riskForm.resultados_vibracao && riskForm.resultados_vibracao.length > 0 && (
                             <div className="space-y-2">
                               {riskForm.resultados_vibracao.map((row: any, ri: number) => (
                                 <div key={ri} className="p-3 border rounded-lg bg-muted/20">
                                   <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
                                   {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find((u: any) => u.id === row.aren_unidade_id)?.simbolo}</div>}
+                                  {row.tempo_exposicao && <div className="text-xs ml-2 text-muted-foreground">Tempo Exp.: {row.tempo_exposicao}</div>}
                                 </div>
                               ))}
                             </div>
