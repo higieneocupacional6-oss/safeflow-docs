@@ -1808,6 +1808,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             const exibir_media_vibracao_vci = !!(media_vci_aren || media_vci_vdvr);
             const exibir_media_vibracao_vmb = !!media_vmb_aren;
 
+            // ---- IBUTG (Calor) — média ponderada por tempo ----
+            const allCalor = agentEntries.flatMap((r: any) => r.resultados_calor || []);
+            const calorComIbutg = allCalor.filter((r: any) => {
+              const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+              const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+              return isFinite(ib) && ib > 0 && T > 0;
+            });
+            const _ibutgMedio = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
+            const ibutg_medio = _ibutgMedio == null ? "" : _ibutgMedio.toFixed(2);
+            const exibir_media_ibutg = !!ibutg_medio;
+
             return {
               nen_medio: _nenMedioFinal,
               dose_media: dose_media || "",
@@ -1816,14 +1827,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componentes_resumo: computeComponentesResumo(allComp, unidades),
               componentes_calculo: computeComponentesCalculo(allComp, unidades),
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
-              // true somente quando houver valor real em nen_medio
-              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== ""),
+              // true somente quando houver valor real em nen_medio OU ibutg_medio
+              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg,
               // Médias de Vibração (A(8))
               media_vci_aren,
               media_vci_vdvr,
               media_vmb_aren,
               exibir_media_vibracao_vci,
               exibir_media_vibracao_vmb,
+              // IBUTG (Calor)
+              ibutg_medio,
+              exibir_media_ibutg,
             };
           })(),
         };
