@@ -4945,6 +4945,162 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               </DialogFooter>
             </DialogContent>
           </Dialog>
+
+          {/* ============================================================ */}
+          {/* MODAL: CÁLCULO DA MÉDIA DE VIBRAÇÃO (VCI / VMB)              */}
+          {/* ============================================================ */}
+          <Dialog open={mediaVibracaoOpen} onOpenChange={setMediaVibracaoOpen}>
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase">
+                  Cálculo da Média — {mediaVibracaoTipo === "vci" ? "Vibração de Corpo Inteiro (VCI)" : "Vibração de Mãos e Braços (VMB)"}
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const rows = (riskForm.resultados_vibracao || []).filter(
+                  (r: any) => parseTempoExposicaoHoras(r?.tempo_exposicao) > 0,
+                );
+                const ignoradas = (riskForm.resultados_vibracao || []).length - rows.length;
+                const mediaAren = computeMediaVibracaoA8(rows, "aren_resultado", mediaVibracaoTipo);
+                const mediaVdvr =
+                  mediaVibracaoTipo === "vci"
+                    ? computeMediaVibracaoA8(rows, "vdvr_resultado", "vci")
+                    : null;
+                const fmt = (n: number | null) => (n == null ? "—" : n.toFixed(4));
+                const formula =
+                  mediaVibracaoTipo === "vci"
+                    ? "A(8) = √( Σ(aᵢ² · Tᵢ) / 8 )"
+                    : "A(8) = √( Σ(aᵢ² · 8/Tᵢ) )";
+
+                const handlePDF = async () => {
+                  try {
+                    const { default: jsPDF } = await import("jspdf");
+                    const doc = new jsPDF({ unit: "mm", format: "a4" });
+                    const margin = 15;
+                    let y = margin;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(14);
+                    doc.text(
+                      `Cálculo da Média — ${mediaVibracaoTipo === "vci" ? "VCI" : "VMB"}`,
+                      margin,
+                      y,
+                    );
+                    y += 8;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(10);
+                    doc.text(`Empresa: ${empresa?.razao_social || ""}`, margin, y); y += 5;
+                    doc.text(`Agente: ${riskForm.agente_nome || ""}`, margin, y); y += 5;
+                    doc.text(`Setor: ${currentRiskSetor?.nome_setor || ""}`, margin, y); y += 5;
+                    doc.text(`Fórmula: ${formula}`, margin, y); y += 8;
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Medições:", margin, y); y += 6;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(9);
+                    rows.forEach((r: any, i: number) => {
+                      const T = parseTempoExposicaoHoras(r.tempo_exposicao);
+                      const linha = `${i + 1}. ${r.funcao_nome || ""} — ${r.colaborador || ""} | AREN: ${r.aren_resultado || "—"}${
+                        mediaVibracaoTipo === "vci" ? ` | VDVR: ${r.vdvr_resultado || "—"}` : ""
+                      } | T: ${r.tempo_exposicao} (${T.toFixed(2)}h)`;
+                      doc.text(linha, margin, y, { maxWidth: 180 });
+                      y += 5;
+                      if (y > 270) { doc.addPage(); y = margin; }
+                    });
+                    y += 4;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(11);
+                    doc.text("Resultado Final:", margin, y); y += 6;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(10);
+                    doc.text(`Média A(8) — AREN: ${fmt(mediaAren)} m/s²`, margin, y); y += 5;
+                    if (mediaVibracaoTipo === "vci") {
+                      doc.text(`Média A(8) — VDVR: ${fmt(mediaVdvr)} m/s¹·⁷⁵`, margin, y); y += 5;
+                    }
+                    const fname = `Media_${mediaVibracaoTipo.toUpperCase()}_${(empresa?.razao_social || "empresa").replace(/[^a-z0-9]/gi, "_")}.pdf`;
+                    doc.save(fname);
+                    toast.success("PDF gerado com sucesso!");
+                  } catch (e: any) {
+                    toast.error("Erro ao gerar PDF: " + (e?.message || String(e)));
+                  }
+                };
+
+                return (
+                  <>
+                    <div className="space-y-4 py-4">
+                      <div className="bg-muted/30 border border-border rounded-lg p-4">
+                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Fórmula aplicada</div>
+                        <div className="font-mono text-base mt-1">{formula}</div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Onde <code>aᵢ</code> = aceleração medida (AREN ou VDVR) e <code>Tᵢ</code> = tempo de exposição (horas).
+                        </p>
+                      </div>
+
+                      {ignoradas > 0 && (
+                        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-sm text-warning-foreground">
+                          ⚠️ {ignoradas} registro(s) ignorado(s) por falta de "Tempo de Exposição".
+                        </div>
+                      )}
+
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left p-2">Função / Colaborador</th>
+                              <th className="text-right p-2">AREN</th>
+                              {mediaVibracaoTipo === "vci" && <th className="text-right p-2">VDVR</th>}
+                              <th className="text-right p-2">Tempo Exp.</th>
+                              <th className="text-right p-2">T (h)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r: any, i: number) => (
+                              <tr key={i} className="border-t">
+                                <td className="p-2">{r.funcao_nome || ""} — {r.colaborador || ""}</td>
+                                <td className="p-2 text-right font-mono">{r.aren_resultado || "—"}</td>
+                                {mediaVibracaoTipo === "vci" && (
+                                  <td className="p-2 text-right font-mono">{r.vdvr_resultado || "—"}</td>
+                                )}
+                                <td className="p-2 text-right">{r.tempo_exposicao}</td>
+                                <td className="p-2 text-right font-mono">{parseTempoExposicaoHoras(r.tempo_exposicao).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                            {!rows.length && (
+                              <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">Nenhum registro com tempo de exposição válido.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4">
+                          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Média A(8) — AREN</div>
+                          <div className="text-2xl font-bold font-mono mt-1 text-primary">{fmt(mediaAren)} <span className="text-sm font-normal">m/s²</span></div>
+                        </div>
+                        {mediaVibracaoTipo === "vci" && (
+                          <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4">
+                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Média A(8) — VDVR</div>
+                            <div className="text-2xl font-bold font-mono mt-1 text-primary">{fmt(mediaVdvr)} <span className="text-sm font-normal">m/s¹·⁷⁵</span></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                      <Button variant="outline" onClick={() => setMediaVibracaoOpen(false)}>Fechar</Button>
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                        onClick={handlePDF}
+                        disabled={!rows.length}
+                      >
+                        <FileDown className="w-4 h-4" /> Baixar PDF
+                      </Button>
+                    </DialogFooter>
+                  </>
+                );
+              })()}
+            </DialogContent>
+          </Dialog>
         </div>
       );
     }
