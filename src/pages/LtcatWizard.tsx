@@ -1597,13 +1597,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
                 ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
                 : q.media_limite_tolerancia;
+            const _nenMedioFinal = nen_medio || "";
             return {
-              nen_medio: nen_medio || "",
+              nen_medio: _nenMedioFinal,
               dose_media: dose_media || "",
               media_concentracao: media_concentracao || "",
               media_limite_tolerancia: media_limite_tolerancia || "",
               componentes_resumo: computeComponentesResumo(allComp, unidades),
               componentes_calculo: computeComponentesCalculo(allComp, unidades),
+              // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
+              // true somente quando houver valor real em nen_medio
+              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== ""),
             };
           })(),
         };
