@@ -117,6 +117,66 @@ const isAgentVMB = (agentNome: string) => {
 
 const isAgentVibracao = (agentNome: string) => isAgentVCI(agentNome) || isAgentVMB(agentNome);
 
+/**
+ * Converte tempo de exposição em horas. Aceita:
+ *  - número puro (assumido em horas)
+ *  - "HH:MM" (horas:minutos)
+ *  - "Xh Ym" / "X h Y min" / "X horas Y minutos"
+ *  - "120 min" / "120m"
+ */
+const parseTempoExposicaoHoras = (raw: any): number => {
+  if (raw == null) return 0;
+  const s = String(raw).trim().toLowerCase().replace(",", ".");
+  if (!s) return 0;
+  // HH:MM
+  if (/^\d+:\d{1,2}$/.test(s)) {
+    const [h, m] = s.split(":").map(Number);
+    return h + (m || 0) / 60;
+  }
+  // captura horas e minutos
+  const hMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:h(?:oras?)?|hr)/);
+  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:min(?:utos?)?|m\b)/);
+  if (hMatch || mMatch) {
+    const h = hMatch ? parseFloat(hMatch[1]) : 0;
+    const m = mMatch ? parseFloat(mMatch[1]) : 0;
+    return h + m / 60;
+  }
+  // somente número → horas
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
+/**
+ * Cálculo de Média Ponderada de Vibração — A(8).
+ *  - VCI:  A(8) = √( Σ(a²·T) / 8 )
+ *  - VMB:  A(8) = √( Σ(a² · 8/T) )
+ * Considera somente linhas com tempo > 0 e aceleração válida.
+ * Retorna número ou null.
+ */
+const computeMediaVibracaoA8 = (
+  rows: any[],
+  campoAceleracao: "aren_resultado" | "vdvr_resultado",
+  modo: "vci" | "vmb",
+): number | null => {
+  if (!rows || !rows.length) return null;
+  let soma = 0;
+  let count = 0;
+  for (const r of rows) {
+    const a = parseFloat(String(r?.[campoAceleracao] ?? "").replace(",", "."));
+    const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+    if (isNaN(a) || a <= 0 || T <= 0) continue;
+    if (modo === "vci") {
+      soma += (a * a) * T;
+    } else {
+      soma += (a * a) * (8 / T);
+    }
+    count++;
+  }
+  if (!count) return null;
+  if (modo === "vci") return Math.sqrt(soma / 8);
+  return Math.sqrt(soma);
+};
+
 // Calor helpers
 const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
