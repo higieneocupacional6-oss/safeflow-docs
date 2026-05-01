@@ -4135,7 +4135,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL NÍVEL 2: CADASTRO DE COMPONENTES DA AMOSTRA           */}
           {/* ============================================================ */}
           <Dialog open={amostraModalOpen} onOpenChange={setAmostraModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[85vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-lg uppercase">Cadastro de Componentes — Amostra</DialogTitle>
               </DialogHeader>
