@@ -433,6 +433,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [calorAmostraModalOpen, setCalorAmostraModalOpen] = useState(false);
   const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
   const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
+  // IBUTG sub-modais
+  const [ibutgModalOpen, setIbutgModalOpen] = useState(false);
+  const [ibutgRowIndex, setIbutgRowIndex] = useState<number>(-1);
+  const [ibutgTipo, setIbutgTipo] = useState<"com_carga_solar" | "sem_carga_solar">("com_carga_solar");
+  const [ibutgTbnInput, setIbutgTbnInput] = useState("");
+  const [ibutgTgInput, setIbutgTgInput] = useState("");
+  const [ibutgTbsInput, setIbutgTbsInput] = useState("");
+  const [mediaIbutgModalOpen, setMediaIbutgModalOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   // EPI/EPC form state inside risk dialog
