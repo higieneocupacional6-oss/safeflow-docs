@@ -5018,7 +5018,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     if (mediaVibracaoTipo === "vci") {
                       doc.text(`Média A(8) — VDVR: ${fmt(mediaVdvr)} m/s¹·⁷⁵`, margin, y); y += 5;
                     }
-                    const fname = `Media_${mediaVibracaoTipo.toUpperCase()}_${(empresa?.razao_social || "empresa").replace(/[^a-z0-9]/gi, "_")}.pdf`;
+                    const fname = `Media_${mediaVibracaoTipo.toUpperCase()}_${(empresaSel?.razao_social || "empresa").replace(/[^a-z0-9]/gi, "_")}.pdf`;
                     doc.save(fname);
                     toast.success("PDF gerado com sucesso!");
                   } catch (e: any) {
