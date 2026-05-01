@@ -1840,6 +1840,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         exibir_media_resultados: !!(((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
           : computeNenMedio(r.resultados_detalhados)) || ""),
+        // ---- Médias A(8) — Vibração (consolidado por risco) ----
+        ...(() => {
+          const allVib = (r.resultados_vibracao || []) as any[];
+          const valid = allVib.filter((x: any) => parseTempoExposicaoHoras(x?.tempo_exposicao) > 0);
+          const isVCI = isAgentVCI(r.agente_nome || "");
+          const isVMB = isAgentVMB(r.agente_nome || "");
+          const podeCalc = valid.length > 1;
+          const mAren = (isVCI && podeCalc) ? computeMediaVibracaoA8(valid, "aren_resultado", "vci")
+                       : (isVMB && podeCalc) ? computeMediaVibracaoA8(valid, "aren_resultado", "vmb") : null;
+          const mVdvr = (isVCI && podeCalc) ? computeMediaVibracaoA8(valid, "vdvr_resultado", "vci") : null;
+          const fmtM = (n: number | null) => (n == null ? "" : n.toFixed(4));
+          const media_vci_aren = isVCI ? fmtM(mAren) : "";
+          const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
+          const media_vmb_aren = isVMB ? fmtM(mAren) : "";
+          return {
+            media_vci_aren,
+            media_vci_vdvr,
+            media_vmb_aren,
+            exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
+            exibir_media_vibracao_vmb: !!media_vmb_aren,
+          };
+        })(),
       };
     });
 
