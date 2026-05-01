@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -180,6 +180,76 @@ const computeMediaVibracaoA8 = (
 // Calor helpers
 const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
+};
+
+/**
+ * Faz o parse de uma string com múltiplos números separados por vírgula, ponto-e-vírgula
+ * ou quebras de linha. Aceita vírgula como separador decimal ("28,1; 29.2"). Retorna até `max` valores.
+ */
+export const parseMultiNumeros = (input: string, max = 60): number[] => {
+  if (!input) return [];
+  // Split por ; \n e tabs primeiro (mantém vírgula como possível decimal)
+  const parts = String(input).split(/[\n\r;\t]+/).flatMap((p) => {
+    // Se a parte tem múltiplas vírgulas, é provável que sejam separadores
+    const commas = (p.match(/,/g) || []).length;
+    const dots = (p.match(/\./g) || []).length;
+    if (commas >= 2 && dots === 0) {
+      // tratar vírgula como separador decimal? Não — múltiplas vírgulas: separador
+      return p.split(",");
+    }
+    return [p];
+  });
+  const nums: number[] = [];
+  for (const raw of parts) {
+    const t = String(raw).trim();
+    if (!t) continue;
+    // Substitui vírgula decimal por ponto
+    const norm = t.replace(",", ".");
+    const n = parseFloat(norm);
+    if (isFinite(n)) nums.push(n);
+    if (nums.length >= max) break;
+  }
+  return nums;
+};
+
+/** IBUTG com carga solar = 0.7*Tbn + 0.2*Tg + 0.1*Tbs */
+export const calcIbutgComCargaSolar = (
+  tbnVals: number[], tgVals: number[], tbsVals: number[],
+): { tbn: number; tg: number; tbs: number; ibutg: number } | null => {
+  if (!tbnVals.length || !tgVals.length || !tbsVals.length) return null;
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const tbn = avg(tbnVals);
+  const tg = avg(tgVals);
+  const tbs = avg(tbsVals);
+  const ibutg = 0.7 * tbn + 0.2 * tg + 0.1 * tbs;
+  return { tbn, tg, tbs, ibutg };
+};
+
+/** IBUTG sem carga solar = 0.7*Tbn + 0.3*Tg */
+export const calcIbutgSemCargaSolar = (
+  tbnVals: number[], tgVals: number[],
+): { tbn: number; tg: number; ibutg: number } | null => {
+  if (!tbnVals.length || !tgVals.length) return null;
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const tbn = avg(tbnVals);
+  const tg = avg(tgVals);
+  const ibutg = 0.7 * tbn + 0.3 * tg;
+  return { tbn, tg, ibutg };
+};
+
+/** IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i */
+export const calcIbutgMedio = (rows: any[]): number | null => {
+  if (!rows || !rows.length) return null;
+  let num = 0, den = 0;
+  for (const r of rows) {
+    const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+    const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+    if (!isFinite(ib) || ib <= 0 || T <= 0) continue;
+    num += ib * T;
+    den += T;
+  }
+  if (den <= 0) return null;
+  return num / den;
 };
 
 // ---------------------------------------------------------------------------
@@ -363,6 +433,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [calorAmostraModalOpen, setCalorAmostraModalOpen] = useState(false);
   const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
   const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
+  // IBUTG sub-modais
+  const [ibutgModalOpen, setIbutgModalOpen] = useState(false);
+  const [ibutgRowIndex, setIbutgRowIndex] = useState<number>(-1);
+  const [ibutgTipo, setIbutgTipo] = useState<"com_carga_solar" | "sem_carga_solar">("com_carga_solar");
+  const [ibutgTbnInput, setIbutgTbnInput] = useState("");
+  const [ibutgTgInput, setIbutgTgInput] = useState("");
+  const [ibutgTbsInput, setIbutgTbsInput] = useState("");
+  const [mediaIbutgModalOpen, setMediaIbutgModalOpen] = useState(false);
   const [generating, setGenerating] = useState(false);
 
   // EPI/EPC form state inside risk dialog
@@ -730,7 +808,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
+              ...r,
+              id: r.id,
+              ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
+              equipamento_nome: (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
+            })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
             epi_ca: epi.epi_ca || "",
@@ -1221,8 +1304,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       funcao_id: "",
       funcao_nome: "",
       data_avaliacao: "",
+      local_atividade: "",
+      equipamento_id: "",
+      equipamento_nome: "",
       tipo_atividade: "",
       taxa_metabolica: "",
+      tempo_exposicao: "",
+      ibutg_resultado: "",
+      ibutg_tipo: "",
+      tbn_valores: "",
+      tg_valores: "",
+      tbs_valores: "",
       exposicao: "",
       unidade_exposicao_id: "",
       limite_tolerancia: "",
@@ -1392,13 +1484,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               unidade_limite_vdvr: unidades.find(u => u.id === res.vdvr_limite_unidade_id)?.simbolo || "",
               // Calor fields (modal específico)
               tipo_atividade: res.tipo_atividade || res.atividade_avaliada || "",
-              local_avaliado: res.local_avaliado || "",
+              local_avaliado: res.local_avaliado || res.local_atividade || "",
+              local_atividade: res.local_atividade || res.local_avaliado || "",
               atividade_avaliada: res.atividade_avaliada || res.tipo_atividade || "",
               taxa_metabolica: res.taxa_metabolica || "",
-              exposicao: res.exposicao || res.resultado || "",
-              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || "",
-              resultado_calor: res.resultado_calor || res.exposicao || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || "",
+              tempo_exposicao: res.tempo_exposicao || "",
+              equipamento_utilizado: equipamentos.find((e: any) => e.id === res.equipamento_id)?.nome || res.equipamento_nome || "",
+              // IBUTG por avaliação
+              ibutg_resultado: res.ibutg_resultado || "",
+              ibutg_tipo: res.ibutg_tipo || "",
+              ibutg_com_carga_solar: res.ibutg_tipo === "com_carga_solar",
+              ibutg_sem_carga_solar: res.ibutg_tipo === "sem_carga_solar",
+              exposicao: res.ibutg_resultado || res.exposicao || res.resultado || "",
+              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
+              resultado_calor: res.ibutg_resultado || res.resultado_calor || res.exposicao || res.resultado || "",
+              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
               limite_tolerancia_calor: res.limite_tolerancia_calor || res.limite_tolerancia || "",
               unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || "",
             };
@@ -1713,6 +1813,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             const exibir_media_vibracao_vci = !!(media_vci_aren || media_vci_vdvr);
             const exibir_media_vibracao_vmb = !!media_vmb_aren;
 
+            // ---- IBUTG (Calor) — média ponderada por tempo ----
+            const allCalor = agentEntries.flatMap((r: any) => r.resultados_calor || []);
+            const calorComIbutg = allCalor.filter((r: any) => {
+              const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+              const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+              return isFinite(ib) && ib > 0 && T > 0;
+            });
+            const _ibutgMedio = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
+            const ibutg_medio = _ibutgMedio == null ? "" : _ibutgMedio.toFixed(2);
+            const exibir_media_ibutg = !!ibutg_medio;
+
             return {
               nen_medio: _nenMedioFinal,
               dose_media: dose_media || "",
@@ -1721,14 +1832,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componentes_resumo: computeComponentesResumo(allComp, unidades),
               componentes_calculo: computeComponentesCalculo(allComp, unidades),
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
-              // true somente quando houver valor real em nen_medio
-              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== ""),
+              // true somente quando houver valor real em nen_medio OU ibutg_medio
+              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg,
               // Médias de Vibração (A(8))
               media_vci_aren,
               media_vci_vdvr,
               media_vmb_aren,
               exibir_media_vibracao_vci,
               exibir_media_vibracao_vmb,
+              // IBUTG (Calor)
+              ibutg_medio,
+              exibir_media_ibutg,
             };
           })(),
         };
@@ -1854,12 +1968,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const media_vci_aren = isVCI ? fmtM(mAren) : "";
           const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
           const media_vmb_aren = isVMB ? fmtM(mAren) : "";
+          // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
+          const allCalor = (r.resultados_calor || []) as any[];
+          const calorComIbutg = allCalor.filter((x: any) => {
+            const ib = parseFloat(String(x?.ibutg_resultado ?? "").replace(",", "."));
+            const T = parseTempoExposicaoHoras(x?.tempo_exposicao);
+            return isFinite(ib) && ib > 0 && T > 0;
+          });
+          const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
+          const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
           return {
             media_vci_aren,
             media_vci_vdvr,
             media_vmb_aren,
             exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
             exibir_media_vibracao_vmb: !!media_vmb_aren,
+            ibutg_medio,
+            exibir_media_ibutg: !!ibutg_medio,
           };
         })(),
       };
@@ -2218,7 +2343,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const calorRows = mkRows(r.resultados_calor, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
-            ibutg_medido: x.ibutg_medido ? Number(x.ibutg_medido) : null,
+            ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
             ibutg_limite: x.ibutg_limite ? Number(x.ibutg_limite) : null,
             m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
             tipo_atividade: x.tipo_atividade || null,
@@ -2227,6 +2352,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
+            local_atividade: x.local_atividade || null,
+            equipamento_id: x.equipamento_id || null,
+            tempo_exposicao: x.tempo_exposicao || null,
+            ibutg_tipo: x.ibutg_tipo || null,
+            tbn_valores: x.tbn_valores || null,
+            tg_valores: x.tg_valores || null,
+            tbs_valores: x.tbs_valores || null,
           }));
           const vibRows = mkRows(r.resultados_vibracao, (x) => ({
             tipo: x.tipo || null,
@@ -4745,7 +4877,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 2: Tipo de atividade + Taxa metabólica */}
+                    {/* Linha 2: Local da Atividade + Equipamento Utilizado */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Local da Atividade</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: Sala de Caldeira"
+                          value={row.local_atividade || ""}
+                          onChange={e => updateField("local_atividade", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Equipamento Utilizado</Label>
+                        <Select
+                          value={row.equipamento_id || ""}
+                          onValueChange={v => {
+                            const eq = equipamentos.find((e: any) => e.id === v);
+                            const updated = [...tempCalorRows];
+                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: eq?.nome || "" };
+                            setTempCalorRows(updated);
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione (cadastro)..." /></SelectTrigger>
+                          <SelectContent>
+                            {equipamentos.map((eq: any) => (
+                              <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Linha 3: Tipo de atividade + Taxa metabólica */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tipo de Atividade</Label>
@@ -4765,7 +4928,67 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 3: Exposição + Unidade + LT + Unidade */}
+                    {/* Linha 4: Cálculo IBUTG (sub-modal) + Tempo de Exposição (obrigatório p/ média) */}
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-5">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cálculo IBUTG</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-accent border-accent/30 hover:bg-accent/5"
+                            onClick={() => {
+                              setIbutgRowIndex(ri);
+                              setIbutgTipo((row.ibutg_tipo as any) || "com_carga_solar");
+                              setIbutgTbnInput(row.tbn_valores || "");
+                              setIbutgTgInput(row.tg_valores || "");
+                              setIbutgTbsInput(row.tbs_valores || "");
+                              setIbutgModalOpen(true);
+                            }}
+                          >
+                            <Calculator className="w-4 h-4" /> Cálculo IBUTG
+                          </Button>
+                          {row.ibutg_resultado ? (
+                            <Badge variant="outline" className="font-mono text-xs px-2 py-1 border-accent/40 text-accent">
+                              {row.ibutg_tipo === "sem_carga_solar" ? <CloudOff className="w-3 h-3 mr-1" /> : <Sun className="w-3 h-3 mr-1" />}
+                              IBUTG = {Number(row.ibutg_resultado).toFixed(2)} °C
+                              <span className="ml-1 text-[10px] opacity-70">({row.ibutg_tipo === "sem_carga_solar" ? "sem carga" : "com carga"})</span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Sem cálculo</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-span-4">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Tempo de Exposição <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          className={`mt-1 h-8 text-sm ${!row.tempo_exposicao ? "border-destructive/60" : ""}`}
+                          placeholder='Ex.: "6h 30min" ou "6:30"'
+                          value={row.tempo_exposicao || ""}
+                          onChange={e => updateField("tempo_exposicao", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
+                        <Select
+                          value={row.cod_gfip || ""}
+                          onValueChange={v => updateField("cod_gfip", v)}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                            <SelectItem value="03">03</SelectItem>
+                            <SelectItem value="04">04</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Linha 5: Exposição + Unidade + LT + Unidade (mantida — IBUTG calculado popula automaticamente) */}
                     <div className="grid grid-cols-12 gap-2">
                       <div className="col-span-3">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Exposição</Label>
@@ -4813,7 +5036,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 4: Situação (auto) + Cód GFIP */}
+                    {/* Linha 6: Situação (auto) */}
                     <div className="grid grid-cols-2 gap-2 items-end">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
@@ -4828,21 +5051,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         >
                           {situacao || "—"}
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
-                        <Select
-                          value={row.cod_gfip || ""}
-                          onValueChange={v => updateField("cod_gfip", v)}
-                        >
-                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="01">01</SelectItem>
-                            <SelectItem value="02">02</SelectItem>
-                            <SelectItem value="03">03</SelectItem>
-                            <SelectItem value="04">04</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
                     </div>
 
@@ -4865,18 +5073,31 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   );
                 })}
 
-                <Button
-                  variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempCalorRows([...tempCalorRows, {
-                    id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "",
-                    data_avaliacao: "", tipo_atividade: "", taxa_metabolica: "",
-                    exposicao: "", unidade_exposicao_id: "",
-                    limite_tolerancia: "", unidade_limite_id: "",
-                    situacao: "", cod_gfip: "",
-                  }])}
-                >
-                  <Plus className="w-4 h-4" /> Adicionar Função
-                </Button>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <Button
+                    variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
+                    onClick={() => setTempCalorRows([...tempCalorRows, {
+                      id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "",
+                      data_avaliacao: "", local_atividade: "", equipamento_id: "", equipamento_nome: "",
+                      tipo_atividade: "", taxa_metabolica: "",
+                      tempo_exposicao: "",
+                      ibutg_resultado: "", ibutg_tipo: "", tbn_valores: "", tg_valores: "", tbs_valores: "",
+                      exposicao: "", unidade_exposicao_id: "",
+                      limite_tolerancia: "", unidade_limite_id: "",
+                      situacao: "", cod_gfip: "",
+                    }])}
+                  >
+                    <Plus className="w-4 h-4" /> Adicionar Avaliação
+                  </Button>
+                  {tempCalorRows.length > 1 && (
+                    <Button
+                      variant="outline" size="sm" className="gap-2 text-accent border-accent/30 hover:bg-accent/5"
+                      onClick={() => setMediaIbutgModalOpen(true)}
+                    >
+                      <Thermometer className="w-4 h-4" /> Média IBUTG
+                    </Button>
+                  )}
+                </div>
               </div>
 
               <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
@@ -4884,6 +5105,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <Button
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => {
+                    // Validação obrigatória: tempo de exposição quando há mais de 1 avaliação
+                    if (tempCalorRows.length > 1) {
+                      const semTempo = tempCalorRows.some(r => !r.tempo_exposicao || !String(r.tempo_exposicao).trim());
+                      if (semTempo) {
+                        toast.error("Tempo de Exposição é obrigatório em todas as avaliações para cálculo da média IBUTG.");
+                        return;
+                      }
+                    }
                     setRiskForm(prev => ({ ...prev, resultados_calor: tempCalorRows }));
                     setCalorModalOpen(false);
                     toast.success(`${tempCalorRows.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
@@ -4898,6 +5127,317 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   }}
                 >
                   Salvar Resultados
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* SUB-MODAL: CÁLCULO IBUTG (com/sem carga solar)               */}
+          {/* ============================================================ */}
+          <Dialog open={ibutgModalOpen} onOpenChange={setIbutgModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-accent" /> Cálculo IBUTG
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const tbnArr = parseMultiNumeros(ibutgTbnInput);
+                const tgArr = parseMultiNumeros(ibutgTgInput);
+                const tbsArr = parseMultiNumeros(ibutgTbsInput);
+                const result = ibutgTipo === "com_carga_solar"
+                  ? calcIbutgComCargaSolar(tbnArr, tgArr, tbsArr)
+                  : calcIbutgSemCargaSolar(tbnArr, tgArr);
+                return (
+                  <div className="space-y-4 py-2">
+                    {/* Tipo */}
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
+                        Tipo de medição
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIbutgTipo("com_carga_solar")}
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                            ibutgTipo === "com_carga_solar"
+                              ? "border-accent bg-accent/5 text-accent"
+                              : "border-border hover:border-accent/40"
+                          }`}
+                        >
+                          <Sun className="w-5 h-5" />
+                          <div>
+                            <div className="font-bold text-sm uppercase">Com carga solar</div>
+                            <div className="text-[10px] opacity-70 font-mono">0.7·Tbn + 0.2·Tg + 0.1·Tbs</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIbutgTipo("sem_carga_solar")}
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                            ibutgTipo === "sem_carga_solar"
+                              ? "border-accent bg-accent/5 text-accent"
+                              : "border-border hover:border-accent/40"
+                          }`}
+                        >
+                          <CloudOff className="w-5 h-5" />
+                          <div>
+                            <div className="font-bold text-sm uppercase">Sem carga solar</div>
+                            <div className="text-[10px] opacity-70 font-mono">0.7·Tbn + 0.3·Tg</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground italic">
+                      Aceita até 60 valores separados por vírgula, ponto-e-vírgula ou quebra de linha.
+                      Use ponto ou vírgula como separador decimal. Ex.: <code className="bg-muted px-1 rounded">28.1; 29,2; 30.0</code>
+                    </p>
+
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Tbn — Bulbo Úmido (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tbnArr.length} valor(es)</span>
+                      </Label>
+                      <Textarea
+                        className="mt-1 font-mono text-sm"
+                        rows={2}
+                        placeholder="28.1; 29.2; 30.0"
+                        value={ibutgTbnInput}
+                        onChange={e => setIbutgTbnInput(e.target.value)}
+                      />
+                      {tbnArr.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          Média Tbn = <strong className="text-foreground">{(tbnArr.reduce((a, b) => a + b, 0) / tbnArr.length).toFixed(2)} °C</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Tg — Globo (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tgArr.length} valor(es)</span>
+                      </Label>
+                      <Textarea
+                        className="mt-1 font-mono text-sm"
+                        rows={2}
+                        placeholder="32.5; 33.1"
+                        value={ibutgTgInput}
+                        onChange={e => setIbutgTgInput(e.target.value)}
+                      />
+                      {tgArr.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          Média Tg = <strong className="text-foreground">{(tgArr.reduce((a, b) => a + b, 0) / tgArr.length).toFixed(2)} °C</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    {ibutgTipo === "com_carga_solar" && (
+                      <div>
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Tbs — Bulbo Seco (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tbsArr.length} valor(es)</span>
+                        </Label>
+                        <Textarea
+                          className="mt-1 font-mono text-sm"
+                          rows={2}
+                          placeholder="35.0; 35.5"
+                          value={ibutgTbsInput}
+                          onChange={e => setIbutgTbsInput(e.target.value)}
+                        />
+                        {tbsArr.length > 0 && (
+                          <div className="text-[11px] text-muted-foreground mt-1">
+                            Média Tbs = <strong className="text-foreground">{(tbsArr.reduce((a, b) => a + b, 0) / tbsArr.length).toFixed(2)} °C</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Resultado */}
+                    <div className={`rounded-xl border-2 p-4 ${result ? "border-accent/40 bg-accent/5" : "border-dashed border-muted bg-muted/10"}`}>
+                      {result ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">IBUTG calculado</div>
+                            <div className="text-2xl font-heading font-black text-accent mt-1">
+                              {result.ibutg.toFixed(2)} °C
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              {ibutgTipo === "com_carga_solar" ? "Com carga solar" : "Sem carga solar"}
+                            </div>
+                          </div>
+                          {ibutgTipo === "com_carga_solar" ? <Sun className="w-10 h-10 text-accent/40" /> : <CloudOff className="w-10 h-10 text-accent/40" />}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic text-center">
+                          Preencha os campos acima para visualizar o IBUTG calculado.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                <Button variant="outline" onClick={() => setIbutgModalOpen(false)}>Cancelar</Button>
+                <Button
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  onClick={() => {
+                    const tbnArr = parseMultiNumeros(ibutgTbnInput);
+                    const tgArr = parseMultiNumeros(ibutgTgInput);
+                    const tbsArr = parseMultiNumeros(ibutgTbsInput);
+                    const result = ibutgTipo === "com_carga_solar"
+                      ? calcIbutgComCargaSolar(tbnArr, tgArr, tbsArr)
+                      : calcIbutgSemCargaSolar(tbnArr, tgArr);
+                    if (!result) {
+                      toast.error("Preencha pelo menos um valor para cada campo obrigatório.");
+                      return;
+                    }
+                    if (ibutgRowIndex < 0 || ibutgRowIndex >= tempCalorRows.length) {
+                      toast.error("Linha de avaliação não encontrada.");
+                      return;
+                    }
+                    const ibutgValue = result.ibutg.toFixed(2);
+                    const updated = [...tempCalorRows];
+                    const ltNum = parseFloat(updated[ibutgRowIndex].limite_tolerancia);
+                    const ibNum = parseFloat(ibutgValue);
+                    let situacao = updated[ibutgRowIndex].situacao || "";
+                    if (!isNaN(ibNum) && !isNaN(ltNum) && ltNum > 0) {
+                      situacao = ibNum > ltNum ? "Nocivo" : "Seguro";
+                    }
+                    updated[ibutgRowIndex] = {
+                      ...updated[ibutgRowIndex],
+                      ibutg_resultado: ibutgValue,
+                      ibutg_tipo: ibutgTipo,
+                      tbn_valores: ibutgTbnInput,
+                      tg_valores: ibutgTgInput,
+                      tbs_valores: ibutgTipo === "com_carga_solar" ? ibutgTbsInput : "",
+                      // Espelha em "exposicao" para manter compat com Situação automática e tabelas existentes
+                      exposicao: ibutgValue,
+                      situacao,
+                    };
+                    setTempCalorRows(updated);
+                    setIbutgModalOpen(false);
+                    toast.success(`IBUTG ${ibutgTipo === "com_carga_solar" ? "(com carga)" : "(sem carga)"} = ${ibutgValue} °C aplicado à avaliação.`);
+                  }}
+                >
+                  Aplicar IBUTG
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* SUB-MODAL: MÉDIA IBUTG (ponderada por tempo de exposição)    */}
+          {/* ============================================================ */}
+          <Dialog open={mediaIbutgModalOpen} onOpenChange={setMediaIbutgModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
+                  <Thermometer className="w-5 h-5 text-accent" /> Média IBUTG (ponderada)
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const validas = tempCalorRows.filter(r => {
+                  const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+                  const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+                  return isFinite(ib) && ib > 0 && T > 0;
+                });
+                const semIbutg = tempCalorRows.filter(r => !r?.ibutg_resultado);
+                const semTempo = tempCalorRows.filter(r => !r?.tempo_exposicao);
+                const media = calcIbutgMedio(validas);
+                return (
+                  <div className="space-y-4 py-2">
+                    <p className="text-xs text-muted-foreground italic">
+                      Fórmula: <code className="bg-muted px-1 rounded">IBUTG_médio = Σ(IBUTGᵢ × Tᵢ) / ΣTᵢ</code>
+                    </p>
+
+                    {(semIbutg.length > 0 || semTempo.length > 0) && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs space-y-1">
+                        {semIbutg.length > 0 && (
+                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {semIbutg.length} avaliação(ões) sem IBUTG calculado serão ignoradas.
+                          </div>
+                        )}
+                        {semTempo.length > 0 && (
+                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {semTempo.length} avaliação(ões) sem Tempo de Exposição serão ignoradas.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <th className="text-left p-2">Colaborador</th>
+                            <th className="text-left p-2">Tipo</th>
+                            <th className="text-right p-2">IBUTG (°C)</th>
+                            <th className="text-right p-2">Tᵢ (h)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validas.map((r, i) => (
+                            <tr key={r.id || i} className="border-t">
+                              <td className="p-2">{r.colaborador || "—"}</td>
+                              <td className="p-2 text-xs">{r.ibutg_tipo === "sem_carga_solar" ? "Sem carga" : "Com carga"}</td>
+                              <td className="p-2 text-right font-mono">{Number(r.ibutg_resultado).toFixed(2)}</td>
+                              <td className="p-2 text-right font-mono">{parseTempoExposicaoHoras(r.tempo_exposicao).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          {!validas.length && (
+                            <tr><td colSpan={4} className="p-4 text-center text-muted-foreground italic">Nenhuma avaliação válida (precisa ter IBUTG e Tempo de Exposição).</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`rounded-xl border-2 p-4 ${media != null ? "border-accent/40 bg-accent/5" : "border-dashed border-muted bg-muted/10"}`}>
+                      {media != null ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">IBUTG médio (ponderado)</div>
+                            <div className="text-2xl font-heading font-black text-accent mt-1">{media.toFixed(2)} °C</div>
+                          </div>
+                          <Thermometer className="w-10 h-10 text-accent/40" />
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic text-center">
+                          Sem dados suficientes para calcular a média ponderada.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                <Button variant="outline" onClick={() => setMediaIbutgModalOpen(false)}>Fechar</Button>
+                <Button
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  onClick={() => {
+                    const validas = tempCalorRows.filter(r => {
+                      const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+                      const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+                      return isFinite(ib) && ib > 0 && T > 0;
+                    });
+                    const media = calcIbutgMedio(validas);
+                    if (media == null) {
+                      toast.error("Sem dados suficientes (IBUTG + Tempo de Exposição) para calcular a média.");
+                      return;
+                    }
+                    const valor = media.toFixed(2);
+                    // Persiste o ibutg_medio em todas as linhas para compor a variável do template
+                    const updated = tempCalorRows.map(r => ({ ...r, ibutg_medio: valor }));
+                    setTempCalorRows(updated);
+                    setMediaIbutgModalOpen(false);
+                    toast.success(`Média IBUTG = ${valor} °C aplicada às avaliações.`);
+                  }}
+                >
+                  Aplicar Média
                 </Button>
               </DialogFooter>
             </DialogContent>
