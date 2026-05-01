@@ -808,7 +808,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
+              ...r,
+              id: r.id,
+              ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
+              equipamento_nome: equipamentos.find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
+            })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
             epi_ca: epi.epi_ca || "",
