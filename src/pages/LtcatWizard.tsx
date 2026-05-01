@@ -4135,7 +4135,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL NÍVEL 2: CADASTRO DE COMPONENTES DA AMOSTRA           */}
           {/* ============================================================ */}
           <Dialog open={amostraModalOpen} onOpenChange={setAmostraModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[85vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-lg uppercase">Cadastro de Componentes — Amostra</DialogTitle>
               </DialogHeader>
@@ -4711,7 +4714,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL NÍVEL 2: DADOS DA AMOSTRA DE VIBRAÇÃO                  */}
           {/* ============================================================ */}
           <Dialog open={vibracaoAmostraModalOpen} onOpenChange={setVibracaoAmostraModalOpen}>
-            <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-3xl max-h-[85vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-lg uppercase">
                   Dados da Amostra — {isAgentVCI(riskForm.agente_nome || "") ? "VCI" : "VMB"}
@@ -5136,7 +5142,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* SUB-MODAL: CÁLCULO IBUTG (com/sem carga solar)               */}
           {/* ============================================================ */}
           <Dialog open={ibutgModalOpen} onOpenChange={setIbutgModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
                   <Calculator className="w-5 h-5 text-accent" /> Cálculo IBUTG
@@ -5330,7 +5339,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* SUB-MODAL: MÉDIA IBUTG (ponderada por tempo de exposição)    */}
           {/* ============================================================ */}
           <Dialog open={mediaIbutgModalOpen} onOpenChange={setMediaIbutgModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
                   <Thermometer className="w-5 h-5 text-accent" /> Média IBUTG (ponderada)
@@ -5536,7 +5548,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL: CÁLCULO DA MÉDIA DE VIBRAÇÃO (VCI / VMB)              */}
           {/* ============================================================ */}
           <Dialog open={mediaVibracaoOpen} onOpenChange={setMediaVibracaoOpen}>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-3xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase">
                   Cálculo da Média — {mediaVibracaoTipo === "vci" ? "Vibração de Corpo Inteiro (VCI)" : "Vibração de Mãos e Braços (VMB)"}
