@@ -484,10 +484,15 @@ export function LtcatTemplateHelper() {
                       "{{#is_calor}}", "{{/is_calor}}",
                       "{{#avaliacoes}}", "{{/avaliacoes}}",
                       "{{data_avaliacao}}", "{{colaborador}}", "{{funcao}}",
-                      "{{tipo_atividade}}", "{{taxa_metabolica}}",
+                      "{{local_atividade}}", "{{equipamento_utilizado}}",
+                      "{{tipo_atividade}}", "{{taxa_metabolica}}", "{{tempo_exposicao}}",
+                      "{{ibutg_resultado}}", "{{ibutg_tipo}}",
+                      "{{#ibutg_com_carga_solar}}…{{/ibutg_com_carga_solar}}",
+                      "{{#ibutg_sem_carga_solar}}…{{/ibutg_sem_carga_solar}}",
                       "{{exposicao}}", "{{unidade_exposicao}}",
                       "{{limite_tolerancia}}", "{{unidade_limite}}",
                       "{{situacao}}", "{{cod_gfip}}",
+                      "{{#exibir_media_ibutg}}", "{{ibutg_medio}}", "{{/exibir_media_ibutg}}",
                     ].map((v) => (
                       <Badge
                         key={"calor-" + v}
