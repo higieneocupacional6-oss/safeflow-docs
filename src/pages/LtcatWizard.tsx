@@ -4714,7 +4714,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL NÍVEL 2: DADOS DA AMOSTRA DE VIBRAÇÃO                  */}
           {/* ============================================================ */}
           <Dialog open={vibracaoAmostraModalOpen} onOpenChange={setVibracaoAmostraModalOpen}>
-            <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-3xl max-h-[85vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-lg uppercase">
                   Dados da Amostra — {isAgentVCI(riskForm.agente_nome || "") ? "VCI" : "VMB"}
