@@ -869,6 +869,7 @@ export function LtcatTemplateHelper() {
                     a tabela inteira é <strong>removida</strong> do documento final.
                   </span>
                 </li>
+              </ul>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}
   NEN médio: {{nen_medio}} dB
