@@ -2338,7 +2338,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const calorRows = mkRows(r.resultados_calor, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
-            ibutg_medido: x.ibutg_medido ? Number(x.ibutg_medido) : null,
+            ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
             ibutg_limite: x.ibutg_limite ? Number(x.ibutg_limite) : null,
             m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
             tipo_atividade: x.tipo_atividade || null,
@@ -2347,6 +2347,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
+            local_atividade: x.local_atividade || null,
+            equipamento_id: x.equipamento_id || null,
+            tempo_exposicao: x.tempo_exposicao || null,
+            ibutg_tipo: x.ibutg_tipo || null,
+            tbn_valores: x.tbn_valores || null,
+            tg_valores: x.tg_valores || null,
+            tbs_valores: x.tbs_valores || null,
           }));
           const vibRows = mkRows(r.resultados_vibracao, (x) => ({
             tipo: x.tipo || null,
