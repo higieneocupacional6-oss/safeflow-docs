@@ -1251,11 +1251,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         };
 
         const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
+          const equipamentoNomeRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
             tipo: r.tipo_agente || "",
             tipo_agente: r.tipo_agente || "",
+            // Equipamento vinculado ao risco (modal "Avaliação de Risco por Setor")
+            equipamento: equipamentoNomeRiscoBase,
           };
 
           const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
