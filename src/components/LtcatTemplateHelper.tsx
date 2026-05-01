@@ -772,7 +772,47 @@ export function LtcatTemplateHelper() {
                     Envolva todo o bloco da tabela: <code>{"{{#exibir_media_resultados}}<TABELA>{{/exibir_media_resultados}}"}</code>.
                   </span>
                 </li>
-              </ul>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{#componentes_amostra}}")}
+                  >
+                    {"{{#componentes_amostra}}…{{/componentes_amostra}}"}
+                    {copiedKey === "{{#componentes_amostra}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Loop de <strong>componentes da amostra</strong> (modal "Cadastro de Componentes — Amostra").
+                    Use <strong>dentro</strong> de <code>{"{{#avaliacoes}}"}</code>. Cada iteração traz apenas os
+                    componentes da avaliação atual (vínculo correto com colaborador e função). Variáveis internas:{" "}
+                    <code>{"{{componente_avaliado}}"}</code>, <code>{"{{resultado}}"}</code>,{" "}
+                    <code>{"{{limite_tolerancia}}"}</code>, <code>{"{{unidade}}"}</code>,{" "}
+                    <code>{"{{situacao}}"}</code>, <code>{"{{codigo_gfip}}"}</code>.
+                    Se não houver componentes, nenhuma linha é renderizada.
+                  </span>
+                </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{equipamento}}")}
+                  >
+                    {"{{equipamento}}"}
+                    {copiedKey === "{{equipamento}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Equipamento informado no modal <strong>"Avaliação de Risco por Setor (LTCAT)"</strong>.
+                    Disponível dentro de <code>{"{{#avaliacoes}}"}</code> (contexto por risco/avaliação).
+                  </span>
+                </li>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}
   NEN médio: {{nen_medio}} dB
