@@ -4989,7 +4989,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     y += 8;
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(10);
-                    doc.text(`Empresa: ${empresa?.razao_social || ""}`, margin, y); y += 5;
+                    const empresaSel: any = empresas.find((e: any) => e.id === empresaId);
+                    doc.text(`Empresa: ${empresaSel?.razao_social || empresaSel?.nome_fantasia || ""}`, margin, y); y += 5;
                     doc.text(`Agente: ${riskForm.agente_nome || ""}`, margin, y); y += 5;
                     doc.text(`Setor: ${currentRiskSetor?.nome_setor || ""}`, margin, y); y += 5;
                     doc.text(`Fórmula: ${formula}`, margin, y); y += 8;
