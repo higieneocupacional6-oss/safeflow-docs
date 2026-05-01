@@ -5088,6 +5088,317 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           </Dialog>
 
           {/* ============================================================ */}
+          {/* SUB-MODAL: CÁLCULO IBUTG (com/sem carga solar)               */}
+          {/* ============================================================ */}
+          <Dialog open={ibutgModalOpen} onOpenChange={setIbutgModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
+                  <Calculator className="w-5 h-5 text-accent" /> Cálculo IBUTG
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const tbnArr = parseMultiNumeros(ibutgTbnInput);
+                const tgArr = parseMultiNumeros(ibutgTgInput);
+                const tbsArr = parseMultiNumeros(ibutgTbsInput);
+                const result = ibutgTipo === "com_carga_solar"
+                  ? calcIbutgComCargaSolar(tbnArr, tgArr, tbsArr)
+                  : calcIbutgSemCargaSolar(tbnArr, tgArr);
+                return (
+                  <div className="space-y-4 py-2">
+                    {/* Tipo */}
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2 block">
+                        Tipo de medição
+                      </Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setIbutgTipo("com_carga_solar")}
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                            ibutgTipo === "com_carga_solar"
+                              ? "border-accent bg-accent/5 text-accent"
+                              : "border-border hover:border-accent/40"
+                          }`}
+                        >
+                          <Sun className="w-5 h-5" />
+                          <div>
+                            <div className="font-bold text-sm uppercase">Com carga solar</div>
+                            <div className="text-[10px] opacity-70 font-mono">0.7·Tbn + 0.2·Tg + 0.1·Tbs</div>
+                          </div>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIbutgTipo("sem_carga_solar")}
+                          className={`flex items-center gap-2 p-3 rounded-lg border-2 transition-all text-left ${
+                            ibutgTipo === "sem_carga_solar"
+                              ? "border-accent bg-accent/5 text-accent"
+                              : "border-border hover:border-accent/40"
+                          }`}
+                        >
+                          <CloudOff className="w-5 h-5" />
+                          <div>
+                            <div className="font-bold text-sm uppercase">Sem carga solar</div>
+                            <div className="text-[10px] opacity-70 font-mono">0.7·Tbn + 0.3·Tg</div>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-[11px] text-muted-foreground italic">
+                      Aceita até 60 valores separados por vírgula, ponto-e-vírgula ou quebra de linha.
+                      Use ponto ou vírgula como separador decimal. Ex.: <code className="bg-muted px-1 rounded">28.1; 29,2; 30.0</code>
+                    </p>
+
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Tbn — Bulbo Úmido (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tbnArr.length} valor(es)</span>
+                      </Label>
+                      <Textarea
+                        className="mt-1 font-mono text-sm"
+                        rows={2}
+                        placeholder="28.1; 29.2; 30.0"
+                        value={ibutgTbnInput}
+                        onChange={e => setIbutgTbnInput(e.target.value)}
+                      />
+                      {tbnArr.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          Média Tbn = <strong className="text-foreground">{(tbnArr.reduce((a, b) => a + b, 0) / tbnArr.length).toFixed(2)} °C</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Tg — Globo (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tgArr.length} valor(es)</span>
+                      </Label>
+                      <Textarea
+                        className="mt-1 font-mono text-sm"
+                        rows={2}
+                        placeholder="32.5; 33.1"
+                        value={ibutgTgInput}
+                        onChange={e => setIbutgTgInput(e.target.value)}
+                      />
+                      {tgArr.length > 0 && (
+                        <div className="text-[11px] text-muted-foreground mt-1">
+                          Média Tg = <strong className="text-foreground">{(tgArr.reduce((a, b) => a + b, 0) / tgArr.length).toFixed(2)} °C</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    {ibutgTipo === "com_carga_solar" && (
+                      <div>
+                        <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                          Tbs — Bulbo Seco (°C) <span className="text-muted-foreground/60 font-normal normal-case">— {tbsArr.length} valor(es)</span>
+                        </Label>
+                        <Textarea
+                          className="mt-1 font-mono text-sm"
+                          rows={2}
+                          placeholder="35.0; 35.5"
+                          value={ibutgTbsInput}
+                          onChange={e => setIbutgTbsInput(e.target.value)}
+                        />
+                        {tbsArr.length > 0 && (
+                          <div className="text-[11px] text-muted-foreground mt-1">
+                            Média Tbs = <strong className="text-foreground">{(tbsArr.reduce((a, b) => a + b, 0) / tbsArr.length).toFixed(2)} °C</strong>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Resultado */}
+                    <div className={`rounded-xl border-2 p-4 ${result ? "border-accent/40 bg-accent/5" : "border-dashed border-muted bg-muted/10"}`}>
+                      {result ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">IBUTG calculado</div>
+                            <div className="text-2xl font-heading font-black text-accent mt-1">
+                              {result.ibutg.toFixed(2)} °C
+                            </div>
+                            <div className="text-[11px] text-muted-foreground mt-0.5">
+                              {ibutgTipo === "com_carga_solar" ? "Com carga solar" : "Sem carga solar"}
+                            </div>
+                          </div>
+                          {ibutgTipo === "com_carga_solar" ? <Sun className="w-10 h-10 text-accent/40" /> : <CloudOff className="w-10 h-10 text-accent/40" />}
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic text-center">
+                          Preencha os campos acima para visualizar o IBUTG calculado.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                <Button variant="outline" onClick={() => setIbutgModalOpen(false)}>Cancelar</Button>
+                <Button
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  onClick={() => {
+                    const tbnArr = parseMultiNumeros(ibutgTbnInput);
+                    const tgArr = parseMultiNumeros(ibutgTgInput);
+                    const tbsArr = parseMultiNumeros(ibutgTbsInput);
+                    const result = ibutgTipo === "com_carga_solar"
+                      ? calcIbutgComCargaSolar(tbnArr, tgArr, tbsArr)
+                      : calcIbutgSemCargaSolar(tbnArr, tgArr);
+                    if (!result) {
+                      toast.error("Preencha pelo menos um valor para cada campo obrigatório.");
+                      return;
+                    }
+                    if (ibutgRowIndex < 0 || ibutgRowIndex >= tempCalorRows.length) {
+                      toast.error("Linha de avaliação não encontrada.");
+                      return;
+                    }
+                    const ibutgValue = result.ibutg.toFixed(2);
+                    const updated = [...tempCalorRows];
+                    const ltNum = parseFloat(updated[ibutgRowIndex].limite_tolerancia);
+                    const ibNum = parseFloat(ibutgValue);
+                    let situacao = updated[ibutgRowIndex].situacao || "";
+                    if (!isNaN(ibNum) && !isNaN(ltNum) && ltNum > 0) {
+                      situacao = ibNum > ltNum ? "Nocivo" : "Seguro";
+                    }
+                    updated[ibutgRowIndex] = {
+                      ...updated[ibutgRowIndex],
+                      ibutg_resultado: ibutgValue,
+                      ibutg_tipo: ibutgTipo,
+                      tbn_valores: ibutgTbnInput,
+                      tg_valores: ibutgTgInput,
+                      tbs_valores: ibutgTipo === "com_carga_solar" ? ibutgTbsInput : "",
+                      // Espelha em "exposicao" para manter compat com Situação automática e tabelas existentes
+                      exposicao: ibutgValue,
+                      situacao,
+                    };
+                    setTempCalorRows(updated);
+                    setIbutgModalOpen(false);
+                    toast.success(`IBUTG ${ibutgTipo === "com_carga_solar" ? "(com carga)" : "(sem carga)"} = ${ibutgValue} °C aplicado à avaliação.`);
+                  }}
+                >
+                  Aplicar IBUTG
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* SUB-MODAL: MÉDIA IBUTG (ponderada por tempo de exposição)    */}
+          {/* ============================================================ */}
+          <Dialog open={mediaIbutgModalOpen} onOpenChange={setMediaIbutgModalOpen}>
+            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
+                  <Thermometer className="w-5 h-5 text-accent" /> Média IBUTG (ponderada)
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const validas = tempCalorRows.filter(r => {
+                  const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+                  const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+                  return isFinite(ib) && ib > 0 && T > 0;
+                });
+                const semIbutg = tempCalorRows.filter(r => !r?.ibutg_resultado);
+                const semTempo = tempCalorRows.filter(r => !r?.tempo_exposicao);
+                const media = calcIbutgMedio(validas);
+                return (
+                  <div className="space-y-4 py-2">
+                    <p className="text-xs text-muted-foreground italic">
+                      Fórmula: <code className="bg-muted px-1 rounded">IBUTG_médio = Σ(IBUTGᵢ × Tᵢ) / ΣTᵢ</code>
+                    </p>
+
+                    {(semIbutg.length > 0 || semTempo.length > 0) && (
+                      <div className="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/20 p-3 text-xs space-y-1">
+                        {semIbutg.length > 0 && (
+                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {semIbutg.length} avaliação(ões) sem IBUTG calculado serão ignoradas.
+                          </div>
+                        )}
+                        {semTempo.length > 0 && (
+                          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-300">
+                            <AlertTriangle className="w-4 h-4 shrink-0" />
+                            {semTempo.length} avaliação(ões) sem Tempo de Exposição serão ignoradas.
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="border rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted/50">
+                          <tr className="text-[10px] uppercase tracking-wider text-muted-foreground">
+                            <th className="text-left p-2">Colaborador</th>
+                            <th className="text-left p-2">Tipo</th>
+                            <th className="text-right p-2">IBUTG (°C)</th>
+                            <th className="text-right p-2">Tᵢ (h)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {validas.map((r, i) => (
+                            <tr key={r.id || i} className="border-t">
+                              <td className="p-2">{r.colaborador || "—"}</td>
+                              <td className="p-2 text-xs">{r.ibutg_tipo === "sem_carga_solar" ? "Sem carga" : "Com carga"}</td>
+                              <td className="p-2 text-right font-mono">{Number(r.ibutg_resultado).toFixed(2)}</td>
+                              <td className="p-2 text-right font-mono">{parseTempoExposicaoHoras(r.tempo_exposicao).toFixed(2)}</td>
+                            </tr>
+                          ))}
+                          {!validas.length && (
+                            <tr><td colSpan={4} className="p-4 text-center text-muted-foreground italic">Nenhuma avaliação válida (precisa ter IBUTG e Tempo de Exposição).</td></tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className={`rounded-xl border-2 p-4 ${media != null ? "border-accent/40 bg-accent/5" : "border-dashed border-muted bg-muted/10"}`}>
+                      {media != null ? (
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">IBUTG médio (ponderado)</div>
+                            <div className="text-2xl font-heading font-black text-accent mt-1">{media.toFixed(2)} °C</div>
+                          </div>
+                          <Thermometer className="w-10 h-10 text-accent/40" />
+                        </div>
+                      ) : (
+                        <div className="text-sm text-muted-foreground italic text-center">
+                          Sem dados suficientes para calcular a média ponderada.
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                <Button variant="outline" onClick={() => setMediaIbutgModalOpen(false)}>Fechar</Button>
+                <Button
+                  className="bg-accent text-accent-foreground hover:bg-accent/90"
+                  onClick={() => {
+                    const validas = tempCalorRows.filter(r => {
+                      const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+                      const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+                      return isFinite(ib) && ib > 0 && T > 0;
+                    });
+                    const media = calcIbutgMedio(validas);
+                    if (media == null) {
+                      toast.error("Sem dados suficientes (IBUTG + Tempo de Exposição) para calcular a média.");
+                      return;
+                    }
+                    const valor = media.toFixed(2);
+                    // Persiste o ibutg_medio em todas as linhas para compor a variável do template
+                    const updated = tempCalorRows.map(r => ({ ...r, ibutg_medio: valor }));
+                    setTempCalorRows(updated);
+                    setMediaIbutgModalOpen(false);
+                    toast.success(`Média IBUTG = ${valor} °C aplicada às avaliações.`);
+                  }}
+                >
+                  Aplicar Média
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
           {/* MODAL: EXCLUSÃO SELETIVA DE ITENS (FUNÇÃO/COLAB)             */}
           {/* ============================================================ */}
           <Dialog open={deleteItemsModalOpen} onOpenChange={setDeleteItemsModalOpen}>
