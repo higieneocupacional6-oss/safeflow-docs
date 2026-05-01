@@ -1209,7 +1209,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const openVibracaoModal = () => {
     const initial = riskForm.resultados_vibracao?.length
       ? riskForm.resultados_vibracao
-      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
+      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", tempo_exposicao: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
     setTempVibracaoRows(initial);
     setVibracaoModalOpen(true);
   };
