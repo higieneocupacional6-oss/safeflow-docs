@@ -1963,12 +1963,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const media_vci_aren = isVCI ? fmtM(mAren) : "";
           const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
           const media_vmb_aren = isVMB ? fmtM(mAren) : "";
+          // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
+          const allCalor = (r.resultados_calor || []) as any[];
+          const calorComIbutg = allCalor.filter((x: any) => {
+            const ib = parseFloat(String(x?.ibutg_resultado ?? "").replace(",", "."));
+            const T = parseTempoExposicaoHoras(x?.tempo_exposicao);
+            return isFinite(ib) && ib > 0 && T > 0;
+          });
+          const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
+          const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
           return {
             media_vci_aren,
             media_vci_vdvr,
             media_vmb_aren,
             exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
             exibir_media_vibracao_vmb: !!media_vmb_aren,
+            ibutg_medio,
+            exibir_media_ibutg: !!ibutg_medio,
           };
         })(),
       };
