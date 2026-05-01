@@ -353,6 +353,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = useState(false);
   const [currentVibracaoIndex, setCurrentVibracaoIndex] = useState<number>(-1);
   const [tempVibAmostra, setTempVibAmostra] = useState<any>({});
+  // Modal de Cálculo da Média de Vibração (VCI / VMB)
+  const [mediaVibracaoOpen, setMediaVibracaoOpen] = useState(false);
+  const [mediaVibracaoTipo, setMediaVibracaoTipo] = useState<"vci" | "vmb">("vci");
 
   // Calor flow (Nivel 1 + Nivel 2)
   const [calorModalOpen, setCalorModalOpen] = useState(false);
