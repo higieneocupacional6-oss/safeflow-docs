@@ -4296,8 +4296,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               <div className="space-y-4 py-4">
                 {tempVibracaoRows.map((row, ri) => (
                   <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
-                    {/* LINHA 0: Data, Tempo Coleta, Metodologia, Cod GFIP */}
-                    <div className="grid grid-cols-4 gap-3 items-end">
+                    {/* LINHA 0: Data, Tempo Coleta, Tempo Exposição (obrig.), Metodologia, Cod GFIP */}
+                    <div className="grid grid-cols-5 gap-3 items-end">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data da Avaliação</Label>
                         <Input
@@ -4316,6 +4316,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           onChange={e => {
                             const updated = [...tempVibracaoRows];
                             updated[ri].tempo_coleta = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-destructive">
+                          Tempo de Exposição *
+                        </Label>
+                        <Input
+                          className={`mt-1 h-8 text-sm ${!row.tempo_exposicao ? "border-destructive/60" : ""}`}
+                          placeholder="Ex: 6h 30min ou 6:30"
+                          value={row.tempo_exposicao || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].tempo_exposicao = e.target.value;
                             setTempVibracaoRows(updated);
                           }}
                         />
