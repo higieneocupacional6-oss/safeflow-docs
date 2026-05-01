@@ -449,15 +449,22 @@ export type Database = {
           created_at: string
           data_avaliacao: string | null
           descricao_atividade: string | null
+          equipamento_id: string | null
           funcao_id: string | null
           ibutg_limite: number | null
           ibutg_medido: number | null
+          ibutg_tipo: string | null
           id: string
+          local_atividade: string | null
           m_kcal_h: number | null
           ordem: number
           parecer_tecnico: string | null
           situacao: string | null
           taxa_metabolica: string | null
+          tbn_valores: string | null
+          tbs_valores: string | null
+          tempo_exposicao: string | null
+          tg_valores: string | null
           tipo_atividade: string | null
           tipo_documento: string
         }
@@ -469,15 +476,22 @@ export type Database = {
           created_at?: string
           data_avaliacao?: string | null
           descricao_atividade?: string | null
+          equipamento_id?: string | null
           funcao_id?: string | null
           ibutg_limite?: number | null
           ibutg_medido?: number | null
+          ibutg_tipo?: string | null
           id?: string
+          local_atividade?: string | null
           m_kcal_h?: number | null
           ordem?: number
           parecer_tecnico?: string | null
           situacao?: string | null
           taxa_metabolica?: string | null
+          tbn_valores?: string | null
+          tbs_valores?: string | null
+          tempo_exposicao?: string | null
+          tg_valores?: string | null
           tipo_atividade?: string | null
           tipo_documento?: string
         }
@@ -489,15 +503,22 @@ export type Database = {
           created_at?: string
           data_avaliacao?: string | null
           descricao_atividade?: string | null
+          equipamento_id?: string | null
           funcao_id?: string | null
           ibutg_limite?: number | null
           ibutg_medido?: number | null
+          ibutg_tipo?: string | null
           id?: string
+          local_atividade?: string | null
           m_kcal_h?: number | null
           ordem?: number
           parecer_tecnico?: string | null
           situacao?: string | null
           taxa_metabolica?: string | null
+          tbn_valores?: string | null
+          tbs_valores?: string | null
+          tempo_exposicao?: string | null
+          tg_valores?: string | null
           tipo_atividade?: string | null
           tipo_documento?: string
         }
