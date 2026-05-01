@@ -4823,7 +4823,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 2: Tipo de atividade + Taxa metabólica */}
+                    {/* Linha 2: Local da Atividade + Equipamento Utilizado */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Local da Atividade</Label>
+                        <Input
+                          className="mt-1 h-8 text-sm" placeholder="Ex.: Sala de Caldeira"
+                          value={row.local_atividade || ""}
+                          onChange={e => updateField("local_atividade", e.target.value)}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Equipamento Utilizado</Label>
+                        <Select
+                          value={row.equipamento_id || ""}
+                          onValueChange={v => {
+                            const eq = equipamentos.find((e: any) => e.id === v);
+                            const updated = [...tempCalorRows];
+                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: eq?.nome || "" };
+                            setTempCalorRows(updated);
+                          }}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione (cadastro)..." /></SelectTrigger>
+                          <SelectContent>
+                            {equipamentos.map((eq: any) => (
+                              <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Linha 3: Tipo de atividade + Taxa metabólica */}
                     <div className="grid grid-cols-2 gap-2">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tipo de Atividade</Label>
@@ -4843,7 +4874,67 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 3: Exposição + Unidade + LT + Unidade */}
+                    {/* Linha 4: Cálculo IBUTG (sub-modal) + Tempo de Exposição (obrigatório p/ média) */}
+                    <div className="grid grid-cols-12 gap-2 items-end">
+                      <div className="col-span-5">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cálculo IBUTG</Label>
+                        <div className="mt-1 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            className="h-8 gap-1.5 text-accent border-accent/30 hover:bg-accent/5"
+                            onClick={() => {
+                              setIbutgRowIndex(ri);
+                              setIbutgTipo((row.ibutg_tipo as any) || "com_carga_solar");
+                              setIbutgTbnInput(row.tbn_valores || "");
+                              setIbutgTgInput(row.tg_valores || "");
+                              setIbutgTbsInput(row.tbs_valores || "");
+                              setIbutgModalOpen(true);
+                            }}
+                          >
+                            <Calculator className="w-4 h-4" /> Cálculo IBUTG
+                          </Button>
+                          {row.ibutg_resultado ? (
+                            <Badge variant="outline" className="font-mono text-xs px-2 py-1 border-accent/40 text-accent">
+                              {row.ibutg_tipo === "sem_carga_solar" ? <CloudOff className="w-3 h-3 mr-1" /> : <Sun className="w-3 h-3 mr-1" />}
+                              IBUTG = {Number(row.ibutg_resultado).toFixed(2)} °C
+                              <span className="ml-1 text-[10px] opacity-70">({row.ibutg_tipo === "sem_carga_solar" ? "sem carga" : "com carga"})</span>
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-muted-foreground italic">Sem cálculo</span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="col-span-4">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                          Tempo de Exposição <span className="text-destructive">*</span>
+                        </Label>
+                        <Input
+                          className={`mt-1 h-8 text-sm ${!row.tempo_exposicao ? "border-destructive/60" : ""}`}
+                          placeholder='Ex.: "6h 30min" ou "6:30"'
+                          value={row.tempo_exposicao || ""}
+                          onChange={e => updateField("tempo_exposicao", e.target.value)}
+                        />
+                      </div>
+                      <div className="col-span-3">
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
+                        <Select
+                          value={row.cod_gfip || ""}
+                          onValueChange={v => updateField("cod_gfip", v)}
+                        >
+                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="01">01</SelectItem>
+                            <SelectItem value="02">02</SelectItem>
+                            <SelectItem value="03">03</SelectItem>
+                            <SelectItem value="04">04</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {/* Linha 5: Exposição + Unidade + LT + Unidade (mantida — IBUTG calculado popula automaticamente) */}
                     <div className="grid grid-cols-12 gap-2">
                       <div className="col-span-3">
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Exposição</Label>
@@ -4891,7 +4982,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       </div>
                     </div>
 
-                    {/* Linha 4: Situação (auto) + Cód GFIP */}
+                    {/* Linha 6: Situação (auto) */}
                     <div className="grid grid-cols-2 gap-2 items-end">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
@@ -4906,21 +4997,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         >
                           {situacao || "—"}
                         </div>
-                      </div>
-                      <div>
-                        <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
-                        <Select
-                          value={row.cod_gfip || ""}
-                          onValueChange={v => updateField("cod_gfip", v)}
-                        >
-                          <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="01">01</SelectItem>
-                            <SelectItem value="02">02</SelectItem>
-                            <SelectItem value="03">03</SelectItem>
-                            <SelectItem value="04">04</SelectItem>
-                          </SelectContent>
-                        </Select>
                       </div>
                     </div>
 
