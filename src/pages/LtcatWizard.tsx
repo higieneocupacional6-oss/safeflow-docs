@@ -1714,6 +1714,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
         componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
         componentes_calculo: computeComponentesCalculo(r.resultados_componentes, unidades),
+        // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
+        // true somente quando houver valor real em nen_medio
+        exibir_media_resultados: !!(((r as any).nen_calc?.nen_medio != null
+          ? Number((r as any).nen_calc.nen_medio).toFixed(1)
+          : computeNenMedio(r.resultados_detalhados)) || ""),
       };
     });
 
