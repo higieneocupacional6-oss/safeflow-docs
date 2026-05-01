@@ -1373,6 +1373,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
+              const equipamentoNomeRisco = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
               const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
@@ -1383,6 +1384,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+                // Loop dos componentes pertencentes a esta avaliação (rc atual)
+                componentes_amostra,
+                // Equipamento do risco (modal "Avaliação de Risco por Setor")
+                equipamento: equipamentoNomeRisco,
                 data_avaliacao: dataAv,
                 descricao_avaliacao: rc.descricao_avaliacao || rc.descricao_tecnica || (r as any).descricao_tecnica || "",
                 dose_percentual: "",
