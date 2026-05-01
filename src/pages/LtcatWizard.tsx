@@ -5333,7 +5333,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* SUB-MODAL: MÉDIA IBUTG (ponderada por tempo de exposição)    */}
           {/* ============================================================ */}
           <Dialog open={mediaIbutgModalOpen} onOpenChange={setMediaIbutgModalOpen}>
-            <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-2xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase flex items-center gap-2">
                   <Thermometer className="w-5 h-5 text-accent" /> Média IBUTG (ponderada)
