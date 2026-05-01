@@ -5542,7 +5542,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           {/* MODAL: CÁLCULO DA MÉDIA DE VIBRAÇÃO (VCI / VMB)              */}
           {/* ============================================================ */}
           <Dialog open={mediaVibracaoOpen} onOpenChange={setMediaVibracaoOpen}>
-            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent
+              className="sm:max-w-3xl max-h-[90vh] overflow-y-auto z-[80]"
+              onInteractOutside={(e) => e.preventDefault()}
+            >
               <DialogHeader>
                 <DialogTitle className="font-heading text-xl uppercase">
                   Cálculo da Média — {mediaVibracaoTipo === "vci" ? "Vibração de Corpo Inteiro (VCI)" : "Vibração de Mãos e Braços (VMB)"}
