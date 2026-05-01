@@ -752,6 +752,26 @@ export function LtcatTemplateHelper() {
                     <code>{"{{situacao}}"}</code> (Abaixo/Acima do limite).
                   </span>
                 </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{#exibir_media_resultados}}")}
+                  >
+                    {"{{#exibir_media_resultados}}…{{/exibir_media_resultados}}"}
+                    {copiedKey === "{{#exibir_media_resultados}}" ? (
+                      <Check className="w-3 h-3 ml-1 text-success" />
+                    ) : (
+                      <Copy className="w-3 h-3 ml-1 opacity-40" />
+                    )}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Controle <strong>booleano</strong> que envolve a tabela <strong>"MÉDIA DOS RESULTADOS"</strong>.
+                    Renderiza o conteúdo somente quando <code>{"{{nen_medio}}"}</code> tiver valor; caso contrário,
+                    a tabela inteira (título + estrutura) é <strong>completamente removida</strong> do documento final.
+                    Envolva todo o bloco da tabela: <code>{"{{#exibir_media_resultados}}<TABELA>{{/exibir_media_resultados}}"}</code>.
+                  </span>
+                </li>
               </ul>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}
