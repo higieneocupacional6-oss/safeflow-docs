@@ -813,6 +813,62 @@ export function LtcatTemplateHelper() {
                     Disponível dentro de <code>{"{{#avaliacoes}}"}</code> (contexto por risco/avaliação).
                   </span>
                 </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{media_vci_aren}}")}
+                  >
+                    {"{{media_vci_aren}}"}
+                    {copiedKey === "{{media_vci_aren}}" ? <Check className="w-3 h-3 ml-1 text-success" /> : <Copy className="w-3 h-3 ml-1 opacity-40" />}
+                  </Badge>{" "}
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{media_vci_vdvr}}")}
+                  >
+                    {"{{media_vci_vdvr}}"}
+                    {copiedKey === "{{media_vci_vdvr}}" ? <Check className="w-3 h-3 ml-1 text-success" /> : <Copy className="w-3 h-3 ml-1 opacity-40" />}
+                  </Badge>{" "}
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{media_vmb_aren}}")}
+                  >
+                    {"{{media_vmb_aren}}"}
+                    {copiedKey === "{{media_vmb_aren}}" ? <Check className="w-3 h-3 ml-1 text-success" /> : <Copy className="w-3 h-3 ml-1 opacity-40" />}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Médias ponderadas <strong>A(8)</strong> de Vibração calculadas automaticamente quando há
+                    <strong> múltiplas medições</strong> com "Tempo de Exposição" preenchido.
+                    <br /><strong>VCI:</strong> A(8) = √( Σ(aᵢ²·Tᵢ) / 8 ) — gera <code>media_vci_aren</code> e <code>media_vci_vdvr</code>.
+                    <br /><strong>VMB:</strong> A(8) = √( Σ(aᵢ²·8/Tᵢ) ) — gera <code>media_vmb_aren</code>.
+                    Se houver apenas 1 medição, retornam vazio.
+                  </span>
+                </li>
+                <li>
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{#exibir_media_vibracao_vci}}")}
+                  >
+                    {"{{#exibir_media_vibracao_vci}}…{{/exibir_media_vibracao_vci}}"}
+                    {copiedKey === "{{#exibir_media_vibracao_vci}}" ? <Check className="w-3 h-3 ml-1 text-success" /> : <Copy className="w-3 h-3 ml-1 opacity-40" />}
+                  </Badge>{" "}
+                  <Badge
+                    variant="outline"
+                    className="font-mono cursor-pointer hover:bg-accent/10"
+                    onClick={() => handleCopyVar("{{#exibir_media_vibracao_vmb}}")}
+                  >
+                    {"{{#exibir_media_vibracao_vmb}}…{{/exibir_media_vibracao_vmb}}"}
+                    {copiedKey === "{{#exibir_media_vibracao_vmb}}" ? <Check className="w-3 h-3 ml-1 text-success" /> : <Copy className="w-3 h-3 ml-1 opacity-40" />}
+                  </Badge>{" "}
+                  <span className="text-muted-foreground">
+                    Mesma regra de <code>{"{{#exibir_media_resultados}}"}</code>: envolva a tabela de média de Vibração
+                    (VCI ou VMB) com esta seção. Quando não houver cálculo (medição única ou sem tempo de exposição),
+                    a tabela inteira é <strong>removida</strong> do documento final.
+                  </span>
+                </li>
               </ul>
               <pre className="bg-muted/60 border border-border rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre-wrap">
 {`{{#riscos}}

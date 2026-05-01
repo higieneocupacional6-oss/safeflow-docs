@@ -117,6 +117,66 @@ const isAgentVMB = (agentNome: string) => {
 
 const isAgentVibracao = (agentNome: string) => isAgentVCI(agentNome) || isAgentVMB(agentNome);
 
+/**
+ * Converte tempo de exposição em horas. Aceita:
+ *  - número puro (assumido em horas)
+ *  - "HH:MM" (horas:minutos)
+ *  - "Xh Ym" / "X h Y min" / "X horas Y minutos"
+ *  - "120 min" / "120m"
+ */
+const parseTempoExposicaoHoras = (raw: any): number => {
+  if (raw == null) return 0;
+  const s = String(raw).trim().toLowerCase().replace(",", ".");
+  if (!s) return 0;
+  // HH:MM
+  if (/^\d+:\d{1,2}$/.test(s)) {
+    const [h, m] = s.split(":").map(Number);
+    return h + (m || 0) / 60;
+  }
+  // captura horas e minutos
+  const hMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:h(?:oras?)?|hr)/);
+  const mMatch = s.match(/(\d+(?:\.\d+)?)\s*(?:min(?:utos?)?|m\b)/);
+  if (hMatch || mMatch) {
+    const h = hMatch ? parseFloat(hMatch[1]) : 0;
+    const m = mMatch ? parseFloat(mMatch[1]) : 0;
+    return h + m / 60;
+  }
+  // somente número → horas
+  const n = parseFloat(s);
+  return isNaN(n) ? 0 : n;
+};
+
+/**
+ * Cálculo de Média Ponderada de Vibração — A(8).
+ *  - VCI:  A(8) = √( Σ(a²·T) / 8 )
+ *  - VMB:  A(8) = √( Σ(a² · 8/T) )
+ * Considera somente linhas com tempo > 0 e aceleração válida.
+ * Retorna número ou null.
+ */
+const computeMediaVibracaoA8 = (
+  rows: any[],
+  campoAceleracao: "aren_resultado" | "vdvr_resultado",
+  modo: "vci" | "vmb",
+): number | null => {
+  if (!rows || !rows.length) return null;
+  let soma = 0;
+  let count = 0;
+  for (const r of rows) {
+    const a = parseFloat(String(r?.[campoAceleracao] ?? "").replace(",", "."));
+    const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
+    if (isNaN(a) || a <= 0 || T <= 0) continue;
+    if (modo === "vci") {
+      soma += (a * a) * T;
+    } else {
+      soma += (a * a) * (8 / T);
+    }
+    count++;
+  }
+  if (!count) return null;
+  if (modo === "vci") return Math.sqrt(soma / 8);
+  return Math.sqrt(soma);
+};
+
 // Calor helpers
 const isAgentCalor = (agentNome: string) => {
   return agentNome.toLowerCase() === "calor" || agentNome.toLowerCase().includes("calor");
@@ -293,6 +353,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = useState(false);
   const [currentVibracaoIndex, setCurrentVibracaoIndex] = useState<number>(-1);
   const [tempVibAmostra, setTempVibAmostra] = useState<any>({});
+  // Modal de Cálculo da Média de Vibração (VCI / VMB)
+  const [mediaVibracaoOpen, setMediaVibracaoOpen] = useState(false);
+  const [mediaVibracaoTipo, setMediaVibracaoTipo] = useState<"vci" | "vmb">("vci");
 
   // Calor flow (Nivel 1 + Nivel 2)
   const [calorModalOpen, setCalorModalOpen] = useState(false);
@@ -1146,7 +1209,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const openVibracaoModal = () => {
     const initial = riskForm.resultados_vibracao?.length
       ? riskForm.resultados_vibracao
-      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
+      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", tempo_exposicao: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }];
     setTempVibracaoRows(initial);
     setVibracaoModalOpen(true);
   };
@@ -1632,6 +1695,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
                 : q.media_limite_tolerancia;
             const _nenMedioFinal = nen_medio || "";
+
+            // ---- Média ponderada A(8) — Vibração (VCI / VMB) ----
+            const allVib = agentEntries.flatMap((r: any) => r.resultados_vibracao || []);
+            const vibValidas = allVib.filter((r: any) => parseTempoExposicaoHoras(r?.tempo_exposicao) > 0);
+            const isVCI = isAgentVCI(first.agente_nome || "");
+            const isVMB = isAgentVMB(first.agente_nome || "");
+            // Só calcula com >1 medição (regra: média não se aplica a medição única)
+            const podeCalcular = vibValidas.length > 1;
+            const _mediaVciAren = (isVCI && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "aren_resultado", "vci") : null;
+            const _mediaVciVdvr = (isVCI && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "vdvr_resultado", "vci") : null;
+            const _mediaVmbAren = (isVMB && podeCalcular) ? computeMediaVibracaoA8(vibValidas, "aren_resultado", "vmb") : null;
+            const fmtMed = (n: number | null) => (n == null ? "" : n.toFixed(4));
+            const media_vci_aren = fmtMed(_mediaVciAren);
+            const media_vci_vdvr = fmtMed(_mediaVciVdvr);
+            const media_vmb_aren = fmtMed(_mediaVmbAren);
+            const exibir_media_vibracao_vci = !!(media_vci_aren || media_vci_vdvr);
+            const exibir_media_vibracao_vmb = !!media_vmb_aren;
+
             return {
               nen_medio: _nenMedioFinal,
               dose_media: dose_media || "",
@@ -1642,6 +1723,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
               // true somente quando houver valor real em nen_medio
               exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== ""),
+              // Médias de Vibração (A(8))
+              media_vci_aren,
+              media_vci_vdvr,
+              media_vmb_aren,
+              exibir_media_vibracao_vci,
+              exibir_media_vibracao_vmb,
             };
           })(),
         };
@@ -1753,6 +1840,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         exibir_media_resultados: !!(((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
           : computeNenMedio(r.resultados_detalhados)) || ""),
+        // ---- Médias A(8) — Vibração (consolidado por risco) ----
+        ...(() => {
+          const allVib = (r.resultados_vibracao || []) as any[];
+          const valid = allVib.filter((x: any) => parseTempoExposicaoHoras(x?.tempo_exposicao) > 0);
+          const isVCI = isAgentVCI(r.agente_nome || "");
+          const isVMB = isAgentVMB(r.agente_nome || "");
+          const podeCalc = valid.length > 1;
+          const mAren = (isVCI && podeCalc) ? computeMediaVibracaoA8(valid, "aren_resultado", "vci")
+                       : (isVMB && podeCalc) ? computeMediaVibracaoA8(valid, "aren_resultado", "vmb") : null;
+          const mVdvr = (isVCI && podeCalc) ? computeMediaVibracaoA8(valid, "vdvr_resultado", "vci") : null;
+          const fmtM = (n: number | null) => (n == null ? "" : n.toFixed(4));
+          const media_vci_aren = isVCI ? fmtM(mAren) : "";
+          const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
+          const media_vmb_aren = isVMB ? fmtM(mAren) : "";
+          return {
+            media_vci_aren,
+            media_vci_vdvr,
+            media_vmb_aren,
+            exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
+            exibir_media_vibracao_vmb: !!media_vmb_aren,
+          };
+        })(),
       };
     });
 
@@ -3479,15 +3588,43 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {/* VIBRAÇÃO */}
                       {isAgentVibracao(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
-                          <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openVibracaoModal}>
-                            <Plus className="w-4 h-4" /> + Resultado
-                          </Button>
+                          <div className="flex flex-wrap gap-2 items-center">
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openVibracaoModal}>
+                              <Plus className="w-4 h-4" /> + Resultado
+                            </Button>
+                            {/* Botão de Cálculo da Média — só com >1 registro */}
+                            {(riskForm.resultados_vibracao?.length ?? 0) > 1 && isAgentVCI(riskForm.agente_nome || "") && (
+                              <Button
+                                variant="outline"
+                                className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                                onClick={() => {
+                                  setMediaVibracaoTipo("vci");
+                                  setMediaVibracaoOpen(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> Cálculo da Média VCI
+                              </Button>
+                            )}
+                            {(riskForm.resultados_vibracao?.length ?? 0) > 1 && isAgentVMB(riskForm.agente_nome || "") && (
+                              <Button
+                                variant="outline"
+                                className="gap-2 border-primary/30 text-primary hover:bg-primary/5"
+                                onClick={() => {
+                                  setMediaVibracaoTipo("vmb");
+                                  setMediaVibracaoOpen(true);
+                                }}
+                              >
+                                <FileText className="w-4 h-4" /> Cálculo da Média VMB
+                              </Button>
+                            )}
+                          </div>
                           {riskForm.resultados_vibracao && riskForm.resultados_vibracao.length > 0 && (
                             <div className="space-y-2">
                               {riskForm.resultados_vibracao.map((row: any, ri: number) => (
                                 <div key={ri} className="p-3 border rounded-lg bg-muted/20">
                                   <div className="font-bold text-sm">{row.funcao_nome} — {row.colaborador}</div>
                                   {row.aren_resultado && <div className="text-xs ml-2">AREN: {row.aren_resultado} {unidades.find((u: any) => u.id === row.aren_unidade_id)?.simbolo}</div>}
+                                  {row.tempo_exposicao && <div className="text-xs ml-2 text-muted-foreground">Tempo Exp.: {row.tempo_exposicao}</div>}
                                 </div>
                               ))}
                             </div>
@@ -4233,8 +4370,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               <div className="space-y-4 py-4">
                 {tempVibracaoRows.map((row, ri) => (
                   <div key={row.id} className="bg-muted/10 p-3 rounded-lg border border-border space-y-3">
-                    {/* LINHA 0: Data, Tempo Coleta, Metodologia, Cod GFIP */}
-                    <div className="grid grid-cols-4 gap-3 items-end">
+                    {/* LINHA 0: Data, Tempo Coleta, Tempo Exposição (obrig.), Metodologia, Cod GFIP */}
+                    <div className="grid grid-cols-5 gap-3 items-end">
                       <div>
                         <Label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Data da Avaliação</Label>
                         <Input
@@ -4253,6 +4390,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           onChange={e => {
                             const updated = [...tempVibracaoRows];
                             updated[ri].tempo_coleta = e.target.value;
+                            setTempVibracaoRows(updated);
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-[10px] font-bold uppercase tracking-wider text-destructive">
+                          Tempo de Exposição *
+                        </Label>
+                        <Input
+                          className={`mt-1 h-8 text-sm ${!row.tempo_exposicao ? "border-destructive/60" : ""}`}
+                          placeholder="Ex: 6h 30min ou 6:30"
+                          value={row.tempo_exposicao || ""}
+                          onChange={e => {
+                            const updated = [...tempVibracaoRows];
+                            updated[ri].tempo_exposicao = e.target.value;
                             setTempVibracaoRows(updated);
                           }}
                         />
@@ -4383,7 +4535,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
                 <Button
                   variant="outline" size="sm" className="gap-2 text-accent border-accent/20 hover:bg-accent/5"
-                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
+                  onClick={() => setTempVibracaoRows([...tempVibracaoRows, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", equipamento_avaliado: "", tempo_coleta: "", tempo_exposicao: "", metodologia_utilizada: "", cod_gfip: "", aren_resultado: "", aren_unidade_id: "", aren_limite: "", aren_limite_unidade_id: "", vdvr_resultado: "", vdvr_unidade_id: "", vdvr_limite: "", vdvr_limite_unidade_id: "" }])}
                 >
                   <Plus className="w-4 h-4" /> Adicionar Função
                 </Button>
@@ -4394,6 +4546,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <Button
                   className="bg-accent text-accent-foreground hover:bg-accent/90"
                   onClick={() => {
+                    // Validação: Tempo de Exposição é obrigatório em todas as linhas
+                    const linhaInvalida = tempVibracaoRows.findIndex(
+                      (r: any) => !r.tempo_exposicao || !String(r.tempo_exposicao).trim(),
+                    );
+                    if (linhaInvalida >= 0) {
+                      toast.error(
+                        `Linha ${linhaInvalida + 1}: o campo "Tempo de Exposição" é obrigatório para o cálculo da média.`,
+                      );
+                      return;
+                    }
                     setRiskForm(prev => ({ ...prev, resultados_vibracao: tempVibracaoRows }));
                     setVibracaoModalOpen(false);
                     toast.success(`${tempVibracaoRows.length} resultado(s) salvo(s). Preencha o Parecer Técnico (Seção 7) para finalizar.`);
@@ -4827,6 +4989,163 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   Entendi, corrigir template
                 </Button>
               </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          {/* ============================================================ */}
+          {/* MODAL: CÁLCULO DA MÉDIA DE VIBRAÇÃO (VCI / VMB)              */}
+          {/* ============================================================ */}
+          <Dialog open={mediaVibracaoOpen} onOpenChange={setMediaVibracaoOpen}>
+            <DialogContent className="sm:max-w-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle className="font-heading text-xl uppercase">
+                  Cálculo da Média — {mediaVibracaoTipo === "vci" ? "Vibração de Corpo Inteiro (VCI)" : "Vibração de Mãos e Braços (VMB)"}
+                </DialogTitle>
+              </DialogHeader>
+
+              {(() => {
+                const rows = (riskForm.resultados_vibracao || []).filter(
+                  (r: any) => parseTempoExposicaoHoras(r?.tempo_exposicao) > 0,
+                );
+                const ignoradas = (riskForm.resultados_vibracao || []).length - rows.length;
+                const mediaAren = computeMediaVibracaoA8(rows, "aren_resultado", mediaVibracaoTipo);
+                const mediaVdvr =
+                  mediaVibracaoTipo === "vci"
+                    ? computeMediaVibracaoA8(rows, "vdvr_resultado", "vci")
+                    : null;
+                const fmt = (n: number | null) => (n == null ? "—" : n.toFixed(4));
+                const formula =
+                  mediaVibracaoTipo === "vci"
+                    ? "A(8) = √( Σ(aᵢ² · Tᵢ) / 8 )"
+                    : "A(8) = √( Σ(aᵢ² · 8/Tᵢ) )";
+
+                const handlePDF = async () => {
+                  try {
+                    const { default: jsPDF } = await import("jspdf");
+                    const doc = new jsPDF({ unit: "mm", format: "a4" });
+                    const margin = 15;
+                    let y = margin;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(14);
+                    doc.text(
+                      `Cálculo da Média — ${mediaVibracaoTipo === "vci" ? "VCI" : "VMB"}`,
+                      margin,
+                      y,
+                    );
+                    y += 8;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(10);
+                    const empresaSel: any = empresas.find((e: any) => e.id === empresaId);
+                    doc.text(`Empresa: ${empresaSel?.razao_social || empresaSel?.nome_fantasia || ""}`, margin, y); y += 5;
+                    doc.text(`Agente: ${riskForm.agente_nome || ""}`, margin, y); y += 5;
+                    doc.text(`Setor: ${currentRiskSetor?.nome_setor || ""}`, margin, y); y += 5;
+                    doc.text(`Fórmula: ${formula}`, margin, y); y += 8;
+
+                    doc.setFont("helvetica", "bold");
+                    doc.text("Medições:", margin, y); y += 6;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(9);
+                    rows.forEach((r: any, i: number) => {
+                      const T = parseTempoExposicaoHoras(r.tempo_exposicao);
+                      const linha = `${i + 1}. ${r.funcao_nome || ""} — ${r.colaborador || ""} | AREN: ${r.aren_resultado || "—"}${
+                        mediaVibracaoTipo === "vci" ? ` | VDVR: ${r.vdvr_resultado || "—"}` : ""
+                      } | T: ${r.tempo_exposicao} (${T.toFixed(2)}h)`;
+                      doc.text(linha, margin, y, { maxWidth: 180 });
+                      y += 5;
+                      if (y > 270) { doc.addPage(); y = margin; }
+                    });
+                    y += 4;
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(11);
+                    doc.text("Resultado Final:", margin, y); y += 6;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(10);
+                    doc.text(`Média A(8) — AREN: ${fmt(mediaAren)} m/s²`, margin, y); y += 5;
+                    if (mediaVibracaoTipo === "vci") {
+                      doc.text(`Média A(8) — VDVR: ${fmt(mediaVdvr)} m/s¹·⁷⁵`, margin, y); y += 5;
+                    }
+                    const fname = `Media_${mediaVibracaoTipo.toUpperCase()}_${(empresaSel?.razao_social || "empresa").replace(/[^a-z0-9]/gi, "_")}.pdf`;
+                    doc.save(fname);
+                    toast.success("PDF gerado com sucesso!");
+                  } catch (e: any) {
+                    toast.error("Erro ao gerar PDF: " + (e?.message || String(e)));
+                  }
+                };
+
+                return (
+                  <>
+                    <div className="space-y-4 py-4">
+                      <div className="bg-muted/30 border border-border rounded-lg p-4">
+                        <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Fórmula aplicada</div>
+                        <div className="font-mono text-base mt-1">{formula}</div>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Onde <code>aᵢ</code> = aceleração medida (AREN ou VDVR) e <code>Tᵢ</code> = tempo de exposição (horas).
+                        </p>
+                      </div>
+
+                      {ignoradas > 0 && (
+                        <div className="bg-warning/10 border border-warning/30 rounded-lg p-3 text-sm text-warning-foreground">
+                          ⚠️ {ignoradas} registro(s) ignorado(s) por falta de "Tempo de Exposição".
+                        </div>
+                      )}
+
+                      <div className="border rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/50">
+                            <tr>
+                              <th className="text-left p-2">Função / Colaborador</th>
+                              <th className="text-right p-2">AREN</th>
+                              {mediaVibracaoTipo === "vci" && <th className="text-right p-2">VDVR</th>}
+                              <th className="text-right p-2">Tempo Exp.</th>
+                              <th className="text-right p-2">T (h)</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {rows.map((r: any, i: number) => (
+                              <tr key={i} className="border-t">
+                                <td className="p-2">{r.funcao_nome || ""} — {r.colaborador || ""}</td>
+                                <td className="p-2 text-right font-mono">{r.aren_resultado || "—"}</td>
+                                {mediaVibracaoTipo === "vci" && (
+                                  <td className="p-2 text-right font-mono">{r.vdvr_resultado || "—"}</td>
+                                )}
+                                <td className="p-2 text-right">{r.tempo_exposicao}</td>
+                                <td className="p-2 text-right font-mono">{parseTempoExposicaoHoras(r.tempo_exposicao).toFixed(2)}</td>
+                              </tr>
+                            ))}
+                            {!rows.length && (
+                              <tr><td colSpan={5} className="p-4 text-center text-muted-foreground">Nenhum registro com tempo de exposição válido.</td></tr>
+                            )}
+                          </tbody>
+                        </table>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4">
+                          <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Média A(8) — AREN</div>
+                          <div className="text-2xl font-bold font-mono mt-1 text-primary">{fmt(mediaAren)} <span className="text-sm font-normal">m/s²</span></div>
+                        </div>
+                        {mediaVibracaoTipo === "vci" && (
+                          <div className="bg-primary/5 border-2 border-primary/30 rounded-lg p-4">
+                            <div className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Média A(8) — VDVR</div>
+                            <div className="text-2xl font-bold font-mono mt-1 text-primary">{fmt(mediaVdvr)} <span className="text-sm font-normal">m/s¹·⁷⁵</span></div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    <DialogFooter className="sticky bottom-0 bg-background pt-4 border-t mt-4">
+                      <Button variant="outline" onClick={() => setMediaVibracaoOpen(false)}>Fechar</Button>
+                      <Button
+                        className="bg-primary text-primary-foreground hover:bg-primary/90 gap-2"
+                        onClick={handlePDF}
+                        disabled={!rows.length}
+                      >
+                        <FileDown className="w-4 h-4" /> Baixar PDF
+                      </Button>
+                    </DialogFooter>
+                  </>
+                );
+              })()}
             </DialogContent>
           </Dialog>
         </div>
