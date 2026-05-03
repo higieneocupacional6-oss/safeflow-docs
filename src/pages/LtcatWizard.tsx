@@ -1465,6 +1465,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     setResultsModalOpen(true);
   };
 
+  useEffect(() => {
+    if (!resultsModalOpen || tempResultados.length === 0 || (equipamentos as any[]).length === 0) return;
+
+    setTempResultados((prev) => {
+      const hydrated = prev.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]));
+      const changed = hydrated.some((row: any, index: number) => JSON.stringify(row) !== JSON.stringify(prev[index]));
+      return changed ? hydrated : prev;
+    });
+  }, [resultsModalOpen, equipamentos, setTempResultados]);
+
   const openVibracaoModal = () => {
     const initial = riskForm.resultados_vibracao?.length
       ? riskForm.resultados_vibracao
