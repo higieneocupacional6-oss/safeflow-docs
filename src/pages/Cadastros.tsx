@@ -599,8 +599,132 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="pareceres" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Situação</TableHead>
+                  <TableHead>Risco (opcional)</TableHead>
+                  <TableHead>Parecer</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pareceres.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum parecer cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  pareceres.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell><Badge variant="outline">{p.documento}</Badge></TableCell>
+                      <TableCell className="font-medium">{p.situacao}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.riscos?.nome || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-md truncate" title={p.parecer_tecnico}>{p.parecer_tecnico}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(p)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(p.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
+
+      {/* Modal Parecer Técnico */}
+      <Dialog open={parecerModalOpen} onOpenChange={setParecerModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Parecer Técnico</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Documento <span className="text-destructive">*</span></Label>
+              <Select value={parecerForm.documento} onValueChange={(v) => setParecerForm({ ...parecerForm, documento: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LTCAT">LTCAT</SelectItem>
+                  <SelectItem value="Insalubridade">Insalubridade</SelectItem>
+                  <SelectItem value="Periculosidade">Periculosidade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Situação <span className="text-destructive">*</span></Label>
+              <Input className="mt-1" placeholder="Ex: Acima do limite de tolerância"
+                value={parecerForm.situacao}
+                onChange={(e) => setParecerForm({ ...parecerForm, situacao: e.target.value })} />
+            </div>
+            <div>
+              <Label>Risco / Agente (opcional)</Label>
+              <Select value={parecerForm.risco_id || "__none__"} onValueChange={(v) => setParecerForm({ ...parecerForm, risco_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Sem vínculo —</SelectItem>
+                  {riscos.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Se vinculado, o LTCAT/Insalubridade poderá preencher automaticamente o parecer ao escolher Risco + Situação.</p>
+            </div>
+            <div>
+              <Label>Parecer Técnico <span className="text-destructive">*</span></Label>
+              <Textarea className="mt-1 min-h-[160px]" placeholder="Texto livre — sem limite de caracteres."
+                value={parecerForm.parecer_tecnico}
+                onChange={(e) => setParecerForm({ ...parecerForm, parecer_tecnico: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setParecerModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={parecerSaving}
+              onClick={async () => {
+                if (!parecerForm.documento.trim()) { toast.error("Informe o documento"); return; }
+                if (!parecerForm.situacao.trim()) { toast.error("Informe a situação"); return; }
+                if (!parecerForm.parecer_tecnico.trim()) { toast.error("Informe o parecer técnico"); return; }
+                setParecerSaving(true);
+                try {
+                  const payload: any = {
+                    documento: parecerForm.documento.trim(),
+                    situacao: parecerForm.situacao.trim(),
+                    parecer_tecnico: parecerForm.parecer_tecnico,
+                    risco_id: parecerForm.risco_id || null,
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("pareceres_tecnicos").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Parecer atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("pareceres_tecnicos").insert(payload);
+                    if (error) throw error;
+                    toast.success("Parecer cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["pareceres_tecnicos"] });
+                  setParecerModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setParecerSaving(false);
+                }
+              }}
+            >
+              {parecerSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Riscos */}
       <RiscoModal
