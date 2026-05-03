@@ -3112,6 +3112,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
                                         <div className="flex items-center gap-2">
                                           <Button
+                                            size="sm" variant="ghost" className="h-8 w-8 p-0 text-accent hover:bg-accent/10 rounded-lg"
+                                            title="Editar este risco"
+                                            onClick={() => openRiskModal(setores.find(s => s.id === firstEntry.setor_id), firstEntry)}
+                                          >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                          </Button>
+                                          <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
                                             onClick={() => {
                                               setRiscos(prev => prev.map(r => {
