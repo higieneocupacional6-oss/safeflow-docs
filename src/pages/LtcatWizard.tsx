@@ -1545,6 +1545,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
               epc_nome,
+              // Nº Série do Equipamento (Cadastro de Resultados)
+              numero_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
+              serie_equipamento: res.serie_equipamento || res.numero_serie || "",
+              numero_serie: res.serie_equipamento || res.numero_serie || "",
+              n_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
               // Vibração fields
               equipamento_avaliado: res.equipamento_avaliado || "",
               aren_resultado: res.aren_resultado || "",
