@@ -562,20 +562,31 @@ export default function AetWizard() {
       numero_funcionarios_fem: emp?.numero_funcionarios_fem?.toString() || "",
       jornada_trabalho: emp?.jornada_trabalho || "",
 
-      // ─── CONTRATO (raiz, padrão LTCAT) ───
-      nome_contratante: emp?.nome_contratante || "",
-      cnpj_contratante: emp?.cnpj_contratante || "",
-      numero_contrato: emp?.numero_contrato || "",
-      vigencia_inicio: formatDate(emp?.vigencia_inicio),
-      vigencia_fim: formatDate(emp?.vigencia_fim),
-      escopo_contrato: emp?.escopo_contrato || "",
-      gestor_nome: emp?.gestor_nome || "",
-      gestor_email: emp?.gestor_email || "",
-      gestor_telefone: emp?.gestor_telefone || "",
-      fiscal_nome: emp?.fiscal_nome || "",
-      fiscal_email: emp?.fiscal_email || "",
-      fiscal_telefone: emp?.fiscal_telefone || "",
-      local_trabalho: emp?.local_trabalho || "",
+      // ─── CONTRATO (preferir tabela contratos quando vinculado, senão legado da empresa) ───
+      ...(() => {
+        const c: any = contratosEmpresa.find((x: any) => x.id === contratoId) || {};
+        const pick = (a: any, b: any) => (a !== undefined && a !== null && a !== "" ? a : (b ?? ""));
+        return {
+          nome_contratante: pick(c.nome_contratante, emp?.nome_contratante),
+          cnpj_contratante: pick(c.cnpj_contratante, emp?.cnpj_contratante),
+          numero_contrato: pick(c.numero_contrato, emp?.numero_contrato),
+          vigencia_inicio: formatDate(c.vigencia_inicio || emp?.vigencia_inicio),
+          vigencia_fim: formatDate(c.vigencia_fim || emp?.vigencia_fim),
+          escopo_contrato: pick(c.escopo_contrato, emp?.escopo_contrato),
+          gestor_nome: pick(c.gestor_nome, emp?.gestor_nome),
+          gestor_email: pick(c.gestor_email, emp?.gestor_email),
+          gestor_telefone: pick(c.gestor_telefone, emp?.gestor_telefone),
+          fiscal_nome: pick(c.fiscal_nome, emp?.fiscal_nome),
+          fiscal_email: pick(c.fiscal_email, emp?.fiscal_email),
+          fiscal_telefone: pick(c.fiscal_telefone, emp?.fiscal_telefone),
+          preposto_nome_contrato: pick(c.preposto_nome, emp?.preposto_nome),
+          preposto_email_contrato: pick(c.preposto_email, emp?.preposto_email),
+          preposto_telefone_contrato: pick(c.preposto_telefone, emp?.preposto_telefone),
+          local_trabalho: pick(c.local_trabalho, emp?.local_trabalho),
+          jornada_trabalho_contrato: pick(c.jornada_trabalho, emp?.jornada_trabalho),
+          total_funcionarios_contrato: (c.total_funcionarios ?? emp?.total_funcionarios ?? "").toString(),
+        };
+      })(),
 
       responsavel_tecnico: responsavelTecnico || "",
       crea: crea || "",
