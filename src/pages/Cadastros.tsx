@@ -464,12 +464,15 @@ export default function Cadastros() {
                         </Button>
                       ) : (
                         <div className="space-y-2 text-xs">
-                          {registros.map((r: any) => (
+                          {registros.map((r: any) => {
+                            const st = statusCalibracao(r.data_calibracao);
+                            return (
                             <div key={r.id} className="flex items-start justify-between gap-2 border rounded-md p-2 bg-muted/30">
                               <div className="space-y-0.5 min-w-0">
                                 <div><span className="text-muted-foreground">Nº Série:</span> <span className="font-medium">{r.numero_serie}</span></div>
                                 <div><span className="text-muted-foreground">Marca/Modelo:</span> {r.marca_modelo || "—"}</div>
                                 <div><span className="text-muted-foreground">Calibração:</span> {r.data_calibracao ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                                <Badge variant="outline" className={`mt-1 ${statusBadgeClasses(st.status)}`}>{st.label}</Badge>
                               </div>
                               <Button
                                 variant="ghost"
