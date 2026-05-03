@@ -837,17 +837,8 @@ export default function Cadastros() {
             {tab === "equipamentos" && (
               <>
                 <div>
-                  <Label>Nome do Equipamento <span className="text-destructive">*</span></Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Ex: Dosímetro DOS-500" 
-                    value={equipmentForm.nome}
-                    onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
-                  />
-                </div>
-                <div>
                   <Label>Tipo de Equipamento <span className="text-destructive">*</span></Label>
-                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v })}>
+                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v, nome: v === "Outro" ? equipmentForm.nome : v })}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                     <SelectContent>
                       {EQUIPAMENTO_TIPOS.map((t) => (
@@ -859,6 +850,17 @@ export default function Cadastros() {
                     Define o filtro automático de Nº de Série por agente nos laudos.
                   </p>
                 </div>
+                {equipmentForm.tipo === "Outro" && (
+                  <div>
+                    <Label>Nome do Equipamento <span className="text-destructive">*</span></Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Ex: Equipamento personalizado"
+                      value={equipmentForm.nome}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
+                    />
+                  </div>
+                )}
               </>
             )}
             {tab === "unidades" && (
