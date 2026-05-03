@@ -573,7 +573,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Risk Management
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
-  const [riskForm, setRiskForm] = useState({
+  const [riskForm, setRiskForm] = usePersistedState<any>(PK("riskForm"), {
     items: [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "" }],
     tipo_avaliacao: "qualitativa",
     tipo_agente: isPericulosidade ? "Acidente" : "",
