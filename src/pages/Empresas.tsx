@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Search, Building2, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Pencil, Trash2, Loader2, FileSignature } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
