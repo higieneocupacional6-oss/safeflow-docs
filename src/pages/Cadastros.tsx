@@ -223,7 +223,7 @@ export default function Cadastros() {
       });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: item.nome });
+      setEquipmentForm({ nome: item.nome, tipo: item.tipo || "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({
