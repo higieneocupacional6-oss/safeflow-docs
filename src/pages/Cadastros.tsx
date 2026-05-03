@@ -764,6 +764,61 @@ export default function Cadastros() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal Registrar (registros do equipamento) */}
+      <Dialog open={registrarModal.open} onOpenChange={(v) => setRegistrarModal({ ...registrarModal, open: v })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Registrar — {registrarModal.equipamentoNome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Nº de Série <span className="text-destructive">*</span></Label>
+              <Input className="mt-1" placeholder="Ex: SN12345" value={registrarForm.numero_serie}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, numero_serie: e.target.value })} />
+            </div>
+            <div>
+              <Label>Marca / Modelo</Label>
+              <Input className="mt-1" placeholder="Ex: Instrutherm DOS-500" value={registrarForm.marca_modelo}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, marca_modelo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Data de Calibração</Label>
+              <Input type="date" className="mt-1" value={registrarForm.data_calibracao}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, data_calibracao: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegistrarModal({ ...registrarModal, open: false })}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={registrarSaving}
+              onClick={async () => {
+                if (!registrarForm.numero_serie.trim()) { toast.error("Informe o nº de série"); return; }
+                setRegistrarSaving(true);
+                try {
+                  const { error } = await supabase.from("equipamentos_ho_registros").insert({
+                    equipamento_id: registrarModal.equipamentoId,
+                    numero_serie: registrarForm.numero_serie.trim(),
+                    marca_modelo: registrarForm.marca_modelo.trim() || null,
+                    data_calibracao: registrarForm.data_calibracao || null,
+                  });
+                  if (error) throw error;
+                  queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
+                  toast.success("Registro adicionado!");
+                  setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setRegistrarSaving(false);
+                }
+              }}
+            >
+              {registrarSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Modal de Confirmação de Exclusão */}
       <Dialog open={deleteConfirm.open} onOpenChange={(v) => setDeleteConfirm({ ...deleteConfirm, open: v })}>
         <DialogContent className="sm:max-w-md">
