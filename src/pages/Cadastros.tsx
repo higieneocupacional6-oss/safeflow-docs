@@ -223,6 +223,9 @@ export default function Cadastros() {
     } else if (tab === "unidades") {
       setUnidadesForm({ simbolo: "", nome: "" });
       setDialogOpen(true);
+    } else if (tab === "pareceres") {
+      setParecerForm({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
+      setParecerModalOpen(true);
     }
   };
 
