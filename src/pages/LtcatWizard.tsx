@@ -2482,22 +2482,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
+      const baseFields: any = {
+        empresa_id: empresaId,
+        empresa_nome: empresaNome,
+        contrato_id: contratoId || null,
+        template_id: selectedTemplate || null,
+        responsavel_tecnico: responsavel || null,
+        crea: crea || null,
+        cargo: cargo || null,
+        data_elaboracao: dataElab || null,
+        alteracoes_documento: alteracoesDoc || null,
+        revisoes: revisoes || [],
+        current_step: step,
+        status: "rascunho",
+      };
+
       let docId = currentDraftId;
       if (docId) {
-        await supabase.from("documentos").update({
-          empresa_id: empresaId,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate || null,
-          status: "rascunho",
-        }).eq("id", docId);
+        await supabase.from("documentos").update(baseFields).eq("id", docId);
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
-          empresa_id: empresaId,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate || null,
           file_path: null,
-          status: "rascunho",
+          ...baseFields,
         }).select("id").single();
         if (error) throw error;
         docId = inserted?.id || null;
@@ -2507,7 +2514,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!silent) toast.success("💾 Rascunho salvo com sucesso");
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
-      // Fallback: salvar localmente
       try {
         localStorage.setItem(
           `draft_${tipoDocumento}_${empresaId}`,
@@ -2519,6 +2525,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setSavingDraft(false);
     }
   };
+
+  // 🔁 Autosave silencioso: a cada 3 minutos + ao trocar de etapa
+  useEffect(() => {
+    if (!empresaId) return;
+    const id = setInterval(() => { handleSaveDraft(true); }, 3 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, contratoId, responsavel, crea, cargo, dataElab, alteracoesDoc, revisoes, riscos, selectedTemplate, step]);
+
+  // Salvar ao trocar de etapa (debounced)
+  useEffect(() => {
+    if (!empresaId) return;
+    const t = setTimeout(() => { handleSaveDraft(true); }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
