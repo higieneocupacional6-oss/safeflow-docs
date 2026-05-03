@@ -40,8 +40,8 @@ export default function Cadastros() {
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
   const [equipmentForm, setEquipmentForm] = useState({ nome: "", tipo: "" as string });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
-  const [registrarModal, setRegistrarModal] = useState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>({ open: false, equipamentoId: "", equipamentoNome: "" });
-  const [registrarForm, setRegistrarForm] = useState({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+  const [registrarModal, setRegistrarModal] = usePersistedState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>(REGISTRAR_MODAL_KEY, { open: false, equipamentoId: "", equipamentoNome: "" });
+  const [registrarForm, setRegistrarForm] = usePersistedState(REGISTRAR_FORM_KEY, { numero_serie: "", marca_modelo: "", data_calibracao: "" });
   const [registrarSaving, setRegistrarSaving] = useState(false);
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
