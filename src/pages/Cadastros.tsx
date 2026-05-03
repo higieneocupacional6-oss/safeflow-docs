@@ -255,6 +255,14 @@ export default function Cadastros() {
         nome: item.nome || ""
       });
       setDialogOpen(true);
+    } else if (tab === "pareceres") {
+      setParecerForm({
+        documento: item.documento || "LTCAT",
+        situacao: item.situacao || "",
+        parecer_tecnico: item.parecer_tecnico || "",
+        risco_id: item.risco_id || "",
+      });
+      setParecerModalOpen(true);
     }
   };
 
