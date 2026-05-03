@@ -4573,12 +4573,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
                         const showSerie = (riskForm.tipo_avaliacao || "").toLowerCase().includes("quanti") && tiposPermitidos.length > 0;
                         const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => tiposPermitidos.includes(e.tipo));
-                        const serieOpts = equipamentosFiltrados.flatMap((e: any) =>
-                          (e.equipamentos_ho_registros || []).map((r: any) => ({
-                            id: r.id, label: `${r.numero_serie} — ${e.nome}`, equipamento_id: e.id, equipamento_nome: e.nome,
+                        const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                          const eqLabel = e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome);
+                          return (e.equipamentos_ho_registros || []).map((r: any) => ({
+                            id: r.id, label: `${r.numero_serie} — ${eqLabel}`, equipamento_id: e.id, equipamento_nome: eqLabel,
                             numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
-                          }))
-                        );
+                          }));
+                        });
                         return (
                       <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
