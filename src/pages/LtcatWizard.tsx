@@ -4204,7 +4204,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {!isCompAgent && isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
                           <div className="flex flex-wrap gap-2 items-center">
-                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openResultadosModal}>
                               <Plus className="w-4 h-4" /> + Resultados
                             </Button>
                             {(() => {
@@ -4869,7 +4869,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 </div>
 
                 <Button variant="outline" size="sm" onClick={() => {
-                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
+                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "", equipamento_registro_id: "" }]);
                 }} className="mt-2 text-accent border-accent/20 hover:bg-accent/5">
                   <Plus className="w-4 h-4 mr-2" /> Adicionar Linha
                 </Button>
