@@ -713,7 +713,7 @@ export default function Cadastros() {
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = { nome: equipmentForm.nome.trim() };
+                    const payload = { nome: equipmentForm.nome.trim(), tipo: equipmentForm.tipo || null };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
