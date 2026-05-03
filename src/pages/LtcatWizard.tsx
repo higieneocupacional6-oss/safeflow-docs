@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
@@ -470,15 +471,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // Step 1
   const [empresaId, setEmpresaId] = useState("");
 
+  // 🔗 SINCRONIZAÇÃO LTCAT ↔ INSALUBRIDADE:
+  // Insalubridade é um "espelho ao vivo" do LTCAT — ambos consultam o mesmo
+  // pool de avaliações/pareceres da empresa (gravados como tipo_documento='ltcat').
+  // Periculosidade mantém seu próprio escopo isolado.
+  const tipoEscopoLeitura = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
+
   const { data: cachedPareceres = [] } = useQuery({
-    queryKey: ["ltcat_pareceres", empresaId, tipoDocumento],
+    queryKey: ["ltcat_pareceres", empresaId, tipoEscopoLeitura],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_pareceres")
         .select("*")
         .eq("empresa_id", empresaId)
-        .eq("tipo_documento", tipoDocumento)
+        .eq("tipo_documento", tipoEscopoLeitura)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -487,19 +494,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const { data: dbEvaluations = [] } = useQuery({
-    queryKey: ["ltcat_avaliacoes", empresaId, tipoDocumento],
+    queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_avaliacoes")
         .select("*")
         .eq("empresa_id", empresaId)
-        .eq("tipo_documento", tipoDocumento);
+        .eq("tipo_documento", tipoEscopoLeitura);
       if (error) throw error;
       return data;
     },
     enabled: !!empresaId,
   });
+
+  // Realtime: invalida cache quando LTCAT/Insalubridade da mesma empresa muda
+  useRealtimeSync(
+    [
+      { table: "ltcat_avaliacoes", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_pareceres", queryKey: ["ltcat_pareceres", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_componentes", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_calor", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+    ],
+    `ltcat-insal-sync-${empresaId || "none"}`
+  );
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -713,15 +733,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
-        // com fallback para todas da empresa (compatibilidade com docs antigos)
+        // com fallback para todas da empresa (compatibilidade + espelho LTCAT↔Insal)
         let avaliacoes: any[] = [];
         const { data: avDoc } = await supabase
           .from("ltcat_avaliacoes").select("*").eq("documento_id", documentoId);
         if (avDoc && avDoc.length > 0) {
           avaliacoes = avDoc;
         } else if (doc.empresa_id) {
+          // Para Insalubridade, espelhar do pool LTCAT da empresa
+          const escopo = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
           const { data: avEmp } = await supabase
-            .from("ltcat_avaliacoes").select("*").eq("empresa_id", doc.empresa_id);
+            .from("ltcat_avaliacoes").select("*")
+            .eq("empresa_id", doc.empresa_id)
+            .eq("tipo_documento", escopo);
           avaliacoes = avEmp || [];
         }
 
@@ -1235,8 +1259,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           parecer_tecnico: riskForm.parecer_tecnico,
           aposentadoria_especial: riskForm.aposentadoria_especial,
         }));
+        // Insalubridade espelha o LTCAT: salvar parecer no mesmo escopo
+        const tipoEscopoEscrita = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
         await supabase.from("ltcat_pareceres").upsert(
-          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoDocumento })),
+          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoEscopoEscrita })),
           { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
         );
       }
@@ -2333,7 +2359,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             .from("ltcat_avaliacoes")
             .insert({
               documento_id: docId,
-              tipo_documento: tipoDocumento,
+              // Insalubridade espelha LTCAT no pool compartilhado
+              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
               empresa_id: empresaId,
               setor_id: r.setor_id || null,
               funcao_id: it.funcao_id || null,
@@ -2365,7 +2392,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const avId = avRow.id;
 
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
-            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento, ...extra(x, i) }));
+            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(r.resultados_componentes, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
@@ -2452,7 +2479,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
-              tipo_documento: tipoDocumento,
+              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
               epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
               epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
               epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
