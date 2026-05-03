@@ -314,8 +314,8 @@ export function LtcatTemplateHelper() {
       vars: ["{{tecnica_amostragem}}", "{{tempo_coleta}}", "{{unidade_tempo_coleta}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_calibracao}}"],
     },
     {
-      title: "Equipamentos da Avaliação (Químico)",
-      vars: ["{{#equipamentos_avaliacao}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_avaliacao}}", "{{data_calibracao}}", "{{/equipamentos_avaliacao}}"],
+      title: "Equipamentos da Avaliação (loop)",
+      vars: ["{{#equipamentos}}", "{{nome}}", "{{numero_serie}}", "{{marca_modelo}}", "{{data_calibracao}}", "{{data_avaliacao}}", "{{/equipamentos}}", "{{#equipamentos_avaliacao}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_avaliacao}}", "{{data_calibracao}}", "{{/equipamentos_avaliacao}}"],
     },
     {
       title: "Parecer & Conclusão",

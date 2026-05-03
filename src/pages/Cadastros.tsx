@@ -27,8 +27,11 @@ export default function Cadastros() {
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
   const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
-  const [equipmentForm, setEquipmentForm] = useState({ nome: "", marca: "", certificado: "" });
+  const [equipmentForm, setEquipmentForm] = useState({ nome: "" });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
+  const [registrarModal, setRegistrarModal] = useState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>({ open: false, equipamentoId: "", equipamentoNome: "" });
+  const [registrarForm, setRegistrarForm] = useState({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+  const [registrarSaving, setRegistrarSaving] = useState(false);
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -42,6 +45,7 @@ export default function Cadastros() {
     { table: "riscos", queryKey: ["riscos"] },
     { table: "tecnicas_amostragem", queryKey: ["tecnicas_amostragem"] },
     { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
+    { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho"] },
     { table: "unidades", queryKey: ["unidades"] },
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
@@ -68,7 +72,10 @@ export default function Cadastros() {
   const { data: equipamentos_ho = [] } = useQuery({
     queryKey: ["equipamentos_ho"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipamentos_ho").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("equipamentos_ho")
+        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao)")
+        .order("nome");
       if (error) throw error;
       return data;
     },
@@ -173,7 +180,7 @@ export default function Cadastros() {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: "", marca: "", certificado: "" });
+      setEquipmentForm({ nome: "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({ nome: "", referencia: "" });
@@ -196,11 +203,7 @@ export default function Cadastros() {
       });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({
-        nome: item.nome,
-        marca: item.marca || "",
-        certificado: item.certificado || ""
-      });
+      setEquipmentForm({ nome: item.nome });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({
@@ -386,32 +389,86 @@ export default function Cadastros() {
           </TabsContent>
 
           <TabsContent value="equipamentos" className="m-0">
-            <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado / Série</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
-                ) : (
-                  equipamentos_ho.map((e: any) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.nome}</TableCell>
-                      <TableCell>{e.marca || "—"}</TableCell>
-                      <TableCell>{e.certificado || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
-                            <Edit className="h-4 w-4" />
+            {equipamentos_ho.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                Nenhum equipamento cadastrado. Clique em "+ Novo" para começar.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {equipamentos_ho.map((e: any) => {
+                  const registros = e.equipamentos_ho_registros || [];
+                  return (
+                    <div key={e.id} className="border rounded-lg p-4 bg-card flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Wrench className="w-4 h-4 text-accent shrink-0" />
+                          <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-accent"
+                            title="Adicionar registro"
+                            onClick={() => {
+                              setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                              setRegistrarModal({ open: true, equipamentoId: e.id, equipamentoNome: e.nome });
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                      </div>
+
+                      {registros.length === 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="self-start gap-1.5"
+                          onClick={() => {
+                            setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                            setRegistrarModal({ open: true, equipamentoId: e.id, equipamentoNome: e.nome });
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Registrar
+                        </Button>
+                      ) : (
+                        <div className="space-y-2 text-xs">
+                          {registros.map((r: any) => (
+                            <div key={r.id} className="flex items-start justify-between gap-2 border rounded-md p-2 bg-muted/30">
+                              <div className="space-y-0.5 min-w-0">
+                                <div><span className="text-muted-foreground">Nº Série:</span> <span className="font-medium">{r.numero_serie}</span></div>
+                                <div><span className="text-muted-foreground">Marca/Modelo:</span> {r.marca_modelo || "—"}</div>
+                                <div><span className="text-muted-foreground">Calibração:</span> {r.data_calibracao ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                onClick={async () => {
+                                  const { error } = await supabase.from("equipamentos_ho_registros").delete().eq("id", r.id);
+                                  if (error) { toast.error("Erro ao excluir registro"); return; }
+                                  queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
+                                  toast.success("Registro excluído");
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="unidades" className="m-0">
@@ -602,26 +659,6 @@ export default function Cadastros() {
                     onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Marca</Label>
-                    <Input 
-                      className="mt-1" 
-                      placeholder="Ex: Instrutherm" 
-                      value={equipmentForm.marca}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, marca: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Certificado / Nº Série</Label>
-                    <Input 
-                      className="mt-1" 
-                      placeholder="Ex: SN12345 / RBC 2024" 
-                      value={equipmentForm.certificado}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, certificado: e.target.value })}
-                    />
-                  </div>
-                </div>
               </>
             )}
             {tab === "unidades" && (
@@ -646,11 +683,7 @@ export default function Cadastros() {
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = {
-                      nome: equipmentForm.nome.trim(),
-                      marca: equipmentForm.marca.trim() || null,
-                      certificado: equipmentForm.certificado?.trim() || null,
-                    };
+                    const payload = { nome: equipmentForm.nome.trim() };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
@@ -726,6 +759,61 @@ export default function Cadastros() {
               }}
             >
               {equipmentSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Registrar (registros do equipamento) */}
+      <Dialog open={registrarModal.open} onOpenChange={(v) => setRegistrarModal({ ...registrarModal, open: v })}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">Registrar — {registrarModal.equipamentoNome}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Nº de Série <span className="text-destructive">*</span></Label>
+              <Input className="mt-1" placeholder="Ex: SN12345" value={registrarForm.numero_serie}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, numero_serie: e.target.value })} />
+            </div>
+            <div>
+              <Label>Marca / Modelo</Label>
+              <Input className="mt-1" placeholder="Ex: Instrutherm DOS-500" value={registrarForm.marca_modelo}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, marca_modelo: e.target.value })} />
+            </div>
+            <div>
+              <Label>Data de Calibração</Label>
+              <Input type="date" className="mt-1" value={registrarForm.data_calibracao}
+                onChange={(e) => setRegistrarForm({ ...registrarForm, data_calibracao: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRegistrarModal({ ...registrarModal, open: false })}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={registrarSaving}
+              onClick={async () => {
+                if (!registrarForm.numero_serie.trim()) { toast.error("Informe o nº de série"); return; }
+                setRegistrarSaving(true);
+                try {
+                  const { error } = await supabase.from("equipamentos_ho_registros").insert({
+                    equipamento_id: registrarModal.equipamentoId,
+                    numero_serie: registrarForm.numero_serie.trim(),
+                    marca_modelo: registrarForm.marca_modelo.trim() || null,
+                    data_calibracao: registrarForm.data_calibracao || null,
+                  });
+                  if (error) throw error;
+                  queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
+                  toast.success("Registro adicionado!");
+                  setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setRegistrarSaving(false);
+                }
+              }}
+            >
+              {registrarSaving ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>

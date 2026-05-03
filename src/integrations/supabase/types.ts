@@ -399,6 +399,41 @@ export type Database = {
         }
         Relationships: []
       }
+      equipamentos_ho_registros: {
+        Row: {
+          created_at: string
+          data_calibracao: string | null
+          equipamento_id: string
+          id: string
+          marca_modelo: string | null
+          numero_serie: string
+        }
+        Insert: {
+          created_at?: string
+          data_calibracao?: string | null
+          equipamento_id: string
+          id?: string
+          marca_modelo?: string | null
+          numero_serie: string
+        }
+        Update: {
+          created_at?: string
+          data_calibracao?: string | null
+          equipamento_id?: string
+          id?: string
+          marca_modelo?: string | null
+          numero_serie?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipamentos_ho_registros_equipamento_id_fkey"
+            columns: ["equipamento_id"]
+            isOneToOne: false
+            referencedRelation: "equipamentos_ho"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
