@@ -2856,6 +2856,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   </SelectContent>
                 </Select>
               </div>
+
+              {empresaId && (
+                <div>
+                  <Label>Contrato {contratosEmpresa.length === 0 && <span className="text-xs text-muted-foreground font-normal">(nenhum cadastrado)</span>}</Label>
+                  <Select value={contratoId} onValueChange={setContratoId} disabled={contratosEmpresa.length === 0}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder={contratosEmpresa.length ? "Selecione o contrato" : "Cadastre um contrato em Empresas & Contratos"} /></SelectTrigger>
+                    <SelectContent>
+                      {contratosEmpresa.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Responsável Técnico</Label><Input className="mt-1" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Nome completo" /></div>
                 <div><Label>CREA</Label><Input className="mt-1" value={crea} onChange={(e) => setCrea(e.target.value)} placeholder="00000/D-SP" /></div>
@@ -2863,6 +2880,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Cargo</Label><Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Engenheiro de Segurança" /></div>
                 <div><Label>Data de Elaboração</Label><Input className="mt-1" type="date" value={dataElab} onChange={(e) => setDataElab(e.target.value)} /></div>
+              </div>
+
+              <div>
+                <Label>Alterações do Documento</Label>
+                <Textarea className="mt-1" value={alteracoesDoc} onChange={(e) => setAlteracoesDoc(e.target.value)} placeholder="Descreva as alterações realizadas neste documento" />
               </div>
 
               {/* Subseção: Alterações do Documento */}
