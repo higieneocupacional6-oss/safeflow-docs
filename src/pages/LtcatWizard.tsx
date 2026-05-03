@@ -690,6 +690,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     },
   });
 
+  const { data: pareceresCadastro = [] } = useQuery({
+    queryKey: ["pareceres_tecnicos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pareceres_tecnicos")
+        .select("*");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: unidades = [] } = useQuery({
     queryKey: ["unidades"],
     queryFn: async () => {
