@@ -3655,11 +3655,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                      {equipamentosFiltrados.length === 0 ? (
                                        <SelectItem value="__none" disabled>Nenhum equipamento cadastrado</SelectItem>
                                      ) : (
-                                       equipamentosFiltrados.map((e: any) => (
-                                         <SelectItem key={e.id} value={e.id}>
-                                           {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
-                                         </SelectItem>
-                                       ))
+                                        equipamentosFiltrados.map((e: any) => (
+                                          <SelectItem key={e.id} value={e.id}>
+                                            {getEquipamentoDisplayName(e)}
+                                          </SelectItem>
+                                        ))
                                      )}
                                    </SelectContent>
                                  </Select>
@@ -3880,11 +3880,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                              <SelectItem value="__none" disabled>Nenhum equipamento</SelectItem>
                                            );
                                          }
-                                         return lista.map((x: any) => (
-                                           <SelectItem key={x.id} value={x.id}>
-                                             {x.tipo === "Outro" ? `Outro — ${x.nome}` : (x.tipo || x.nome)}
-                                           </SelectItem>
-                                         ));
+                                          return lista.map((x: any) => (
+                                            <SelectItem key={x.id} value={x.id}>
+                                              {getEquipamentoDisplayName(x)}
+                                            </SelectItem>
+                                          ));
                                        })()}
                                     </SelectContent>
                                   </Select>
@@ -4593,13 +4593,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                            : todos;
                          // Fallback: se não houver equipamento do tipo esperado, usa todos
                          const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
-                         const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
-                           const eqLabel = e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome);
-                           return (e.equipamentos_ho_registros || []).map((r: any) => ({
-                             id: r.id, label: `${r.numero_serie} — ${eqLabel}`, equipamento_id: e.id, equipamento_nome: eqLabel,
-                             numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
-                           }));
-                         });
+                          const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                            const eqLabel = getEquipamentoDisplayName(e);
+                            return (e.equipamentos_ho_registros || [])
+                              .map((r: any) => {
+                                const numeroSerie = getEquipamentoNumeroSerie(r);
+                                if (!numeroSerie) return null;
+                                return {
+                                  id: r.id,
+                                  label: eqLabel ? `${numeroSerie} — ${eqLabel}` : numeroSerie,
+                                  equipamento_id: e.id,
+                                  equipamento_nome: eqLabel,
+                                  numero_serie: numeroSerie,
+                                  marca_modelo: r.marca_modelo,
+                                  data_calibracao: r.data_calibracao,
+                                };
+                              })
+                              .filter(Boolean);
+                          });
                         return (
                       <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
@@ -5222,15 +5233,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           onValueChange={v => {
                             const eq = equipamentos.find((e: any) => e.id === v);
                             const updated = [...tempCalorRows];
-                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: eq?.nome || "" };
+                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: getEquipamentoDisplayName(eq) || "" };
                             setTempCalorRows(updated);
                           }}
                         >
                           <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione (cadastro)..." /></SelectTrigger>
                           <SelectContent>
-                            {equipamentos.map((eq: any) => (
-                              <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
-                            ))}
+                              {equipamentos.map((eq: any) => (
+                                <SelectItem key={eq.id} value={eq.id}>{getEquipamentoDisplayName(eq)}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
