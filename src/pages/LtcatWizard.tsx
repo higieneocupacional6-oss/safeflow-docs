@@ -3640,7 +3640,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   if (isPericulosidade) return null;
                   const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
                   const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-                  const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
+                  const isCompAgent = isAgentComponentes(riskForm.agente_nome || "", riskForm.tipo_agente || "", riskForm.tipo_avaliacao || "");
                   const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" ||
                     tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
                     tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
