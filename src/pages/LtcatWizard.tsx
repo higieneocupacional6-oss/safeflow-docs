@@ -504,7 +504,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
   const [dataElab, setDataElab] = useState("");
+  const [alteracoesDoc, setAlteracoesDoc] = useState("");
   const [revisoes, setRevisoes] = useState<Revision[]>([]);
+  const [contratoId, setContratoId] = useState<string>("");
+
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-empresa", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id, numero_contrato, nome_contratante, vigencia_inicio, vigencia_fim")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!empresaId,
+  });
 
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
