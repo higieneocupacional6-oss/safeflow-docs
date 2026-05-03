@@ -504,7 +504,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
   const [dataElab, setDataElab] = useState("");
+  const [alteracoesDoc, setAlteracoesDoc] = useState("");
   const [revisoes, setRevisoes] = useState<Revision[]>([]);
+  const [contratoId, setContratoId] = useState<string>("");
+
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-empresa", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id, numero_contrato, nome_contratante, vigencia_inicio, vigencia_fim")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!empresaId,
+  });
 
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
@@ -686,6 +703,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         }
         if (doc.empresa_id) setEmpresaId(doc.empresa_id);
         if (doc.template_id) setSelectedTemplate(doc.template_id);
+        if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
+        if ((doc as any).responsavel_tecnico) setResponsavel((doc as any).responsavel_tecnico);
+        if ((doc as any).crea) setCrea((doc as any).crea);
+        if ((doc as any).cargo) setCargo((doc as any).cargo);
+        if ((doc as any).data_elaboracao) setDataElab((doc as any).data_elaboracao);
+        if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
+        if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
+        if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
         // com fallback para todas da empresa (compatibilidade com docs antigos)
@@ -2457,23 +2482,30 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
+      const baseFields: any = {
+        empresa_id: empresaId,
+        empresa_nome: empresaNome,
+        contrato_id: contratoId || null,
+        template_id: selectedTemplate || null,
+        responsavel_tecnico: responsavel || null,
+        crea: crea || null,
+        cargo: cargo || null,
+        data_elaboracao: dataElab || null,
+        alteracoes_documento: alteracoesDoc || null,
+        revisoes: revisoes || [],
+        current_step: step,
+        status: "rascunho",
+      };
+
       let docId = currentDraftId;
       if (docId) {
-        await supabase.from("documentos").update({
-          empresa_id: empresaId,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate || null,
-          status: "rascunho",
-        }).eq("id", docId);
+        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
-          empresa_id: empresaId,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate || null,
           file_path: null,
-          status: "rascunho",
-        }).select("id").single();
+          ...baseFields,
+        } as any).select("id").single();
         if (error) throw error;
         docId = inserted?.id || null;
         setCurrentDraftId(docId);
@@ -2482,7 +2514,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!silent) toast.success("💾 Rascunho salvo com sucesso");
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
-      // Fallback: salvar localmente
       try {
         localStorage.setItem(
           `draft_${tipoDocumento}_${empresaId}`,
@@ -2494,6 +2525,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setSavingDraft(false);
     }
   };
+
+  // 🔁 Autosave silencioso: a cada 3 minutos + ao trocar de etapa
+  useEffect(() => {
+    if (!empresaId) return;
+    const id = setInterval(() => { handleSaveDraft(true); }, 3 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, contratoId, responsavel, crea, cargo, dataElab, alteracoesDoc, revisoes, riscos, selectedTemplate, step]);
+
+  // Salvar ao trocar de etapa (debounced)
+  useEffect(() => {
+    if (!empresaId) return;
+    const t = setTimeout(() => { handleSaveDraft(true); }, 600);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
@@ -2563,25 +2610,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
-      let docId: string | undefined;
-      if (isEditMode && documentoId) {
-        await supabase.from("documentos").update({
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate,
-          status: "rascunho",
-        }).eq("id", documentoId);
-        docId = documentoId;
+      const baseFields: any = {
+        empresa_id: empresaId || null,
+        empresa_nome: empresaNome,
+        contrato_id: contratoId || null,
+        template_id: selectedTemplate,
+        responsavel_tecnico: responsavel || null,
+        crea: crea || null,
+        cargo: cargo || null,
+        data_elaboracao: dataElab || null,
+        alteracoes_documento: alteracoesDoc || null,
+        revisoes: revisoes || [],
+        current_step: step,
+        status: "rascunho",
+      };
+
+      let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
+      if (docId) {
+        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
       } else {
         const { data: inserted } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate,
           file_path: null,
-          status: "rascunho",
-        }).select("id").single();
+          ...baseFields,
+        } as any).select("id").single();
         docId = inserted?.id;
+        if (docId) setCurrentDraftId(docId);
       }
       if (docId) await persistAvaliacoes(docId);
 
@@ -2641,34 +2695,27 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
         const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
-        let docId: string | undefined;
-        if (isEditMode && documentoId) {
-          await supabase.from("documentos").update({ status: "concluido" }).eq("id", documentoId);
-          docId = documentoId;
+        let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
+        if (docId) {
+          await supabase.from("documentos").update({ status: "concluido" }).eq("id", docId);
         } else {
-          // Try to update existing rascunho, or insert new
-          const { data: existing } = await supabase
-            .from("documentos")
-            .select("id")
-            .eq("empresa_id", empresaId)
-            .eq("tipo", tipoDocLabel)
-            .eq("status", "rascunho")
-            .order("created_at", { ascending: false })
-            .limit(1);
-
-          if (existing && existing.length > 0) {
-            await supabase.from("documentos").update({ status: "concluido" }).eq("id", existing[0].id);
-            docId = existing[0].id;
-          } else {
-            const { data: inserted } = await supabase.from("documentos").insert({
-              tipo: tipoDocLabel,
-              empresa_id: empresaId || null,
-              empresa_nome: empresaNome,
-              template_id: selectedTemplate,
-              status: "concluido",
-            }).select("id").single();
-            docId = inserted?.id;
-          }
+          const { data: inserted } = await supabase.from("documentos").insert({
+            tipo: tipoDocLabel,
+            empresa_id: empresaId || null,
+            empresa_nome: empresaNome,
+            contrato_id: contratoId || null,
+            template_id: selectedTemplate,
+            responsavel_tecnico: responsavel || null,
+            crea: crea || null,
+            cargo: cargo || null,
+            data_elaboracao: dataElab || null,
+            alteracoes_documento: alteracoesDoc || null,
+            revisoes: (revisoes || []) as any,
+            current_step: step,
+            status: "concluido",
+          } as any).select("id").single();
+          docId = inserted?.id;
+          if (docId) setCurrentDraftId(docId);
         }
         if (docId) await persistAvaliacoes(docId);
 
@@ -2740,31 +2787,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .from("templates")
         .upload(storagePath, output);
 
-      // Update existing document record or insert
-      const { data: existing } = await supabase
-        .from("documentos")
-        .select("id")
-        .eq("empresa_id", empresaId)
-        .eq("tipo", tipoDocLabel)
-        .eq("status", "concluido")
-        .is("file_path", null)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (existing && existing.length > 0) {
+      // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
+      const docId = currentDraftId || (isEditMode ? documentoId : undefined);
+      if (docId) {
         await supabase.from("documentos").update({
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        }).eq("id", existing[0].id);
+        }).eq("id", docId);
       } else {
-        await supabase.from("documentos").insert({
+        const { data: ins } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
+          contrato_id: contratoId || null,
           template_id: selectedTemplate,
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        });
+        } as any).select("id").single();
+        if (ins?.id) setCurrentDraftId(ins.id);
       }
 
       saveAs(output, fileName);
@@ -2816,6 +2856,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   </SelectContent>
                 </Select>
               </div>
+
+              {empresaId && (
+                <div>
+                  <Label>Contrato {contratosEmpresa.length === 0 && <span className="text-xs text-muted-foreground font-normal">(nenhum cadastrado)</span>}</Label>
+                  <Select value={contratoId} onValueChange={setContratoId} disabled={contratosEmpresa.length === 0}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder={contratosEmpresa.length ? "Selecione o contrato" : "Cadastre um contrato em Empresas & Contratos"} /></SelectTrigger>
+                    <SelectContent>
+                      {contratosEmpresa.map((c: any) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Responsável Técnico</Label><Input className="mt-1" value={responsavel} onChange={(e) => setResponsavel(e.target.value)} placeholder="Nome completo" /></div>
                 <div><Label>CREA</Label><Input className="mt-1" value={crea} onChange={(e) => setCrea(e.target.value)} placeholder="00000/D-SP" /></div>
@@ -2823,6 +2880,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><Label>Cargo</Label><Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} placeholder="Engenheiro de Segurança" /></div>
                 <div><Label>Data de Elaboração</Label><Input className="mt-1" type="date" value={dataElab} onChange={(e) => setDataElab(e.target.value)} /></div>
+              </div>
+
+              <div>
+                <Label>Alterações do Documento</Label>
+                <Textarea className="mt-1" value={alteracoesDoc} onChange={(e) => setAlteracoesDoc(e.target.value)} placeholder="Descreva as alterações realizadas neste documento" />
               </div>
 
               {/* Subseção: Alterações do Documento */}

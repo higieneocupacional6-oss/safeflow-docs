@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Search, Building2, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Search, Building2, Pencil, Trash2, Loader2, FileSignature } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function Empresas() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [editEmpresa, setEditEmpresa] = useState<any>(null);
   const [search, setSearch] = useState("");
@@ -64,9 +66,14 @@ export default function Empresas() {
         title="Empresas"
         description="Gerencie as empresas cadastradas no sistema"
         actions={
-          <Button onClick={handleNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Nova Empresa
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigate("/empresas-contratos")}>
+              <FileSignature className="w-4 h-4 mr-2" />Empresas & Contratos
+            </Button>
+            <Button onClick={handleNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Plus className="w-4 h-4 mr-2" />Nova Empresa
+            </Button>
+          </div>
         }
       />
 

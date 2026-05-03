@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           alteracoes_documento: string | null
           cargo: string | null
+          contrato_id: string | null
           crea: string | null
           created_at: string
           created_by: string | null
@@ -34,6 +35,7 @@ export type Database = {
         Insert: {
           alteracoes_documento?: string | null
           cargo?: string | null
+          contrato_id?: string | null
           crea?: string | null
           created_at?: string
           created_by?: string | null
@@ -50,6 +52,7 @@ export type Database = {
         Update: {
           alteracoes_documento?: string | null
           cargo?: string | null
+          contrato_id?: string | null
           crea?: string | null
           created_at?: string
           created_by?: string | null
@@ -64,6 +67,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "aet_documentos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "aet_documentos_documento_id_fkey"
             columns: ["documento_id"]
@@ -80,41 +90,164 @@ export type Database = {
           },
         ]
       }
+      contratos: {
+        Row: {
+          cnpj_contratante: string | null
+          created_at: string
+          empresa_id: string
+          escopo_contrato: string | null
+          fiscal_email: string | null
+          fiscal_nome: string | null
+          fiscal_telefone: string | null
+          gestor_email: string | null
+          gestor_nome: string | null
+          gestor_telefone: string | null
+          id: string
+          jornada_trabalho: string | null
+          local_trabalho: string | null
+          nome_contratante: string | null
+          numero_contrato: string | null
+          numero_funcionarios_fem: number | null
+          numero_funcionarios_masc: number | null
+          preposto_email: string | null
+          preposto_nome: string | null
+          preposto_telefone: string | null
+          total_funcionarios: number | null
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          cnpj_contratante?: string | null
+          created_at?: string
+          empresa_id: string
+          escopo_contrato?: string | null
+          fiscal_email?: string | null
+          fiscal_nome?: string | null
+          fiscal_telefone?: string | null
+          gestor_email?: string | null
+          gestor_nome?: string | null
+          gestor_telefone?: string | null
+          id?: string
+          jornada_trabalho?: string | null
+          local_trabalho?: string | null
+          nome_contratante?: string | null
+          numero_contrato?: string | null
+          numero_funcionarios_fem?: number | null
+          numero_funcionarios_masc?: number | null
+          preposto_email?: string | null
+          preposto_nome?: string | null
+          preposto_telefone?: string | null
+          total_funcionarios?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          cnpj_contratante?: string | null
+          created_at?: string
+          empresa_id?: string
+          escopo_contrato?: string | null
+          fiscal_email?: string | null
+          fiscal_nome?: string | null
+          fiscal_telefone?: string | null
+          gestor_email?: string | null
+          gestor_nome?: string | null
+          gestor_telefone?: string | null
+          id?: string
+          jornada_trabalho?: string | null
+          local_trabalho?: string | null
+          nome_contratante?: string | null
+          numero_contrato?: string | null
+          numero_funcionarios_fem?: number | null
+          numero_funcionarios_masc?: number | null
+          preposto_email?: string | null
+          preposto_nome?: string | null
+          preposto_telefone?: string | null
+          total_funcionarios?: number | null
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contratos_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       documentos: {
         Row: {
+          alteracoes_documento: string | null
+          cargo: string | null
+          contrato_id: string | null
+          crea: string | null
           created_at: string
+          current_step: number
+          data_elaboracao: string | null
+          draft_snapshot: Json | null
           empresa_id: string | null
           empresa_nome: string
           file_path: string | null
           id: string
+          responsavel_tecnico: string | null
+          revisoes: Json
           status: string
           template_id: string | null
           tipo: string
           updated_at: string
         }
         Insert: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
           created_at?: string
+          current_step?: number
+          data_elaboracao?: string | null
+          draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
           status?: string
           template_id?: string | null
           tipo: string
           updated_at?: string
         }
         Update: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
           created_at?: string
+          current_step?: number
+          data_elaboracao?: string | null
+          draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
           status?: string
           template_id?: string | null
           tipo?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "documentos_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "documentos_empresa_id_fkey"
             columns: ["empresa_id"]
@@ -905,6 +1038,7 @@ export type Database = {
           cod_gfip: string | null
           codigo_esocial: string | null
           colaborador: string | null
+          contrato_id: string | null
           created_at: string | null
           created_by: string | null
           danos_saude: string | null
@@ -941,6 +1075,7 @@ export type Database = {
           cod_gfip?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
+          contrato_id?: string | null
           created_at?: string | null
           created_by?: string | null
           danos_saude?: string | null
@@ -977,6 +1112,7 @@ export type Database = {
           cod_gfip?: string | null
           codigo_esocial?: string | null
           colaborador?: string | null
+          contrato_id?: string | null
           created_at?: string | null
           created_by?: string | null
           danos_saude?: string | null
@@ -1013,6 +1149,13 @@ export type Database = {
             columns: ["agente_id"]
             isOneToOne: false
             referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
             referencedColumns: ["id"]
           },
           {

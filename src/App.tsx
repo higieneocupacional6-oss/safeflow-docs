@@ -9,6 +9,7 @@ import { ProtectedRoute } from "@/components/ProtectedRoute";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Empresas from "./pages/Empresas";
+import EmpresasContratos from "./pages/EmpresasContratos";
 import Cadastros from "./pages/Cadastros";
 import Templates from "./pages/Templates";
 import Documentos from "./pages/Documentos";
@@ -35,6 +36,7 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/empresas" element={<Protected><Empresas /></Protected>} />
+            <Route path="/empresas-contratos" element={<Protected><EmpresasContratos /></Protected>} />
             <Route path="/cadastros" element={<Protected><Cadastros /></Protected>} />
             <Route path="/templates" element={<Protected><Templates /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
