@@ -579,7 +579,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
-      { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
+      { table: "equipamentos_ho", queryKey: ["equipamentos_ho", "wizard-detalhado"] },
+      { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho", "wizard-detalhado"] },
     ],
     `ltcat-insal-sync-${empresaId || "none"}`
   );
@@ -741,7 +742,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const { data: equipamentos = [] } = useQuery({
-    queryKey: ["equipamentos_ho"],
+    queryKey: ["equipamentos_ho", "wizard-detalhado"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
