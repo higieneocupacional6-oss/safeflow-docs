@@ -21,6 +21,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
+import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
