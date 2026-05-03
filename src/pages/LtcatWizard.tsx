@@ -429,33 +429,41 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
-  const [riskDialogOpen, setRiskDialogOpen] = useState(false);
-  const [resultsModalOpen, setResultsModalOpen] = useState(false);
-  const [tempResultados, setTempResultados] = useState<any[]>([]);
+
+  // 🔒 PERSISTÊNCIA DE MODAIS/FORMULÁRIOS DO WIZARD
+  // Mantém os dados preenchidos (incluindo seleções como "Nº de Série")
+  // ao trocar de rota ou perder o foco da aba do navegador.
+  // Escopo por documento (ou "new" para rascunhos).
+  const persistScope = `ltcat-wizard:${modo}:${documentoId || "new"}`;
+  const PK = (k: string) => `${persistScope}:${k}`;
+
+  const [riskDialogOpen, setRiskDialogOpen] = usePersistedState<boolean>(PK("riskDialogOpen"), false);
+  const [resultsModalOpen, setResultsModalOpen] = usePersistedState<boolean>(PK("resultsModalOpen"), false);
+  const [tempResultados, setTempResultados] = usePersistedState<any[]>(PK("tempResultados"), []);
 
   // Componentes flow (Nivel 1 + Nivel 2)
-  const [componentesModalOpen, setComponentesModalOpen] = useState(false);
-  const [tempFuncaoRows, setTempFuncaoRows] = useState<any[]>([]); // Nivel 1
-  const [amostraModalOpen, setAmostraModalOpen] = useState(false);
-  const [currentAmostraIndex, setCurrentAmostraIndex] = useState<number>(-1);
-  const [tempComponentes, setTempComponentes] = useState<any[]>([]); // Nivel 2
+  const [componentesModalOpen, setComponentesModalOpen] = usePersistedState<boolean>(PK("componentesModalOpen"), false);
+  const [tempFuncaoRows, setTempFuncaoRows] = usePersistedState<any[]>(PK("tempFuncaoRows"), []);
+  const [amostraModalOpen, setAmostraModalOpen] = usePersistedState<boolean>(PK("amostraModalOpen"), false);
+  const [currentAmostraIndex, setCurrentAmostraIndex] = usePersistedState<number>(PK("currentAmostraIndex"), -1);
+  const [tempComponentes, setTempComponentes] = usePersistedState<any[]>(PK("tempComponentes"), []);
 
   // Vibração flow VCI/VMB (Nivel 1 + Nivel 2)
-  const [vibracaoModalOpen, setVibracaoModalOpen] = useState(false);
-  const [tempVibracaoRows, setTempVibracaoRows] = useState<any[]>([]);
-  const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = useState(false);
-  const [currentVibracaoIndex, setCurrentVibracaoIndex] = useState<number>(-1);
-  const [tempVibAmostra, setTempVibAmostra] = useState<any>({});
+  const [vibracaoModalOpen, setVibracaoModalOpen] = usePersistedState<boolean>(PK("vibracaoModalOpen"), false);
+  const [tempVibracaoRows, setTempVibracaoRows] = usePersistedState<any[]>(PK("tempVibracaoRows"), []);
+  const [vibracaoAmostraModalOpen, setVibracaoAmostraModalOpen] = usePersistedState<boolean>(PK("vibracaoAmostraModalOpen"), false);
+  const [currentVibracaoIndex, setCurrentVibracaoIndex] = usePersistedState<number>(PK("currentVibracaoIndex"), -1);
+  const [tempVibAmostra, setTempVibAmostra] = usePersistedState<any>(PK("tempVibAmostra"), {});
   // Modal de Cálculo da Média de Vibração (VCI / VMB)
   const [mediaVibracaoOpen, setMediaVibracaoOpen] = useState(false);
   const [mediaVibracaoTipo, setMediaVibracaoTipo] = useState<"vci" | "vmb">("vci");
 
   // Calor flow (Nivel 1 + Nivel 2)
-  const [calorModalOpen, setCalorModalOpen] = useState(false);
-  const [tempCalorRows, setTempCalorRows] = useState<any[]>([]);
-  const [calorAmostraModalOpen, setCalorAmostraModalOpen] = useState(false);
-  const [currentCalorIndex, setCurrentCalorIndex] = useState<number>(-1);
-  const [tempCalorAmostra, setTempCalorAmostra] = useState<any>({});
+  const [calorModalOpen, setCalorModalOpen] = usePersistedState<boolean>(PK("calorModalOpen"), false);
+  const [tempCalorRows, setTempCalorRows] = usePersistedState<any[]>(PK("tempCalorRows"), []);
+  const [calorAmostraModalOpen, setCalorAmostraModalOpen] = usePersistedState<boolean>(PK("calorAmostraModalOpen"), false);
+  const [currentCalorIndex, setCurrentCalorIndex] = usePersistedState<number>(PK("currentCalorIndex"), -1);
+  const [tempCalorAmostra, setTempCalorAmostra] = usePersistedState<any>(PK("tempCalorAmostra"), {});
   // IBUTG sub-modais
   const [ibutgModalOpen, setIbutgModalOpen] = useState(false);
   const [ibutgRowIndex, setIbutgRowIndex] = useState<number>(-1);
