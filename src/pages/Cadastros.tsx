@@ -1021,6 +1021,9 @@ export default function Cadastros() {
                   queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                   toast.success("Registro adicionado!");
                   setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+                  setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                  clearPersistedState(REGISTRAR_MODAL_KEY);
+                  clearPersistedState(REGISTRAR_FORM_KEY);
                 } catch (err: any) {
                   toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
                 } finally {
