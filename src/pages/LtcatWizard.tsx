@@ -3663,57 +3663,92 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                               <Plus className="w-3 h-3" /> Equipamento
                             </Button>
                           </div>
-                          {riskForm.equipamentos_avaliacao.map((eq: any, eqi: number) => (
-                            <div key={eq.id} className="grid grid-cols-6 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
-                              <div>
-                                <Label className="text-[10px] font-bold uppercase">Equipamento</Label>
-                                <Input className="mt-1 h-8 text-xs" placeholder="Nome" value={eq.nome_equipamento} onChange={e => {
-                                  const updated = [...riskForm.equipamentos_avaliacao];
-                                  updated[eqi] = { ...updated[eqi], nome_equipamento: e.target.value };
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
-                                }} />
+                          {riskForm.equipamentos_avaliacao.map((eq: any, eqi: number) => {
+                            const eqSelected = (equipamentos as any[]).find((x: any) => x.id === eq.equipamento_id);
+                            const registrosOpts = eqSelected?.equipamentos_ho_registros || [];
+                            return (
+                              <div key={eq.id} className="grid grid-cols-6 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
+                                <div className="col-span-2">
+                                  <Label className="text-[10px] font-bold uppercase">Equipamento</Label>
+                                  <Select
+                                    value={eq.equipamento_id || ""}
+                                    onValueChange={(v) => {
+                                      const eqObj = (equipamentos as any[]).find((x: any) => x.id === v);
+                                      const updated = [...riskForm.equipamentos_avaliacao];
+                                      updated[eqi] = {
+                                        ...updated[eqi],
+                                        equipamento_id: v,
+                                        nome_equipamento: eqObj?.nome || "",
+                                        registro_id: "",
+                                        serie_equipamento: "",
+                                        modelo_equipamento: "",
+                                        data_calibracao: "",
+                                      };
+                                      setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                    }}
+                                  >
+                                    <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                    <SelectContent>
+                                      {(equipamentos as any[]).map((x: any) => (
+                                        <SelectItem key={x.id} value={x.id}>{x.nome}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-bold uppercase">Nº Série</Label>
+                                  <Select
+                                    value={eq.registro_id || ""}
+                                    onValueChange={(v) => {
+                                      const reg = registrosOpts.find((r: any) => r.id === v);
+                                      const updated = [...riskForm.equipamentos_avaliacao];
+                                      updated[eqi] = {
+                                        ...updated[eqi],
+                                        registro_id: v,
+                                        serie_equipamento: reg?.numero_serie || "",
+                                        modelo_equipamento: reg?.marca_modelo || "",
+                                        data_calibracao: reg?.data_calibracao || "",
+                                      };
+                                      setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                    }}
+                                    disabled={!eq.equipamento_id || registrosOpts.length === 0}
+                                  >
+                                    <SelectTrigger className="mt-1 h-8 text-xs">
+                                      <SelectValue placeholder={!eq.equipamento_id ? "Selecione equip." : registrosOpts.length === 0 ? "Sem registros" : "Selecione"} />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {registrosOpts.map((r: any) => (
+                                        <SelectItem key={r.id} value={r.id}>{r.numero_serie}</SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-bold uppercase">Marca/Modelo</Label>
+                                  <Input className="mt-1 h-8 text-xs bg-muted/40" readOnly value={eq.modelo_equipamento || ""} placeholder="—" />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-bold uppercase">Data Calib.</Label>
+                                  <Input className="mt-1 h-8 text-xs bg-muted/40" readOnly value={eq.data_calibracao ? new Date(eq.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : ""} placeholder="—" />
+                                </div>
+                                <div>
+                                  <Label className="text-[10px] font-bold uppercase">Data Aval.</Label>
+                                  <div className="flex gap-1 items-end">
+                                    <Input type="date" className="mt-1 h-8 text-xs flex-1" value={eq.data_avaliacao || ""} onChange={e => {
+                                      const updated = [...riskForm.equipamentos_avaliacao];
+                                      updated[eqi] = { ...updated[eqi], data_avaliacao: e.target.value };
+                                      setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
+                                    }} />
+                                    <Button variant="ghost" size="icon" className="text-destructive h-8 w-8 shrink-0" onClick={() => {
+                                      setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: prev.equipamentos_avaliacao.filter((_: any, i: number) => i !== eqi) }));
+                                    }}>
+                                      <Trash2 className="w-3 h-3" />
+                                    </Button>
+                                  </div>
+                                </div>
                               </div>
-                              <div>
-                                <Label className="text-[10px] font-bold uppercase">Modelo</Label>
-                                <Input className="mt-1 h-8 text-xs" placeholder="Modelo" value={eq.modelo_equipamento} onChange={e => {
-                                  const updated = [...riskForm.equipamentos_avaliacao];
-                                  updated[eqi] = { ...updated[eqi], modelo_equipamento: e.target.value };
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
-                                }} />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] font-bold uppercase">Série</Label>
-                                <Input className="mt-1 h-8 text-xs" placeholder="Nº série" value={eq.serie_equipamento} onChange={e => {
-                                  const updated = [...riskForm.equipamentos_avaliacao];
-                                  updated[eqi] = { ...updated[eqi], serie_equipamento: e.target.value };
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
-                                }} />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] font-bold uppercase">Data Aval.</Label>
-                                <Input type="date" className="mt-1 h-8 text-xs" value={eq.data_avaliacao} onChange={e => {
-                                  const updated = [...riskForm.equipamentos_avaliacao];
-                                  updated[eqi] = { ...updated[eqi], data_avaliacao: e.target.value };
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
-                                }} />
-                              </div>
-                              <div>
-                                <Label className="text-[10px] font-bold uppercase">Data Calib.</Label>
-                                <Input type="date" className="mt-1 h-8 text-xs" value={eq.data_calibracao} onChange={e => {
-                                  const updated = [...riskForm.equipamentos_avaliacao];
-                                  updated[eqi] = { ...updated[eqi], data_calibracao: e.target.value };
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: updated }));
-                                }} />
-                              </div>
-                              <div className="flex justify-end">
-                                <Button variant="ghost" size="icon" className="text-destructive h-8 w-8" onClick={() => {
-                                  setRiskForm(prev => ({ ...prev, equipamentos_avaliacao: prev.equipamentos_avaliacao.filter((_: any, i: number) => i !== eqi) }));
-                                }}>
-                                  <Trash2 className="w-3 h-3" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       )}
 
