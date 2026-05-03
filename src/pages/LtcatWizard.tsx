@@ -2627,13 +2627,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
       if (docId) {
-        await supabase.from("documentos").update(baseFields).eq("id", docId);
+        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
       } else {
         const { data: inserted } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
           file_path: null,
           ...baseFields,
-        }).select("id").single();
+        } as any).select("id").single();
         docId = inserted?.id;
         if (docId) setCurrentDraftId(docId);
       }
