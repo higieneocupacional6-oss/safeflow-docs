@@ -733,15 +733,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
-        // com fallback para todas da empresa (compatibilidade com docs antigos)
+        // com fallback para todas da empresa (compatibilidade + espelho LTCAT↔Insal)
         let avaliacoes: any[] = [];
         const { data: avDoc } = await supabase
           .from("ltcat_avaliacoes").select("*").eq("documento_id", documentoId);
         if (avDoc && avDoc.length > 0) {
           avaliacoes = avDoc;
         } else if (doc.empresa_id) {
+          // Para Insalubridade, espelhar do pool LTCAT da empresa
+          const escopo = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
           const { data: avEmp } = await supabase
-            .from("ltcat_avaliacoes").select("*").eq("empresa_id", doc.empresa_id);
+            .from("ltcat_avaliacoes").select("*")
+            .eq("empresa_id", doc.empresa_id)
+            .eq("tipo_documento", escopo);
           avaliacoes = avEmp || [];
         }
 
