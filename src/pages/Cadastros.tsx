@@ -19,6 +19,10 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
+
+const REGISTRAR_MODAL_KEY = "cadastros:registrarCalibracao:modal";
+const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 
 // Mock data removed in favor of real database queries
 
@@ -36,8 +40,8 @@ export default function Cadastros() {
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
   const [equipmentForm, setEquipmentForm] = useState({ nome: "", tipo: "" as string });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
-  const [registrarModal, setRegistrarModal] = useState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>({ open: false, equipamentoId: "", equipamentoNome: "" });
-  const [registrarForm, setRegistrarForm] = useState({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+  const [registrarModal, setRegistrarModal] = usePersistedState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>(REGISTRAR_MODAL_KEY, { open: false, equipamentoId: "", equipamentoNome: "" });
+  const [registrarForm, setRegistrarForm] = usePersistedState(REGISTRAR_FORM_KEY, { numero_serie: "", marca_modelo: "", data_calibracao: "" });
   const [registrarSaving, setRegistrarSaving] = useState(false);
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
@@ -994,7 +998,12 @@ export default function Cadastros() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRegistrarModal({ ...registrarModal, open: false })}>Cancelar</Button>
+            <Button variant="outline" onClick={() => {
+              setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+              setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+              clearPersistedState(REGISTRAR_MODAL_KEY);
+              clearPersistedState(REGISTRAR_FORM_KEY);
+            }}>Cancelar</Button>
             <Button
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               disabled={registrarSaving}
@@ -1012,6 +1021,9 @@ export default function Cadastros() {
                   queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                   toast.success("Registro adicionado!");
                   setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+                  setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                  clearPersistedState(REGISTRAR_MODAL_KEY);
+                  clearPersistedState(REGISTRAR_FORM_KEY);
                 } catch (err: any) {
                   toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
                 } finally {
