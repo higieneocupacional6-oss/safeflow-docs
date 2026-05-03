@@ -2787,31 +2787,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .from("templates")
         .upload(storagePath, output);
 
-      // Update existing document record or insert
-      const { data: existing } = await supabase
-        .from("documentos")
-        .select("id")
-        .eq("empresa_id", empresaId)
-        .eq("tipo", tipoDocLabel)
-        .eq("status", "concluido")
-        .is("file_path", null)
-        .order("created_at", { ascending: false })
-        .limit(1);
-
-      if (existing && existing.length > 0) {
+      // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
+      const docId = currentDraftId || (isEditMode ? documentoId : undefined);
+      if (docId) {
         await supabase.from("documentos").update({
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        }).eq("id", existing[0].id);
+        }).eq("id", docId);
       } else {
-        await supabase.from("documentos").insert({
+        const { data: ins } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
           empresa_id: empresaId || null,
           empresa_nome: empresaNome,
+          contrato_id: contratoId || null,
           template_id: selectedTemplate,
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        });
+        } as any).select("id").single();
+        if (ins?.id) setCurrentDraftId(ins.id);
       }
 
       saveAs(output, fileName);
