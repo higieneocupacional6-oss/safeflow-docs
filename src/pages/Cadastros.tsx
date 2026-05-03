@@ -389,32 +389,86 @@ export default function Cadastros() {
           </TabsContent>
 
           <TabsContent value="equipamentos" className="m-0">
-            <Table>
-              <TableHeader><TableRow><TableHead>Equipamento</TableHead><TableHead>Marca</TableHead><TableHead>Certificado / Série</TableHead><TableHead className="text-right">Ações</TableHead></TableRow></TableHeader>
-              <TableBody>
-                {equipamentos_ho.length === 0 ? (
-                  <TableRow><TableCell colSpan={4} className="text-center py-8">Nenhum equipamento cadastrado</TableCell></TableRow>
-                ) : (
-                  equipamentos_ho.map((e: any) => (
-                    <TableRow key={e.id}>
-                      <TableCell className="font-medium">{e.nome}</TableCell>
-                      <TableCell>{e.marca || "—"}</TableCell>
-                      <TableCell>{e.certificado || "—"}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
-                            <Edit className="h-4 w-4" />
+            {equipamentos_ho.length === 0 ? (
+              <div className="text-center py-12 text-muted-foreground border rounded-lg">
+                Nenhum equipamento cadastrado. Clique em "+ Novo" para começar.
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {equipamentos_ho.map((e: any) => {
+                  const registros = e.equipamentos_ho_registros || [];
+                  return (
+                    <div key={e.id} className="border rounded-lg p-4 bg-card flex flex-col gap-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <Wrench className="w-4 h-4 text-accent shrink-0" />
+                          <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-accent"
+                            title="Adicionar registro"
+                            onClick={() => {
+                              setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                              setRegistrarModal({ open: true, equipamentoId: e.id, equipamentoNome: e.nome });
+                            }}
+                          >
+                            <Plus className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}>
-                            <Trash2 className="h-4 w-4" />
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}>
+                            <Edit className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}>
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                      </div>
+
+                      {registros.length === 0 ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="self-start gap-1.5"
+                          onClick={() => {
+                            setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+                            setRegistrarModal({ open: true, equipamentoId: e.id, equipamentoNome: e.nome });
+                          }}
+                        >
+                          <Plus className="w-3.5 h-3.5" /> Registrar
+                        </Button>
+                      ) : (
+                        <div className="space-y-2 text-xs">
+                          {registros.map((r: any) => (
+                            <div key={r.id} className="flex items-start justify-between gap-2 border rounded-md p-2 bg-muted/30">
+                              <div className="space-y-0.5 min-w-0">
+                                <div><span className="text-muted-foreground">Nº Série:</span> <span className="font-medium">{r.numero_serie}</span></div>
+                                <div><span className="text-muted-foreground">Marca/Modelo:</span> {r.marca_modelo || "—"}</div>
+                                <div><span className="text-muted-foreground">Calibração:</span> {r.data_calibracao ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-6 w-6 text-muted-foreground hover:text-destructive shrink-0"
+                                onClick={async () => {
+                                  const { error } = await supabase.from("equipamentos_ho_registros").delete().eq("id", r.id);
+                                  if (error) { toast.error("Erro ao excluir registro"); return; }
+                                  queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
+                                  toast.success("Registro excluído");
+                                }}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="unidades" className="m-0">
