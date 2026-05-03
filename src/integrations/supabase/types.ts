@@ -22,6 +22,7 @@ export type Database = {
           crea: string | null
           created_at: string
           created_by: string | null
+          current_step: number
           data_elaboracao: string | null
           documento_id: string | null
           empresa_id: string | null
@@ -39,6 +40,7 @@ export type Database = {
           crea?: string | null
           created_at?: string
           created_by?: string | null
+          current_step?: number
           data_elaboracao?: string | null
           documento_id?: string | null
           empresa_id?: string | null
@@ -56,6 +58,7 @@ export type Database = {
           crea?: string | null
           created_at?: string
           created_by?: string | null
+          current_step?: number
           data_elaboracao?: string | null
           documento_id?: string | null
           empresa_id?: string | null

@@ -1,0 +1,1 @@
+ALTER TABLE public.aet_documentos ADD COLUMN IF NOT EXISTS current_step integer NOT NULL DEFAULT 0;
