@@ -1641,7 +1641,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
               const _eqRisco = equipamentos.find((e: any) => e.id === r.equipamento_id);
-              const equipamentoNomeRisco = _eqRisco ? (_eqRisco.tipo === "Outro" ? _eqRisco.nome : (_eqRisco.tipo || _eqRisco.nome)) : "";
+              const equipamentoNomeRisco = getEquipamentoDisplayName(_eqRisco);
               const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
@@ -3852,7 +3852,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                       updated[eqi] = {
                                         ...updated[eqi],
                                         equipamento_id: v,
-                                        nome_equipamento: eqObj ? (eqObj.tipo === "Outro" ? eqObj.nome : (eqObj.tipo || eqObj.nome)) : "",
+                                        nome_equipamento: getEquipamentoDisplayName(eqObj),
                                         registro_id: "",
                                         serie_equipamento: "",
                                         modelo_equipamento: "",
