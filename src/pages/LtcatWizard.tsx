@@ -4767,7 +4767,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         )}
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Colaborador</Label>
-                          <Input placeholder="Nome" value={res.colaborador} onChange={e => {
+                          <Input placeholder="Nome" value={res.colaborador || ""} onChange={e => {
                             const updated = [...tempResultados];
                             updated[index].colaborador = e.target.value;
                             setTempResultados(updated);
