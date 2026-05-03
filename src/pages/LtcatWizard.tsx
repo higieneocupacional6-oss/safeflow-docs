@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1461,6 +1461,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             equipamentos: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
               componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
+              componente: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
               resultado: res.resultado || res.aren_resultado || "",
               unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
@@ -1469,6 +1470,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || "",
               situacao,
               cod_gfip: res.cod_gfip || "",
+              codigo_gfip: res.cod_gfip || "",
               tempo_coleta: res.tempo_coleta || (r as any).tempo_coleta || "",
               unidade_tempo_coleta: res.unidade_tempo_coleta || (r as any).unidade_tempo_coleta || "",
               metodologia_utilizada: res.metodologia_utilizada || tecnicas.find((t: any) => t.id === r.tecnica_id)?.nome || "",
@@ -1610,6 +1612,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 rows.push({
                   ...baseRow,
                   componente_avaliado: c.componente || c.nome_componente || "",
+                  componente: c.componente || c.nome_componente || "",
                   resultado: c.resultado != null ? String(c.resultado) : "",
                   unidade_resultado: uRes,
                   unidade: uRes,
@@ -1617,6 +1620,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   unidade_limite: uLim,
                   situacao,
                   cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                  codigo_gfip: c.cod_gfip || rc.cod_gfip || "",
                 });
               });
             });
@@ -3111,6 +3115,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                         </div>
 
                                         <div className="flex items-center gap-2">
+                                          <Button
+                                            size="sm" variant="ghost" className="h-8 w-8 p-0 text-accent hover:bg-accent/10 rounded-lg"
+                                            title="Editar este risco"
+                                            onClick={() => openRiskModal(setores.find(s => s.id === firstEntry.setor_id), firstEntry)}
+                                          >
+                                            <Pencil className="w-3.5 h-3.5" />
+                                          </Button>
                                           <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
                                             onClick={() => {
