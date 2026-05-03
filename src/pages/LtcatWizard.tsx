@@ -3621,36 +3621,37 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           </div>
                           <div>
                             <Label>Equipamento</Label>
-                            {(() => {
-                              const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
-                              const seen = new Set<string>();
-                              const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => {
-                                if (!e?.id || seen.has(e.id)) return false;
-                                seen.add(e.id);
-                                if (tiposPermitidos.length === 0) return true;
-                                return tiposPermitidos.includes(e.tipo);
-                              });
-                              return (
-                                <Select value={riskForm.equipamento_id || ""} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
-                                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                  <SelectContent>
-                                    {equipamentosFiltrados.length === 0 ? (
-                                      <SelectItem value="__none" disabled>
-                                        {tiposPermitidos.length > 0
-                                          ? `Nenhum equipamento do tipo: ${tiposPermitidos.join(", ")}`
-                                          : "Nenhum equipamento cadastrado"}
-                                      </SelectItem>
-                                    ) : (
-                                      equipamentosFiltrados.map((e: any) => (
-                                        <SelectItem key={e.id} value={e.id}>
-                                          {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
-                                        </SelectItem>
-                                      ))
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              );
-                            })()}
+                             {(() => {
+                               const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                               const seen = new Set<string>();
+                               const todos = (equipamentos as any[]).filter((e: any) => {
+                                 if (!e?.id || seen.has(e.id)) return false;
+                                 seen.add(e.id);
+                                 return true;
+                               });
+                               const preferidos = tiposPermitidos.length > 0
+                                 ? todos.filter((e: any) => tiposPermitidos.includes(e.tipo))
+                                 : todos;
+                               // Fallback: se nenhum equipamento do tipo preferido foi cadastrado,
+                               // mostra TODOS para o usuário poder selecionar mesmo assim.
+                               const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
+                               return (
+                                 <Select value={riskForm.equipamento_id || ""} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
+                                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                   <SelectContent>
+                                     {equipamentosFiltrados.length === 0 ? (
+                                       <SelectItem value="__none" disabled>Nenhum equipamento cadastrado</SelectItem>
+                                     ) : (
+                                       equipamentosFiltrados.map((e: any) => (
+                                         <SelectItem key={e.id} value={e.id}>
+                                           {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
+                                         </SelectItem>
+                                       ))
+                                     )}
+                                   </SelectContent>
+                                 </Select>
+                               );
+                             })()}
                           </div>
                         </div>
                         {(() => {
@@ -3849,30 +3850,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   >
                                     <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
                                     <SelectContent>
-                                      {(() => {
-                                        const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
-                                        const seen = new Set<string>();
-                                        const lista = (equipamentos as any[]).filter((x: any) => {
-                                          if (!x?.id || seen.has(x.id)) return false;
-                                          seen.add(x.id);
-                                          if (tiposPermitidos.length === 0) return true;
-                                          return tiposPermitidos.includes(x.tipo);
-                                        });
-                                        if (lista.length === 0) {
-                                          return (
-                                            <SelectItem value="__none" disabled>
-                                              {tiposPermitidos.length > 0
-                                                ? `Nenhum equipamento do tipo: ${tiposPermitidos.join(", ")}`
-                                                : "Nenhum equipamento"}
-                                            </SelectItem>
-                                          );
-                                        }
-                                        return lista.map((x: any) => (
-                                          <SelectItem key={x.id} value={x.id}>
-                                            {x.tipo === "Outro" ? `Outro — ${x.nome}` : (x.tipo || x.nome)}
-                                          </SelectItem>
-                                        ));
-                                      })()}
+                                       {(() => {
+                                         const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                                         const seen = new Set<string>();
+                                         const todos = (equipamentos as any[]).filter((x: any) => {
+                                           if (!x?.id || seen.has(x.id)) return false;
+                                           seen.add(x.id);
+                                           return true;
+                                         });
+                                         const preferidos = tiposPermitidos.length > 0
+                                           ? todos.filter((x: any) => tiposPermitidos.includes(x.tipo))
+                                           : todos;
+                                         const lista = preferidos.length > 0 ? preferidos : todos;
+                                         if (lista.length === 0) {
+                                           return (
+                                             <SelectItem value="__none" disabled>Nenhum equipamento</SelectItem>
+                                           );
+                                         }
+                                         return lista.map((x: any) => (
+                                           <SelectItem key={x.id} value={x.id}>
+                                             {x.tipo === "Outro" ? `Outro — ${x.nome}` : (x.tipo || x.nome)}
+                                           </SelectItem>
+                                         ));
+                                       })()}
                                     </SelectContent>
                                   </Select>
                                 </div>
@@ -4572,16 +4572,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     <div key={res.id} className="group animate-in fade-in slide-in-from-top-1 bg-muted/10 p-4 rounded-lg border space-y-3">
                       {/* LINHA 1: Data, Nº Série Equip., Colaborador, Função, Dose */}
                       {(() => {
-                        const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
-                        const showSerie = (riskForm.tipo_avaliacao || "").toLowerCase().includes("quanti") && tiposPermitidos.length > 0;
-                        const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => tiposPermitidos.includes(e.tipo));
-                        const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
-                          const eqLabel = e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome);
-                          return (e.equipamentos_ho_registros || []).map((r: any) => ({
-                            id: r.id, label: `${r.numero_serie} — ${eqLabel}`, equipamento_id: e.id, equipamento_nome: eqLabel,
-                            numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
-                          }));
-                        });
+                         const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                         const showSerie = (riskForm.tipo_avaliacao || "").toLowerCase().includes("quanti");
+                         const todos = (equipamentos as any[]);
+                         const preferidos = tiposPermitidos.length > 0
+                           ? todos.filter((e: any) => tiposPermitidos.includes(e.tipo))
+                           : todos;
+                         // Fallback: se não houver equipamento do tipo esperado, usa todos
+                         const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
+                         const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                           const eqLabel = e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome);
+                           return (e.equipamentos_ho_registros || []).map((r: any) => ({
+                             id: r.id, label: `${r.numero_serie} — ${eqLabel}`, equipamento_id: e.id, equipamento_nome: eqLabel,
+                             numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
+                           }));
+                         });
                         return (
                       <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
