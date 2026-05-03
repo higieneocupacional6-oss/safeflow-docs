@@ -750,6 +750,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (error) throw error;
       return data;
     },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: pareceresCadastro = [] } = useQuery({
@@ -1424,6 +1426,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }];
     setTempFuncaoRows(initial);
     setComponentesModalOpen(true);
+  };
+
+  const openResultadosModal = () => {
+    const initial = riskForm.resultados_detalhados?.length
+      ? riskForm.resultados_detalhados.map((row: any) => ({
+          ...row,
+          equipamento_registro_id:
+            row.equipamento_registro_id || getResultadoEquipamentoRegistroId(row, equipamentos as any[]),
+        }))
+      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }];
+
+    setTempResultados(initial);
+    setResultsModalOpen(true);
   };
 
   const openVibracaoModal = () => {
