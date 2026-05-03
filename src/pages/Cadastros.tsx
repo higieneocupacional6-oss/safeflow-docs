@@ -42,6 +42,9 @@ export default function Cadastros() {
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [parecerModalOpen, setParecerModalOpen] = useState(false);
+  const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
+  const [parecerSaving, setParecerSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
