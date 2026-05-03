@@ -894,11 +894,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
+              resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
               ...r,
               id: r.id,
               ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
-              equipamento_nome: (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
+              equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
             })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
@@ -1499,7 +1499,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
           const _eqRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id);
-          const equipamentoNomeRiscoBase = _eqRiscoBase ? (_eqRiscoBase.tipo === "Outro" ? _eqRiscoBase.nome : (_eqRiscoBase.tipo || _eqRiscoBase.nome)) : "";
+          const equipamentoNomeRiscoBase = getEquipamentoDisplayName(_eqRiscoBase);
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
@@ -1590,7 +1590,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               atividade_avaliada: res.atividade_avaliada || res.tipo_atividade || "",
               taxa_metabolica: res.taxa_metabolica || "",
               tempo_exposicao: res.tempo_exposicao || "",
-              equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : (res.equipamento_nome || ""); })(),
+              equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
               ibutg_resultado: res.ibutg_resultado || "",
               ibutg_tipo: res.ibutg_tipo || "",
@@ -1849,8 +1849,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           medidas_controle: first.medidas_controle || "",
           tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           tecnica_amostragem: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
-          equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : ""; })(),
-          nome_equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : ""; })(),
+          equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
+          nome_equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
           serie_equipamento: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.serie_equipamento || "",
           data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
           codigo_esocial: first.codigo_esocial || "",
