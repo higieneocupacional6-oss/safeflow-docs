@@ -636,7 +636,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: equipamentos = [] } = useQuery({
     queryKey: ["equipamentos_ho"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipamentos_ho").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("equipamentos_ho")
+        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao)")
+        .order("nome");
       if (error) throw error;
       return data;
     },
