@@ -862,6 +862,8 @@ export default function Cadastros() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ControleEquipamentosModal open={controleOpen} onOpenChange={setControleOpen} />
     </div>
   );
 }
