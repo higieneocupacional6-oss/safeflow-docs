@@ -2610,25 +2610,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
-      let docId: string | undefined;
-      if (isEditMode && documentoId) {
-        await supabase.from("documentos").update({
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate,
-          status: "rascunho",
-        }).eq("id", documentoId);
-        docId = documentoId;
+      const baseFields: any = {
+        empresa_id: empresaId || null,
+        empresa_nome: empresaNome,
+        contrato_id: contratoId || null,
+        template_id: selectedTemplate,
+        responsavel_tecnico: responsavel || null,
+        crea: crea || null,
+        cargo: cargo || null,
+        data_elaboracao: dataElab || null,
+        alteracoes_documento: alteracoesDoc || null,
+        revisoes: revisoes || [],
+        current_step: step,
+        status: "rascunho",
+      };
+
+      let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
+      if (docId) {
+        await supabase.from("documentos").update(baseFields).eq("id", docId);
       } else {
         const { data: inserted } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          template_id: selectedTemplate,
           file_path: null,
-          status: "rascunho",
+          ...baseFields,
         }).select("id").single();
         docId = inserted?.id;
+        if (docId) setCurrentDraftId(docId);
       }
       if (docId) await persistAvaliacoes(docId);
 
