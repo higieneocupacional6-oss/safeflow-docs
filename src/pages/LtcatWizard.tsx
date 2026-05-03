@@ -3621,36 +3621,37 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           </div>
                           <div>
                             <Label>Equipamento</Label>
-                            {(() => {
-                              const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
-                              const seen = new Set<string>();
-                              const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => {
-                                if (!e?.id || seen.has(e.id)) return false;
-                                seen.add(e.id);
-                                if (tiposPermitidos.length === 0) return true;
-                                return tiposPermitidos.includes(e.tipo);
-                              });
-                              return (
-                                <Select value={riskForm.equipamento_id || ""} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
-                                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                                  <SelectContent>
-                                    {equipamentosFiltrados.length === 0 ? (
-                                      <SelectItem value="__none" disabled>
-                                        {tiposPermitidos.length > 0
-                                          ? `Nenhum equipamento do tipo: ${tiposPermitidos.join(", ")}`
-                                          : "Nenhum equipamento cadastrado"}
-                                      </SelectItem>
-                                    ) : (
-                                      equipamentosFiltrados.map((e: any) => (
-                                        <SelectItem key={e.id} value={e.id}>
-                                          {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
-                                        </SelectItem>
-                                      ))
-                                    )}
-                                  </SelectContent>
-                                </Select>
-                              );
-                            })()}
+                             {(() => {
+                               const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                               const seen = new Set<string>();
+                               const todos = (equipamentos as any[]).filter((e: any) => {
+                                 if (!e?.id || seen.has(e.id)) return false;
+                                 seen.add(e.id);
+                                 return true;
+                               });
+                               const preferidos = tiposPermitidos.length > 0
+                                 ? todos.filter((e: any) => tiposPermitidos.includes(e.tipo))
+                                 : todos;
+                               // Fallback: se nenhum equipamento do tipo preferido foi cadastrado,
+                               // mostra TODOS para o usuário poder selecionar mesmo assim.
+                               const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
+                               return (
+                                 <Select value={riskForm.equipamento_id || ""} onValueChange={(v) => setRiskForm({ ...riskForm, equipamento_id: v })}>
+                                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                                   <SelectContent>
+                                     {equipamentosFiltrados.length === 0 ? (
+                                       <SelectItem value="__none" disabled>Nenhum equipamento cadastrado</SelectItem>
+                                     ) : (
+                                       equipamentosFiltrados.map((e: any) => (
+                                         <SelectItem key={e.id} value={e.id}>
+                                           {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
+                                         </SelectItem>
+                                       ))
+                                     )}
+                                   </SelectContent>
+                                 </Select>
+                               );
+                             })()}
                           </div>
                         </div>
                         {(() => {
