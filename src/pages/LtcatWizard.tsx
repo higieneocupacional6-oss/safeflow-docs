@@ -2392,7 +2392,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const avId = avRow.id;
 
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
-            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento, ...extra(x, i) }));
+            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(r.resultados_componentes, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
