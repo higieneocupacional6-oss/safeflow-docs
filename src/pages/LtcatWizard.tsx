@@ -119,6 +119,19 @@ const isAgentVCI = (agentNome: string) => {
   return n.includes("corpo inteiro") || n.includes("vci");
 };
 
+const getEquipamentoDisplayName = (equipamento: any) => {
+  if (!equipamento) return "";
+  if (equipamento.tipo === "Outro") {
+    return equipamento.nome ? `Outro — ${equipamento.nome}` : "Outro";
+  }
+  return equipamento.tipo || equipamento.nome || "";
+};
+
+const getEquipamentoNumeroSerie = (registro: any) => {
+  const numero = registro?.numero_serie;
+  return typeof numero === "string" ? numero.trim() : "";
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
@@ -881,11 +894,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
+              resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
               ...r,
               id: r.id,
               ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
-              equipamento_nome: (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)?.nome || "",
+              equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
             })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
             epi_id: epi.epi_id || "",
@@ -1486,7 +1499,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
           const _eqRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id);
-          const equipamentoNomeRiscoBase = _eqRiscoBase ? (_eqRiscoBase.tipo === "Outro" ? _eqRiscoBase.nome : (_eqRiscoBase.tipo || _eqRiscoBase.nome)) : "";
+          const equipamentoNomeRiscoBase = getEquipamentoDisplayName(_eqRiscoBase);
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
@@ -1577,7 +1590,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               atividade_avaliada: res.atividade_avaliada || res.tipo_atividade || "",
               taxa_metabolica: res.taxa_metabolica || "",
               tempo_exposicao: res.tempo_exposicao || "",
-              equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : (res.equipamento_nome || ""); })(),
+              equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
               ibutg_resultado: res.ibutg_resultado || "",
               ibutg_tipo: res.ibutg_tipo || "",
@@ -1628,7 +1641,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
               const _eqRisco = equipamentos.find((e: any) => e.id === r.equipamento_id);
-              const equipamentoNomeRisco = _eqRisco ? (_eqRisco.tipo === "Outro" ? _eqRisco.nome : (_eqRisco.tipo || _eqRisco.nome)) : "";
+              const equipamentoNomeRisco = getEquipamentoDisplayName(_eqRisco);
               const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
@@ -1836,8 +1849,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           medidas_controle: first.medidas_controle || "",
           tecnica: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
           tecnica_amostragem: tecnicas.find(t => t.id === first.tecnica_id)?.nome || "",
-          equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : ""; })(),
-          nome_equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return _e ? (_e.tipo === "Outro" ? _e.nome : (_e.tipo || _e.nome)) : ""; })(),
+          equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
+          nome_equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
           serie_equipamento: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.serie_equipamento || "",
           data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
           codigo_esocial: first.codigo_esocial || "",
@@ -3642,11 +3655,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                      {equipamentosFiltrados.length === 0 ? (
                                        <SelectItem value="__none" disabled>Nenhum equipamento cadastrado</SelectItem>
                                      ) : (
-                                       equipamentosFiltrados.map((e: any) => (
-                                         <SelectItem key={e.id} value={e.id}>
-                                           {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
-                                         </SelectItem>
-                                       ))
+                                        equipamentosFiltrados.map((e: any) => (
+                                          <SelectItem key={e.id} value={e.id}>
+                                            {getEquipamentoDisplayName(e)}
+                                          </SelectItem>
+                                        ))
                                      )}
                                    </SelectContent>
                                  </Select>
@@ -3839,7 +3852,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                       updated[eqi] = {
                                         ...updated[eqi],
                                         equipamento_id: v,
-                                        nome_equipamento: eqObj ? (eqObj.tipo === "Outro" ? eqObj.nome : (eqObj.tipo || eqObj.nome)) : "",
+                                        nome_equipamento: getEquipamentoDisplayName(eqObj),
                                         registro_id: "",
                                         serie_equipamento: "",
                                         modelo_equipamento: "",
@@ -3867,11 +3880,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                              <SelectItem value="__none" disabled>Nenhum equipamento</SelectItem>
                                            );
                                          }
-                                         return lista.map((x: any) => (
-                                           <SelectItem key={x.id} value={x.id}>
-                                             {x.tipo === "Outro" ? `Outro — ${x.nome}` : (x.tipo || x.nome)}
-                                           </SelectItem>
-                                         ));
+                                          return lista.map((x: any) => (
+                                            <SelectItem key={x.id} value={x.id}>
+                                              {getEquipamentoDisplayName(x)}
+                                            </SelectItem>
+                                          ));
                                        })()}
                                     </SelectContent>
                                   </Select>
@@ -4580,13 +4593,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                            : todos;
                          // Fallback: se não houver equipamento do tipo esperado, usa todos
                          const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
-                         const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
-                           const eqLabel = e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome);
-                           return (e.equipamentos_ho_registros || []).map((r: any) => ({
-                             id: r.id, label: `${r.numero_serie} — ${eqLabel}`, equipamento_id: e.id, equipamento_nome: eqLabel,
-                             numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
-                           }));
-                         });
+                          const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                            const eqLabel = getEquipamentoDisplayName(e);
+                            return (e.equipamentos_ho_registros || [])
+                              .map((r: any) => {
+                                const numeroSerie = getEquipamentoNumeroSerie(r);
+                                if (!numeroSerie) return null;
+                                return {
+                                  id: r.id,
+                                  label: eqLabel ? `${numeroSerie} — ${eqLabel}` : numeroSerie,
+                                  equipamento_id: e.id,
+                                  equipamento_nome: eqLabel,
+                                  numero_serie: numeroSerie,
+                                  marca_modelo: r.marca_modelo,
+                                  data_calibracao: r.data_calibracao,
+                                };
+                              })
+                              .filter(Boolean);
+                          });
                         return (
                       <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
@@ -5209,15 +5233,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           onValueChange={v => {
                             const eq = equipamentos.find((e: any) => e.id === v);
                             const updated = [...tempCalorRows];
-                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: eq?.nome || "" };
+                            updated[ri] = { ...updated[ri], equipamento_id: v, equipamento_nome: getEquipamentoDisplayName(eq) || "" };
                             setTempCalorRows(updated);
                           }}
                         >
                           <SelectTrigger className="mt-1 h-8 text-sm"><SelectValue placeholder="Selecione (cadastro)..." /></SelectTrigger>
                           <SelectContent>
-                            {equipamentos.map((eq: any) => (
-                              <SelectItem key={eq.id} value={eq.id}>{eq.nome}</SelectItem>
-                            ))}
+                              {equipamentos.map((eq: any) => (
+                                <SelectItem key={eq.id} value={eq.id}>{getEquipamentoDisplayName(eq)}</SelectItem>
+                              ))}
                           </SelectContent>
                         </Select>
                       </div>
