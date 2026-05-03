@@ -4463,8 +4463,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     
                     return (
                     <div key={res.id} className="group animate-in fade-in slide-in-from-top-1 bg-muted/10 p-4 rounded-lg border space-y-3">
-                      {/* LINHA 1: Data, Colaborador, Função, Dose */}
-                      <div className="grid grid-cols-4 gap-3 items-end">
+                      {/* LINHA 1: Data, Nº Série Equip., Colaborador, Função, Dose */}
+                      {(() => {
+                        const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                        const showSerie = (riskForm.tipo_avaliacao || "").toLowerCase().includes("quanti") && tiposPermitidos.length > 0;
+                        const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => tiposPermitidos.includes(e.tipo));
+                        const serieOpts = equipamentosFiltrados.flatMap((e: any) =>
+                          (e.equipamentos_ho_registros || []).map((r: any) => ({
+                            id: r.id, label: `${r.numero_serie} — ${e.nome}`, equipamento_id: e.id, equipamento_nome: e.nome,
+                            numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
+                          }))
+                        );
+                        return (
+                      <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Data da Avaliação</Label>
                           <Input type="date" value={res.data_avaliacao || ""} onChange={e => {
@@ -4473,6 +4484,36 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                             setTempResultados(updated);
                           }} />
                         </div>
+                        {showSerie && (
+                          <div>
+                            <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
+                              Nº Série Equip. <span className="text-destructive">*</span>
+                            </Label>
+                            <Select value={res.equipamento_registro_id || ""} onValueChange={v => {
+                              const opt = serieOpts.find((o: any) => o.id === v);
+                              const updated = [...tempResultados];
+                              updated[index] = {
+                                ...updated[index],
+                                equipamento_registro_id: v,
+                                equipamento_id: opt?.equipamento_id || "",
+                                equipamento_nome: opt?.equipamento_nome || "",
+                                serie_equipamento: opt?.numero_serie || "",
+                                marca_modelo: opt?.marca_modelo || "",
+                                data_calibracao: opt?.data_calibracao || "",
+                              };
+                              setTempResultados(updated);
+                            }}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={serieOpts.length === 0 ? "Sem equip. cadastrado" : "Selecione"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {serieOpts.map((o: any) => (
+                                  <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Colaborador</Label>
                           <Input placeholder="Nome" value={res.colaborador} onChange={e => {
@@ -4507,6 +4548,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           }} />
                         </div>
                       </div>
+                        );
+                      })()}
                       {/* COMPONENTE AVALIADO — apenas para QUÍMICO */}
                       {(riskForm.tipo_agente || "").toUpperCase().includes("QUIMI") && (
                         <div className="grid grid-cols-1 gap-3 items-end">
