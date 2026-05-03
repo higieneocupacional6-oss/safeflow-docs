@@ -1627,7 +1627,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
-              const equipamentoNomeRisco = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
+              const _eqRisco = equipamentos.find((e: any) => e.id === r.equipamento_id);
+              const equipamentoNomeRisco = _eqRisco ? (_eqRisco.tipo === "Outro" ? _eqRisco.nome : (_eqRisco.tipo || _eqRisco.nome)) : "";
               const baseRow = {
                 ...base,
                 colaborador: rc.colaborador || "",
