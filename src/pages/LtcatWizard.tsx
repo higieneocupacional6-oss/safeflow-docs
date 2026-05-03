@@ -133,6 +133,34 @@ const getEquipamentoNumeroSerie = (registro: any) => {
   return typeof numero === "string" ? numero.trim() : "";
 };
 
+const getResultadoEquipamentoRegistroId = (resultado: any, equipamentos: any[]) => {
+  const directId = resultado?.equipamento_registro_id;
+  if (typeof directId === "string" && directId.trim()) return directId;
+
+  const numeroSerie = [resultado?.serie_equipamento, resultado?.numero_serie]
+    .find((value) => typeof value === "string" && value.trim())
+    ?.trim();
+
+  if (!numeroSerie) return "";
+
+  if (resultado?.equipamento_id) {
+    const equipamento = equipamentos.find((e: any) => e.id === resultado.equipamento_id);
+    const registro = equipamento?.equipamentos_ho_registros?.find(
+      (r: any) => getEquipamentoNumeroSerie(r) === numeroSerie,
+    );
+    if (registro?.id) return registro.id;
+  }
+
+  for (const equipamento of equipamentos) {
+    const registro = equipamento?.equipamentos_ho_registros?.find(
+      (r: any) => getEquipamentoNumeroSerie(r) === numeroSerie,
+    );
+    if (registro?.id) return registro.id;
+  }
+
+  return "";
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
@@ -869,6 +897,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const hydrateRow = (r: any) => ({
           ...r,
           funcao_nome: r.funcao_nome || funcaoMap.get(r.funcao_id)?.nome_funcao || "",
+          equipamento_registro_id: getResultadoEquipamentoRegistroId(r, equipamentos as any[]),
         });
 
         const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
