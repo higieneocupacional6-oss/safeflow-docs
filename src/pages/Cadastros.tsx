@@ -19,6 +19,10 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
+
+const REGISTRAR_MODAL_KEY = "cadastros:registrarCalibracao:modal";
+const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 
 // Mock data removed in favor of real database queries
 
