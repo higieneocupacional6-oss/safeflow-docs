@@ -1408,6 +1408,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             descricao_atividades: f?.descricao_atividades || "",
             descricao_atividade: f?.descricao_atividades || "", // alias
             equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+            equipamentos: equipamentosAvaliacaoLoop,
           };
         };
 
@@ -1450,6 +1451,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               descricao_atividades: f?.descricao_atividades || "",
               descricao_atividade: f?.descricao_atividades || "", // alias para template
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+            equipamentos: equipamentosAvaliacaoLoop,
               data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
               componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
@@ -1556,6 +1558,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 descricao_atividades: f?.descricao_atividades || "",
                 descricao_atividade: f?.descricao_atividades || "",
                 equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+            equipamentos: equipamentosAvaliacaoLoop,
                 // Loop dos componentes pertencentes a esta avaliação (rc atual)
                 componentes_amostra,
                 // Equipamento do risco (modal "Avaliação de Risco por Setor")
@@ -1627,6 +1630,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               descricao_atividades: f?.descricao_atividades || "",
               descricao_atividade: f?.descricao_atividades || "",
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+            equipamentos: equipamentosAvaliacaoLoop,
               data_avaliacao: "",
               componente_avaliado: item.componente_avaliado || "",
               descricao_avaliacao: (item as any).descricao_avaliacao || (r as any).descricao_tecnica || "",
