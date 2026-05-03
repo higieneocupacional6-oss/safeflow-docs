@@ -22,6 +22,7 @@ import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
 import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
+import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
