@@ -70,6 +70,7 @@ export default function Cadastros() {
     { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
     { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho"] },
     { table: "unidades", queryKey: ["unidades"] },
+    { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
   ]);
