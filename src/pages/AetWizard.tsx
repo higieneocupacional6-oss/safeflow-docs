@@ -248,6 +248,7 @@ export default function AetWizard() {
 
   // Identificação
   const [empresaId, setEmpresaId] = useState("");
+  const [contratoId, setContratoId] = useState<string>("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -288,6 +289,22 @@ export default function AetWizard() {
       if (error) throw error;
       return data;
     },
+  });
+
+  // Contratos da empresa
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-aet", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id,numero_contrato,nome_contratante")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!empresaId,
   });
 
   // Setores da empresa
@@ -350,6 +367,7 @@ export default function AetWizard() {
         if (data) {
           setAetId(data.id);
           setEmpresaId(data.empresa_id || "");
+          setContratoId((data as any).contrato_id || "");
           setResponsavelTecnico(data.responsavel_tecnico || "");
           setCrea(data.crea || "");
           setCargo(data.cargo || "");
@@ -384,6 +402,23 @@ export default function AetWizard() {
   const empresaSelecionada = empresas.find((e: any) => e.id === empresaId);
   const empresaNome = empresaSelecionada?.razao_social || "";
   const allSetoresSalvos = setoresAet.length > 0 && setoresAet.every((s) => s._salvo);
+
+  // Autosave silencioso a cada 3 minutos
+  useEffect(() => {
+    if (!empresaId) return;
+    const interval = setInterval(() => {
+      persist("rascunho", true);
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, contratoId, responsavelTecnico, crea, cargo, dataElaboracao, alteracoes, revisoes, setoresAet, aetId, docId]);
+
+  // Autosave ao trocar de tela (editor de setor / gerar)
+  useEffect(() => {
+    if (!empresaId || !aetId) return;
+    persist("rascunho", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingSetorIdx, showGerar]);
 
   const handleConfirmSetores = () => {
     const novos = setoresEmpresa
@@ -446,6 +481,7 @@ export default function AetWizard() {
       const payload = {
         documento_id: docIdLocal,
         empresa_id: empresaId,
+        contrato_id: contratoId || null,
         responsavel_tecnico: responsavelTecnico,
         crea,
         cargo,
@@ -526,20 +562,31 @@ export default function AetWizard() {
       numero_funcionarios_fem: emp?.numero_funcionarios_fem?.toString() || "",
       jornada_trabalho: emp?.jornada_trabalho || "",
 
-      // ─── CONTRATO (raiz, padrão LTCAT) ───
-      nome_contratante: emp?.nome_contratante || "",
-      cnpj_contratante: emp?.cnpj_contratante || "",
-      numero_contrato: emp?.numero_contrato || "",
-      vigencia_inicio: formatDate(emp?.vigencia_inicio),
-      vigencia_fim: formatDate(emp?.vigencia_fim),
-      escopo_contrato: emp?.escopo_contrato || "",
-      gestor_nome: emp?.gestor_nome || "",
-      gestor_email: emp?.gestor_email || "",
-      gestor_telefone: emp?.gestor_telefone || "",
-      fiscal_nome: emp?.fiscal_nome || "",
-      fiscal_email: emp?.fiscal_email || "",
-      fiscal_telefone: emp?.fiscal_telefone || "",
-      local_trabalho: emp?.local_trabalho || "",
+      // ─── CONTRATO (preferir tabela contratos quando vinculado, senão legado da empresa) ───
+      ...(() => {
+        const c: any = contratosEmpresa.find((x: any) => x.id === contratoId) || {};
+        const pick = (a: any, b: any) => (a !== undefined && a !== null && a !== "" ? a : (b ?? ""));
+        return {
+          nome_contratante: pick(c.nome_contratante, emp?.nome_contratante),
+          cnpj_contratante: pick(c.cnpj_contratante, emp?.cnpj_contratante),
+          numero_contrato: pick(c.numero_contrato, emp?.numero_contrato),
+          vigencia_inicio: formatDate(c.vigencia_inicio || emp?.vigencia_inicio),
+          vigencia_fim: formatDate(c.vigencia_fim || emp?.vigencia_fim),
+          escopo_contrato: pick(c.escopo_contrato, emp?.escopo_contrato),
+          gestor_nome: pick(c.gestor_nome, emp?.gestor_nome),
+          gestor_email: pick(c.gestor_email, emp?.gestor_email),
+          gestor_telefone: pick(c.gestor_telefone, emp?.gestor_telefone),
+          fiscal_nome: pick(c.fiscal_nome, emp?.fiscal_nome),
+          fiscal_email: pick(c.fiscal_email, emp?.fiscal_email),
+          fiscal_telefone: pick(c.fiscal_telefone, emp?.fiscal_telefone),
+          preposto_nome_contrato: pick(c.preposto_nome, emp?.preposto_nome),
+          preposto_email_contrato: pick(c.preposto_email, emp?.preposto_email),
+          preposto_telefone_contrato: pick(c.preposto_telefone, emp?.preposto_telefone),
+          local_trabalho: pick(c.local_trabalho, emp?.local_trabalho),
+          jornada_trabalho_contrato: pick(c.jornada_trabalho, emp?.jornada_trabalho),
+          total_funcionarios_contrato: (c.total_funcionarios ?? emp?.total_funcionarios ?? "").toString(),
+        };
+      })(),
 
       responsavel_tecnico: responsavelTecnico || "",
       crea: crea || "",
@@ -1390,7 +1437,7 @@ export default function AetWizard() {
         <div className="grid md:grid-cols-2 gap-3">
           <div className="md:col-span-2">
             <Label>Empresa *</Label>
-            <Select value={empresaId} onValueChange={setEmpresaId}>
+            <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {empresas.map((e: any) => (
@@ -1398,6 +1445,27 @@ export default function AetWizard() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label>Contrato</Label>
+            <Select value={contratoId || "__none__"} onValueChange={(v) => setContratoId(v === "__none__" ? "" : v)} disabled={!empresaId}>
+              <SelectTrigger>
+                <SelectValue placeholder={empresaId ? "Selecione um contrato" : "Selecione a empresa primeiro"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Sem contrato —</SelectItem>
+                {contratosEmpresa.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.numero_contrato || "Contrato"} {c.nome_contratante ? `· ${c.nome_contratante}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {empresaId && contratosEmpresa.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Nenhum contrato cadastrado. Cadastre em Empresas & Contratos.
+              </p>
+            )}
           </div>
           <div>
             <Label>Responsável técnico *</Label>
