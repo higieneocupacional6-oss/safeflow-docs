@@ -4767,7 +4767,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         )}
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Colaborador</Label>
-                          <Input placeholder="Nome" value={res.colaborador} onChange={e => {
+                          <Input placeholder="Nome" value={res.colaborador || ""} onChange={e => {
                             const updated = [...tempResultados];
                             updated[index].colaborador = e.target.value;
                             setTempResultados(updated);
@@ -4775,7 +4775,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         </div>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Função Avaliada</Label>
-                          <Select value={res.funcao_id} onValueChange={v => {
+                          <Select value={res.funcao_id || ""} onValueChange={v => {
                             const updated = [...tempResultados];
                             updated[index].funcao_id = v;
                             const fn = funcoes.find((f: any) => f.id === v);
@@ -4824,7 +4824,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       <div className="grid grid-cols-4 gap-3 items-end">
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Resultado</Label>
-                          <Input type="number" placeholder="0.00" step="0.01" value={res.resultado} onChange={e => {
+                          <Input type="number" placeholder="0.00" step="0.01" value={res.resultado ?? ""} onChange={e => {
                             const updated = [...tempResultados];
                             updated[index].resultado = e.target.value;
                             setTempResultados(updated);
@@ -4832,7 +4832,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         </div>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Unidade</Label>
-                          <Select value={res.unidade_resultado_id} onValueChange={v => {
+                          <Select value={res.unidade_resultado_id || ""} onValueChange={v => {
                             const updated = [...tempResultados];
                             updated[index].unidade_resultado_id = v;
                             setTempResultados(updated);
@@ -4847,7 +4847,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         </div>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Limite (LT)</Label>
-                          <Input type="number" placeholder="0.00" step="0.01" value={res.limite_tolerancia} onChange={e => {
+                          <Input type="number" placeholder="0.00" step="0.01" value={res.limite_tolerancia ?? ""} onChange={e => {
                             const updated = [...tempResultados];
                             updated[index].limite_tolerancia = e.target.value;
                             setTempResultados(updated);
@@ -4855,7 +4855,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         </div>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Unid. Limite</Label>
-                          <Select value={res.unidade_limite_id} onValueChange={v => {
+                          <Select value={res.unidade_limite_id || ""} onValueChange={v => {
                             const updated = [...tempResultados];
                             updated[index].unidade_limite_id = v;
                             setTempResultados(updated);
