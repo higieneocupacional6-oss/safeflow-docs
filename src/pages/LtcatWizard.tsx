@@ -470,15 +470,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // Step 1
   const [empresaId, setEmpresaId] = useState("");
 
+  // 🔗 SINCRONIZAÇÃO LTCAT ↔ INSALUBRIDADE:
+  // Insalubridade é um "espelho ao vivo" do LTCAT — ambos consultam o mesmo
+  // pool de avaliações/pareceres da empresa (gravados como tipo_documento='ltcat').
+  // Periculosidade mantém seu próprio escopo isolado.
+  const tipoEscopoLeitura = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
+
   const { data: cachedPareceres = [] } = useQuery({
-    queryKey: ["ltcat_pareceres", empresaId, tipoDocumento],
+    queryKey: ["ltcat_pareceres", empresaId, tipoEscopoLeitura],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_pareceres")
         .select("*")
         .eq("empresa_id", empresaId)
-        .eq("tipo_documento", tipoDocumento)
+        .eq("tipo_documento", tipoEscopoLeitura)
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -487,19 +493,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const { data: dbEvaluations = [] } = useQuery({
-    queryKey: ["ltcat_avaliacoes", empresaId, tipoDocumento],
+    queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura],
     queryFn: async () => {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("ltcat_avaliacoes")
         .select("*")
         .eq("empresa_id", empresaId)
-        .eq("tipo_documento", tipoDocumento);
+        .eq("tipo_documento", tipoEscopoLeitura);
       if (error) throw error;
       return data;
     },
     enabled: !!empresaId,
   });
+
+  // Realtime: invalida cache quando LTCAT/Insalubridade da mesma empresa muda
+  useRealtimeSync(
+    [
+      { table: "ltcat_avaliacoes", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_pareceres", queryKey: ["ltcat_pareceres", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_componentes", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_calor", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+    ],
+    `ltcat-insal-sync-${empresaId || "none"}`
+  );
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
