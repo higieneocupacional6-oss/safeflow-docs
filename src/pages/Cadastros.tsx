@@ -877,15 +877,19 @@ export default function Cadastros() {
               disabled={equipmentSaving}
               onClick={async () => { 
                 if (tab === "equipamentos") {
-                  if (!equipmentForm.nome.trim()) { toast.error("Informe o nome do equipamento"); return; }
-                  const nomeNorm = equipmentForm.nome.trim().toLowerCase();
+                  if (!equipmentForm.tipo) { toast.error("Selecione o tipo de equipamento"); return; }
+                  const nomeFinal = equipmentForm.tipo === "Outro"
+                    ? equipmentForm.nome.trim()
+                    : equipmentForm.tipo;
+                  if (!nomeFinal) { toast.error("Informe o nome do equipamento"); return; }
+                  const nomeNorm = nomeFinal.toLowerCase();
                   const dup = (equipamentos_ho as any[]).find(
                     (i) => i.id !== editingId && (i.nome || "").trim().toLowerCase() === nomeNorm
                   );
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = { nome: equipmentForm.nome.trim(), tipo: equipmentForm.tipo || null };
+                    const payload = { nome: nomeFinal, tipo: equipmentForm.tipo || null };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
