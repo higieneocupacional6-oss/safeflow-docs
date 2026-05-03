@@ -998,7 +998,12 @@ export default function Cadastros() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setRegistrarModal({ ...registrarModal, open: false })}>Cancelar</Button>
+            <Button variant="outline" onClick={() => {
+              setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
+              setRegistrarForm({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
+              clearPersistedState(REGISTRAR_MODAL_KEY);
+              clearPersistedState(REGISTRAR_FORM_KEY);
+            }}>Cancelar</Button>
             <Button
               className="bg-accent text-accent-foreground hover:bg-accent/90"
               disabled={registrarSaving}
