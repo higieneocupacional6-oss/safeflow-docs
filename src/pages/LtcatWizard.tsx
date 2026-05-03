@@ -518,6 +518,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       { table: "ltcat_av_calor", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
+      { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
     ],
     `ltcat-insal-sync-${empresaId || "none"}`
   );
