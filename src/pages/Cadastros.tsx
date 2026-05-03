@@ -124,6 +124,8 @@ export default function Cadastros() {
       return data || [];
     },
   });
+
+  const { data: epiEpcList = [] } = useQuery({
     queryKey: ["epi_epc"],
     queryFn: async () => {
       const { data, error } = await supabase
