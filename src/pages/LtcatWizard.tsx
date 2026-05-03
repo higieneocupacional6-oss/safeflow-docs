@@ -2505,7 +2505,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           tipo: tipoDocLabel,
           file_path: null,
           ...baseFields,
-        }).select("id").single();
+        } as any).select("id").single();
         if (error) throw error;
         docId = inserted?.id || null;
         setCurrentDraftId(docId);
