@@ -464,6 +464,7 @@ export default function AetWizard() {
       const payload = {
         documento_id: docIdLocal,
         empresa_id: empresaId,
+        contrato_id: contratoId || null,
         responsavel_tecnico: responsavelTecnico,
         crea,
         cargo,
