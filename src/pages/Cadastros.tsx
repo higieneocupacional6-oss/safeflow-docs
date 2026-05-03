@@ -837,17 +837,8 @@ export default function Cadastros() {
             {tab === "equipamentos" && (
               <>
                 <div>
-                  <Label>Nome do Equipamento <span className="text-destructive">*</span></Label>
-                  <Input 
-                    className="mt-1" 
-                    placeholder="Ex: Dosímetro DOS-500" 
-                    value={equipmentForm.nome}
-                    onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
-                  />
-                </div>
-                <div>
                   <Label>Tipo de Equipamento <span className="text-destructive">*</span></Label>
-                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v })}>
+                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v, nome: v === "Outro" ? equipmentForm.nome : v })}>
                     <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
                     <SelectContent>
                       {EQUIPAMENTO_TIPOS.map((t) => (
@@ -859,6 +850,17 @@ export default function Cadastros() {
                     Define o filtro automático de Nº de Série por agente nos laudos.
                   </p>
                 </div>
+                {equipmentForm.tipo === "Outro" && (
+                  <div>
+                    <Label>Nome do Equipamento <span className="text-destructive">*</span></Label>
+                    <Input
+                      className="mt-1"
+                      placeholder="Ex: Equipamento personalizado"
+                      value={equipmentForm.nome}
+                      onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
+                    />
+                  </div>
+                )}
               </>
             )}
             {tab === "unidades" && (
@@ -875,15 +877,19 @@ export default function Cadastros() {
               disabled={equipmentSaving}
               onClick={async () => { 
                 if (tab === "equipamentos") {
-                  if (!equipmentForm.nome.trim()) { toast.error("Informe o nome do equipamento"); return; }
-                  const nomeNorm = equipmentForm.nome.trim().toLowerCase();
+                  if (!equipmentForm.tipo) { toast.error("Selecione o tipo de equipamento"); return; }
+                  const nomeFinal = equipmentForm.tipo === "Outro"
+                    ? equipmentForm.nome.trim()
+                    : equipmentForm.tipo;
+                  if (!nomeFinal) { toast.error("Informe o nome do equipamento"); return; }
+                  const nomeNorm = nomeFinal.toLowerCase();
                   const dup = (equipamentos_ho as any[]).find(
                     (i) => i.id !== editingId && (i.nome || "").trim().toLowerCase() === nomeNorm
                   );
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = { nome: equipmentForm.nome.trim(), tipo: equipmentForm.tipo || null };
+                    const payload = { nome: nomeFinal, tipo: equipmentForm.tipo || null };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
