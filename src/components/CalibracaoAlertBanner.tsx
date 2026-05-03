@@ -13,7 +13,7 @@ export function CalibracaoAlertBanner() {
   const [dismissed, setDismissed] = useState(false);
 
   const { data = [] } = useQuery({
-    queryKey: ["equipamentos_ho"],
+    queryKey: ["equipamentos_ho", "alerta-calibracao"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
