@@ -161,6 +161,31 @@ const getResultadoEquipamentoRegistroId = (resultado: any, equipamentos: any[]) 
   return "";
 };
 
+const hydrateResultadoEquipamento = (resultado: any, equipamentos: any[]) => {
+  const registroId = getResultadoEquipamentoRegistroId(resultado, equipamentos);
+  if (!registroId) return resultado;
+
+  for (const equipamento of equipamentos) {
+    const registro = equipamento?.equipamentos_ho_registros?.find((r: any) => r.id === registroId);
+    if (!registro) continue;
+
+    return {
+      ...resultado,
+      equipamento_registro_id: registroId,
+      equipamento_id: resultado?.equipamento_id || equipamento.id || "",
+      equipamento_nome: resultado?.equipamento_nome || getEquipamentoDisplayName(equipamento),
+      serie_equipamento: getEquipamentoNumeroSerie(registro),
+      marca_modelo: registro?.marca_modelo || resultado?.marca_modelo || "",
+      data_calibracao: registro?.data_calibracao || resultado?.data_calibracao || "",
+    };
+  }
+
+  return {
+    ...resultado,
+    equipamento_registro_id: registroId,
+  };
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
@@ -579,7 +604,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
-      { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
+      { table: "equipamentos_ho", queryKey: ["equipamentos_ho", "wizard-detalhado"] },
+      { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho", "wizard-detalhado"] },
     ],
     `ltcat-insal-sync-${empresaId || "none"}`
   );
@@ -741,7 +767,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const { data: equipamentos = [] } = useQuery({
-    queryKey: ["equipamentos_ho"],
+    queryKey: ["equipamentos_ho", "wizard-detalhado"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
@@ -896,11 +922,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           (extraFuncs || []).forEach((f: any) => funcaoMap.set(f.id, f));
         }
 
-        const hydrateRow = (r: any) => ({
-          ...r,
-          funcao_nome: r.funcao_nome || funcaoMap.get(r.funcao_id)?.nome_funcao || "",
-          equipamento_registro_id: getResultadoEquipamentoRegistroId(r, equipamentos as any[]),
-        });
+        const hydrateRow = (r: any) => {
+          const hydrated = hydrateResultadoEquipamento(r, equipamentos as any[]);
+          return {
+            ...hydrated,
+            funcao_nome: hydrated.funcao_nome || funcaoMap.get(hydrated.funcao_id)?.nome_funcao || "",
+          };
+        };
 
         const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
           const epi = epiByAv[av.id] || {};
@@ -1430,16 +1458,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   const openResultadosModal = () => {
     const initial = riskForm.resultados_detalhados?.length
-      ? riskForm.resultados_detalhados.map((row: any) => ({
-          ...row,
-          equipamento_registro_id:
-            row.equipamento_registro_id || getResultadoEquipamentoRegistroId(row, equipamentos as any[]),
-        }))
+      ? riskForm.resultados_detalhados.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]))
       : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }];
 
     setTempResultados(initial);
     setResultsModalOpen(true);
   };
+
+  useEffect(() => {
+    if (!resultsModalOpen || tempResultados.length === 0 || (equipamentos as any[]).length === 0) return;
+
+    setTempResultados((prev) => {
+      const hydrated = prev.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]));
+      const changed = hydrated.some((row: any, index: number) => JSON.stringify(row) !== JSON.stringify(prev[index]));
+      return changed ? hydrated : prev;
+    });
+  }, [resultsModalOpen, equipamentos, setTempResultados]);
 
   const openVibracaoModal = () => {
     const initial = riskForm.resultados_vibracao?.length
@@ -4657,8 +4691,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                            ? todos.filter((e: any) => tiposPermitidos.includes(e.tipo))
                            : todos;
                          // Fallback: se não houver equipamento do tipo esperado, usa todos
-                         const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
-                          const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                          const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
+                          const equipamentoRegistroSelecionado = getResultadoEquipamentoRegistroId(res, todos);
+                          const equipamentosComSelecionado = equipamentoRegistroSelecionado
+                            ? Array.from(new Map(
+                                [...equipamentosFiltrados, ...todos.filter((e: any) =>
+                                  (e.equipamentos_ho_registros || []).some((r: any) => r.id === equipamentoRegistroSelecionado),
+                                )].map((e: any) => [e.id, e]),
+                              ).values())
+                            : equipamentosFiltrados;
+                           const serieOpts = equipamentosComSelecionado.flatMap((e: any) => {
                             const eqLabel = getEquipamentoDisplayName(e);
                             return (e.equipamentos_ho_registros || [])
                               .map((r: any) => {
