@@ -66,9 +66,14 @@ export default function Empresas() {
         title="Empresas"
         description="Gerencie as empresas cadastradas no sistema"
         actions={
-          <Button onClick={handleNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Nova Empresa
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => navigate("/empresas-contratos")}>
+              <FileSignature className="w-4 h-4 mr-2" />Empresas & Contratos
+            </Button>
+            <Button onClick={handleNew} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Plus className="w-4 h-4 mr-2" />Nova Empresa
+            </Button>
+          </div>
         }
       />
 
