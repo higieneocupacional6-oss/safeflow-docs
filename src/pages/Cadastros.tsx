@@ -601,26 +601,6 @@ export default function Cadastros() {
                     onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
                   />
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <Label>Marca</Label>
-                    <Input 
-                      className="mt-1" 
-                      placeholder="Ex: Instrutherm" 
-                      value={equipmentForm.marca}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, marca: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <Label>Certificado / Nº Série</Label>
-                    <Input 
-                      className="mt-1" 
-                      placeholder="Ex: SN12345 / RBC 2024" 
-                      value={equipmentForm.certificado}
-                      onChange={e => setEquipmentForm({ ...equipmentForm, certificado: e.target.value })}
-                    />
-                  </div>
-                </div>
               </>
             )}
             {tab === "unidades" && (
@@ -645,11 +625,7 @@ export default function Cadastros() {
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = {
-                      nome: equipmentForm.nome.trim(),
-                      marca: equipmentForm.marca.trim() || null,
-                      certificado: equipmentForm.certificado?.trim() || null,
-                    };
+                    const payload = { nome: equipmentForm.nome.trim() };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;
