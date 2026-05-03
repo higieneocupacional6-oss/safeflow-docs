@@ -3867,7 +3867,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                         }
                                         return lista.map((x: any) => (
                                           <SelectItem key={x.id} value={x.id}>
-                                            {x.nome}{x.tipo ? ` — ${x.tipo}` : ""}
+                                            {x.tipo === "Outro" ? `Outro — ${x.nome}` : (x.tipo || x.nome)}
                                           </SelectItem>
                                         ));
                                       })()}
