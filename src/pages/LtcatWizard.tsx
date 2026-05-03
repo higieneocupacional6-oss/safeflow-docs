@@ -1259,8 +1259,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           parecer_tecnico: riskForm.parecer_tecnico,
           aposentadoria_especial: riskForm.aposentadoria_especial,
         }));
+        // Insalubridade espelha o LTCAT: salvar parecer no mesmo escopo
+        const tipoEscopoEscrita = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
         await supabase.from("ltcat_pareceres").upsert(
-          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoDocumento })),
+          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoEscopoEscrita })),
           { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
         );
       }
