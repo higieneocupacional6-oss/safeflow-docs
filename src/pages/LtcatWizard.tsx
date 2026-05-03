@@ -2479,7 +2479,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
-              tipo_documento: tipoDocumento,
+              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
               epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
               epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
               epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
