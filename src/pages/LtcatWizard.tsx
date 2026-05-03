@@ -1331,6 +1331,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setComponentesModalOpen(false);
       setVibracaoModalOpen(false);
       setCalorModalOpen(false);
+      clearWizardPersistedState();
       setStep(2);
     } catch (err) {
       toast.error("Erro ao salvar avaliação");
