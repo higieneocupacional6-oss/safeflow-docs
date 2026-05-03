@@ -436,6 +436,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // Escopo por documento (ou "new" para rascunhos).
   const persistScope = `ltcat-wizard:${modo}:${documentoId || "new"}`;
   const PK = (k: string) => `${persistScope}:${k}`;
+  const PERSISTED_KEYS = [
+    "riskDialogOpen", "resultsModalOpen", "tempResultados",
+    "componentesModalOpen", "tempFuncaoRows", "amostraModalOpen", "currentAmostraIndex", "tempComponentes",
+    "vibracaoModalOpen", "tempVibracaoRows", "vibracaoAmostraModalOpen", "currentVibracaoIndex", "tempVibAmostra",
+    "calorModalOpen", "tempCalorRows", "calorAmostraModalOpen", "currentCalorIndex", "tempCalorAmostra",
+    "riskForm",
+  ];
+  const clearWizardPersistedState = () => {
+    PERSISTED_KEYS.forEach(k => clearPersistedState(PK(k)));
+  };
 
   const [riskDialogOpen, setRiskDialogOpen] = usePersistedState<boolean>(PK("riskDialogOpen"), false);
   const [resultsModalOpen, setResultsModalOpen] = usePersistedState<boolean>(PK("resultsModalOpen"), false);
