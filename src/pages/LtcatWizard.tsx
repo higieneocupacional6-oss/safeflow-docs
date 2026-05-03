@@ -2499,7 +2499,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       let docId = currentDraftId;
       if (docId) {
-        await supabase.from("documentos").update(baseFields).eq("id", docId);
+        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
