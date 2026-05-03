@@ -689,6 +689,20 @@ export default function Cadastros() {
                     onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label>Tipo de Equipamento <span className="text-destructive">*</span></Label>
+                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectContent>
+                      {EQUIPAMENTO_TIPOS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Define o filtro automático de Nº de Série por agente nos laudos.
+                  </p>
+                </div>
               </>
             )}
             {tab === "unidades" && (
