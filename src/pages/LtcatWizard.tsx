@@ -161,6 +161,31 @@ const getResultadoEquipamentoRegistroId = (resultado: any, equipamentos: any[]) 
   return "";
 };
 
+const hydrateResultadoEquipamento = (resultado: any, equipamentos: any[]) => {
+  const registroId = getResultadoEquipamentoRegistroId(resultado, equipamentos);
+  if (!registroId) return resultado;
+
+  for (const equipamento of equipamentos) {
+    const registro = equipamento?.equipamentos_ho_registros?.find((r: any) => r.id === registroId);
+    if (!registro) continue;
+
+    return {
+      ...resultado,
+      equipamento_registro_id: registroId,
+      equipamento_id: resultado?.equipamento_id || equipamento.id || "",
+      equipamento_nome: resultado?.equipamento_nome || getEquipamentoDisplayName(equipamento),
+      serie_equipamento: getEquipamentoNumeroSerie(registro),
+      marca_modelo: registro?.marca_modelo || resultado?.marca_modelo || "",
+      data_calibracao: registro?.data_calibracao || resultado?.data_calibracao || "",
+    };
+  }
+
+  return {
+    ...resultado,
+    equipamento_registro_id: registroId,
+  };
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
