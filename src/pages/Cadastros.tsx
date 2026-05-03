@@ -23,7 +23,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
