@@ -1610,6 +1610,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 rows.push({
                   ...baseRow,
                   componente_avaliado: c.componente || c.nome_componente || "",
+                  componente: c.componente || c.nome_componente || "",
                   resultado: c.resultado != null ? String(c.resultado) : "",
                   unidade_resultado: uRes,
                   unidade: uRes,
@@ -1617,6 +1618,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   unidade_limite: uLim,
                   situacao,
                   cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                  codigo_gfip: c.cod_gfip || rc.cod_gfip || "",
                 });
               });
             });
