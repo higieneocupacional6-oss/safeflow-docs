@@ -3641,7 +3641,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                     ) : (
                                       equipamentosFiltrados.map((e: any) => (
                                         <SelectItem key={e.id} value={e.id}>
-                                          {e.nome}{e.tipo ? ` — ${e.tipo}` : ""}
+                                          {e.tipo === "Outro" ? `Outro — ${e.nome}` : (e.tipo || e.nome)}
                                         </SelectItem>
                                       ))
                                     )}
