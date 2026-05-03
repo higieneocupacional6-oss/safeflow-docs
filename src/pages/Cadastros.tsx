@@ -113,8 +113,17 @@ export default function Cadastros() {
     },
   });
 
-
-  const { data: epiEpcList = [] } = useQuery({
+  const { data: pareceres = [] } = useQuery({
+    queryKey: ["pareceres_tecnicos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pareceres_tecnicos")
+        .select("*, riscos(id, nome)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
     queryKey: ["epi_epc"],
     queryFn: async () => {
       const { data, error } = await supabase
