@@ -310,14 +310,15 @@ export default function Cadastros() {
       tecnicas: "tecnicas_amostragem",
       equipamentos: "equipamentos_ho",
       unidades: "unidades",
-      epi_epc: "epi_epc"
+      epi_epc: "epi_epc",
+      pareceres: "pareceres_tecnicos",
     };
 
     try {
       if (type === "epi_epc") {
         await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", id);
       }
-      const { error } = await supabase.from(tableMap[type]).delete().eq("id", id);
+      const { error } = await (supabase as any).from(tableMap[type]).delete().eq("id", id);
       if (error) throw error;
 
       const queryKeyMap: Record<string, string> = {
@@ -326,6 +327,7 @@ export default function Cadastros() {
         equipamentos: "equipamentos_ho",
         unidades: "unidades",
         epi_epc: "epi_epc",
+        pareceres: "pareceres_tecnicos",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
