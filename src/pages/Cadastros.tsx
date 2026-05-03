@@ -323,9 +323,16 @@ export default function Cadastros() {
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
           </TabsList>
-          <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Novo
-          </Button>
+          <div className="flex items-center gap-2">
+            {tab === "equipamentos" && (
+              <Button variant="outline" onClick={() => setControleOpen(true)} className="gap-2">
+                <ClipboardList className="w-4 h-4" /> Controle de Equipamentos
+              </Button>
+            )}
+            <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Plus className="w-4 h-4 mr-2" />Novo
+            </Button>
+          </div>
         </div>
 
         <div className="glass-card rounded-xl overflow-hidden">
