@@ -922,11 +922,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           (extraFuncs || []).forEach((f: any) => funcaoMap.set(f.id, f));
         }
 
-        const hydrateRow = (r: any) => ({
-          ...r,
-          funcao_nome: r.funcao_nome || funcaoMap.get(r.funcao_id)?.nome_funcao || "",
-          equipamento_registro_id: getResultadoEquipamentoRegistroId(r, equipamentos as any[]),
-        });
+        const hydrateRow = (r: any) => {
+          const hydrated = hydrateResultadoEquipamento(r, equipamentos as any[]);
+          return {
+            ...hydrated,
+            funcao_nome: hydrated.funcao_nome || funcaoMap.get(hydrated.funcao_id)?.nome_funcao || "",
+          };
+        };
 
         const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
           const epi = epiByAv[av.id] || {};
@@ -1456,11 +1458,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   const openResultadosModal = () => {
     const initial = riskForm.resultados_detalhados?.length
-      ? riskForm.resultados_detalhados.map((row: any) => ({
-          ...row,
-          equipamento_registro_id:
-            row.equipamento_registro_id || getResultadoEquipamentoRegistroId(row, equipamentos as any[]),
-        }))
+      ? riskForm.resultados_detalhados.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]))
       : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }];
 
     setTempResultados(initial);
