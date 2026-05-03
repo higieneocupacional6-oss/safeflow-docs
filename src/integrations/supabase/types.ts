@@ -407,6 +407,7 @@ export type Database = {
           id: string
           marca_modelo: string | null
           numero_serie: string
+          situacao_operacional: string
         }
         Insert: {
           created_at?: string
@@ -415,6 +416,7 @@ export type Database = {
           id?: string
           marca_modelo?: string | null
           numero_serie: string
+          situacao_operacional?: string
         }
         Update: {
           created_at?: string
@@ -423,6 +425,7 @@ export type Database = {
           id?: string
           marca_modelo?: string | null
           numero_serie?: string
+          situacao_operacional?: string
         }
         Relationships: [
           {
