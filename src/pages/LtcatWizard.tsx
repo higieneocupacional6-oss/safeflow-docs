@@ -21,6 +21,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
+import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -517,6 +518,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       { table: "ltcat_av_calor", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_vibracao", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
       { table: "ltcat_av_resultados", queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura] },
+      { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
+      { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
     ],
     `ltcat-insal-sync-${empresaId || "none"}`
   );
@@ -686,6 +689,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .order("nome");
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: pareceresCadastro = [] } = useQuery({
+    queryKey: ["pareceres_tecnicos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pareceres_tecnicos")
+        .select("*");
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -4116,6 +4130,50 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-accent">SEÇÃO 7: PARECER TÉCNICO *</h3>
                 </div>
                 <div className="space-y-4">
+                  {/* Auto-fill: Risco + Situação a partir do cadastro Parecer Técnico */}
+                  {(() => {
+                    const tipoDocLabel = tipoDocumento === "insalubridade" ? "Insalubridade" : tipoDocumento === "periculosidade" ? "Periculosidade" : "LTCAT";
+                    const pareceresFiltrados = (pareceresCadastro as any[]).filter((p: any) => {
+                      const docMatch = (p.documento || "").toLowerCase() === tipoDocLabel.toLowerCase();
+                      const riscoMatch = !p.risco_id || p.risco_id === riskForm.agente_id;
+                      return docMatch && riscoMatch;
+                    });
+                    const riscoNome = riskForm.agente_nome || "—";
+                    return (
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-background/60 border border-accent/20">
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risco / Agente</Label>
+                          <Input className="mt-1 h-9 text-sm bg-muted/40" readOnly value={riscoNome} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Situação (do cadastro Parecer Técnico)</Label>
+                          <Select
+                            value=""
+                            onValueChange={(v) => {
+                              const p = pareceresFiltrados.find((x: any) => x.id === v);
+                              if (p?.parecer_tecnico) {
+                                setRiskForm({ ...riskForm, parecer_tecnico: p.parecer_tecnico });
+                                toast.success("Parecer preenchido automaticamente. Você pode editar abaixo.");
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-9 text-sm">
+                              <SelectValue placeholder={pareceresFiltrados.length === 0 ? "Nenhum parecer cadastrado" : "Selecione situação"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {pareceresFiltrados.map((p: any) => (
+                                <SelectItem key={p.id} value={p.id}>{p.situacao}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground col-span-2">
+                          Cadastre pareceres reutilizáveis em <strong>Cadastros &gt; Parecer Técnico</strong>. Após preencher, o texto pode ser editado livremente.
+                        </p>
+                      </div>
+                    );
+                  })()}
+
                   <div>
                     <Label className="text-xs font-bold uppercase text-muted-foreground">Conclusão Técnica / Parecer do Engenheiro *</Label>
                     <Textarea
@@ -4462,8 +4520,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     
                     return (
                     <div key={res.id} className="group animate-in fade-in slide-in-from-top-1 bg-muted/10 p-4 rounded-lg border space-y-3">
-                      {/* LINHA 1: Data, Colaborador, Função, Dose */}
-                      <div className="grid grid-cols-4 gap-3 items-end">
+                      {/* LINHA 1: Data, Nº Série Equip., Colaborador, Função, Dose */}
+                      {(() => {
+                        const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                        const showSerie = (riskForm.tipo_avaliacao || "").toLowerCase().includes("quanti") && tiposPermitidos.length > 0;
+                        const equipamentosFiltrados = (equipamentos as any[]).filter((e: any) => tiposPermitidos.includes(e.tipo));
+                        const serieOpts = equipamentosFiltrados.flatMap((e: any) =>
+                          (e.equipamentos_ho_registros || []).map((r: any) => ({
+                            id: r.id, label: `${r.numero_serie} — ${e.nome}`, equipamento_id: e.id, equipamento_nome: e.nome,
+                            numero_serie: r.numero_serie, marca_modelo: r.marca_modelo, data_calibracao: r.data_calibracao,
+                          }))
+                        );
+                        return (
+                      <div className={`grid ${showSerie ? "grid-cols-5" : "grid-cols-4"} gap-3 items-end`}>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Data da Avaliação</Label>
                           <Input type="date" value={res.data_avaliacao || ""} onChange={e => {
@@ -4472,6 +4541,36 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                             setTempResultados(updated);
                           }} />
                         </div>
+                        {showSerie && (
+                          <div>
+                            <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
+                              Nº Série Equip. <span className="text-destructive">*</span>
+                            </Label>
+                            <Select value={res.equipamento_registro_id || ""} onValueChange={v => {
+                              const opt = serieOpts.find((o: any) => o.id === v);
+                              const updated = [...tempResultados];
+                              updated[index] = {
+                                ...updated[index],
+                                equipamento_registro_id: v,
+                                equipamento_id: opt?.equipamento_id || "",
+                                equipamento_nome: opt?.equipamento_nome || "",
+                                serie_equipamento: opt?.numero_serie || "",
+                                marca_modelo: opt?.marca_modelo || "",
+                                data_calibracao: opt?.data_calibracao || "",
+                              };
+                              setTempResultados(updated);
+                            }}>
+                              <SelectTrigger>
+                                <SelectValue placeholder={serieOpts.length === 0 ? "Sem equip. cadastrado" : "Selecione"} />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {serieOpts.map((o: any) => (
+                                  <SelectItem key={o.id} value={o.id}>{o.label}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        )}
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Colaborador</Label>
                           <Input placeholder="Nome" value={res.colaborador} onChange={e => {
@@ -4506,6 +4605,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           }} />
                         </div>
                       </div>
+                        );
+                      })()}
                       {/* COMPONENTE AVALIADO — apenas para QUÍMICO */}
                       {(riskForm.tipo_agente || "").toUpperCase().includes("QUIMI") && (
                         <div className="grid grid-cols-1 gap-3 items-end">

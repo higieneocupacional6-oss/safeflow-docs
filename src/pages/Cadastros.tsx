@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
 import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
@@ -21,7 +23,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
@@ -32,7 +34,7 @@ export default function Cadastros() {
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
   const [epiEpcForm, setEpiEpcForm] = useState({ tipo: "EPI", nome: "", risco_ids: [] as string[] });
   const [epiEpcSaving, setEpiEpcSaving] = useState(false);
-  const [equipmentForm, setEquipmentForm] = useState({ nome: "" });
+  const [equipmentForm, setEquipmentForm] = useState({ nome: "", tipo: "" as string });
   const [equipmentSaving, setEquipmentSaving] = useState(false);
   const [registrarModal, setRegistrarModal] = useState<{ open: boolean; equipamentoId: string; equipamentoNome: string }>({ open: false, equipamentoId: "", equipamentoNome: "" });
   const [registrarForm, setRegistrarForm] = useState({ numero_serie: "", marca_modelo: "", data_calibracao: "" });
@@ -40,6 +42,9 @@ export default function Cadastros() {
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [parecerModalOpen, setParecerModalOpen] = useState(false);
+  const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
+  const [parecerSaving, setParecerSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
@@ -65,6 +70,7 @@ export default function Cadastros() {
     { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
     { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho"] },
     { table: "unidades", queryKey: ["unidades"] },
+    { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
   ]);
@@ -108,6 +114,17 @@ export default function Cadastros() {
     },
   });
 
+  const { data: pareceres = [] } = useQuery({
+    queryKey: ["pareceres_tecnicos"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from("pareceres_tecnicos")
+        .select("*, riscos(id, nome)")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
 
   const { data: epiEpcList = [] } = useQuery({
     queryKey: ["epi_epc"],
@@ -198,7 +215,7 @@ export default function Cadastros() {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: "" });
+      setEquipmentForm({ nome: "", tipo: "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({ nome: "", referencia: "" });
@@ -206,6 +223,9 @@ export default function Cadastros() {
     } else if (tab === "unidades") {
       setUnidadesForm({ simbolo: "", nome: "" });
       setDialogOpen(true);
+    } else if (tab === "pareceres") {
+      setParecerForm({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
+      setParecerModalOpen(true);
     }
   };
 
@@ -221,7 +241,7 @@ export default function Cadastros() {
       });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: item.nome });
+      setEquipmentForm({ nome: item.nome, tipo: item.tipo || "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({
@@ -235,6 +255,14 @@ export default function Cadastros() {
         nome: item.nome || ""
       });
       setDialogOpen(true);
+    } else if (tab === "pareceres") {
+      setParecerForm({
+        documento: item.documento || "LTCAT",
+        situacao: item.situacao || "",
+        parecer_tecnico: item.parecer_tecnico || "",
+        risco_id: item.risco_id || "",
+      });
+      setParecerModalOpen(true);
     }
   };
 
@@ -282,14 +310,15 @@ export default function Cadastros() {
       tecnicas: "tecnicas_amostragem",
       equipamentos: "equipamentos_ho",
       unidades: "unidades",
-      epi_epc: "epi_epc"
+      epi_epc: "epi_epc",
+      pareceres: "pareceres_tecnicos",
     };
 
     try {
       if (type === "epi_epc") {
         await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", id);
       }
-      const { error } = await supabase.from(tableMap[type]).delete().eq("id", id);
+      const { error } = await (supabase as any).from(tableMap[type]).delete().eq("id", id);
       if (error) throw error;
 
       const queryKeyMap: Record<string, string> = {
@@ -298,6 +327,7 @@ export default function Cadastros() {
         equipamentos: "equipamentos_ho",
         unidades: "unidades",
         epi_epc: "epi_epc",
+        pareceres: "pareceres_tecnicos",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
@@ -323,6 +353,7 @@ export default function Cadastros() {
             <TabsTrigger value="equipamentos" className="gap-2"><Wrench className="w-3.5 h-3.5" />Equipamentos</TabsTrigger>
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
+            <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "equipamentos" && (
@@ -427,7 +458,10 @@ export default function Cadastros() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <Wrench className="w-4 h-4 text-accent shrink-0" />
-                          <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                          <div className="min-w-0">
+                            <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                            {e.tipo && <Badge variant="outline" className="mt-1 text-[10px]">{e.tipo}</Badge>}
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Button
@@ -565,8 +599,132 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="pareceres" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Documento</TableHead>
+                  <TableHead>Situação</TableHead>
+                  <TableHead>Risco (opcional)</TableHead>
+                  <TableHead>Parecer</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {pareceres.length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum parecer cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  pareceres.map((p: any) => (
+                    <TableRow key={p.id}>
+                      <TableCell><Badge variant="outline">{p.documento}</Badge></TableCell>
+                      <TableCell className="font-medium">{p.situacao}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{p.riscos?.nome || "—"}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-md truncate" title={p.parecer_tecnico}>{p.parecer_tecnico}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(p)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(p.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
+
+      {/* Modal Parecer Técnico */}
+      <Dialog open={parecerModalOpen} onOpenChange={setParecerModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Parecer Técnico</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <Label>Documento <span className="text-destructive">*</span></Label>
+              <Select value={parecerForm.documento} onValueChange={(v) => setParecerForm({ ...parecerForm, documento: v })}>
+                <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="LTCAT">LTCAT</SelectItem>
+                  <SelectItem value="Insalubridade">Insalubridade</SelectItem>
+                  <SelectItem value="Periculosidade">Periculosidade</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Situação <span className="text-destructive">*</span></Label>
+              <Input className="mt-1" placeholder="Ex: Acima do limite de tolerância"
+                value={parecerForm.situacao}
+                onChange={(e) => setParecerForm({ ...parecerForm, situacao: e.target.value })} />
+            </div>
+            <div>
+              <Label>Risco / Agente (opcional)</Label>
+              <Select value={parecerForm.risco_id || "__none__"} onValueChange={(v) => setParecerForm({ ...parecerForm, risco_id: v === "__none__" ? "" : v })}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Sem vínculo" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__none__">— Sem vínculo —</SelectItem>
+                  {riscos.map((r: any) => (
+                    <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-[11px] text-muted-foreground mt-1">Se vinculado, o LTCAT/Insalubridade poderá preencher automaticamente o parecer ao escolher Risco + Situação.</p>
+            </div>
+            <div>
+              <Label>Parecer Técnico <span className="text-destructive">*</span></Label>
+              <Textarea className="mt-1 min-h-[160px]" placeholder="Texto livre — sem limite de caracteres."
+                value={parecerForm.parecer_tecnico}
+                onChange={(e) => setParecerForm({ ...parecerForm, parecer_tecnico: e.target.value })} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setParecerModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={parecerSaving}
+              onClick={async () => {
+                if (!parecerForm.documento.trim()) { toast.error("Informe o documento"); return; }
+                if (!parecerForm.situacao.trim()) { toast.error("Informe a situação"); return; }
+                if (!parecerForm.parecer_tecnico.trim()) { toast.error("Informe o parecer técnico"); return; }
+                setParecerSaving(true);
+                try {
+                  const payload: any = {
+                    documento: parecerForm.documento.trim(),
+                    situacao: parecerForm.situacao.trim(),
+                    parecer_tecnico: parecerForm.parecer_tecnico,
+                    risco_id: parecerForm.risco_id || null,
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("pareceres_tecnicos").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Parecer atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("pareceres_tecnicos").insert(payload);
+                    if (error) throw error;
+                    toast.success("Parecer cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["pareceres_tecnicos"] });
+                  setParecerModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setParecerSaving(false);
+                }
+              }}
+            >
+              {parecerSaving ? "Salvando..." : "Salvar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal de Riscos */}
       <RiscoModal
@@ -687,6 +845,20 @@ export default function Cadastros() {
                     onChange={e => setEquipmentForm({ ...equipmentForm, nome: e.target.value })}
                   />
                 </div>
+                <div>
+                  <Label>Tipo de Equipamento <span className="text-destructive">*</span></Label>
+                  <Select value={equipmentForm.tipo} onValueChange={(v) => setEquipmentForm({ ...equipmentForm, tipo: v })}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o tipo" /></SelectTrigger>
+                    <SelectContent>
+                      {EQUIPAMENTO_TIPOS.map((t) => (
+                        <SelectItem key={t} value={t}>{t}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-[11px] text-muted-foreground mt-1">
+                    Define o filtro automático de Nº de Série por agente nos laudos.
+                  </p>
+                </div>
               </>
             )}
             {tab === "unidades" && (
@@ -711,7 +883,7 @@ export default function Cadastros() {
                   if (dup) { toast.error("Já existe um equipamento com este nome."); return; }
                   setEquipmentSaving(true);
                   try {
-                    const payload = { nome: equipmentForm.nome.trim() };
+                    const payload = { nome: equipmentForm.nome.trim(), tipo: equipmentForm.tipo || null };
                     if (editingId) {
                       const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
                       if (error) throw error;

@@ -518,6 +518,7 @@ export type Database = {
           id: string
           marca: string | null
           nome: string
+          tipo: string | null
         }
         Insert: {
           certificado?: string | null
@@ -525,6 +526,7 @@ export type Database = {
           id?: string
           marca?: string | null
           nome: string
+          tipo?: string | null
         }
         Update: {
           certificado?: string | null
@@ -532,6 +534,7 @@ export type Database = {
           id?: string
           marca?: string | null
           nome?: string
+          tipo?: string | null
         }
         Relationships: []
       }
@@ -1271,6 +1274,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      pareceres_tecnicos: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          documento: string
+          id: string
+          parecer_tecnico: string
+          risco_id: string | null
+          situacao: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          documento: string
+          id?: string
+          parecer_tecnico?: string
+          risco_id?: string | null
+          situacao: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          documento?: string
+          id?: string
+          parecer_tecnico?: string
+          risco_id?: string | null
+          situacao?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
