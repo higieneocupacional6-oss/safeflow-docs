@@ -99,9 +99,16 @@ const AGENTES_COMPONENTES = [
   "poeira total",
 ];
 
-const isAgentComponentes = (agentNome: string) => {
-  const n = agentNome.toLowerCase();
-  return AGENTES_COMPONENTES.some(k => n.includes(k));
+const isAgentComponentes = (agentNome: string, tipoAgente?: string, tipoAvaliacao?: string) => {
+  const n = (agentNome || "").toLowerCase();
+  if (AGENTES_COMPONENTES.some(k => n.includes(k))) return true;
+  // Regra padrão: todo agente Químico com avaliação Quantitativa usa o fluxo de componentes
+  const ta = (tipoAgente || "").toLowerCase();
+  const tv = (tipoAvaliacao || "").toLowerCase();
+  const isQuim = ta.includes("quími") || ta.includes("quimi");
+  const isQuant = tv.includes("quantitativ");
+  if (isQuim && isQuant) return true;
+  return false;
 };
 
 // Vibração helpers
@@ -997,7 +1004,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
     const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
     const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-    const isComponentes = isAgentComponentes(riskForm.agente_nome || "");
+    const isComponentes = isAgentComponentes(riskForm.agente_nome || "", riskForm.tipo_agente || "", riskForm.tipo_avaliacao || "");
 
     const isQualitative = !isComponentes && (riskForm.tipo_avaliacao === "qualitativa" ||
       tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
@@ -3633,7 +3640,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   if (isPericulosidade) return null;
                   const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
                   const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-                  const isCompAgent = isAgentComponentes(riskForm.agente_nome || "");
+                  const isCompAgent = isAgentComponentes(riskForm.agente_nome || "", riskForm.tipo_agente || "", riskForm.tipo_avaliacao || "");
                   const isQualitative = !isCompAgent && (riskForm.tipo_avaliacao === "qualitativa" ||
                     tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
                     tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat") ||
