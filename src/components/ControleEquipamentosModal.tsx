@@ -106,14 +106,109 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
     setEditModal({ ...editModal, open: false });
   };
 
+  const handleDownloadPDF = () => {
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+    const now = new Date();
+    const dataStr = now.toLocaleDateString("pt-BR") + " " + now.toLocaleTimeString("pt-BR");
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("Relatório de Controle de Equipamentos", 14, 15);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Emitido em: ${dataStr}`, 14, 22);
+
+    doc.setFontSize(10);
+    doc.text(
+      `Em Conformidade: ${counts.conforme}   |   Atenção: ${counts.atencao}   |   Vencido: ${counts.vencido}`,
+      14,
+      29
+    );
+
+    const rows: any[] = [];
+    for (const e of equipamentos as any[]) {
+      const regs = e.equipamentos_ho_registros || [];
+      if (regs.length === 0) {
+        rows.push([e.nome, "—", "—", "—", "—", "Sem registros", "—"]);
+      } else {
+        regs.forEach((r: any, i: number) => {
+          const st = statusCalibracao(r.data_calibracao);
+          rows.push([
+            i === 0 ? e.nome : "",
+            r.numero_serie || "—",
+            r.marca_modelo || "—",
+            r.data_calibracao
+              ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR")
+              : "—",
+            st.meses !== null ? `${st.meses} mês(es)` : "—",
+            st.label,
+            r.situacao_operacional || "Aparelho calibrado",
+          ]);
+        });
+      }
+    }
+
+    autoTable(doc, {
+      startY: 35,
+      head: [["Equipamento", "Nº Série", "Marca/Modelo", "Calibração", "Tempo", "Status", "Situação Operacional"]],
+      body: rows,
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: { fillColor: [37, 99, 235], textColor: 255, fontStyle: "bold" },
+      alternateRowStyles: { fillColor: [245, 247, 250] },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 5) {
+          const v = String(data.cell.raw || "");
+          if (v === "Vencido") {
+            data.cell.styles.fillColor = [254, 202, 202];
+            data.cell.styles.textColor = [127, 29, 29];
+            data.cell.styles.fontStyle = "bold";
+          } else if (v === "Atenção") {
+            data.cell.styles.fillColor = [254, 243, 199];
+            data.cell.styles.textColor = [120, 53, 15];
+          } else if (v === "Em Conformidade") {
+            data.cell.styles.fillColor = [209, 250, 229];
+            data.cell.styles.textColor = [6, 78, 59];
+          }
+        }
+      },
+      didDrawPage: () => {
+        const pageCount = (doc as any).internal.getNumberOfPages();
+        const pageNum = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        const pageSize = doc.internal.pageSize;
+        doc.setFontSize(8);
+        doc.setTextColor(120);
+        doc.text(
+          `Página ${pageNum} de ${pageCount}`,
+          pageSize.width - 14,
+          pageSize.height - 8,
+          { align: "right" }
+        );
+      },
+    });
+
+    doc.save(`controle-equipamentos-${now.toISOString().slice(0, 10)}.pdf`);
+    toast.success("PDF gerado com sucesso");
+  };
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="font-heading flex items-center gap-2">
-              <Wrench className="w-5 h-5 text-accent" /> Controle de Equipamentos
-            </DialogTitle>
+            <div className="flex items-center justify-between gap-2 pr-8">
+              <DialogTitle className="font-heading flex items-center gap-2">
+                <Wrench className="w-5 h-5 text-accent" /> Controle de Equipamentos
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadPDF}
+                className="gap-2"
+                disabled={equipamentos.length === 0}
+              >
+                <Download className="w-4 h-4" /> Baixar PDF
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="grid grid-cols-3 gap-3 mb-4">
