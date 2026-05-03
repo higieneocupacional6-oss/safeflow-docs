@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList } from "lucide-react";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
+import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
