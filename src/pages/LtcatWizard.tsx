@@ -99,9 +99,16 @@ const AGENTES_COMPONENTES = [
   "poeira total",
 ];
 
-const isAgentComponentes = (agentNome: string) => {
-  const n = agentNome.toLowerCase();
-  return AGENTES_COMPONENTES.some(k => n.includes(k));
+const isAgentComponentes = (agentNome: string, tipoAgente?: string, tipoAvaliacao?: string) => {
+  const n = (agentNome || "").toLowerCase();
+  if (AGENTES_COMPONENTES.some(k => n.includes(k))) return true;
+  // Regra padrão: todo agente Químico com avaliação Quantitativa usa o fluxo de componentes
+  const ta = (tipoAgente || "").toLowerCase();
+  const tv = (tipoAvaliacao || "").toLowerCase();
+  const isQuim = ta.includes("quími") || ta.includes("quimi");
+  const isQuant = tv.includes("quantitativ");
+  if (isQuim && isQuant) return true;
+  return false;
 };
 
 // Vibração helpers
