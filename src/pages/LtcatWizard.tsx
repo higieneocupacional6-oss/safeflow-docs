@@ -1485,7 +1485,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         };
 
         const avaliacoes: any[] = agentEntries.flatMap((r: any) => {
-          const equipamentoNomeRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id)?.nome || "";
+          const _eqRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id);
+          const equipamentoNomeRiscoBase = _eqRiscoBase ? (_eqRiscoBase.tipo === "Outro" ? _eqRiscoBase.nome : (_eqRiscoBase.tipo || _eqRiscoBase.nome)) : "";
           const base = {
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
