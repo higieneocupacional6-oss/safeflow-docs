@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
 import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
