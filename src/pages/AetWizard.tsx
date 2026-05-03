@@ -248,6 +248,7 @@ export default function AetWizard() {
 
   // Identificação
   const [empresaId, setEmpresaId] = useState("");
+  const [contratoId, setContratoId] = useState<string>("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
