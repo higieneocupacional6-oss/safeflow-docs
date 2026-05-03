@@ -119,6 +119,19 @@ const isAgentVCI = (agentNome: string) => {
   return n.includes("corpo inteiro") || n.includes("vci");
 };
 
+const getEquipamentoDisplayName = (equipamento: any) => {
+  if (!equipamento) return "";
+  if (equipamento.tipo === "Outro") {
+    return equipamento.nome ? `Outro — ${equipamento.nome}` : "Outro";
+  }
+  return equipamento.tipo || equipamento.nome || "";
+};
+
+const getEquipamentoNumeroSerie = (registro: any) => {
+  const numero = registro?.numero_serie;
+  return typeof numero === "string" ? numero.trim() : "";
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
