@@ -367,6 +367,7 @@ export default function AetWizard() {
         if (data) {
           setAetId(data.id);
           setEmpresaId(data.empresa_id || "");
+          setContratoId((data as any).contrato_id || "");
           setResponsavelTecnico(data.responsavel_tecnico || "");
           setCrea(data.crea || "");
           setCargo(data.cargo || "");
