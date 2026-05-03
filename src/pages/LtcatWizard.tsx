@@ -133,6 +133,34 @@ const getEquipamentoNumeroSerie = (registro: any) => {
   return typeof numero === "string" ? numero.trim() : "";
 };
 
+const getResultadoEquipamentoRegistroId = (resultado: any, equipamentos: any[]) => {
+  const directId = resultado?.equipamento_registro_id;
+  if (typeof directId === "string" && directId.trim()) return directId;
+
+  const numeroSerie = [resultado?.serie_equipamento, resultado?.numero_serie]
+    .find((value) => typeof value === "string" && value.trim())
+    ?.trim();
+
+  if (!numeroSerie) return "";
+
+  if (resultado?.equipamento_id) {
+    const equipamento = equipamentos.find((e: any) => e.id === resultado.equipamento_id);
+    const registro = equipamento?.equipamentos_ho_registros?.find(
+      (r: any) => getEquipamentoNumeroSerie(r) === numeroSerie,
+    );
+    if (registro?.id) return registro.id;
+  }
+
+  for (const equipamento of equipamentos) {
+    const registro = equipamento?.equipamentos_ho_registros?.find(
+      (r: any) => getEquipamentoNumeroSerie(r) === numeroSerie,
+    );
+    if (registro?.id) return registro.id;
+  }
+
+  return "";
+};
+
 const isAgentVMB = (agentNome: string) => {
   const n = agentNome.toLowerCase();
   return (n.includes("vibra") && (n.includes("mãos") || n.includes("braços") || n.includes("maos") || n.includes("bracos") || n.includes("vmb")));
@@ -722,6 +750,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (error) throw error;
       return data;
     },
+    refetchOnMount: "always",
+    refetchOnWindowFocus: true,
   });
 
   const { data: pareceresCadastro = [] } = useQuery({
@@ -869,6 +899,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const hydrateRow = (r: any) => ({
           ...r,
           funcao_nome: r.funcao_nome || funcaoMap.get(r.funcao_id)?.nome_funcao || "",
+          equipamento_registro_id: getResultadoEquipamentoRegistroId(r, equipamentos as any[]),
         });
 
         const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
@@ -1395,6 +1426,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       : [{ id: crypto.randomUUID(), colaborador: "", funcao_id: "", funcao_nome: "", componentes: [] }];
     setTempFuncaoRows(initial);
     setComponentesModalOpen(true);
+  };
+
+  const openResultadosModal = () => {
+    const initial = riskForm.resultados_detalhados?.length
+      ? riskForm.resultados_detalhados.map((row: any) => ({
+          ...row,
+          equipamento_registro_id:
+            row.equipamento_registro_id || getResultadoEquipamentoRegistroId(row, equipamentos as any[]),
+        }))
+      : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }];
+
+    setTempResultados(initial);
+    setResultsModalOpen(true);
   };
 
   const openVibracaoModal = () => {
@@ -2503,6 +2547,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const resRows = mkRows(r.resultados_detalhados, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
+            equipamento_registro_id: x.equipamento_registro_id || null,
             resultado: x.resultado ? Number(x.resultado) : null,
             unidade_resultado_id: x.unidade_resultado_id || null,
             limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
@@ -4159,7 +4204,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       {!isCompAgent && isFisico && !isAgentVibracao(riskForm.agente_nome || "") && !isAgentCalor(riskForm.agente_nome || "") && (
                         <div className="space-y-4">
                           <div className="flex flex-wrap gap-2 items-center">
-                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={() => setResultsModalOpen(true)}>
+                            <Button variant="outline" className="text-accent border-accent/20 hover:bg-accent/5 gap-2" onClick={openResultadosModal}>
                               <Plus className="w-4 h-4" /> + Resultados
                             </Button>
                             {(() => {
@@ -4646,7 +4691,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                             <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
                               Nº Série Equip. <span className="text-destructive">*</span>
                             </Label>
-                            <Select value={res.equipamento_registro_id || ""} onValueChange={v => {
+                            <Select
+                              value={
+                                res.equipamento_registro_id ||
+                                getResultadoEquipamentoRegistroId(res, equipamentos as any[]) ||
+                                ""
+                              }
+                              onValueChange={v => {
                               const opt = serieOpts.find((o: any) => o.id === v);
                               const updated = [...tempResultados];
                               updated[index] = {
@@ -4659,7 +4710,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                 data_calibracao: opt?.data_calibracao || "",
                               };
                               setTempResultados(updated);
-                            }}>
+                            }}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder={serieOpts.length === 0 ? "Sem equip. cadastrado" : "Selecione"} />
                               </SelectTrigger>
@@ -4817,7 +4869,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 </div>
 
                 <Button variant="outline" size="sm" onClick={() => {
-                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }]);
+                  setTempResultados([...tempResultados, { id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "", equipamento_registro_id: "" }]);
                 }} className="mt-2 text-accent border-accent/20 hover:bg-accent/5">
                   <Plus className="w-4 h-4 mr-2" /> Adicionar Linha
                 </Button>
