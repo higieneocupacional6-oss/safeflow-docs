@@ -4691,8 +4691,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                            ? todos.filter((e: any) => tiposPermitidos.includes(e.tipo))
                            : todos;
                          // Fallback: se não houver equipamento do tipo esperado, usa todos
-                         const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
-                          const serieOpts = equipamentosFiltrados.flatMap((e: any) => {
+                          const equipamentosFiltrados = preferidos.length > 0 ? preferidos : todos;
+                          const equipamentoRegistroSelecionado = getResultadoEquipamentoRegistroId(res, todos);
+                          const equipamentosComSelecionado = equipamentoRegistroSelecionado
+                            ? Array.from(new Map(
+                                [...equipamentosFiltrados, ...todos.filter((e: any) =>
+                                  (e.equipamentos_ho_registros || []).some((r: any) => r.id === equipamentoRegistroSelecionado),
+                                )].map((e: any) => [e.id, e]),
+                              ).values())
+                            : equipamentosFiltrados;
+                           const serieOpts = equipamentosComSelecionado.flatMap((e: any) => {
                             const eqLabel = getEquipamentoDisplayName(e);
                             return (e.equipamentos_ho_registros || [])
                               .map((r: any) => {
