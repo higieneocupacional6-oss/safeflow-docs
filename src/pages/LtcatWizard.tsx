@@ -2710,10 +2710,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             cargo: cargo || null,
             data_elaboracao: dataElab || null,
             alteracoes_documento: alteracoesDoc || null,
-            revisoes: revisoes || [],
+            revisoes: (revisoes || []) as any,
             current_step: step,
             status: "concluido",
-          }).select("id").single();
+          } as any).select("id").single();
           docId = inserted?.id;
           if (docId) setCurrentDraftId(docId);
         }
