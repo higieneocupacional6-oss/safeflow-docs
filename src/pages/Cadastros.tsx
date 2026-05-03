@@ -176,7 +176,7 @@ export default function Cadastros() {
       setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({ nome: "", marca: "", certificado: "" });
+      setEquipmentForm({ nome: "" });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({ nome: "", referencia: "" });
@@ -199,11 +199,7 @@ export default function Cadastros() {
       });
       setEpiEpcModalOpen(true);
     } else if (tab === "equipamentos") {
-      setEquipmentForm({
-        nome: item.nome,
-        marca: item.marca || "",
-        certificado: item.certificado || ""
-      });
+      setEquipmentForm({ nome: item.nome });
       setDialogOpen(true);
     } else if (tab === "tecnicas") {
       setTecnicasForm({
