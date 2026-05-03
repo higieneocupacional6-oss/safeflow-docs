@@ -34,7 +34,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
   const [saving, setSaving] = useState(false);
 
   const { data: equipamentos = [] } = useQuery({
-    queryKey: ["equipamentos_ho"],
+    queryKey: ["equipamentos_ho", "controle-modal"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
