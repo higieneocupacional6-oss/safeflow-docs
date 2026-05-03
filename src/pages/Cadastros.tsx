@@ -24,6 +24,8 @@ type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
+  const [controleOpen, setControleOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [riscoModalOpen, setRiscoModalOpen] = useState(false);
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
