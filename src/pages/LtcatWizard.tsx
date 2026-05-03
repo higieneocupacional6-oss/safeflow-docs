@@ -2359,7 +2359,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             .from("ltcat_avaliacoes")
             .insert({
               documento_id: docId,
-              tipo_documento: tipoDocumento,
+              // Insalubridade espelha LTCAT no pool compartilhado
+              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
               empresa_id: empresaId,
               setor_id: r.setor_id || null,
               funcao_id: it.funcao_id || null,
