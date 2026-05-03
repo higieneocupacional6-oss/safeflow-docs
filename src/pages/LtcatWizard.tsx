@@ -2532,6 +2532,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const resRows = mkRows(r.resultados_detalhados, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
+            equipamento_registro_id: x.equipamento_registro_id || null,
             resultado: x.resultado ? Number(x.resultado) : null,
             unidade_resultado_id: x.unidade_resultado_id || null,
             limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
@@ -4675,7 +4676,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                             <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">
                               Nº Série Equip. <span className="text-destructive">*</span>
                             </Label>
-                            <Select value={res.equipamento_registro_id || ""} onValueChange={v => {
+                            <Select
+                              value={
+                                res.equipamento_registro_id ||
+                                getResultadoEquipamentoRegistroId(res, equipamentos as any[]) ||
+                                ""
+                              }
+                              onValueChange={v => {
                               const opt = serieOpts.find((o: any) => o.id === v);
                               const updated = [...tempResultados];
                               updated[index] = {
@@ -4688,7 +4695,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                 data_calibracao: opt?.data_calibracao || "",
                               };
                               setTempResultados(updated);
-                            }}>
+                            }}
+                            >
                               <SelectTrigger>
                                 <SelectValue placeholder={serieOpts.length === 0 ? "Sem equip. cadastrado" : "Selecione"} />
                               </SelectTrigger>
