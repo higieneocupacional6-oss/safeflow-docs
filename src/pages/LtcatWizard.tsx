@@ -3838,7 +3838,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                       updated[eqi] = {
                                         ...updated[eqi],
                                         equipamento_id: v,
-                                        nome_equipamento: eqObj?.nome || "",
+                                        nome_equipamento: eqObj ? (eqObj.tipo === "Outro" ? eqObj.nome : (eqObj.tipo || eqObj.nome)) : "",
                                         registro_id: "",
                                         serie_equipamento: "",
                                         modelo_equipamento: "",
