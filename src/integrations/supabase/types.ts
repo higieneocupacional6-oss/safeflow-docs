@@ -181,36 +181,60 @@ export type Database = {
       }
       documentos: {
         Row: {
+          alteracoes_documento: string | null
+          cargo: string | null
           contrato_id: string | null
+          crea: string | null
           created_at: string
+          current_step: number
+          data_elaboracao: string | null
+          draft_snapshot: Json | null
           empresa_id: string | null
           empresa_nome: string
           file_path: string | null
           id: string
+          responsavel_tecnico: string | null
+          revisoes: Json
           status: string
           template_id: string | null
           tipo: string
           updated_at: string
         }
         Insert: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
           contrato_id?: string | null
+          crea?: string | null
           created_at?: string
+          current_step?: number
+          data_elaboracao?: string | null
+          draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
           status?: string
           template_id?: string | null
           tipo: string
           updated_at?: string
         }
         Update: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
           contrato_id?: string | null
+          crea?: string | null
           created_at?: string
+          current_step?: number
+          data_elaboracao?: string | null
+          draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
           status?: string
           template_id?: string | null
           tipo?: string
