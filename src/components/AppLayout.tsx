@@ -1,4 +1,5 @@
 import { TopNav } from "@/components/TopNav";
+import { CalibracaoAlertBanner } from "@/components/CalibracaoAlertBanner";
 import techBg from "@/assets/tech-bg.png";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
@@ -11,6 +12,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
         style={{ backgroundImage: `url(${techBg})` }}
       />
       <TopNav />
+      <CalibracaoAlertBanner />
       <main className="flex-1 relative z-10">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
           {children}

@@ -1,5 +1,8 @@
-import { useState } from "react";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList } from "lucide-react";
+import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
+import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +25,8 @@ type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
+  const [controleOpen, setControleOpen] = useState(false);
+  const [searchParams, setSearchParams] = useSearchParams();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [riscoModalOpen, setRiscoModalOpen] = useState(false);
   const [epiEpcModalOpen, setEpiEpcModalOpen] = useState(false);
@@ -37,6 +42,19 @@ export default function Cadastros() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
+
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "equipamentos") setTab("equipamentos");
+    if (searchParams.get("controle") === "1") {
+      setTab("equipamentos");
+      setControleOpen(true);
+      const n = new URLSearchParams(searchParams);
+      n.delete("controle");
+      setSearchParams(n, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Realtime sync: any change made in this session OR in another open tab/user
   // triggers an automatic refetch of the lists used here AND in other modals
@@ -306,9 +324,16 @@ export default function Cadastros() {
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
           </TabsList>
-          <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Novo
-          </Button>
+          <div className="flex items-center gap-2">
+            {tab === "equipamentos" && (
+              <Button variant="outline" onClick={() => setControleOpen(true)} className="gap-2">
+                <ClipboardList className="w-4 h-4" /> Controle de Equipamentos
+              </Button>
+            )}
+            <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Plus className="w-4 h-4 mr-2" />Novo
+            </Button>
+          </div>
         </div>
 
         <div className="glass-card rounded-xl overflow-hidden">
@@ -440,12 +465,15 @@ export default function Cadastros() {
                         </Button>
                       ) : (
                         <div className="space-y-2 text-xs">
-                          {registros.map((r: any) => (
+                          {registros.map((r: any) => {
+                            const st = statusCalibracao(r.data_calibracao);
+                            return (
                             <div key={r.id} className="flex items-start justify-between gap-2 border rounded-md p-2 bg-muted/30">
                               <div className="space-y-0.5 min-w-0">
                                 <div><span className="text-muted-foreground">Nº Série:</span> <span className="font-medium">{r.numero_serie}</span></div>
                                 <div><span className="text-muted-foreground">Marca/Modelo:</span> {r.marca_modelo || "—"}</div>
                                 <div><span className="text-muted-foreground">Calibração:</span> {r.data_calibracao ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : "—"}</div>
+                                <Badge variant="outline" className={`mt-1 ${statusBadgeClasses(st.status)}`}>{st.label}</Badge>
                               </div>
                               <Button
                                 variant="ghost"
@@ -461,7 +489,7 @@ export default function Cadastros() {
                                 <Trash2 className="h-3 w-3" />
                               </Button>
                             </div>
-                          ))}
+                          );})}
                         </div>
                       )}
                     </div>
@@ -838,6 +866,8 @@ export default function Cadastros() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ControleEquipamentosModal open={controleOpen} onOpenChange={setControleOpen} />
     </div>
   );
 }
