@@ -1426,7 +1426,7 @@ export default function AetWizard() {
         <div className="grid md:grid-cols-2 gap-3">
           <div className="md:col-span-2">
             <Label>Empresa *</Label>
-            <Select value={empresaId} onValueChange={setEmpresaId}>
+            <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
               <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
               <SelectContent>
                 {empresas.map((e: any) => (
@@ -1434,6 +1434,27 @@ export default function AetWizard() {
                 ))}
               </SelectContent>
             </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label>Contrato</Label>
+            <Select value={contratoId || "__none__"} onValueChange={(v) => setContratoId(v === "__none__" ? "" : v)} disabled={!empresaId}>
+              <SelectTrigger>
+                <SelectValue placeholder={empresaId ? "Selecione um contrato" : "Selecione a empresa primeiro"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Sem contrato —</SelectItem>
+                {contratosEmpresa.map((c: any) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.numero_contrato || "Contrato"} {c.nome_contratante ? `· ${c.nome_contratante}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {empresaId && contratosEmpresa.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Nenhum contrato cadastrado. Cadastre em Empresas & Contratos.
+              </p>
+            )}
           </div>
           <div>
             <Label>Responsável técnico *</Label>
