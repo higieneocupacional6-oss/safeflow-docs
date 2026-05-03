@@ -3847,9 +3847,30 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   >
                                     <SelectTrigger className="mt-1 h-8 text-xs"><SelectValue placeholder="Selecione" /></SelectTrigger>
                                     <SelectContent>
-                                      {(equipamentos as any[]).map((x: any) => (
-                                        <SelectItem key={x.id} value={x.id}>{x.nome}</SelectItem>
-                                      ))}
+                                      {(() => {
+                                        const tiposPermitidos = tiposEquipamentoPorAgente(riskForm.agente_nome, riskForm.tipo_avaliacao);
+                                        const seen = new Set<string>();
+                                        const lista = (equipamentos as any[]).filter((x: any) => {
+                                          if (!x?.id || seen.has(x.id)) return false;
+                                          seen.add(x.id);
+                                          if (tiposPermitidos.length === 0) return true;
+                                          return tiposPermitidos.includes(x.tipo);
+                                        });
+                                        if (lista.length === 0) {
+                                          return (
+                                            <SelectItem value="__none" disabled>
+                                              {tiposPermitidos.length > 0
+                                                ? `Nenhum equipamento do tipo: ${tiposPermitidos.join(", ")}`
+                                                : "Nenhum equipamento"}
+                                            </SelectItem>
+                                          );
+                                        }
+                                        return lista.map((x: any) => (
+                                          <SelectItem key={x.id} value={x.id}>
+                                            {x.nome}{x.tipo ? ` — ${x.tipo}` : ""}
+                                          </SelectItem>
+                                        ));
+                                      })()}
                                     </SelectContent>
                                   </Select>
                                 </div>
