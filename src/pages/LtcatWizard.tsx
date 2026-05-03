@@ -633,7 +633,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   // Step 2
-  const [currentRiskSetor, setCurrentRiskSetor] = useState<any>(null);
+  const [currentRiskSetor, setCurrentRiskSetor] = usePersistedState<any>(PK("currentRiskSetor"), null);
 
   // Risk Management
   const [riscos, setRiscos] = useState<RiscoEntry[]>([]);
