@@ -4775,7 +4775,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         </div>
                         <div>
                           <Label className="text-xs mb-1.5 block text-muted-foreground uppercase tracking-wider font-semibold">Função Avaliada</Label>
-                          <Select value={res.funcao_id} onValueChange={v => {
+                          <Select value={res.funcao_id || ""} onValueChange={v => {
                             const updated = [...tempResultados];
                             updated[index].funcao_id = v;
                             const fn = funcoes.find((f: any) => f.id === v);
