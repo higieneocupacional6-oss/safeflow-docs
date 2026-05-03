@@ -4128,6 +4128,50 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   <h3 className="font-heading font-bold text-sm uppercase tracking-wider text-accent">SEÇÃO 7: PARECER TÉCNICO *</h3>
                 </div>
                 <div className="space-y-4">
+                  {/* Auto-fill: Risco + Situação a partir do cadastro Parecer Técnico */}
+                  {(() => {
+                    const tipoDocLabel = tipoDocumento === "insalubridade" ? "Insalubridade" : tipoDocumento === "periculosidade" ? "Periculosidade" : "LTCAT";
+                    const pareceresFiltrados = (pareceresCadastro as any[]).filter((p: any) => {
+                      const docMatch = (p.documento || "").toLowerCase() === tipoDocLabel.toLowerCase();
+                      const riscoMatch = !p.risco_id || p.risco_id === riskForm.agente_id;
+                      return docMatch && riscoMatch;
+                    });
+                    const riscoNome = riskForm.agente_nome || "—";
+                    return (
+                      <div className="grid grid-cols-2 gap-3 p-3 rounded-lg bg-background/60 border border-accent/20">
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Risco / Agente</Label>
+                          <Input className="mt-1 h-9 text-sm bg-muted/40" readOnly value={riscoNome} />
+                        </div>
+                        <div>
+                          <Label className="text-[10px] font-bold uppercase text-muted-foreground">Situação (do cadastro Parecer Técnico)</Label>
+                          <Select
+                            value=""
+                            onValueChange={(v) => {
+                              const p = pareceresFiltrados.find((x: any) => x.id === v);
+                              if (p?.parecer_tecnico) {
+                                setRiskForm({ ...riskForm, parecer_tecnico: p.parecer_tecnico });
+                                toast.success("Parecer preenchido automaticamente. Você pode editar abaixo.");
+                              }
+                            }}
+                          >
+                            <SelectTrigger className="mt-1 h-9 text-sm">
+                              <SelectValue placeholder={pareceresFiltrados.length === 0 ? "Nenhum parecer cadastrado" : "Selecione situação"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {pareceresFiltrados.map((p: any) => (
+                                <SelectItem key={p.id} value={p.id}>{p.situacao}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <p className="text-[11px] text-muted-foreground col-span-2">
+                          Cadastre pareceres reutilizáveis em <strong>Cadastros &gt; Parecer Técnico</strong>. Após preencher, o texto pode ser editado livremente.
+                        </p>
+                      </div>
+                    );
+                  })()}
+
                   <div>
                     <Label className="text-xs font-bold uppercase text-muted-foreground">Conclusão Técnica / Parecer do Engenheiro *</Label>
                     <Textarea
