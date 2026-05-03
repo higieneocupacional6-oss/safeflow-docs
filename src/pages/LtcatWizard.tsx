@@ -494,7 +494,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     "componentesModalOpen", "tempFuncaoRows", "amostraModalOpen", "currentAmostraIndex", "tempComponentes",
     "vibracaoModalOpen", "tempVibracaoRows", "vibracaoAmostraModalOpen", "currentVibracaoIndex", "tempVibAmostra",
     "calorModalOpen", "tempCalorRows", "calorAmostraModalOpen", "currentCalorIndex", "tempCalorAmostra",
-    "riskForm",
+    "riskForm", "currentRiskSetor",
   ];
   const clearWizardPersistedState = () => {
     PERSISTED_KEYS.forEach(k => clearPersistedState(PK(k)));
