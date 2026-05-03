@@ -45,6 +45,7 @@ export default function Cadastros() {
     { table: "riscos", queryKey: ["riscos"] },
     { table: "tecnicas_amostragem", queryKey: ["tecnicas_amostragem"] },
     { table: "equipamentos_ho", queryKey: ["equipamentos_ho"] },
+    { table: "equipamentos_ho_registros", queryKey: ["equipamentos_ho"] },
     { table: "unidades", queryKey: ["unidades"] },
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
@@ -71,7 +72,10 @@ export default function Cadastros() {
   const { data: equipamentos_ho = [] } = useQuery({
     queryKey: ["equipamentos_ho"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("equipamentos_ho").select("*").order("nome");
+      const { data, error } = await supabase
+        .from("equipamentos_ho")
+        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao)")
+        .order("nome");
       if (error) throw error;
       return data;
     },
