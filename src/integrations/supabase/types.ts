@@ -899,6 +899,7 @@ export type Database = {
           data_avaliacao: string | null
           descricao_avaliacao: string | null
           dose_percentual: number | null
+          equipamento_registro_id: string | null
           funcao_id: string | null
           id: string
           limite_tolerancia: number | null
@@ -921,6 +922,7 @@ export type Database = {
           data_avaliacao?: string | null
           descricao_avaliacao?: string | null
           dose_percentual?: number | null
+          equipamento_registro_id?: string | null
           funcao_id?: string | null
           id?: string
           limite_tolerancia?: number | null
@@ -943,6 +945,7 @@ export type Database = {
           data_avaliacao?: string | null
           descricao_avaliacao?: string | null
           dose_percentual?: number | null
+          equipamento_registro_id?: string | null
           funcao_id?: string | null
           id?: string
           limite_tolerancia?: number | null
