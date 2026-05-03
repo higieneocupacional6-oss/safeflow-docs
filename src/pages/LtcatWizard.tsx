@@ -1385,9 +1385,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         // Equipamentos da avaliação (mapeados uma vez por risco/agente)
         const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
           agente_nome: eq.agente_nome || r.agente_nome || "",
+          nome: eq.nome_equipamento || "",
           nome_equipamento: eq.nome_equipamento || "",
-          modelo_equipamento: eq.modelo_equipamento || "",
+          numero_serie: eq.serie_equipamento || "",
           serie_equipamento: eq.serie_equipamento || "",
+          marca_modelo: eq.modelo_equipamento || "",
+          modelo_equipamento: eq.modelo_equipamento || "",
           data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
           data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
         })))(first);
