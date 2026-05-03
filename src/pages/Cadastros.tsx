@@ -429,7 +429,10 @@ export default function Cadastros() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex items-center gap-2 min-w-0">
                           <Wrench className="w-4 h-4 text-accent shrink-0" />
-                          <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                          <div className="min-w-0">
+                            <h4 className="font-semibold truncate" title={e.nome}>{e.nome}</h4>
+                            {e.tipo && <Badge variant="outline" className="mt-1 text-[10px]">{e.tipo}</Badge>}
+                          </div>
                         </div>
                         <div className="flex items-center gap-1">
                           <Button
