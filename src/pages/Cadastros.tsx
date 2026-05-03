@@ -42,6 +42,19 @@ export default function Cadastros() {
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const queryClient = useQueryClient();
 
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t === "equipamentos") setTab("equipamentos");
+    if (searchParams.get("controle") === "1") {
+      setTab("equipamentos");
+      setControleOpen(true);
+      const n = new URLSearchParams(searchParams);
+      n.delete("controle");
+      setSearchParams(n, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Realtime sync: any change made in this session OR in another open tab/user
   // triggers an automatic refetch of the lists used here AND in other modals
   // (LTCAT, Insalubridade, AET) since they share the same query keys.
