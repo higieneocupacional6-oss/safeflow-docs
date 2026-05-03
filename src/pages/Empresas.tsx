@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dialog";
 
 export default function Empresas() {
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const [editEmpresa, setEditEmpresa] = useState<any>(null);
   const [search, setSearch] = useState("");
