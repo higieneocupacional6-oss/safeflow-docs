@@ -403,6 +403,23 @@ export default function AetWizard() {
   const empresaNome = empresaSelecionada?.razao_social || "";
   const allSetoresSalvos = setoresAet.length > 0 && setoresAet.every((s) => s._salvo);
 
+  // Autosave silencioso a cada 3 minutos
+  useEffect(() => {
+    if (!empresaId) return;
+    const interval = setInterval(() => {
+      persist("rascunho", true);
+    }, 3 * 60 * 1000);
+    return () => clearInterval(interval);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [empresaId, contratoId, responsavelTecnico, crea, cargo, dataElaboracao, alteracoes, revisoes, setoresAet, aetId, docId]);
+
+  // Autosave ao trocar de tela (editor de setor / gerar)
+  useEffect(() => {
+    if (!empresaId || !aetId) return;
+    persist("rascunho", true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingSetorIdx, showGerar]);
+
   const handleConfirmSetores = () => {
     const novos = setoresEmpresa
       .filter((s: any) => selectedIds.has(s.id))
