@@ -1004,7 +1004,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const agent = catRiscos.find((r: any) => r.id === riskForm.agente_id);
     const tipoAgenteStr = (riskForm.tipo_agente || "").toLowerCase();
     const isFisico = tipoAgenteStr.includes("físi") || tipoAgenteStr.includes("fisi");
-    const isComponentes = isAgentComponentes(riskForm.agente_nome || "");
+    const isComponentes = isAgentComponentes(riskForm.agente_nome || "", riskForm.tipo_agente || "", riskForm.tipo_avaliacao || "");
 
     const isQualitative = !isComponentes && (riskForm.tipo_avaliacao === "qualitativa" ||
       tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic") ||
