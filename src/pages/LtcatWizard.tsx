@@ -4518,12 +4518,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               <div className="space-y-3 py-4">
                 {tempComponentes.map((comp, ci) => (
                   <div key={comp.id} className="grid grid-cols-12 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
-                    <div className="col-span-4">
+                    <div className="col-span-12 sm:col-span-4">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Componente Avaliado</Label>
                       <Input
                         className="mt-1"
                         placeholder="Ex: Sílica Livre, Poeira Respirável"
-                        value={comp.componente}
+                        value={comp.componente ?? ""}
                         onChange={e => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], componente: e.target.value };
@@ -4531,14 +4531,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         }}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-6 sm:col-span-2">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Resultado</Label>
                       <Input
                         className="mt-1"
                         type="number"
                         step="0.001"
                         placeholder="0.00"
-                        value={comp.resultado}
+                        value={comp.resultado ?? ""}
                         onChange={e => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], resultado: e.target.value };
@@ -4546,10 +4546,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         }}
                       />
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-6 sm:col-span-2">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
                       <Select
-                        value={comp.unidade_resultado_id}
+                        value={comp.unidade_resultado_id ?? ""}
                         onValueChange={v => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], unidade_resultado_id: v };
@@ -4557,19 +4557,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         }}
                       >
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                        <SelectContent>
-                          {unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}
+                        <SelectContent className="z-[100] bg-popover">
+                          {unidades.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma unidade cadastrada</div>
+                          ) : (
+                            unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-2">
+                    <div className="col-span-6 sm:col-span-2">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Limite (LT)</Label>
                       <Input
                         className="mt-1"
                         type="number"
                         step="0.001"
                         placeholder="0.00"
-                        value={comp.limite_tolerancia}
+                        value={comp.limite_tolerancia ?? ""}
                         onChange={e => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], limite_tolerancia: e.target.value };
@@ -4577,34 +4581,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         }}
                       />
                     </div>
-                    <div className="col-span-1">
-                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
+                    <div className="col-span-6 sm:col-span-2">
+                      <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
                       <Select
-                        value={comp.unidade_limite_id}
+                        value={comp.unidade_limite_id ?? ""}
                         onValueChange={v => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], unidade_limite_id: v };
                           setTempComponentes(updated);
                         }}
                       >
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="U." /></SelectTrigger>
-                        <SelectContent>
-                          {unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
+                        <SelectContent className="z-[100] bg-popover">
+                          {unidades.length === 0 ? (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">Nenhuma unidade cadastrada</div>
+                          ) : (
+                            unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)
+                          )}
                         </SelectContent>
                       </Select>
                     </div>
-                    <div className="col-span-1 flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-destructive mt-5"
-                        onClick={() => setTempComponentes(tempComponentes.filter((_, i) => i !== ci))}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                    {/* Linha 2: Situação automática + GFIP */}
-                    <div className="col-span-6">
+                    {/* Linha 2: Situação automática + GFIP + Excluir */}
+                    <div className="col-span-12 sm:col-span-5">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Situação (automática)</Label>
                       {(() => {
                         const r = parseFloat(String(comp.resultado).replace(",", "."));
@@ -4614,24 +4612,35 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         return <div className={`mt-1 h-10 px-3 py-2 text-sm rounded-md border bg-muted/20 font-semibold ${cls}`}>{sit}</div>;
                       })()}
                     </div>
-                    <div className="col-span-6">
+                    <div className="col-span-10 sm:col-span-6">
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Cód. GFIP</Label>
                       <Select
-                        value={comp.cod_gfip || ""}
+                        value={comp.cod_gfip ?? ""}
                         onValueChange={v => {
                           const updated = [...tempComponentes];
                           updated[ci] = { ...updated[ci], cod_gfip: v };
                           setTempComponentes(updated);
                         }}
                       >
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="01">01</SelectItem>
-                          <SelectItem value="02">02</SelectItem>
-                          <SelectItem value="03">03</SelectItem>
-                          <SelectItem value="04">04</SelectItem>
+                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o código GFIP" /></SelectTrigger>
+                        <SelectContent className="z-[100] bg-popover">
+                          <SelectItem value="01">01 — Sem exposição</SelectItem>
+                          <SelectItem value="02">02 — Exposição não enseja aposentadoria especial</SelectItem>
+                          <SelectItem value="03">03 — Aposentadoria especial 25 anos</SelectItem>
+                          <SelectItem value="04">04 — Aposentadoria especial 20 anos</SelectItem>
+                          <SelectItem value="05">05 — Aposentadoria especial 15 anos</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+                    <div className="col-span-2 sm:col-span-1 flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-destructive mt-5"
+                        onClick={() => setTempComponentes(tempComponentes.filter((_, i) => i !== ci))}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
