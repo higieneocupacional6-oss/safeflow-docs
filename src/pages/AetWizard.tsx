@@ -291,6 +291,22 @@ export default function AetWizard() {
     },
   });
 
+  // Contratos da empresa
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-aet", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id,numero_contrato,nome_contratante")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!empresaId,
+  });
+
   // Setores da empresa
   const { data: setoresEmpresa = [] } = useQuery({
     queryKey: ["setores-empresa-aet", empresaId],
