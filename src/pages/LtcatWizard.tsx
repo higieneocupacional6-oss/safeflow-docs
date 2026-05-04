@@ -826,16 +826,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Documento não encontrado");
           return;
         }
-        if (doc.empresa_id) setEmpresaId(doc.empresa_id);
-        if (doc.template_id) setSelectedTemplate(doc.template_id);
-        if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
-        if ((doc as any).responsavel_tecnico) setResponsavel((doc as any).responsavel_tecnico);
-        if ((doc as any).crea) setCrea((doc as any).crea);
-        if ((doc as any).cargo) setCargo((doc as any).cargo);
-        if ((doc as any).data_elaboracao) setDataElab((doc as any).data_elaboracao);
-        if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
-        if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
-        if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+        if (!isReload) {
+          if (doc.empresa_id) setEmpresaId(doc.empresa_id);
+          if (doc.template_id) setSelectedTemplate(doc.template_id);
+          if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
+          if ((doc as any).responsavel_tecnico) setResponsavel((doc as any).responsavel_tecnico);
+          if ((doc as any).crea) setCrea((doc as any).crea);
+          if ((doc as any).cargo) setCargo((doc as any).cargo);
+          if ((doc as any).data_elaboracao) setDataElab((doc as any).data_elaboracao);
+          if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
+          if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
+          if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+        }
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
         // com fallback para todas da empresa (compatibilidade + espelho LTCAT↔Insal)
