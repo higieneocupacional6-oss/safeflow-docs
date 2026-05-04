@@ -482,6 +482,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // 🔒 PERSISTÊNCIA DE MODAIS/FORMULÁRIOS DO WIZARD
   // Mantém os dados preenchidos (incluindo seleções como "Nº de Série")
