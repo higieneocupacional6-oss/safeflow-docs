@@ -24,6 +24,15 @@ export default function SetoresFuncoes() {
   const [funcaoSetorId, setFuncaoSetorId] = useState("");
   const queryClient = useQueryClient();
 
+  useRealtimeSync(
+    [
+      { table: "empresas", queryKey: ["empresas"] },
+      { table: "setores", queryKey: ["setores", empresaId] },
+      { table: "funcoes", queryKey: ["funcoes", empresaId] },
+    ],
+    `setores-funcoes-sync-${empresaId || "none"}`
+  );
+
   // Edit setor state
   const [editSetorOpen, setEditSetorOpen] = useState(false);
   const [editSetor, setEditSetor] = useState<any>(null);
