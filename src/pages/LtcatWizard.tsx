@@ -482,6 +482,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     : "LTCAT";
   const [step, setStep] = useState(0);
   const [docLoaded, setDocLoaded] = useState(false);
+  const [reloadTick, setReloadTick] = useState(0);
 
   // 🔒 PERSISTÊNCIA DE MODAIS/FORMULÁRIOS DO WIZARD
   // Mantém os dados preenchidos (incluindo seleções como "Nº de Série")
@@ -813,7 +814,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Load existing document data in edit mode (HIDRATAÇÃO COMPLETA)
   useEffect(() => {
-    if (!isEditMode || docLoaded) return;
+    if (!isEditMode) return;
+    if (docLoaded && reloadTick === 0) return;
+    const isReload = docLoaded && reloadTick > 0;
     const loadDocument = async () => {
       try {
         const { data: doc, error: docErr } = await supabase
@@ -823,16 +826,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Documento não encontrado");
           return;
         }
-        if (doc.empresa_id) setEmpresaId(doc.empresa_id);
-        if (doc.template_id) setSelectedTemplate(doc.template_id);
-        if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
-        if ((doc as any).responsavel_tecnico) setResponsavel((doc as any).responsavel_tecnico);
-        if ((doc as any).crea) setCrea((doc as any).crea);
-        if ((doc as any).cargo) setCargo((doc as any).cargo);
-        if ((doc as any).data_elaboracao) setDataElab((doc as any).data_elaboracao);
-        if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
-        if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
-        if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+        if (!isReload) {
+          if (doc.empresa_id) setEmpresaId(doc.empresa_id);
+          if (doc.template_id) setSelectedTemplate(doc.template_id);
+          if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
+          if ((doc as any).responsavel_tecnico) setResponsavel((doc as any).responsavel_tecnico);
+          if ((doc as any).crea) setCrea((doc as any).crea);
+          if ((doc as any).cargo) setCargo((doc as any).cargo);
+          if ((doc as any).data_elaboracao) setDataElab((doc as any).data_elaboracao);
+          if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
+          if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
+          if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+        }
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
         // com fallback para todas da empresa (compatibilidade + espelho LTCAT↔Insal)
@@ -999,14 +1004,61 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         });
         setRiscos(loadedRiscos);
         setDocLoaded(true);
-        toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
+        if (isReload) {
+          console.log(`🔄 [LISTAGEM] Re-hidratada com ${loadedRiscos.length} avaliação(ões) do banco`);
+        } else {
+          toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
+        }
       } catch (err) {
         console.error("📋 [LTCAT EDIT] Erro ao carregar:", err);
-        toast.error("Erro ao carregar documento para edição");
+        if (!isReload) toast.error("Erro ao carregar documento para edição");
       }
     };
     loadDocument();
-  }, [isEditMode, documentoId, docLoaded]);
+  }, [isEditMode, documentoId, docLoaded, reloadTick]);
+
+  // 🔄 Re-hidratar Listagem ao retornar para etapa, focar na aba ou detectar
+  // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
+  useEffect(() => {
+    if (!isEditMode || !documentoId || !empresaId) return;
+    const trigger = () => setReloadTick(t => t + 1);
+
+    // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
+    if (step === 2 || step === 3) trigger();
+
+    const onFocus = () => trigger();
+    const onVisibility = () => { if (document.visibilityState === "visible") trigger(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // Realtime: qualquer mudança nas avaliações da empresa força refetch
+    const channel = supabase.channel(`ltcat-listagem-sync-${documentoId}`);
+    [
+      "ltcat_avaliacoes",
+      "ltcat_av_componentes",
+      "ltcat_av_calor",
+      "ltcat_av_vibracao",
+      "ltcat_av_resultados",
+      "ltcat_av_equipamentos",
+      "ltcat_av_epi_epc",
+      "setores",
+      "funcoes",
+    ].forEach(table => {
+      (channel as any).on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => trigger()
+      );
+    });
+    channel.subscribe();
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, documentoId, empresaId, step]);
 
   const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
 
