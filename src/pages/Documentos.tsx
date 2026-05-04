@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
 import { PericulosidadeStartModal } from "@/components/PericulosidadeStartModal";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
