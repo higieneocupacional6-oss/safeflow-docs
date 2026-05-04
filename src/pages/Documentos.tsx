@@ -34,6 +34,14 @@ export default function Documentos() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  useRealtimeSync(
+    [
+      { table: "documentos", queryKey: ["documentos"] },
+      { table: "aet_documentos", queryKey: ["documentos"] },
+    ],
+    "documentos-list-sync"
+  );
+
   const { data: documentos = [], isLoading } = useQuery({
     queryKey: ["documentos"],
     queryFn: async () => {
