@@ -10,6 +10,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
 import { PericulosidadeStartModal } from "@/components/PericulosidadeStartModal";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
@@ -32,6 +33,14 @@ export default function Documentos() {
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+
+  useRealtimeSync(
+    [
+      { table: "documentos", queryKey: ["documentos"] },
+      { table: "aet_documentos", queryKey: ["documentos"] },
+    ],
+    "documentos-list-sync"
+  );
 
   const { data: documentos = [], isLoading } = useQuery({
     queryKey: ["documentos"],

@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CboAutocomplete } from "@/components/CboAutocomplete";
 import { sortByGes } from "@/lib/sortGes";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 export default function SetoresFuncoes() {
   const [empresaId, setEmpresaId] = useState("");
@@ -22,6 +23,15 @@ export default function SetoresFuncoes() {
   const [funcaoModalOpen, setFuncaoModalOpen] = useState(false);
   const [funcaoSetorId, setFuncaoSetorId] = useState("");
   const queryClient = useQueryClient();
+
+  useRealtimeSync(
+    [
+      { table: "empresas", queryKey: ["empresas"] },
+      { table: "setores", queryKey: ["setores", empresaId] },
+      { table: "funcoes", queryKey: ["funcoes", empresaId] },
+    ],
+    `setores-funcoes-sync-${empresaId || "none"}`
+  );
 
   // Edit setor state
   const [editSetorOpen, setEditSetorOpen] = useState(false);

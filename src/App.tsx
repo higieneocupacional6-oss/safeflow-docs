@@ -19,7 +19,15 @@ import SetoresFuncoes from "./pages/SetoresFuncoes";
 import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      refetchOnWindowFocus: true,
+      refetchOnReconnect: true,
+      staleTime: 0,
+    },
+  },
+});
 
 const Protected = ({ children, admin }: { children: React.ReactNode; admin?: boolean }) => (
   <ProtectedRoute requireAdmin={admin}><AppLayout>{children}</AppLayout></ProtectedRoute>
