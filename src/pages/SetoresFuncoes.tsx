@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { CboAutocomplete } from "@/components/CboAutocomplete";
 import { sortByGes } from "@/lib/sortGes";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 export default function SetoresFuncoes() {
   const [empresaId, setEmpresaId] = useState("");
