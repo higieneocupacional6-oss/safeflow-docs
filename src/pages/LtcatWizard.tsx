@@ -1002,14 +1002,61 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         });
         setRiscos(loadedRiscos);
         setDocLoaded(true);
-        toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
+        if (isReload) {
+          console.log(`🔄 [LISTAGEM] Re-hidratada com ${loadedRiscos.length} avaliação(ões) do banco`);
+        } else {
+          toast.success(`${loadedRiscos.length} avaliação(ões) carregada(s) para edição`);
+        }
       } catch (err) {
         console.error("📋 [LTCAT EDIT] Erro ao carregar:", err);
-        toast.error("Erro ao carregar documento para edição");
+        if (!isReload) toast.error("Erro ao carregar documento para edição");
       }
     };
     loadDocument();
-  }, [isEditMode, documentoId, docLoaded]);
+  }, [isEditMode, documentoId, docLoaded, reloadTick]);
+
+  // 🔄 Re-hidratar Listagem ao retornar para etapa, focar na aba ou detectar
+  // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
+  useEffect(() => {
+    if (!isEditMode || !documentoId || !empresaId) return;
+    const trigger = () => setReloadTick(t => t + 1);
+
+    // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
+    if (step === 2 || step === 3) trigger();
+
+    const onFocus = () => trigger();
+    const onVisibility = () => { if (document.visibilityState === "visible") trigger(); };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisibility);
+
+    // Realtime: qualquer mudança nas avaliações da empresa força refetch
+    const channel = supabase.channel(`ltcat-listagem-sync-${documentoId}`);
+    [
+      "ltcat_avaliacoes",
+      "ltcat_av_componentes",
+      "ltcat_av_calor",
+      "ltcat_av_vibracao",
+      "ltcat_av_resultados",
+      "ltcat_av_equipamentos",
+      "ltcat_av_epi_epc",
+      "setores",
+      "funcoes",
+    ].forEach(table => {
+      (channel as any).on(
+        "postgres_changes",
+        { event: "*", schema: "public", table },
+        () => trigger()
+      );
+    });
+    channel.subscribe();
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVisibility);
+      supabase.removeChannel(channel);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditMode, documentoId, empresaId, step]);
 
   const funcoesBySetor = (setorId: string) => funcoes.filter((f: any) => f.setor_id === setorId);
 
