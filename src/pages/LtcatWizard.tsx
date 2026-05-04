@@ -814,7 +814,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Load existing document data in edit mode (HIDRATAÇÃO COMPLETA)
   useEffect(() => {
-    if (!isEditMode || docLoaded) return;
+    if (!isEditMode) return;
+    if (docLoaded && reloadTick === 0) return;
+    const isReload = docLoaded && reloadTick > 0;
     const loadDocument = async () => {
       try {
         const { data: doc, error: docErr } = await supabase
