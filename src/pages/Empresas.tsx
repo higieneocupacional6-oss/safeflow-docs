@@ -15,6 +15,7 @@ import { EmpresaModal } from "@/components/EmpresaModal";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 export default function Empresas() {
   const navigate = useNavigate();
@@ -23,6 +24,8 @@ export default function Empresas() {
   const [search, setSearch] = useState("");
   const [deleteConfirm, setDeleteConfirm] = useState<any>(null);
   const queryClient = useQueryClient();
+
+  useRealtimeSync([{ table: "empresas", queryKey: ["empresas"] }], "empresas-list-sync");
 
   const { data: empresas = [], isLoading } = useQuery({
     queryKey: ["empresas"],
