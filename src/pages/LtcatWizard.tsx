@@ -1213,7 +1213,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
               equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
             })),
-            equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
+              // Back-populate equipamento_id e registro_id a partir do catálogo
+              const eqCat = (equipamentos as any[]).find((e: any) => {
+                const nome = getEquipamentoDisplayName(e);
+                return nome && r.nome_equipamento && nome === r.nome_equipamento;
+              });
+              const reg = eqCat?.equipamentos_ho_registros?.find(
+                (rg: any) => rg.numero_serie && rg.numero_serie === r.serie_equipamento
+              );
+              return {
+                ...r,
+                id: r.id,
+                equipamento_id: eqCat?.id || "",
+                registro_id: reg?.id || "",
+              };
+            }),
             epi_id: epi.epi_id || "",
             epi_ca: epi.epi_ca || "",
             epi_atenuacao: epi.epi_atenuacao || "",
