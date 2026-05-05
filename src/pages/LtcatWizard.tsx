@@ -1170,7 +1170,42 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: av.parecer_tecnico || "",
             aposentadoria_especial: av.aposentadoria_especial || "",
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_componentes: (() => {
+              // Reagrupa linhas planas do DB em grupos por colaborador+função (formato esperado pela UI/Modal Amostra)
+              const flat = (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id }));
+              const groups = new Map<string, any>();
+              flat.forEach((r: any) => {
+                const k = `${r.funcao_id || ""}|${(r.colaborador || "").trim().toLowerCase()}`;
+                let g = groups.get(k);
+                if (!g) {
+                  g = {
+                    id: crypto.randomUUID(),
+                    colaborador: r.colaborador || "",
+                    funcao_id: r.funcao_id || "",
+                    funcao_nome: r.funcao_nome || "",
+                    data_avaliacao: r.data_avaliacao || "",
+                    cod_gfip: r.cod_gfip || "",
+                    componentes: [] as any[],
+                  };
+                  groups.set(k, g);
+                }
+                g.componentes.push({
+                  id: r.id || crypto.randomUUID(),
+                  componente: r.componente || "",
+                  cas: r.cas || "",
+                  resultado: r.resultado ?? "",
+                  unidade_resultado_id: r.unidade_resultado_id || "",
+                  limite_tolerancia: r.limite_tolerancia ?? "",
+                  unidade_limite_id: r.unidade_limite_id || "",
+                  tempo_coleta: r.tempo_coleta || "",
+                  unidade_tempo_coleta: r.unidade_tempo_coleta || "",
+                  dose_percentual: r.dose_percentual ?? "",
+                  situacao: r.situacao || "",
+                  cod_gfip: r.cod_gfip || "",
+                });
+              });
+              return Array.from(groups.values());
+            })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
               resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
               ...r,
