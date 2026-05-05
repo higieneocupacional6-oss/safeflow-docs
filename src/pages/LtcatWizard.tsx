@@ -949,9 +949,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   );
 
   const hasUnsavedChanges =
-    !!empresaId &&
-    !!lastSavedFingerprintRef.current &&
-    currentDraftFingerprint !== lastSavedFingerprintRef.current;
+    !!empresaId && currentDraftFingerprint !== lastSavedFingerprintRef.current;
 
   const markSnapshotAsSaved = (
     snapshot: Record<string, any>,
@@ -1036,6 +1034,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         if (avaliacoes.length === 0) {
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
+          markSnapshotAsSaved(buildDraftSnapshot({
+            empresaId: doc.empresa_id || "",
+            contratoId: (doc as any).contrato_id || "",
+            selectedTemplate: doc.template_id || "",
+            responsavel: (doc as any).responsavel_tecnico || "",
+            crea: (doc as any).crea || "",
+            cargo: (doc as any).cargo || "",
+            dataElab: (doc as any).data_elaboracao || "",
+            alteracoesDoc: (doc as any).alteracoes_documento || "",
+            revisoes: (doc as any).revisoes || [],
+            step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
+            riscos: [],
+          }), "load");
           setDocLoaded(true);
           return;
         }
@@ -1181,6 +1192,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           })),
         });
         setRiscos(loadedRiscos);
+        markSnapshotAsSaved(buildDraftSnapshot({
+          empresaId: doc.empresa_id || "",
+          contratoId: (doc as any).contrato_id || "",
+          selectedTemplate: doc.template_id || "",
+          responsavel: (doc as any).responsavel_tecnico || "",
+          crea: (doc as any).crea || "",
+          cargo: (doc as any).cargo || "",
+          dataElab: (doc as any).data_elaboracao || "",
+          alteracoesDoc: (doc as any).alteracoes_documento || "",
+          revisoes: (doc as any).revisoes || [],
+          step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
+          riscos: loadedRiscos,
+        }), "load");
         setDocLoaded(true);
         if (isReload) {
           console.log(`🔄 [LISTAGEM] Re-hidratada com ${loadedRiscos.length} avaliação(ões) do banco`);
