@@ -2538,7 +2538,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
 
       for (const r of riscos) {
-        for (const it of r.items) {
+        // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
+        // que o mesmo colaborador gere múltiplas avaliações (bug reportado em químicos).
+        const seenItems = new Set<string>();
+        const uniqueItems = (r.items || []).filter((it: any) => {
+          const k = `${it.funcao_id || ""}|${(it.colaborador || "").trim().toLowerCase()}`;
+          if (seenItems.has(k)) return false;
+          seenItems.add(k);
+          return true;
+        });
+        let __itemIdx = 0;
+        for (const it of uniqueItems) {
+          const __isFirstItem = __itemIdx === 0;
+          __itemIdx++;
           const { data: avRow, error: avErr } = await supabase
             .from("ltcat_avaliacoes")
             .insert({
