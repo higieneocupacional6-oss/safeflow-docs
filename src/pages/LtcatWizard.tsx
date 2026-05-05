@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -897,6 +897,76 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return data;
     },
   });
+
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
+  const lastSavedFingerprintRef = useRef("");
+
+  const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
+    empresaId: overrides.empresaId ?? empresaId,
+    contratoId: overrides.contratoId ?? contratoId,
+    selectedTemplate: overrides.selectedTemplate ?? selectedTemplate,
+    responsavel: overrides.responsavel ?? responsavel,
+    crea: overrides.crea ?? crea,
+    cargo: overrides.cargo ?? cargo,
+    dataElab: overrides.dataElab ?? dataElab,
+    alteracoesDoc: overrides.alteracoesDoc ?? alteracoesDoc,
+    revisoes: overrides.revisoes ?? revisoes,
+    step: overrides.step ?? step,
+    riscos: overrides.riscos ?? riscos,
+    riskForm: overrides.riskForm ?? riskForm,
+    currentRiskSetor: overrides.currentRiskSetor ?? currentRiskSetor,
+    editingRiskId: overrides.editingRiskId ?? editingRiskId,
+    tipoDocumento,
+  });
+
+  const currentDraftSnapshot = useMemo(
+    () => buildDraftSnapshot(),
+    [
+      empresaId,
+      contratoId,
+      selectedTemplate,
+      responsavel,
+      crea,
+      cargo,
+      dataElab,
+      alteracoesDoc,
+      revisoes,
+      step,
+      riscos,
+      riskForm,
+      currentRiskSetor,
+      editingRiskId,
+      tipoDocumento,
+    ],
+  );
+
+  const currentDraftFingerprint = useMemo(
+    () => JSON.stringify(currentDraftSnapshot),
+    [currentDraftSnapshot],
+  );
+
+  const hasUnsavedChanges =
+    !!empresaId &&
+    !!lastSavedFingerprintRef.current &&
+    currentDraftFingerprint !== lastSavedFingerprintRef.current;
+
+  const markSnapshotAsSaved = (
+    snapshot: Record<string, any>,
+    mode: "manual" | "auto" | "load" = "manual",
+  ) => {
+    lastSavedFingerprintRef.current = JSON.stringify(snapshot);
+    if (mode === "load") return;
+    setLastSaveMode(mode === "auto" ? "auto" : "manual");
+    setLastSavedAt(
+      new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    );
+  };
 
   // Aviso ao sair com possíveis alterações não salvas
   useEffect(() => {
