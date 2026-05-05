@@ -2587,10 +2587,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
           const avId = avRow.id;
 
+          // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
+          // Se o subdado não tiver colaborador/funcao_id (legado), só atribui ao primeiro item do risco.
+          const __matchItem = (x: any) => {
+            const xc = (x?.colaborador || "").trim().toLowerCase();
+            const xf = x?.funcao_id || "";
+            const ic = (it.colaborador || "").trim().toLowerCase();
+            const ifc = it.funcao_id || "";
+            if (!xc && !xf) return __isFirstItem; // sem vínculo → cai no primeiro
+            return xc === ic && xf === ifc;
+          };
+          const __filter = (arr: any[] | undefined) => (arr || []).filter(__matchItem);
+          const __compArr = __filter(r.resultados_componentes);
+          const __calorArr = __filter(r.resultados_calor);
+          const __vibArr = __filter(r.resultados_vibracao);
+          const __resArr = __filter(r.resultados_detalhados);
+          // Equipamentos do risco: pertencem ao risco como um todo → só no primeiro item
+          const __eqArr = __isFirstItem ? ((r as any).equipamentos_avaliacao || []) : [];
+
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
             (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
-          const compRows = mkRows(r.resultados_componentes, (x) => ({
+          const compRows = mkRows(__compArr, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
             cas: x.cas || null,
             resultado: x.resultado ? Number(x.resultado) : null,
@@ -2609,7 +2627,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const calorRows = mkRows(r.resultados_calor, (x) => ({
+          const calorRows = mkRows(__calorArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
             ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
@@ -2629,7 +2647,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             tg_valores: x.tg_valores || null,
             tbs_valores: x.tbs_valores || null,
           }));
-          const vibRows = mkRows(r.resultados_vibracao, (x) => ({
+          const vibRows = mkRows(__vibArr, (x) => ({
             tipo: x.tipo || null,
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
@@ -2642,7 +2660,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const resRows = mkRows(r.resultados_detalhados, (x) => ({
+          const resRows = mkRows(__resArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
             equipamento_registro_id: x.equipamento_registro_id || null,
@@ -2658,7 +2676,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const eqRows = mkRows((r as any).equipamentos_avaliacao, (x) => ({
+          const eqRows = mkRows(__eqArr, (x) => ({
             nome_equipamento: x.nome_equipamento || null,
             modelo_equipamento: x.modelo_equipamento || null,
             serie_equipamento: x.serie_equipamento || null,
@@ -2668,15 +2686,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           }));
 
           const tasks: any[] = [];
-          // 🛡️ ANTI-DUPLICAÇÃO: subdados (resultados, componentes, calor, vibração, equipamentos)
-          // pertencem ao RISCO, não ao item. Só persistir UMA VEZ por risco (no primeiro item).
-          if (__isFirstItem) {
-            if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
-            if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
-            if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
-            if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
-            if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
-          }
+          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
+          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
+          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
+          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
+          if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
