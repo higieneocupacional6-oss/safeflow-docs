@@ -2017,16 +2017,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           avaliacoes: avaliacoesEnriched,
           epis,
           epcs,
-          equipamentos_avaliacao: (first.equipamentos_avaliacao || []).length > 0
-            ? first.equipamentos_avaliacao.map((eq: any) => ({
-                agente_nome: eq.agente_nome || "",
-                nome_equipamento: eq.nome_equipamento || "",
-                modelo_equipamento: eq.modelo_equipamento || "",
-                serie_equipamento: eq.serie_equipamento || "",
-                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
-                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
-              }))
-            : [],
+          // Loop completo com TODOS os aliases para o template (nome/numero_serie/marca_modelo)
+          equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+          equipamentos: equipamentosAvaliacaoLoop,
+          tem_equipamentos: equipamentosAvaliacaoLoop.length > 0,
           // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
           ...(() => {
             const allRes = agentEntries.flatMap((r: any) => r.resultados_detalhados || []);
