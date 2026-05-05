@@ -991,6 +991,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Documento não encontrado");
           return;
         }
+        let draftSnapshot: any = null;
         if (!isReload) {
           setCurrentDraftId(doc.id);
           if (doc.empresa_id) setEmpresaId(doc.empresa_id);
@@ -1004,13 +1005,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
           if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
 
-          const snapshot = (doc as any).draft_snapshot;
-          if (snapshot && typeof snapshot === "object") {
-            if (snapshot.currentRiskSetor) setCurrentRiskSetor(snapshot.currentRiskSetor);
-            if (snapshot.riskForm) setRiskForm(snapshot.riskForm);
-            if (Array.isArray(snapshot.riscos) && snapshot.riscos.length > 0) {
-              setRiscos(snapshot.riscos as RiscoEntry[]);
-              markSnapshotAsSaved(snapshot, "load");
+          draftSnapshot = (doc as any).draft_snapshot;
+          if (draftSnapshot && typeof draftSnapshot === "object") {
+            if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
+            if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
+            if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
+              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
+              markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
         }
@@ -1034,19 +1035,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         if (avaliacoes.length === 0) {
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
-          markSnapshotAsSaved(buildDraftSnapshot({
-            empresaId: doc.empresa_id || "",
-            contratoId: (doc as any).contrato_id || "",
-            selectedTemplate: doc.template_id || "",
-            responsavel: (doc as any).responsavel_tecnico || "",
-            crea: (doc as any).crea || "",
-            cargo: (doc as any).cargo || "",
-            dataElab: (doc as any).data_elaboracao || "",
-            alteracoesDoc: (doc as any).alteracoes_documento || "",
-            revisoes: (doc as any).revisoes || [],
-            step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
-            riscos: [],
-          }), "load");
+          markSnapshotAsSaved(
+            draftSnapshot && typeof draftSnapshot === "object"
+              ? draftSnapshot
+              : buildDraftSnapshot({
+                  empresaId: doc.empresa_id || "",
+                  contratoId: (doc as any).contrato_id || "",
+                  selectedTemplate: doc.template_id || "",
+                  responsavel: (doc as any).responsavel_tecnico || "",
+                  crea: (doc as any).crea || "",
+                  cargo: (doc as any).cargo || "",
+                  dataElab: (doc as any).data_elaboracao || "",
+                  alteracoesDoc: (doc as any).alteracoes_documento || "",
+                  revisoes: (doc as any).revisoes || [],
+                  step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
+                  riscos: [],
+                }),
+            "load",
+          );
           setDocLoaded(true);
           return;
         }
@@ -1632,23 +1638,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
     try {
       const novoGes = (riskForm.funcoes_ges || "").trim();
+      let nextRiscos: RiscoEntry[] = [];
       if (editingRiskId) {
-        setRiscos(prev => prev.map(r => {
+        nextRiscos = riscos.map(r => {
           if (r.id === editingRiskId) return newRisk;
           // Propaga funcoes_ges atualizado para todos os riscos do mesmo setor
           if (novoGes && r.setor_id === currentRiskSetor.id) {
             return { ...r, funcoes_ges: novoGes };
           }
           return r;
-        }));
-      } else {
-        setRiscos((prev) => {
-          const propagated = novoGes
-            ? prev.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
-            : prev;
-          return [...propagated, newRisk];
         });
+        setRiscos(nextRiscos);
+      } else {
+        const propagated = novoGes
+          ? riscos.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
+          : riscos;
+        nextRiscos = [...propagated, newRisk];
+        setRiscos(nextRiscos);
       }
+      await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
       toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
@@ -3800,8 +3808,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 title="Salva o progresso atual sem validar"
               >
                 {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Salvar Rascunho
+                Salvar
               </Button>
+              {lastSavedAt && (
+                <span className="text-xs text-muted-foreground">
+                  {lastSaveMode === "auto" ? "Salvo automaticamente" : "Salvo"} • Última atualização: {lastSavedAt}
+                </span>
+              )}
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
