@@ -146,22 +146,35 @@ export default function Templates() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates.map((t: any) => (
-            <div key={t.id} className="glass-card rounded-xl p-5 hover:shadow-md transition-shadow group">
+            <div key={t.id} className={`glass-card rounded-xl p-5 hover:shadow-md transition-shadow group ${t.is_system ? "border-2 border-accent/40" : ""}`}>
               <div className="flex items-start justify-between mb-4">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center">
-                  <FileText className="w-5 h-5 text-muted-foreground" />
+                <div className={`w-10 h-10 rounded-lg flex items-center justify-center ${t.is_system ? "bg-accent/15" : "bg-muted"}`}>
+                  {t.is_system ? (
+                    <ShieldCheck className="w-5 h-5 text-accent" />
+                  ) : (
+                    <FileText className="w-5 h-5 text-muted-foreground" />
+                  )}
                 </div>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                  onClick={() => handleDelete(t.id, t.file_path)}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
+                {!t.is_system && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => handleDelete(t.id, t.file_path, !!t.is_system)}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                )}
               </div>
-              <h3 className="font-heading font-semibold text-foreground mb-1">{t.title}</h3>
-              <p className="text-xs text-muted-foreground">Enviado em {formatDate(t.created_at)}</p>
+              <div className="flex items-center gap-2 mb-1">
+                <h3 className="font-heading font-semibold text-foreground">{t.title}</h3>
+                {t.is_system && (
+                  <Badge variant="outline" className="text-[10px] border-accent/50 text-accent">PADRÃO</Badge>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {t.is_system ? "Template oficial do sistema — não pode ser excluído" : `Enviado em ${formatDate(t.created_at)}`}
+              </p>
             </div>
           ))}
         </div>
