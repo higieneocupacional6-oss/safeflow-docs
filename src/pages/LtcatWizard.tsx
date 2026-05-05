@@ -32,6 +32,8 @@ interface RiscoEntry {
   setor_nome: string;
   funcoes_ges?: string;
   data_avaliacao?: string;
+  tempo_coleta?: string;
+  unidade_tempo_coleta?: string;
   items: {
     id: string;
     colaborador: string;
@@ -1030,7 +1032,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           };
         };
 
-        const loadedRiscos: RiscoEntry[] = avaliacoes.map((av: any) => {
+        const loadedRiscos = mergeLoadedRiscos(avaliacoes.map((av: any) => {
           const epi = epiByAv[av.id] || {};
           const setor = setorMap.get(av.setor_id);
           const funcao = funcaoMap.get(av.funcao_id);
@@ -1086,7 +1088,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             epc_id: epi.epc_id || "",
             epc_eficaz: epi.epc_eficaz || "",
           } as RiscoEntry;
-        });
+        }));
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
         console.log("📦 [RASCUNHO CARREGADO]", {
