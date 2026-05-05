@@ -2841,21 +2841,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(__compArr, (x) => ({
-            componente: x.componente_avaliado || x.componente || null,
+            componente: x.componente || null,
             cas: x.cas || null,
-            resultado: x.resultado ? Number(x.resultado) : null,
+            resultado: x.resultado != null && x.resultado !== "" ? Number(x.resultado) : null,
             unidade_resultado_id: x.unidade_resultado_id || null,
-            limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
+            limite_tolerancia: x.limite_tolerancia != null && x.limite_tolerancia !== "" ? Number(x.limite_tolerancia) : null,
             unidade_limite_id: x.unidade_limite_id || null,
             tempo_coleta: x.tempo_coleta || null,
             unidade_tempo_coleta: x.unidade_tempo_coleta || null,
-            dose_percentual: x.dose_percentual ? Number(x.dose_percentual) : null,
+            dose_percentual: x.dose_percentual != null && x.dose_percentual !== "" ? Number(x.dose_percentual) : null,
             situacao: x.situacao || null,
             cod_gfip: x.cod_gfip || null,
             colaborador: x.colaborador || null,
             funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
-            descricao_avaliacao: x.descricao_avaliacao || x.descricao_tecnica || null,
+            descricao_avaliacao: x.descricao_avaliacao || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
