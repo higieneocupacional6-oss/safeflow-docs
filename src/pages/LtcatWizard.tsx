@@ -2795,7 +2795,42 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             return xc === ic && xf === ifc;
           };
           const __filter = (arr: any[] | undefined) => (arr || []).filter(__matchItem);
-          const __compArr = __filter(r.resultados_componentes);
+          // Achata grupos {funcao_id, colaborador, componentes:[]} em uma linha por componente
+          const __flattenComponentes = (arr: any[] | undefined) => {
+            const out: any[] = [];
+            (arr || []).forEach((row: any) => {
+              const base = {
+                colaborador: row.colaborador || null,
+                funcao_id: row.funcao_id || null,
+                data_avaliacao: row.data_avaliacao || null,
+                cod_gfip: row.cod_gfip || null,
+                parecer_tecnico: row.parecer_tecnico || null,
+                aposentadoria_especial: row.aposentadoria_especial || null,
+                descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
+              };
+              const comps = Array.isArray(row.componentes) && row.componentes.length > 0
+                ? row.componentes
+                : [row]; // legado: a própria linha já é um componente plano
+              comps.forEach((c: any) => {
+                out.push({
+                  ...base,
+                  componente: c.componente_avaliado || c.componente || row.componente || null,
+                  cas: c.cas || null,
+                  resultado: c.resultado ?? row.resultado ?? null,
+                  unidade_resultado_id: c.unidade_resultado_id || row.unidade_resultado_id || null,
+                  limite_tolerancia: c.limite_tolerancia ?? row.limite_tolerancia ?? null,
+                  unidade_limite_id: c.unidade_limite_id || row.unidade_limite_id || null,
+                  tempo_coleta: c.tempo_coleta || row.tempo_coleta || null,
+                  unidade_tempo_coleta: c.unidade_tempo_coleta || row.unidade_tempo_coleta || null,
+                  dose_percentual: c.dose_percentual ?? row.dose_percentual ?? null,
+                  situacao: c.situacao || row.situacao || null,
+                  cod_gfip: c.cod_gfip || row.cod_gfip || base.cod_gfip,
+                });
+              });
+            });
+            return out;
+          };
+          const __compArr = __flattenComponentes(__filter(r.resultados_componentes));
           const __calorArr = __filter(r.resultados_calor);
           const __vibArr = __filter(r.resultados_vibracao);
           const __resArr = __filter(r.resultados_detalhados);
