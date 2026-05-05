@@ -1170,7 +1170,42 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: av.parecer_tecnico || "",
             aposentadoria_especial: av.aposentadoria_especial || "",
             resultados_detalhados: (resByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-            resultados_componentes: (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
+            resultados_componentes: (() => {
+              // Reagrupa linhas planas do DB em grupos por colaborador+função (formato esperado pela UI/Modal Amostra)
+              const flat = (compByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id }));
+              const groups = new Map<string, any>();
+              flat.forEach((r: any) => {
+                const k = `${r.funcao_id || ""}|${(r.colaborador || "").trim().toLowerCase()}`;
+                let g = groups.get(k);
+                if (!g) {
+                  g = {
+                    id: crypto.randomUUID(),
+                    colaborador: r.colaborador || "",
+                    funcao_id: r.funcao_id || "",
+                    funcao_nome: r.funcao_nome || "",
+                    data_avaliacao: r.data_avaliacao || "",
+                    cod_gfip: r.cod_gfip || "",
+                    componentes: [] as any[],
+                  };
+                  groups.set(k, g);
+                }
+                g.componentes.push({
+                  id: r.id || crypto.randomUUID(),
+                  componente: r.componente || "",
+                  cas: r.cas || "",
+                  resultado: r.resultado ?? "",
+                  unidade_resultado_id: r.unidade_resultado_id || "",
+                  limite_tolerancia: r.limite_tolerancia ?? "",
+                  unidade_limite_id: r.unidade_limite_id || "",
+                  tempo_coleta: r.tempo_coleta || "",
+                  unidade_tempo_coleta: r.unidade_tempo_coleta || "",
+                  dose_percentual: r.dose_percentual ?? "",
+                  situacao: r.situacao || "",
+                  cod_gfip: r.cod_gfip || "",
+                });
+              });
+              return Array.from(groups.values());
+            })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
               resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
               ...r,
@@ -1178,7 +1213,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
               equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
             })),
-            equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => ({ ...r, id: r.id })),
+            equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
+              // Back-populate equipamento_id e registro_id a partir do catálogo
+              const eqCat = (equipamentos as any[]).find((e: any) => {
+                const nome = getEquipamentoDisplayName(e);
+                return nome && r.nome_equipamento && nome === r.nome_equipamento;
+              });
+              const reg = eqCat?.equipamentos_ho_registros?.find(
+                (rg: any) => rg.numero_serie && rg.numero_serie === r.serie_equipamento
+              );
+              return {
+                ...r,
+                id: r.id,
+                equipamento_id: eqCat?.id || "",
+                registro_id: reg?.id || "",
+              };
+            }),
             epi_id: epi.epi_id || "",
             epi_ca: epi.epi_ca || "",
             epi_atenuacao: epi.epi_atenuacao || "",
@@ -2795,7 +2845,42 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             return xc === ic && xf === ifc;
           };
           const __filter = (arr: any[] | undefined) => (arr || []).filter(__matchItem);
-          const __compArr = __filter(r.resultados_componentes);
+          // Achata grupos {funcao_id, colaborador, componentes:[]} em uma linha por componente
+          const __flattenComponentes = (arr: any[] | undefined) => {
+            const out: any[] = [];
+            (arr || []).forEach((row: any) => {
+              const base = {
+                colaborador: row.colaborador || null,
+                funcao_id: row.funcao_id || null,
+                data_avaliacao: row.data_avaliacao || null,
+                cod_gfip: row.cod_gfip || null,
+                parecer_tecnico: row.parecer_tecnico || null,
+                aposentadoria_especial: row.aposentadoria_especial || null,
+                descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
+              };
+              const comps = Array.isArray(row.componentes) && row.componentes.length > 0
+                ? row.componentes
+                : [row]; // legado: a própria linha já é um componente plano
+              comps.forEach((c: any) => {
+                out.push({
+                  ...base,
+                  componente: c.componente_avaliado || c.componente || row.componente || null,
+                  cas: c.cas || null,
+                  resultado: c.resultado ?? row.resultado ?? null,
+                  unidade_resultado_id: c.unidade_resultado_id || row.unidade_resultado_id || null,
+                  limite_tolerancia: c.limite_tolerancia ?? row.limite_tolerancia ?? null,
+                  unidade_limite_id: c.unidade_limite_id || row.unidade_limite_id || null,
+                  tempo_coleta: c.tempo_coleta || row.tempo_coleta || null,
+                  unidade_tempo_coleta: c.unidade_tempo_coleta || row.unidade_tempo_coleta || null,
+                  dose_percentual: c.dose_percentual ?? row.dose_percentual ?? null,
+                  situacao: c.situacao || row.situacao || null,
+                  cod_gfip: c.cod_gfip || row.cod_gfip || base.cod_gfip,
+                });
+              });
+            });
+            return out;
+          };
+          const __compArr = __flattenComponentes(__filter(r.resultados_componentes));
           const __calorArr = __filter(r.resultados_calor);
           const __vibArr = __filter(r.resultados_vibracao);
           const __resArr = __filter(r.resultados_detalhados);
@@ -2806,21 +2891,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
           const compRows = mkRows(__compArr, (x) => ({
-            componente: x.componente_avaliado || x.componente || null,
+            componente: x.componente || null,
             cas: x.cas || null,
-            resultado: x.resultado ? Number(x.resultado) : null,
+            resultado: x.resultado != null && x.resultado !== "" ? Number(x.resultado) : null,
             unidade_resultado_id: x.unidade_resultado_id || null,
-            limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
+            limite_tolerancia: x.limite_tolerancia != null && x.limite_tolerancia !== "" ? Number(x.limite_tolerancia) : null,
             unidade_limite_id: x.unidade_limite_id || null,
             tempo_coleta: x.tempo_coleta || null,
             unidade_tempo_coleta: x.unidade_tempo_coleta || null,
-            dose_percentual: x.dose_percentual ? Number(x.dose_percentual) : null,
+            dose_percentual: x.dose_percentual != null && x.dose_percentual !== "" ? Number(x.dose_percentual) : null,
             situacao: x.situacao || null,
             cod_gfip: x.cod_gfip || null,
             colaborador: x.colaborador || null,
             funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
-            descricao_avaliacao: x.descricao_avaliacao || x.descricao_tecnica || null,
+            descricao_avaliacao: x.descricao_avaliacao || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
