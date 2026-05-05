@@ -2655,7 +2655,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
   // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
-  const persistAvaliacoes = async (docId: string) => {
+  const persistAvaliacoes = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
@@ -2665,7 +2665,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const { data: existentes } = await supabase
         .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
       const totalExistentes = existentes?.length || 0;
-      const totalARecriar = (riscos || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
+      const totalARecriar = (riscosSource || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
 
       if (totalExistentes > 0 && totalARecriar === 0) {
         console.warn(
@@ -2690,7 +2690,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           .delete().in("id", existentes.map(e => e.id));
       }
 
-      for (const r of riscos) {
+      for (const r of riscosSource) {
         // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
         // que o mesmo colaborador gere múltiplas avaliações (bug reportado em químicos).
         const seenItems = new Set<string>();
@@ -2863,38 +2863,50 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
   };
 
-  // SALVAR RASCUNHO - sem validações, apenas persiste o que foi preenchido
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  // SALVAR - persiste snapshot completo + avaliações normalizadas
+  const handleSaveDraft = async (
+    silent = false,
+    overrides: Record<string, any> = {},
+    force = false,
+  ) => {
+    const snapshot = buildDraftSnapshot(overrides);
+    const fingerprint = JSON.stringify(snapshot);
 
-  const handleSaveDraft = async (silent = false) => {
-    if (!empresaId) {
-      if (!silent) toast.error("Selecione uma empresa antes de salvar o rascunho");
+    if (!snapshot.empresaId) {
+      if (!silent) toast.error("Selecione uma empresa antes de salvar");
       return;
     }
+
+    if (!force && fingerprint === lastSavedFingerprintRef.current) {
+      if (!silent) toast.info("Nenhuma alteração para salvar");
+      return;
+    }
+
     setSavingDraft(true);
     try {
-      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
       const baseFields: any = {
-        empresa_id: empresaId,
+        empresa_id: snapshot.empresaId,
         empresa_nome: empresaNome,
-        contrato_id: contratoId || null,
-        template_id: selectedTemplate || null,
-        responsavel_tecnico: responsavel || null,
-        crea: crea || null,
-        cargo: cargo || null,
-        data_elaboracao: dataElab || null,
-        alteracoes_documento: alteracoesDoc || null,
-        revisoes: revisoes || [],
-        current_step: step,
+        contrato_id: snapshot.contratoId || null,
+        template_id: snapshot.selectedTemplate || null,
+        responsavel_tecnico: snapshot.responsavel || null,
+        crea: snapshot.crea || null,
+        cargo: snapshot.cargo || null,
+        data_elaboracao: snapshot.dataElab || null,
+        alteracoes_documento: snapshot.alteracoesDoc || null,
+        revisoes: snapshot.revisoes || [],
+        current_step: snapshot.step ?? 0,
+        draft_snapshot: snapshot,
         status: "rascunho",
       };
 
       let docId = currentDraftId;
       if (docId) {
-        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
+        const { error } = await supabase.from("documentos").update(baseFields as any).eq("id", docId);
+        if (error) throw error;
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
@@ -2904,38 +2916,48 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (error) throw error;
         docId = inserted?.id || null;
         setCurrentDraftId(docId);
+        if (docId && !documentoId) {
+          navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
+        }
       }
-      if (docId) await persistAvaliacoes(docId);
-      if (!silent) toast.success("💾 Rascunho salvo com sucesso");
+
+      if (docId) await persistAvaliacoes(docId, snapshot.riscos || []);
+
+      markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
+      if (!silent) toast.success("Salvo com sucesso");
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
       try {
         localStorage.setItem(
-          `draft_${tipoDocumento}_${empresaId}`,
-          JSON.stringify({ savedAt: Date.now() })
+          `draft_${tipoDocumento}_${snapshot.empresaId}`,
+          JSON.stringify({ savedAt: Date.now() }),
         );
       } catch {}
-      if (!silent) toast.error("Erro ao salvar rascunho: " + (err.message || ""));
+      if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
     } finally {
       setSavingDraft(false);
     }
   };
 
-  // 🔁 Autosave silencioso: a cada 3 minutos + ao trocar de etapa
+  // 🔁 Autosave silencioso: a cada 1 minuto + somente quando houver alteração
   useEffect(() => {
     if (!empresaId) return;
-    const id = setInterval(() => { handleSaveDraft(true); }, 3 * 60 * 1000);
+    const id = setInterval(() => {
+      if (savingDraft || !hasUnsavedChanges) return;
+      handleSaveDraft(true);
+    }, 60 * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaId, contratoId, responsavel, crea, cargo, dataElab, alteracoesDoc, revisoes, riscos, selectedTemplate, step]);
+  }, [empresaId, hasUnsavedChanges, savingDraft]);
 
   // Salvar ao trocar de etapa (debounced)
   useEffect(() => {
     if (!empresaId) return;
+    if (savingDraft || !hasUnsavedChanges) return;
     const t = setTimeout(() => { handleSaveDraft(true); }, 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, empresaId, hasUnsavedChanges, savingDraft]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
