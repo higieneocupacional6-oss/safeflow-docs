@@ -106,7 +106,11 @@ export default function Templates() {
     }
   };
 
-  const handleDelete = async (id: string, filePath: string) => {
+  const handleDelete = async (id: string, filePath: string, isSystem: boolean) => {
+    if (isSystem) {
+      toast.error("Este é um template padrão do sistema e não pode ser excluído.");
+      return;
+    }
     await supabase.storage.from("templates").remove([filePath]);
     await supabase.from("templates").delete().eq("id", id);
     queryClient.invalidateQueries({ queryKey: ["templates"] });
