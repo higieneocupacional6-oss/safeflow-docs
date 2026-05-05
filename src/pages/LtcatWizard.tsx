@@ -1820,43 +1820,35 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 local_avaliado: "", atividade_avaliada: "", taxa_metabolica: "",
                 resultado_calor: "", unidade_resultado_calor: "", limite_tolerancia_calor: "", unidade_limite_calor: "",
               };
+              // 🛡️ ANTI-DUPLICAÇÃO: emitir UMA única linha por colaborador (rc) na lista de avaliações.
+              // Os componentes individuais ficam disponíveis pelo sub-loop {{#componentes_amostra}}
+              // já populado em baseRow. Antes, cada componente virava uma avaliação extra (bug).
               const comps = rc.componentes || [];
-              if (!comps.length) {
-                rows.push({
-                  ...baseRow,
-                  componente_avaliado: rc.componente || rc.nome_componente || rc.componente_avaliado || "",
-                  resultado: "",
-                  unidade_resultado: "",
-                  unidade: "",
-                  limite_tolerancia: "",
-                  unidade_limite: "",
-                  situacao: "",
-                  cod_gfip: "",
-                });
-                return;
+              const primeiro = comps[0] || {};
+              const uRes = unidades.find((u: any) => u.id === primeiro.unidade_resultado_id)?.simbolo || "";
+              const uLim = unidades.find((u: any) => u.id === primeiro.unidade_limite_id)?.simbolo || "";
+              const resN = parseFloat(String(primeiro.resultado).replace(",", "."));
+              const ltN = parseFloat(String(primeiro.limite_tolerancia).replace(",", "."));
+              let situacao = primeiro.situacao || rc.situacao || "";
+              if (!situacao && !isNaN(resN) && !isNaN(ltN) && ltN > 0) {
+                situacao = resN > ltN ? "Nocivo" : "Seguro";
               }
-              comps.forEach((c: any) => {
-                const uRes = unidades.find((u: any) => u.id === c.unidade_resultado_id)?.simbolo || "";
-                const uLim = unidades.find((u: any) => u.id === c.unidade_limite_id)?.simbolo || "";
-                const resN = parseFloat(String(c.resultado).replace(",", "."));
-                const ltN = parseFloat(String(c.limite_tolerancia).replace(",", "."));
-                let situacao = c.situacao || "";
-                if (!situacao && !isNaN(resN) && !isNaN(ltN) && ltN > 0) {
-                  situacao = resN > ltN ? "Nocivo" : "Seguro";
-                }
-                rows.push({
-                  ...baseRow,
-                  componente_avaliado: c.componente || c.nome_componente || "",
-                  componente: c.componente || c.nome_componente || "",
-                  resultado: c.resultado != null ? String(c.resultado) : "",
-                  unidade_resultado: uRes,
-                  unidade: uRes,
-                  limite_tolerancia: c.limite_tolerancia != null ? String(c.limite_tolerancia) : "",
-                  unidade_limite: uLim,
-                  situacao,
-                  cod_gfip: c.cod_gfip || rc.cod_gfip || "",
-                  codigo_gfip: c.cod_gfip || rc.cod_gfip || "",
-                });
+              // Se houver pelo menos um componente nocivo, a avaliação é nociva
+              if (comps.some((c: any) => String(c.situacao || "").toLowerCase() === "nocivo")) {
+                situacao = "Nocivo";
+              }
+              rows.push({
+                ...baseRow,
+                componente_avaliado: primeiro.componente || primeiro.nome_componente || rc.componente || "",
+                componente: primeiro.componente || primeiro.nome_componente || rc.componente || "",
+                resultado: primeiro.resultado != null ? String(primeiro.resultado) : "",
+                unidade_resultado: uRes,
+                unidade: uRes,
+                limite_tolerancia: primeiro.limite_tolerancia != null ? String(primeiro.limite_tolerancia) : "",
+                unidade_limite: uLim,
+                situacao,
+                cod_gfip: primeiro.cod_gfip || rc.cod_gfip || "",
+                codigo_gfip: primeiro.cod_gfip || rc.cod_gfip || "",
               });
             });
             return rows;
