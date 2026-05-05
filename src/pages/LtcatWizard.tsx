@@ -89,6 +89,101 @@ interface ResultadoBase {
   aposentadoria_especial?: string;
 }
 
+const normalizeIdentity = (value: any) => String(value || "").trim().toLowerCase();
+
+const buildPessoaFuncaoKey = (row: any) => {
+  const funcaoId = row?.funcao_id || "";
+  const colaborador = normalizeIdentity(row?.colaborador);
+  return `${funcaoId}|${colaborador}`;
+};
+
+const dedupeRows = <T,>(rows: T[], getKey: (row: T) => string) => {
+  const seen = new Set<string>();
+  return rows.filter((row, index) => {
+    const rawKey = getKey(row);
+    const key = rawKey || `__idx_${index}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+};
+
+const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
+  const grouped = new Map<string, RiscoEntry>();
+
+  rows.forEach((row) => {
+    const groupKey = [row.setor_id || "", row.agente_id || "", row.tipo_avaliacao || "", row.tipo_agente || ""].join("|");
+    const current = grouped.get(groupKey);
+
+    if (!current) {
+      grouped.set(groupKey, {
+        ...row,
+        items: dedupeRows([...(row.items || [])], (item: any) => item.id || buildPessoaFuncaoKey(item)),
+        resultados_detalhados: [...(row.resultados_detalhados || [])],
+        resultados_componentes: [...(row.resultados_componentes || [])],
+        resultados_vibracao: [...(row.resultados_vibracao || [])],
+        resultados_calor: [...(row.resultados_calor || [])],
+        equipamentos_avaliacao: [...(row.equipamentos_avaliacao || [])],
+      });
+      return;
+    }
+
+    current.items = dedupeRows(
+      [...(current.items || []), ...(row.items || [])],
+      (item: any) => buildPessoaFuncaoKey(item) || item.id,
+    );
+    current.resultados_detalhados = dedupeRows(
+      [...(current.resultados_detalhados || []), ...(row.resultados_detalhados || [])],
+      (item: any) => item.id || `${buildPessoaFuncaoKey(item)}|${item?.data_avaliacao || ""}|${item?.resultado || ""}`,
+    );
+    current.resultados_componentes = dedupeRows(
+      [...(current.resultados_componentes || []), ...(row.resultados_componentes || [])],
+      (item: any) => item.id || `${buildPessoaFuncaoKey(item)}|${item?.data_avaliacao || ""}|${item?.componente || item?.componente_avaliado || ""}|${item?.resultado || ""}`,
+    );
+    current.resultados_vibracao = dedupeRows(
+      [...(current.resultados_vibracao || []), ...(row.resultados_vibracao || [])],
+      (item: any) => item.id || `${buildPessoaFuncaoKey(item)}|${item?.data_avaliacao || ""}|${item?.tipo || ""}|${item?.aren_resultado || item?.aren || ""}|${item?.vdvr_resultado || item?.vdvr || ""}`,
+    );
+    current.resultados_calor = dedupeRows(
+      [...(current.resultados_calor || []), ...(row.resultados_calor || [])],
+      (item: any) => item.id || `${buildPessoaFuncaoKey(item)}|${item?.data_avaliacao || ""}|${item?.ibutg_resultado || item?.ibutg_medido || ""}`,
+    );
+    current.equipamentos_avaliacao = dedupeRows(
+      [...(current.equipamentos_avaliacao || []), ...(row.equipamentos_avaliacao || [])],
+      (item: any) => item.id || `${item?.serie_equipamento || ""}|${item?.nome_equipamento || ""}|${item?.data_avaliacao || ""}`,
+    );
+
+    current.codigo_esocial = current.codigo_esocial || row.codigo_esocial;
+    current.descricao_esocial = current.descricao_esocial || row.descricao_esocial;
+    current.propagacao = current.propagacao || row.propagacao;
+    current.tipo_exposicao = current.tipo_exposicao || row.tipo_exposicao;
+    current.fonte_geradora = current.fonte_geradora || row.fonte_geradora;
+    current.danos_saude = current.danos_saude || row.danos_saude;
+    current.medidas_controle = current.medidas_controle || row.medidas_controle;
+    current.descricao_tecnica = current.descricao_tecnica || row.descricao_tecnica;
+    current.tecnica_id = current.tecnica_id || row.tecnica_id;
+    current.equipamento_id = current.equipamento_id || row.equipamento_id;
+    current.resultado = current.resultado || row.resultado;
+    current.unidade_resultado_id = current.unidade_resultado_id || row.unidade_resultado_id;
+    current.limite_tolerancia = current.limite_tolerancia || row.limite_tolerancia;
+    current.unidade_limite_id = current.unidade_limite_id || row.unidade_limite_id;
+    current.tempo_coleta = current.tempo_coleta || row.tempo_coleta;
+    current.unidade_tempo_coleta = current.unidade_tempo_coleta || row.unidade_tempo_coleta;
+    current.funcoes_ges = current.funcoes_ges || row.funcoes_ges;
+    current.data_avaliacao = current.data_avaliacao || row.data_avaliacao;
+    current.parecer_tecnico = current.parecer_tecnico || row.parecer_tecnico;
+    current.aposentadoria_especial = current.aposentadoria_especial || row.aposentadoria_especial;
+    current.epi_id = current.epi_id || row.epi_id;
+    current.epi_ca = current.epi_ca || row.epi_ca;
+    current.epi_atenuacao = current.epi_atenuacao || row.epi_atenuacao;
+    current.epi_eficaz = current.epi_eficaz || row.epi_eficaz;
+    current.epc_id = current.epc_id || row.epc_id;
+    current.epc_eficaz = current.epc_eficaz || row.epc_eficaz;
+  });
+
+  return Array.from(grouped.values());
+};
+
 // Agentes que usam o fluxo de componentes por amostra (Nível 1 + Nível 2)
 const AGENTES_COMPONENTES = [
   "poeira respirável", "poeira respiravel",
