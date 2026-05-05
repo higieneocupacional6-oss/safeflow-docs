@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer, Pencil } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
@@ -898,6 +898,74 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     },
   });
 
+  const [savingDraft, setSavingDraft] = useState(false);
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  const [lastSavedAt, setLastSavedAt] = useState("");
+  const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
+  const lastSavedFingerprintRef = useRef("");
+
+  const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
+    empresaId: overrides.empresaId ?? empresaId,
+    contratoId: overrides.contratoId ?? contratoId,
+    selectedTemplate: overrides.selectedTemplate ?? selectedTemplate,
+    responsavel: overrides.responsavel ?? responsavel,
+    crea: overrides.crea ?? crea,
+    cargo: overrides.cargo ?? cargo,
+    dataElab: overrides.dataElab ?? dataElab,
+    alteracoesDoc: overrides.alteracoesDoc ?? alteracoesDoc,
+    revisoes: overrides.revisoes ?? revisoes,
+    step: overrides.step ?? step,
+    riscos: overrides.riscos ?? riscos,
+    riskForm: overrides.riskForm ?? riskForm,
+    currentRiskSetor: overrides.currentRiskSetor ?? currentRiskSetor,
+    editingRiskId: overrides.editingRiskId ?? editingRiskId,
+    tipoDocumento,
+  });
+
+  const currentDraftSnapshot = useMemo(
+    () => buildDraftSnapshot(),
+    [
+      empresaId,
+      contratoId,
+      selectedTemplate,
+      responsavel,
+      crea,
+      cargo,
+      dataElab,
+      alteracoesDoc,
+      revisoes,
+      step,
+      riscos,
+      riskForm,
+      currentRiskSetor,
+      editingRiskId,
+      tipoDocumento,
+    ],
+  );
+
+  const currentDraftFingerprint = useMemo(
+    () => JSON.stringify(currentDraftSnapshot),
+    [currentDraftSnapshot],
+  );
+
+  const hasUnsavedChanges =
+    !!empresaId && currentDraftFingerprint !== lastSavedFingerprintRef.current;
+
+  const markSnapshotAsSaved = (
+    snapshot: Record<string, any>,
+    mode: "manual" | "auto" | "load" = "manual",
+  ) => {
+    lastSavedFingerprintRef.current = JSON.stringify(snapshot);
+    if (mode === "load") return;
+    setLastSaveMode(mode === "auto" ? "auto" : "manual");
+    setLastSavedAt(
+      new Date().toLocaleTimeString("pt-BR", {
+        hour: "2-digit",
+        minute: "2-digit",
+      }),
+    );
+  };
+
   // Aviso ao sair com possíveis alterações não salvas
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -923,7 +991,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Documento não encontrado");
           return;
         }
+        let draftSnapshot: any = null;
         if (!isReload) {
+          setCurrentDraftId(doc.id);
           if (doc.empresa_id) setEmpresaId(doc.empresa_id);
           if (doc.template_id) setSelectedTemplate(doc.template_id);
           if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
@@ -934,6 +1004,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
           if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
           if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+
+          draftSnapshot = (doc as any).draft_snapshot;
+          if (draftSnapshot && typeof draftSnapshot === "object") {
+            if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
+            if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
+            if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
+              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
+              markSnapshotAsSaved(draftSnapshot, "load");
+            }
+          }
         }
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
@@ -955,6 +1035,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         if (avaliacoes.length === 0) {
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
+          markSnapshotAsSaved(
+            draftSnapshot && typeof draftSnapshot === "object"
+              ? draftSnapshot
+              : buildDraftSnapshot({
+                  empresaId: doc.empresa_id || "",
+                  contratoId: (doc as any).contrato_id || "",
+                  selectedTemplate: doc.template_id || "",
+                  responsavel: (doc as any).responsavel_tecnico || "",
+                  crea: (doc as any).crea || "",
+                  cargo: (doc as any).cargo || "",
+                  dataElab: (doc as any).data_elaboracao || "",
+                  alteracoesDoc: (doc as any).alteracoes_documento || "",
+                  revisoes: (doc as any).revisoes || [],
+                  step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
+                  riscos: [],
+                }),
+            "load",
+          );
           setDocLoaded(true);
           return;
         }
@@ -1100,6 +1198,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           })),
         });
         setRiscos(loadedRiscos);
+        markSnapshotAsSaved(buildDraftSnapshot({
+          empresaId: doc.empresa_id || "",
+          contratoId: (doc as any).contrato_id || "",
+          selectedTemplate: doc.template_id || "",
+          responsavel: (doc as any).responsavel_tecnico || "",
+          crea: (doc as any).crea || "",
+          cargo: (doc as any).cargo || "",
+          dataElab: (doc as any).data_elaboracao || "",
+          alteracoesDoc: (doc as any).alteracoes_documento || "",
+          revisoes: (doc as any).revisoes || [],
+          step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
+          riscos: loadedRiscos,
+        }), "load");
         setDocLoaded(true);
         if (isReload) {
           console.log(`🔄 [LISTAGEM] Re-hidratada com ${loadedRiscos.length} avaliação(ões) do banco`);
@@ -1118,6 +1229,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
   useEffect(() => {
     if (!isEditMode || !documentoId || !empresaId) return;
+    if (savingDraft || hasUnsavedChanges) return;
     const trigger = () => setReloadTick(t => t + 1);
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
@@ -1526,23 +1638,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
     try {
       const novoGes = (riskForm.funcoes_ges || "").trim();
+      let nextRiscos: RiscoEntry[] = [];
       if (editingRiskId) {
-        setRiscos(prev => prev.map(r => {
+        nextRiscos = riscos.map(r => {
           if (r.id === editingRiskId) return newRisk;
           // Propaga funcoes_ges atualizado para todos os riscos do mesmo setor
           if (novoGes && r.setor_id === currentRiskSetor.id) {
             return { ...r, funcoes_ges: novoGes };
           }
           return r;
-        }));
-      } else {
-        setRiscos((prev) => {
-          const propagated = novoGes
-            ? prev.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
-            : prev;
-          return [...propagated, newRisk];
         });
+        setRiscos(nextRiscos);
+      } else {
+        const propagated = novoGes
+          ? riscos.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
+          : riscos;
+        nextRiscos = [...propagated, newRisk];
+        setRiscos(nextRiscos);
       }
+      await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
       toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
@@ -2585,7 +2699,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
   // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
-  const persistAvaliacoes = async (docId: string) => {
+  const persistAvaliacoes = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
@@ -2595,7 +2709,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const { data: existentes } = await supabase
         .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
       const totalExistentes = existentes?.length || 0;
-      const totalARecriar = (riscos || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
+      const totalARecriar = (riscosSource || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
 
       if (totalExistentes > 0 && totalARecriar === 0) {
         console.warn(
@@ -2620,7 +2734,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           .delete().in("id", existentes.map(e => e.id));
       }
 
-      for (const r of riscos) {
+      for (const r of riscosSource) {
         // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
         // que o mesmo colaborador gere múltiplas avaliações (bug reportado em químicos).
         const seenItems = new Set<string>();
@@ -2793,38 +2907,50 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
   };
 
-  // SALVAR RASCUNHO - sem validações, apenas persiste o que foi preenchido
-  const [savingDraft, setSavingDraft] = useState(false);
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  // SALVAR - persiste snapshot completo + avaliações normalizadas
+  const handleSaveDraft = async (
+    silent = false,
+    overrides: Record<string, any> = {},
+    force = false,
+  ) => {
+    const snapshot = buildDraftSnapshot(overrides);
+    const fingerprint = JSON.stringify(snapshot);
 
-  const handleSaveDraft = async (silent = false) => {
-    if (!empresaId) {
-      if (!silent) toast.error("Selecione uma empresa antes de salvar o rascunho");
+    if (!snapshot.empresaId) {
+      if (!silent) toast.error("Selecione uma empresa antes de salvar");
       return;
     }
+
+    if (!force && fingerprint === lastSavedFingerprintRef.current) {
+      if (!silent) toast.info("Nenhuma alteração para salvar");
+      return;
+    }
+
     setSavingDraft(true);
     try {
-      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
       const baseFields: any = {
-        empresa_id: empresaId,
+        empresa_id: snapshot.empresaId,
         empresa_nome: empresaNome,
-        contrato_id: contratoId || null,
-        template_id: selectedTemplate || null,
-        responsavel_tecnico: responsavel || null,
-        crea: crea || null,
-        cargo: cargo || null,
-        data_elaboracao: dataElab || null,
-        alteracoes_documento: alteracoesDoc || null,
-        revisoes: revisoes || [],
-        current_step: step,
+        contrato_id: snapshot.contratoId || null,
+        template_id: snapshot.selectedTemplate || null,
+        responsavel_tecnico: snapshot.responsavel || null,
+        crea: snapshot.crea || null,
+        cargo: snapshot.cargo || null,
+        data_elaboracao: snapshot.dataElab || null,
+        alteracoes_documento: snapshot.alteracoesDoc || null,
+        revisoes: snapshot.revisoes || [],
+        current_step: snapshot.step ?? 0,
+        draft_snapshot: snapshot,
         status: "rascunho",
       };
 
       let docId = currentDraftId;
       if (docId) {
-        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
+        const { error } = await supabase.from("documentos").update(baseFields as any).eq("id", docId);
+        if (error) throw error;
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
@@ -2834,38 +2960,48 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (error) throw error;
         docId = inserted?.id || null;
         setCurrentDraftId(docId);
+        if (docId && !documentoId) {
+          navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
+        }
       }
-      if (docId) await persistAvaliacoes(docId);
-      if (!silent) toast.success("💾 Rascunho salvo com sucesso");
+
+      if (docId) await persistAvaliacoes(docId, snapshot.riscos || []);
+
+      markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
+      if (!silent) toast.success("Salvo com sucesso");
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
       try {
         localStorage.setItem(
-          `draft_${tipoDocumento}_${empresaId}`,
-          JSON.stringify({ savedAt: Date.now() })
+          `draft_${tipoDocumento}_${snapshot.empresaId}`,
+          JSON.stringify({ savedAt: Date.now() }),
         );
       } catch {}
-      if (!silent) toast.error("Erro ao salvar rascunho: " + (err.message || ""));
+      if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
     } finally {
       setSavingDraft(false);
     }
   };
 
-  // 🔁 Autosave silencioso: a cada 3 minutos + ao trocar de etapa
+  // 🔁 Autosave silencioso: a cada 1 minuto + somente quando houver alteração
   useEffect(() => {
     if (!empresaId) return;
-    const id = setInterval(() => { handleSaveDraft(true); }, 3 * 60 * 1000);
+    const id = setInterval(() => {
+      if (savingDraft || !hasUnsavedChanges) return;
+      handleSaveDraft(true);
+    }, 60 * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaId, contratoId, responsavel, crea, cargo, dataElab, alteracoesDoc, revisoes, riscos, selectedTemplate, step]);
+  }, [empresaId, hasUnsavedChanges, savingDraft]);
 
   // Salvar ao trocar de etapa (debounced)
   useEffect(() => {
     if (!empresaId) return;
+    if (savingDraft || !hasUnsavedChanges) return;
     const t = setTimeout(() => { handleSaveDraft(true); }, 600);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step]);
+  }, [step, empresaId, hasUnsavedChanges, savingDraft]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
@@ -3672,8 +3808,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 title="Salva o progresso atual sem validar"
               >
                 {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                Salvar Rascunho
+                Salvar
               </Button>
+              {lastSavedAt && (
+                <span className="text-xs text-muted-foreground">
+                  {lastSaveMode === "auto" ? "Salvo automaticamente" : "Salvo"} • Última atualização: {lastSavedAt}
+                </span>
+              )}
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
