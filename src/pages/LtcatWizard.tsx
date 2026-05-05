@@ -2668,11 +2668,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           }));
 
           const tasks: any[] = [];
-          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
-          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
-          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
-          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
-          if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
+          // 🛡️ ANTI-DUPLICAÇÃO: subdados (resultados, componentes, calor, vibração, equipamentos)
+          // pertencem ao RISCO, não ao item. Só persistir UMA VEZ por risco (no primeiro item).
+          if (__isFirstItem) {
+            if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
+            if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
+            if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
+            if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
+            if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
+          }
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
               avaliacao_id: avId,
