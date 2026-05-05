@@ -2017,16 +2017,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           avaliacoes: avaliacoesEnriched,
           epis,
           epcs,
-          equipamentos_avaliacao: (first.equipamentos_avaliacao || []).length > 0
-            ? first.equipamentos_avaliacao.map((eq: any) => ({
-                agente_nome: eq.agente_nome || "",
-                nome_equipamento: eq.nome_equipamento || "",
-                modelo_equipamento: eq.modelo_equipamento || "",
-                serie_equipamento: eq.serie_equipamento || "",
-                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
-                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
-              }))
-            : [],
+          // Loop completo com TODOS os aliases para o template (nome/numero_serie/marca_modelo)
+          equipamentos_avaliacao: equipamentosAvaliacaoLoop,
+          equipamentos: equipamentosAvaliacaoLoop,
+          tem_equipamentos: equipamentosAvaliacaoLoop.length > 0,
           // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
           ...(() => {
             const allRes = agentEntries.flatMap((r: any) => r.resultados_detalhados || []);
@@ -2538,7 +2532,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
 
       for (const r of riscos) {
-        for (const it of r.items) {
+        // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
+        // que o mesmo colaborador gere múltiplas avaliações (bug reportado em químicos).
+        const seenItems = new Set<string>();
+        const uniqueItems = (r.items || []).filter((it: any) => {
+          const k = `${it.funcao_id || ""}|${(it.colaborador || "").trim().toLowerCase()}`;
+          if (seenItems.has(k)) return false;
+          seenItems.add(k);
+          return true;
+        });
+        let __itemIdx = 0;
+        for (const it of uniqueItems) {
+          const __isFirstItem = __itemIdx === 0;
+          __itemIdx++;
           const { data: avRow, error: avErr } = await supabase
             .from("ltcat_avaliacoes")
             .insert({
@@ -2575,10 +2581,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
           const avId = avRow.id;
 
+          // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
+          // Se o subdado não tiver colaborador/funcao_id (legado), só atribui ao primeiro item do risco.
+          const __matchItem = (x: any) => {
+            const xc = (x?.colaborador || "").trim().toLowerCase();
+            const xf = x?.funcao_id || "";
+            const ic = (it.colaborador || "").trim().toLowerCase();
+            const ifc = it.funcao_id || "";
+            if (!xc && !xf) return __isFirstItem; // sem vínculo → cai no primeiro
+            return xc === ic && xf === ifc;
+          };
+          const __filter = (arr: any[] | undefined) => (arr || []).filter(__matchItem);
+          const __compArr = __filter(r.resultados_componentes);
+          const __calorArr = __filter(r.resultados_calor);
+          const __vibArr = __filter(r.resultados_vibracao);
+          const __resArr = __filter(r.resultados_detalhados);
+          // Equipamentos do risco: pertencem ao risco como um todo → só no primeiro item
+          const __eqArr = __isFirstItem ? ((r as any).equipamentos_avaliacao || []) : [];
+
           const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
             (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
 
-          const compRows = mkRows(r.resultados_componentes, (x) => ({
+          const compRows = mkRows(__compArr, (x) => ({
             componente: x.componente_avaliado || x.componente || null,
             cas: x.cas || null,
             resultado: x.resultado ? Number(x.resultado) : null,
@@ -2597,7 +2621,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const calorRows = mkRows(r.resultados_calor, (x) => ({
+          const calorRows = mkRows(__calorArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
             ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
@@ -2617,7 +2641,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             tg_valores: x.tg_valores || null,
             tbs_valores: x.tbs_valores || null,
           }));
-          const vibRows = mkRows(r.resultados_vibracao, (x) => ({
+          const vibRows = mkRows(__vibArr, (x) => ({
             tipo: x.tipo || null,
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
@@ -2630,7 +2654,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const resRows = mkRows(r.resultados_detalhados, (x) => ({
+          const resRows = mkRows(__resArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
             data_avaliacao: x.data_avaliacao || null,
             equipamento_registro_id: x.equipamento_registro_id || null,
@@ -2646,7 +2670,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const eqRows = mkRows((r as any).equipamentos_avaliacao, (x) => ({
+          const eqRows = mkRows(__eqArr, (x) => ({
             nome_equipamento: x.nome_equipamento || null,
             modelo_equipamento: x.modelo_equipamento || null,
             serie_equipamento: x.serie_equipamento || null,
