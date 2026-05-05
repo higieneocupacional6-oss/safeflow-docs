@@ -994,6 +994,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           return;
         }
         if (!isReload) {
+          setCurrentDraftId(doc.id);
           if (doc.empresa_id) setEmpresaId(doc.empresa_id);
           if (doc.template_id) setSelectedTemplate(doc.template_id);
           if ((doc as any).contrato_id) setContratoId((doc as any).contrato_id);
@@ -1004,6 +1005,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if ((doc as any).alteracoes_documento) setAlteracoesDoc((doc as any).alteracoes_documento);
           if (Array.isArray((doc as any).revisoes) && (doc as any).revisoes.length) setRevisoes((doc as any).revisoes);
           if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
+
+          const snapshot = (doc as any).draft_snapshot;
+          if (snapshot && typeof snapshot === "object") {
+            if (snapshot.currentRiskSetor) setCurrentRiskSetor(snapshot.currentRiskSetor);
+            if (snapshot.riskForm) setRiskForm(snapshot.riskForm);
+            if (Array.isArray(snapshot.riscos) && snapshot.riscos.length > 0) {
+              setRiscos(snapshot.riscos as RiscoEntry[]);
+              markSnapshotAsSaved(snapshot, "load");
+            }
+          }
         }
 
         // Buscar avaliações vinculadas a ESTE documento (preferencial),
@@ -1188,6 +1199,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
   useEffect(() => {
     if (!isEditMode || !documentoId || !empresaId) return;
+    if (savingDraft || hasUnsavedChanges) return;
     const trigger = () => setReloadTick(t => t + 1);
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
