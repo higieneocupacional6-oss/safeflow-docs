@@ -1456,18 +1456,21 @@ export type Database = {
           created_at: string
           file_path: string
           id: string
+          is_system: boolean
           title: string
         }
         Insert: {
           created_at?: string
           file_path: string
           id?: string
+          is_system?: boolean
           title: string
         }
         Update: {
           created_at?: string
           file_path?: string
           id?: string
+          is_system?: boolean
           title?: string
         }
         Relationships: []
