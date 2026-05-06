@@ -2361,7 +2361,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componentes_calculo: computeComponentesCalculo(allComp, unidades),
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
               // true somente quando houver valor real em nen_medio OU ibutg_medio
-              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg,
+              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg || !!(media_concentracao && String(media_concentracao).trim() !== "") || !!(media_limite_tolerancia && String(media_limite_tolerancia).trim() !== ""),
               // Médias de Vibração (A(8))
               media_vci_aren,
               media_vci_vdvr,
