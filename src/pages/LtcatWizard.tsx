@@ -2311,11 +2311,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 : computeDoseMedia(allRes);
             const q = computeQuimicoMedias(allComp);
             const media_concentracao =
-              quimicoSaved?.quimico_calc?.media_concentracao != null
+              quimicoSaved?.quimico_calc?.media_concentracao_manual != null && String(quimicoSaved.quimico_calc.media_concentracao_manual).trim() !== ""
+                ? String(quimicoSaved.quimico_calc.media_concentracao_manual)
+                : quimicoSaved?.quimico_calc?.media_concentracao != null
                 ? String(quimicoSaved.quimico_calc.media_concentracao)
                 : q.media_concentracao;
             const media_limite_tolerancia =
-              quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
+              quimicoSaved?.quimico_calc?.media_limite_tolerancia_manual != null && String(quimicoSaved.quimico_calc.media_limite_tolerancia_manual).trim() !== ""
+                ? String(quimicoSaved.quimico_calc.media_limite_tolerancia_manual)
+                : quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
                 ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
                 : q.media_limite_tolerancia;
             const _nenMedioFinal = nen_medio || "";
