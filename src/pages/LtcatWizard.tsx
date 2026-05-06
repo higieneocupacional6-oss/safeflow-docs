@@ -4592,7 +4592,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   }}
                                 />
                               );
-                            })()}
+                           })()}
+                          </div>
+                          {/* Médias manuais para o template ({{media_concentracao}} / {{media_limite_tolerancia}}) */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Média concentração</Label>
+                              <Input
+                                value={(riskForm as any).quimico_calc?.media_concentracao_manual ?? ""}
+                                onChange={(e) => setRiskForm(prev => ({
+                                  ...prev,
+                                  quimico_calc: { ...((prev as any).quimico_calc || {}), media_concentracao_manual: e.target.value }
+                                } as any))}
+                                placeholder="Ex.: 0,5 mg/m³"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Média LT</Label>
+                              <Input
+                                value={(riskForm as any).quimico_calc?.media_limite_tolerancia_manual ?? ""}
+                                onChange={(e) => setRiskForm(prev => ({
+                                  ...prev,
+                                  quimico_calc: { ...((prev as any).quimico_calc || {}), media_limite_tolerancia_manual: e.target.value }
+                                } as any))}
+                                placeholder="Ex.: 1,0 mg/m³"
+                              />
+                            </div>
                           </div>
                           {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (() => {
                             // Agrupa linhas por colaborador+funcao para evitar duplicar o cabeçalho
