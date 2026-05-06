@@ -1085,7 +1085,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const calorByAv = byAv(calor);
         const vibByAv  = byAv(vibracao);
         const resByAv  = byAv(resultados);
-        const eqByAv   = byAv(equipamentos);
+        const eqByAv   = byAv(equipamentosAvDb);
         const epiByAv: Record<string, any> = {};
         (epiEpc || []).forEach((r: any) => { epiByAv[r.avaliacao_id] = r; });
 
