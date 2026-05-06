@@ -1,0 +1,1 @@
+ALTER TABLE public.ltcat_av_componentes ADD COLUMN IF NOT EXISTS numero_serie_bomba text;
