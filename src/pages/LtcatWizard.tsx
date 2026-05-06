@@ -4797,6 +4797,49 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           }}
                         />
                       </div>
+                      {/* N° de série do equipamento (Bomba de Amostragem) — só Químico Quantitativo */}
+                      {(() => {
+                        const tipoAg = (riskForm.tipo_agente || "").toLowerCase();
+                        const tipoAv = (riskForm.tipo_avaliacao || "").toLowerCase();
+                        const isQuimQuant = (tipoAg.includes("quími") || tipoAg.includes("quimi")) && tipoAv.includes("quanti");
+                        if (!isQuimQuant) return null;
+                        const bombas = (equipamentos as any[]).filter((e: any) =>
+                          (e?.tipo || "").toLowerCase().includes("bomba")
+                        );
+                        const serieOpts = bombas.flatMap((e: any) =>
+                          (e.equipamentos_ho_registros || []).map((rg: any) => ({
+                            id: rg.id,
+                            numero_serie: rg.numero_serie,
+                            equipamento_nome: getEquipamentoDisplayName(e),
+                          }))
+                        );
+                        return (
+                          <div className="w-56">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nº de Série (Bomba)</Label>
+                            <Select
+                              value={row.numero_serie_bomba || ""}
+                              onValueChange={(v) => {
+                                const updated = [...tempFuncaoRows];
+                                updated[ri] = { ...updated[ri], numero_serie_bomba: v };
+                                setTempFuncaoRows(updated);
+                              }}
+                            >
+                              <SelectTrigger className="mt-1"><SelectValue placeholder={serieOpts.length === 0 ? "Cadastre uma bomba" : "Selecione"} /></SelectTrigger>
+                              <SelectContent>
+                                {serieOpts.length === 0 ? (
+                                  <SelectItem value="__none" disabled>Nenhuma bomba cadastrada</SelectItem>
+                                ) : (
+                                  serieOpts.map((o: any) => (
+                                    <SelectItem key={o.id + o.numero_serie} value={o.numero_serie}>
+                                      {o.numero_serie} — {o.equipamento_nome}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
                         <Input
