@@ -2311,11 +2311,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 : computeDoseMedia(allRes);
             const q = computeQuimicoMedias(allComp);
             const media_concentracao =
-              quimicoSaved?.quimico_calc?.media_concentracao != null
+              quimicoSaved?.quimico_calc?.media_concentracao_manual != null && String(quimicoSaved.quimico_calc.media_concentracao_manual).trim() !== ""
+                ? String(quimicoSaved.quimico_calc.media_concentracao_manual)
+                : quimicoSaved?.quimico_calc?.media_concentracao != null
                 ? String(quimicoSaved.quimico_calc.media_concentracao)
                 : q.media_concentracao;
             const media_limite_tolerancia =
-              quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
+              quimicoSaved?.quimico_calc?.media_limite_tolerancia_manual != null && String(quimicoSaved.quimico_calc.media_limite_tolerancia_manual).trim() !== ""
+                ? String(quimicoSaved.quimico_calc.media_limite_tolerancia_manual)
+                : quimicoSaved?.quimico_calc?.media_limite_tolerancia != null
                 ? String(quimicoSaved.quimico_calc.media_limite_tolerancia)
                 : q.media_limite_tolerancia;
             const _nenMedioFinal = nen_medio || "";
@@ -2357,7 +2361,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componentes_calculo: computeComponentesCalculo(allComp, unidades),
               // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
               // true somente quando houver valor real em nen_medio OU ibutg_medio
-              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg,
+              exibir_media_resultados: !!(_nenMedioFinal && String(_nenMedioFinal).trim() !== "") || exibir_media_ibutg || !!(media_concentracao && String(media_concentracao).trim() !== "") || !!(media_limite_tolerancia && String(media_limite_tolerancia).trim() !== ""),
               // Médias de Vibração (A(8))
               media_vci_aren,
               media_vci_vdvr,
@@ -2465,19 +2469,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         dose_media: ((r as any).nen_calc?.dose_media != null
           ? Number((r as any).nen_calc.dose_media).toFixed(2)
           : computeDoseMedia(r.resultados_detalhados)) || "",
-        media_concentracao: ((r as any).quimico_calc?.media_concentracao != null
+        media_concentracao: ((r as any).quimico_calc?.media_concentracao_manual != null && String((r as any).quimico_calc.media_concentracao_manual).trim() !== ""
+          ? String((r as any).quimico_calc.media_concentracao_manual)
+          : (r as any).quimico_calc?.media_concentracao != null
           ? String((r as any).quimico_calc.media_concentracao)
           : computeQuimicoMedias(r.resultados_componentes).media_concentracao) || "",
-        media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia != null
+        media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia_manual != null && String((r as any).quimico_calc.media_limite_tolerancia_manual).trim() !== ""
+          ? String((r as any).quimico_calc.media_limite_tolerancia_manual)
+          : (r as any).quimico_calc?.media_limite_tolerancia != null
           ? String((r as any).quimico_calc.media_limite_tolerancia)
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
         componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
         componentes_calculo: computeComponentesCalculo(r.resultados_componentes, unidades),
         // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
-        // true somente quando houver valor real em nen_medio
+        // true quando houver valor real em nen_medio OU médias químicas manuais
         exibir_media_resultados: !!(((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
-          : computeNenMedio(r.resultados_detalhados)) || ""),
+          : computeNenMedio(r.resultados_detalhados)) || "")
+          || !!((r as any).quimico_calc?.media_concentracao_manual && String((r as any).quimico_calc.media_concentracao_manual).trim() !== "")
+          || !!((r as any).quimico_calc?.media_limite_tolerancia_manual && String((r as any).quimico_calc.media_limite_tolerancia_manual).trim() !== ""),
         // ---- Médias A(8) — Vibração (consolidado por risco) ----
         ...(() => {
           const allVib = (r.resultados_vibracao || []) as any[];
@@ -4592,7 +4602,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   }}
                                 />
                               );
-                            })()}
+                           })()}
+                          </div>
+                          {/* Médias manuais para o template ({{media_concentracao}} / {{media_limite_tolerancia}}) */}
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                              <Label>Média concentração</Label>
+                              <Input
+                                value={(riskForm as any).quimico_calc?.media_concentracao_manual ?? ""}
+                                onChange={(e) => setRiskForm(prev => ({
+                                  ...prev,
+                                  quimico_calc: { ...((prev as any).quimico_calc || {}), media_concentracao_manual: e.target.value }
+                                } as any))}
+                                placeholder="Ex.: 0,5 mg/m³"
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Média LT</Label>
+                              <Input
+                                value={(riskForm as any).quimico_calc?.media_limite_tolerancia_manual ?? ""}
+                                onChange={(e) => setRiskForm(prev => ({
+                                  ...prev,
+                                  quimico_calc: { ...((prev as any).quimico_calc || {}), media_limite_tolerancia_manual: e.target.value }
+                                } as any))}
+                                placeholder="Ex.: 1,0 mg/m³"
+                              />
+                            </div>
                           </div>
                           {riskForm.resultados_componentes && riskForm.resultados_componentes.length > 0 && (() => {
                             // Agrupa linhas por colaborador+funcao para evitar duplicar o cabeçalho
