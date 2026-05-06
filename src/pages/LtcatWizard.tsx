@@ -1192,13 +1192,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 } else if (!g.numero_serie_bomba && r.numero_serie_bomba) {
                   g.numero_serie_bomba = r.numero_serie_bomba;
                 }
+                const compNome = (r.componente || "").toString();
+                const compRes = r.resultado;
+                const compLT = r.limite_tolerancia;
+                // Skip linhas-fantasma legadas (sem nome, sem resultado, sem LT)
+                if (!compNome && (compRes == null || compRes === "") && (compLT == null || compLT === "")) return;
                 g.componentes.push({
                   id: r.id || crypto.randomUUID(),
-                  componente: r.componente || "",
+                  componente: compNome,
                   cas: r.cas || "",
-                  resultado: r.resultado ?? "",
+                  resultado: compRes ?? "",
                   unidade_resultado_id: r.unidade_resultado_id || "",
-                  limite_tolerancia: r.limite_tolerancia ?? "",
+                  limite_tolerancia: compLT ?? "",
                   unidade_limite_id: r.unidade_limite_id || "",
                   tempo_coleta: r.tempo_coleta || "",
                   unidade_tempo_coleta: r.unidade_tempo_coleta || "",
