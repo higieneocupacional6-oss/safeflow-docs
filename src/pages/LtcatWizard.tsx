@@ -1065,7 +1065,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           { data: calor = [] },
           { data: vibracao = [] },
           { data: resultados = [] },
-          { data: equipamentos = [] },
+          { data: equipamentosAvDb = [] },
           { data: epiEpc = [] },
         ] = await Promise.all([
           supabase.from("ltcat_av_componentes").select("*").in("avaliacao_id", avIds),
