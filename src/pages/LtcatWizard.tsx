@@ -5130,8 +5130,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       const updated = [...tempFuncaoRows];
                       updated[currentAmostraIndex] = { ...updated[currentAmostraIndex], componentes: tempComponentes };
                       setTempFuncaoRows(updated);
+                      // 🔒 Sincroniza com riskForm para que snapshot/auto-save preservem TODOS os componentes
+                      setRiskForm(prev => ({ ...prev, resultados_componentes: updated }));
                     }
                     setAmostraModalOpen(false);
+                    toast.success(`${tempComponentes.length} componente(s) salvo(s).`);
                   }}
                 >
                   OK — Salvar Componentes
