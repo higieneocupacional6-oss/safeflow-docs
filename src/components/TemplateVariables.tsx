@@ -103,7 +103,7 @@ const variableGroups = [
     vars: [
       "{{colaborador}}", "{{funcao}}", "{{data_avaliacao}}", "{{dose_percentual}}",
       "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}",
-      "{{situacao}}", "{{cod_gfip}}",
+      "{{situacao}}", "{{cod_gfip}}", "{{numero_serie_bomba_amostragem}}",
     ],
   },
   {
