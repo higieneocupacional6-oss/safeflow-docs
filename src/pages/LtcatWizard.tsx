@@ -1185,9 +1185,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     funcao_nome: r.funcao_nome || "",
                     data_avaliacao: r.data_avaliacao || "",
                     cod_gfip: r.cod_gfip || "",
+                    numero_serie_bomba: r.numero_serie_bomba || "",
                     componentes: [] as any[],
                   };
                   groups.set(k, g);
+                } else if (!g.numero_serie_bomba && r.numero_serie_bomba) {
+                  g.numero_serie_bomba = r.numero_serie_bomba;
                 }
                 g.componentes.push({
                   id: r.id || crypto.randomUUID(),
