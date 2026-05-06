@@ -2875,17 +2875,31 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
                 numero_serie_bomba: row.numero_serie_bomba || null,
               };
-              const comps = Array.isArray(row.componentes) && row.componentes.length > 0
-                ? row.componentes
-                : [row]; // legado: a própria linha já é um componente plano
+              // Determina lista de componentes desta linha.
+              // Importante: se a linha for um GRUPO (tem funcao_id/colaborador) sem componentes,
+              // NÃO criar uma linha-fantasma no DB. Só usamos o fallback [row] quando a própria
+              // linha parece ser um componente plano (legado: tem 'componente' ou 'resultado').
+              let comps: any[] = [];
+              if (Array.isArray(row.componentes) && row.componentes.length > 0) {
+                comps = row.componentes;
+              } else if (row.componente || row.componente_avaliado || row.resultado != null) {
+                comps = [row];
+              } else {
+                return; // grupo vazio → não persiste nada
+              }
               comps.forEach((c: any) => {
+                const compNome = c.componente_avaliado || c.componente || row.componente || null;
+                const compRes = c.resultado ?? row.resultado ?? null;
+                const compLT = c.limite_tolerancia ?? row.limite_tolerancia ?? null;
+                // Pula componentes totalmente vazios (sem nome, sem resultado, sem LT)
+                if (!compNome && (compRes == null || compRes === "") && (compLT == null || compLT === "")) return;
                 out.push({
                   ...base,
-                  componente: c.componente_avaliado || c.componente || row.componente || null,
+                  componente: compNome,
                   cas: c.cas || null,
-                  resultado: c.resultado ?? row.resultado ?? null,
+                  resultado: compRes,
                   unidade_resultado_id: c.unidade_resultado_id || row.unidade_resultado_id || null,
-                  limite_tolerancia: c.limite_tolerancia ?? row.limite_tolerancia ?? null,
+                  limite_tolerancia: compLT,
                   unidade_limite_id: c.unidade_limite_id || row.unidade_limite_id || null,
                   tempo_coleta: c.tempo_coleta || row.tempo_coleta || null,
                   unidade_tempo_coleta: c.unidade_tempo_coleta || row.unidade_tempo_coleta || null,
