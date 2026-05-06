@@ -2920,6 +2920,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             descricao_avaliacao: x.descricao_avaliacao || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
+            numero_serie_bomba: x.numero_serie_bomba || null,
           }));
           const calorRows = mkRows(__calorArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
