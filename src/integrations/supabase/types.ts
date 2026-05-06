@@ -724,6 +724,7 @@ export type Database = {
           funcao_id: string | null
           id: string
           limite_tolerancia: number | null
+          numero_serie_bomba: string | null
           ordem: number
           parecer_tecnico: string | null
           resultado: number | null
@@ -748,6 +749,7 @@ export type Database = {
           funcao_id?: string | null
           id?: string
           limite_tolerancia?: number | null
+          numero_serie_bomba?: string | null
           ordem?: number
           parecer_tecnico?: string | null
           resultado?: number | null
@@ -772,6 +774,7 @@ export type Database = {
           funcao_id?: string | null
           id?: string
           limite_tolerancia?: number | null
+          numero_serie_bomba?: string | null
           ordem?: number
           parecer_tecnico?: string | null
           resultado?: number | null

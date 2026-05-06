@@ -1065,7 +1065,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           { data: calor = [] },
           { data: vibracao = [] },
           { data: resultados = [] },
-          { data: equipamentos = [] },
+          { data: equipamentosAvDb = [] },
           { data: epiEpc = [] },
         ] = await Promise.all([
           supabase.from("ltcat_av_componentes").select("*").in("avaliacao_id", avIds),
@@ -1085,7 +1085,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const calorByAv = byAv(calor);
         const vibByAv  = byAv(vibracao);
         const resByAv  = byAv(resultados);
-        const eqByAv   = byAv(equipamentos);
+        const eqByAv   = byAv(equipamentosAvDb);
         const epiByAv: Record<string, any> = {};
         (epiEpc || []).forEach((r: any) => { epiByAv[r.avaliacao_id] = r; });
 
@@ -1185,9 +1185,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     funcao_nome: r.funcao_nome || "",
                     data_avaliacao: r.data_avaliacao || "",
                     cod_gfip: r.cod_gfip || "",
+                    numero_serie_bomba: r.numero_serie_bomba || "",
                     componentes: [] as any[],
                   };
                   groups.set(k, g);
+                } else if (!g.numero_serie_bomba && r.numero_serie_bomba) {
+                  g.numero_serie_bomba = r.numero_serie_bomba;
                 }
                 g.componentes.push({
                   id: r.id || crypto.randomUUID(),
@@ -1215,10 +1218,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
               // Back-populate equipamento_id e registro_id a partir do catálogo
-              const eqCat = (equipamentos as any[]).find((e: any) => {
+              // 1) tenta match por nome do equipamento; 2) fallback por número de série
+              let eqCat = (equipamentos as any[]).find((e: any) => {
                 const nome = getEquipamentoDisplayName(e);
                 return nome && r.nome_equipamento && nome === r.nome_equipamento;
               });
+              if (!eqCat && r.serie_equipamento) {
+                eqCat = (equipamentos as any[]).find((e: any) =>
+                  (e.equipamentos_ho_registros || []).some((rg: any) => rg.numero_serie === r.serie_equipamento)
+                );
+              }
               const reg = eqCat?.equipamentos_ho_registros?.find(
                 (rg: any) => rg.numero_serie && rg.numero_serie === r.serie_equipamento
               );
@@ -1227,6 +1236,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 id: r.id,
                 equipamento_id: eqCat?.id || "",
                 registro_id: reg?.id || "",
+                nome_equipamento: r.nome_equipamento || getEquipamentoDisplayName(eqCat) || "",
+                modelo_equipamento: r.modelo_equipamento || reg?.marca_modelo || "",
+                serie_equipamento: r.serie_equipamento || reg?.numero_serie || "",
+                data_calibracao: r.data_calibracao || reg?.data_calibracao || "",
+                data_avaliacao: r.data_avaliacao || "",
               };
             }),
             epi_id: epi.epi_id || "",
@@ -2073,6 +2087,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 dose_percentual: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                numero_serie_bomba_amostragem: rc.numero_serie_bomba || "",
+                numero_serie_bomba: rc.numero_serie_bomba || "",
                 epi_nome,
                 epc_nome,
                 equipamento_avaliado: "",
@@ -2857,6 +2873,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 parecer_tecnico: row.parecer_tecnico || null,
                 aposentadoria_especial: row.aposentadoria_especial || null,
                 descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
+                numero_serie_bomba: row.numero_serie_bomba || null,
               };
               const comps = Array.isArray(row.componentes) && row.componentes.length > 0
                 ? row.componentes
@@ -2908,6 +2925,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             descricao_avaliacao: x.descricao_avaliacao || null,
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
+            numero_serie_bomba: x.numero_serie_bomba || null,
           }));
           const calorRows = mkRows(__calorArr, (x) => ({
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
@@ -4786,6 +4804,49 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           }}
                         />
                       </div>
+                      {/* N° de série do equipamento (Bomba de Amostragem) — só Químico Quantitativo */}
+                      {(() => {
+                        const tipoAg = (riskForm.tipo_agente || "").toLowerCase();
+                        const tipoAv = (riskForm.tipo_avaliacao || "").toLowerCase();
+                        const isQuimQuant = (tipoAg.includes("quími") || tipoAg.includes("quimi")) && tipoAv.includes("quanti");
+                        if (!isQuimQuant) return null;
+                        const bombas = (equipamentos as any[]).filter((e: any) =>
+                          (e?.tipo || "").toLowerCase().includes("bomba")
+                        );
+                        const serieOpts = bombas.flatMap((e: any) =>
+                          (e.equipamentos_ho_registros || []).map((rg: any) => ({
+                            id: rg.id,
+                            numero_serie: rg.numero_serie,
+                            equipamento_nome: getEquipamentoDisplayName(e),
+                          }))
+                        );
+                        return (
+                          <div className="w-56">
+                            <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Nº de Série (Bomba)</Label>
+                            <Select
+                              value={row.numero_serie_bomba || ""}
+                              onValueChange={(v) => {
+                                const updated = [...tempFuncaoRows];
+                                updated[ri] = { ...updated[ri], numero_serie_bomba: v };
+                                setTempFuncaoRows(updated);
+                              }}
+                            >
+                              <SelectTrigger className="mt-1"><SelectValue placeholder={serieOpts.length === 0 ? "Cadastre uma bomba" : "Selecione"} /></SelectTrigger>
+                              <SelectContent>
+                                {serieOpts.length === 0 ? (
+                                  <SelectItem value="__none" disabled>Nenhuma bomba cadastrada</SelectItem>
+                                ) : (
+                                  serieOpts.map((o: any) => (
+                                    <SelectItem key={o.id + o.numero_serie} value={o.numero_serie}>
+                                      {o.numero_serie} — {o.equipamento_nome}
+                                    </SelectItem>
+                                  ))
+                                )}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                        );
+                      })()}
                       <div className="flex-1 min-w-[180px]">
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Colaborador</Label>
                         <Input
