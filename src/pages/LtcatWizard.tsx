@@ -1215,10 +1215,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             })),
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
               // Back-populate equipamento_id e registro_id a partir do catálogo
-              const eqCat = (equipamentos as any[]).find((e: any) => {
+              // 1) tenta match por nome do equipamento; 2) fallback por número de série
+              let eqCat = (equipamentos as any[]).find((e: any) => {
                 const nome = getEquipamentoDisplayName(e);
                 return nome && r.nome_equipamento && nome === r.nome_equipamento;
               });
+              if (!eqCat && r.serie_equipamento) {
+                eqCat = (equipamentos as any[]).find((e: any) =>
+                  (e.equipamentos_ho_registros || []).some((rg: any) => rg.numero_serie === r.serie_equipamento)
+                );
+              }
               const reg = eqCat?.equipamentos_ho_registros?.find(
                 (rg: any) => rg.numero_serie && rg.numero_serie === r.serie_equipamento
               );
@@ -1227,6 +1233,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 id: r.id,
                 equipamento_id: eqCat?.id || "",
                 registro_id: reg?.id || "",
+                nome_equipamento: r.nome_equipamento || getEquipamentoDisplayName(eqCat) || "",
+                modelo_equipamento: r.modelo_equipamento || reg?.marca_modelo || "",
+                serie_equipamento: r.serie_equipamento || reg?.numero_serie || "",
+                data_calibracao: r.data_calibracao || reg?.data_calibracao || "",
+                data_avaliacao: r.data_avaliacao || "",
               };
             }),
             epi_id: epi.epi_id || "",
