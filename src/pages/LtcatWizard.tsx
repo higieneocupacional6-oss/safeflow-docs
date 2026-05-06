@@ -2868,6 +2868,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 parecer_tecnico: row.parecer_tecnico || null,
                 aposentadoria_especial: row.aposentadoria_especial || null,
                 descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
+                numero_serie_bomba: row.numero_serie_bomba || null,
               };
               const comps = Array.isArray(row.componentes) && row.componentes.length > 0
                 ? row.componentes
