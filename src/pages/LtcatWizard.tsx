@@ -2087,6 +2087,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 dose_percentual: "",
                 parecer_tecnico: rc.parecer_tecnico || dbParecer?.parecer_tecnico || "",
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+                numero_serie_bomba_amostragem: rc.numero_serie_bomba || "",
+                numero_serie_bomba: rc.numero_serie_bomba || "",
                 epi_nome,
                 epc_nome,
                 equipamento_avaliado: "",
