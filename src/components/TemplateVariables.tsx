@@ -104,6 +104,7 @@ const variableGroups = [
       "{{colaborador}}", "{{funcao}}", "{{data_avaliacao}}", "{{dose_percentual}}",
       "{{resultado}}", "{{unidade_resultado}}", "{{limite_tolerancia}}", "{{unidade_limite}}",
       "{{situacao}}", "{{cod_gfip}}", "{{numero_serie_bomba_amostragem}}",
+      "{{#exibir_media_resultados}}", "{{media_concentracao}}", "{{media_limite_tolerancia}}", "{{/exibir_media_resultados}}",
     ],
   },
   {
