@@ -2469,19 +2469,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         dose_media: ((r as any).nen_calc?.dose_media != null
           ? Number((r as any).nen_calc.dose_media).toFixed(2)
           : computeDoseMedia(r.resultados_detalhados)) || "",
-        media_concentracao: ((r as any).quimico_calc?.media_concentracao != null
+        media_concentracao: ((r as any).quimico_calc?.media_concentracao_manual != null && String((r as any).quimico_calc.media_concentracao_manual).trim() !== ""
+          ? String((r as any).quimico_calc.media_concentracao_manual)
+          : (r as any).quimico_calc?.media_concentracao != null
           ? String((r as any).quimico_calc.media_concentracao)
           : computeQuimicoMedias(r.resultados_componentes).media_concentracao) || "",
-        media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia != null
+        media_limite_tolerancia: ((r as any).quimico_calc?.media_limite_tolerancia_manual != null && String((r as any).quimico_calc.media_limite_tolerancia_manual).trim() !== ""
+          ? String((r as any).quimico_calc.media_limite_tolerancia_manual)
+          : (r as any).quimico_calc?.media_limite_tolerancia != null
           ? String((r as any).quimico_calc.media_limite_tolerancia)
           : computeQuimicoMedias(r.resultados_componentes).media_limite_tolerancia) || "",
         componentes_resumo: computeComponentesResumo(r.resultados_componentes, unidades),
         componentes_calculo: computeComponentesCalculo(r.resultados_componentes, unidades),
         // Controle de exibição da tabela "MÉDIA DOS RESULTADOS"
-        // true somente quando houver valor real em nen_medio
+        // true quando houver valor real em nen_medio OU médias químicas manuais
         exibir_media_resultados: !!(((r as any).nen_calc?.nen_medio != null
           ? Number((r as any).nen_calc.nen_medio).toFixed(1)
-          : computeNenMedio(r.resultados_detalhados)) || ""),
+          : computeNenMedio(r.resultados_detalhados)) || "")
+          || !!((r as any).quimico_calc?.media_concentracao_manual && String((r as any).quimico_calc.media_concentracao_manual).trim() !== "")
+          || !!((r as any).quimico_calc?.media_limite_tolerancia_manual && String((r as any).quimico_calc.media_limite_tolerancia_manual).trim() !== ""),
         // ---- Médias A(8) — Vibração (consolidado por risco) ----
         ...(() => {
           const allVib = (r.resultados_vibracao || []) as any[];
