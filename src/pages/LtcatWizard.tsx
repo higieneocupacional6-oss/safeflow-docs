@@ -3025,7 +3025,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const eqRows = mkRows(__eqArr, (x) => ({
+          const eqRowsRaw = mkRows(__eqArr, (x) => ({
             nome_equipamento: x.nome_equipamento || null,
             modelo_equipamento: x.modelo_equipamento || null,
             serie_equipamento: x.serie_equipamento || null,
@@ -3033,6 +3033,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             data_avaliacao: x.data_avaliacao || null,
             agente_nome: x.agente_nome || null,
           }));
+          // 🛡️ ANTI-DUPLICAÇÃO: remove equipamentos idênticos por conteúdo
+          // antes do insert (defesa extra contra qualquer duplicação no estado).
+          const eqSeen = new Set<string>();
+          const eqRows = eqRowsRaw.filter((x: any) => {
+            const k = `${x.nome_equipamento || ""}|${x.serie_equipamento || ""}|${x.modelo_equipamento || ""}|${x.data_avaliacao || ""}|${x.data_calibracao || ""}`;
+            if (eqSeen.has(k)) return false;
+            eqSeen.add(k);
+            return true;
+          });
 
           const tasks: any[] = [];
           if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
