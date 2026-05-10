@@ -3138,6 +3138,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
     } finally {
       setSavingDraft(false);
+      isPersistingRef.current = false;
     }
   };
 
