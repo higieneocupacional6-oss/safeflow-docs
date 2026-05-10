@@ -2566,15 +2566,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       // Loop GLOBAL de equipamentos (agregado de todas as avaliações de risco).
       // Permite uso de {{#equipamentos}}...{{/equipamentos}} no nível raiz do template.
+      // IMPORTANTE: lê direto de `riscos` (store), pois `riscosConsolidados` não inclui equipamentos_avaliacao.
       equipamentos: (() => {
         const all: any[] = [];
         const seen = new Set<string>();
-        (riscosConsolidados || []).forEach((r: any) => {
-          (r.equipamentos_avaliacao || r.equipamentos || []).forEach((eq: any) => {
-            const key = `${eq.nome || eq.nome_equipamento || ""}|${eq.numero_serie || eq.serie_equipamento || ""}|${eq.data_avaliacao || ""}`;
+        (riscos || []).forEach((r: any) => {
+          (r.equipamentos_avaliacao || []).forEach((eq: any) => {
+            const nome = eq.nome_equipamento || eq.nome || "";
+            const serie = eq.serie_equipamento || eq.numero_serie || "";
+            const dataAval = eq.data_avaliacao || "";
+            const key = `${nome}|${serie}|${dataAval}`;
             if (seen.has(key)) return;
             seen.add(key);
-            all.push(eq);
+            all.push({
+              agente_nome: eq.agente_nome || r.agente_nome || "",
+              nome,
+              nome_equipamento: nome,
+              numero_serie: serie,
+              serie_equipamento: serie,
+              marca_modelo: eq.modelo_equipamento || eq.marca_modelo || "",
+              modelo_equipamento: eq.modelo_equipamento || eq.marca_modelo || "",
+              data_avaliacao: dataAval ? new Date(dataAval).toLocaleDateString("pt-BR") : "",
+              data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+            });
           });
         });
         return all;
