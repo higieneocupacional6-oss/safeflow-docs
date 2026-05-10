@@ -3078,6 +3078,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
 
+    // 🔒 Mutex: bloqueia saves concorrentes para impedir duplicação de subdados
+    if (isPersistingRef.current) {
+      console.warn("[handleSaveDraft] Save em andamento — chamada concorrente ignorada");
+      return;
+    }
+    isPersistingRef.current = true;
     setSavingDraft(true);
     try {
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
