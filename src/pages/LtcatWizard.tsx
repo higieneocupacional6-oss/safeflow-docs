@@ -899,6 +899,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const [savingDraft, setSavingDraft] = useState(false);
+  // 🔒 Mutex síncrono para evitar saves concorrentes (autosave + manual + onHide).
+  // Sem isso, dois saves em paralelo passam pelo guard `if (savingDraft) return;`
+  // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
+  // e demais subdados, pois o delete-then-insert não é atômico entre processos.
+  const isPersistingRef = useRef(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
