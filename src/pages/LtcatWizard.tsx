@@ -3115,16 +3115,41 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
   };
 
-  // 🔁 Autosave silencioso: a cada 1 minuto + somente quando houver alteração
+  // 🔁 Autosave silencioso: a cada 30 segundos + somente quando houver alteração
   useEffect(() => {
     if (!empresaId) return;
     const id = setInterval(() => {
       if (savingDraft || !hasUnsavedChanges) return;
       handleSaveDraft(true);
-    }, 60 * 1000);
+    }, 30 * 1000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, hasUnsavedChanges, savingDraft]);
+
+  // 💾 Salva imediatamente ao sair da aba/rota para evitar perda de dados.
+  // Usa um ref para sempre chamar a versão mais recente de handleSaveDraft.
+  const saveDraftRef = useRef(handleSaveDraft);
+  useEffect(() => { saveDraftRef.current = handleSaveDraft; });
+  const hasUnsavedRef = useRef(hasUnsavedChanges);
+  useEffect(() => { hasUnsavedRef.current = hasUnsavedChanges; });
+
+  useEffect(() => {
+    if (!empresaId) return;
+    const flush = () => {
+      if (hasUnsavedRef.current) {
+        try { saveDraftRef.current(true); } catch {}
+      }
+    };
+    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onHide);
+      // Salva ao desmontar a tela (navegação interna SPA)
+      flush();
+    };
+  }, [empresaId]);
 
   // Salvar ao trocar de etapa (debounced)
   useEffect(() => {
