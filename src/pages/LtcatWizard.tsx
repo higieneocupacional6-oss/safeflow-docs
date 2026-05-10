@@ -899,6 +899,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const [savingDraft, setSavingDraft] = useState(false);
+  // 🔒 Mutex síncrono para evitar saves concorrentes (autosave + manual + onHide).
+  // Sem isso, dois saves em paralelo passam pelo guard `if (savingDraft) return;`
+  // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
+  // e demais subdados, pois o delete-then-insert não é atômico entre processos.
+  const isPersistingRef = useRef(false);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
@@ -3020,7 +3025,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
           }));
-          const eqRows = mkRows(__eqArr, (x) => ({
+          const eqRowsRaw = mkRows(__eqArr, (x) => ({
             nome_equipamento: x.nome_equipamento || null,
             modelo_equipamento: x.modelo_equipamento || null,
             serie_equipamento: x.serie_equipamento || null,
@@ -3028,6 +3033,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             data_avaliacao: x.data_avaliacao || null,
             agente_nome: x.agente_nome || null,
           }));
+          // 🛡️ ANTI-DUPLICAÇÃO: remove equipamentos idênticos por conteúdo
+          // antes do insert (defesa extra contra qualquer duplicação no estado).
+          const eqSeen = new Set<string>();
+          const eqRows = eqRowsRaw.filter((x: any) => {
+            const k = `${x.nome_equipamento || ""}|${x.serie_equipamento || ""}|${x.modelo_equipamento || ""}|${x.data_avaliacao || ""}|${x.data_calibracao || ""}`;
+            if (eqSeen.has(k)) return false;
+            eqSeen.add(k);
+            return true;
+          });
 
           const tasks: any[] = [];
           if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
@@ -3073,6 +3087,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
 
+    // 🔒 Mutex: bloqueia saves concorrentes para impedir duplicação de subdados
+    if (isPersistingRef.current) {
+      console.warn("[handleSaveDraft] Save em andamento — chamada concorrente ignorada");
+      return;
+    }
+    isPersistingRef.current = true;
     setSavingDraft(true);
     try {
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
@@ -3127,6 +3147,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
     } finally {
       setSavingDraft(false);
+      isPersistingRef.current = false;
     }
   };
 
