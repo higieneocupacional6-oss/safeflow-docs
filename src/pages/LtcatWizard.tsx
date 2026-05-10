@@ -2563,6 +2563,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       // Loop de riscos consolidado (parecer por risco)
       riscos: riscosConsolidados,
+
+      // Loop GLOBAL de equipamentos (agregado de todas as avaliações de risco).
+      // Permite uso de {{#equipamentos}}...{{/equipamentos}} no nível raiz do template.
+      equipamentos: (() => {
+        const all: any[] = [];
+        const seen = new Set<string>();
+        (riscosConsolidados || []).forEach((r: any) => {
+          (r.equipamentos_avaliacao || r.equipamentos || []).forEach((eq: any) => {
+            const key = `${eq.nome || eq.nome_equipamento || ""}|${eq.numero_serie || eq.serie_equipamento || ""}|${eq.data_avaliacao || ""}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            all.push(eq);
+          });
+        });
+        return all;
+      })(),
     };
 
     console.log("📋 [LTCAT] JSON enviado ao template:", JSON.stringify(templateData, null, 2));
