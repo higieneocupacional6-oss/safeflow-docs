@@ -1606,35 +1606,20 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
 
     // ------------------------------------------------------------
-    // REGRA DE DUPLICIDADE: Mesma Função + Mesmo Colaborador + Mesmo Risco
+    // REGRA DE DUPLICIDADE: Apenas dentro do RISCO/AVALIAÇÃO ATUAL.
+    // Mesmo colaborador/função/valores PODEM se repetir em riscos diferentes.
     // ------------------------------------------------------------
-    const hasDuplicate = finalItems.some((newItem, idx) => {
-      // Check for same function+colab within the currently being saved items
-      const duplicatedInBatch = finalItems.some((otherItem, otherIdx) =>
-        idx !== otherIdx &&
-        otherItem.funcao_id === newItem.funcao_id &&
-        otherItem.colaborador === newItem.colaborador
-      );
-      if (duplicatedInBatch) return true;
-
-      // Check against existing database for this sector/risk
-      const existingInStore = riscos.find(r =>
-        r.id !== editingRiskId && // Important when editing
-        r.setor_id === currentRiskSetor.id &&
-        r.agente_id === riskForm.agente_id
-      );
-
-      if (existingInStore) {
-        return existingInStore.items.some(ei =>
-          ei.funcao_id === newItem.funcao_id &&
-          ei.colaborador === newItem.colaborador
-        );
-      }
+    const seenKeys = new Set<string>();
+    const hasDuplicateInCurrentRisk = finalItems.some((it) => {
+      const k = `${it.funcao_id || ""}|${(it.colaborador || "").trim().toLowerCase()}`;
+      if (!it.funcao_id && !it.colaborador) return false;
+      if (seenKeys.has(k)) return true;
+      seenKeys.add(k);
       return false;
     });
 
-    if (hasDuplicate) {
-      toast.error("MESMO COLABORADOR JÁ CADASTRADO PARA ESTA FUNÇÃO NESTE RISCO");
+    if (hasDuplicateInCurrentRisk) {
+      toast.error("Mesmo colaborador e função repetidos dentro deste risco. Remova a duplicata.");
       return;
     }
 
