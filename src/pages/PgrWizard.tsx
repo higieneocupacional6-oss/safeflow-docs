@@ -85,6 +85,7 @@ export default function PgrWizard() {
   const [riskOpen, setRiskOpen] = useState(false);
   const [riskForm, setRiskForm] = useState<RiscoPgr>(emptyRisco());
   const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
+  const [matrixRiscoId, setMatrixRiscoId] = useState<string | null>(null);
 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
@@ -262,11 +263,13 @@ export default function PgrWizard() {
 
     const setorId = activeSetor.id;
     const current = snapshot.setores[setorId] || { riscos: [] };
+    const isNew = !editingRiskId;
+    const riscoId = editingRiskId || riskForm.id;
     let novosRiscos: RiscoPgr[];
     if (editingRiskId) {
       novosRiscos = current.riscos.map(r => (r.id === editingRiskId ? { ...riskForm, id: editingRiskId } : r));
     } else {
-      novosRiscos = [...current.riscos, { ...riskForm }];
+      novosRiscos = [...current.riscos, { ...riskForm, id: riscoId }];
     }
     const novoSnap: PgrSnapshot = {
       ...snapshot,
@@ -277,6 +280,7 @@ export default function PgrWizard() {
     if (id) {
       toast.success(editingRiskId ? "Risco atualizado" : "Risco salvo");
       setRiskOpen(false);
+      if (isNew) setMatrixRiscoId(riscoId);
     }
   };
 
@@ -560,25 +564,43 @@ export default function PgrWizard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {riscosSetor.map(r => (
-              <Card key={r.id} className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary">{r.tipo_agente}</Badge>
-                      <Badge variant="outline">{r.tipo_avaliacao}</Badge>
+            {riscosSetor.map(r => {
+              const p = (r.probabilidade ?? null) as Nivel | null;
+              const s = (r.severidade ?? null) as Nivel | null;
+              const calc = p && s ? calcularMatriz(p, s) : null;
+              const matrixColor = calc
+                ? (calc.nivel === "Baixo" ? "text-emerald-600 hover:text-emerald-700"
+                  : calc.nivel === "Médio" ? "text-amber-600 hover:text-amber-700"
+                  : "text-red-600 hover:text-red-700")
+                : "text-muted-foreground";
+              return (
+                <Card key={r.id} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary">{r.tipo_agente}</Badge>
+                        <Badge variant="outline">{r.tipo_avaliacao}</Badge>
+                        {calc && (
+                          <Badge variant="outline" className={calc.corBadge}>
+                            {calc.nivel} ({calc.resultado})
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="font-semibold">{r.agente_nome}</h3>
+                      {r.codigo_esocial && <p className="text-xs text-muted-foreground mt-1">eSocial: {r.codigo_esocial} — {r.descricao_esocial}</p>}
+                      {r.fonte_geradora && <p className="text-sm mt-2"><span className="font-medium">Fonte:</span> {r.fonte_geradora}</p>}
                     </div>
-                    <h3 className="font-semibold">{r.agente_nome}</h3>
-                    {r.codigo_esocial && <p className="text-xs text-muted-foreground mt-1">eSocial: {r.codigo_esocial} — {r.descricao_esocial}</p>}
-                    {r.fonte_geradora && <p className="text-sm mt-2"><span className="font-medium">Fonte:</span> {r.fonte_geradora}</p>}
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className={matrixColor} title="Matriz 3x3" onClick={() => setMatrixRiscoId(r.id)}>
+                        <Grid3x3 className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEditRisco(r)}><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoverRisco(r.id)}><Trash2 className="w-4 h-4" /></Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEditRisco(r)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoverRisco(r.id)}><Trash2 className="w-4 h-4" /></Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 
@@ -655,6 +677,106 @@ export default function PgrWizard() {
               <Button variant="outline" onClick={() => setRiskOpen(false)}>Cancelar</Button>
               <Button onClick={handleSalvarRisco} disabled={saving}>
                 {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal Matriz 3x3 por risco */}
+        <Dialog open={!!matrixRiscoId} onOpenChange={(o) => !o && setMatrixRiscoId(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Grid3x3 className="w-5 h-5 text-primary" /> Matriz de Risco 3x3
+              </DialogTitle>
+            </DialogHeader>
+            {(() => {
+              const r = riscosSetor.find(x => x.id === matrixRiscoId);
+              if (!r) return null;
+              const p = (r.probabilidade ?? null) as Nivel | null;
+              const s = (r.severidade ?? null) as Nivel | null;
+              const calc = p && s ? calcularMatriz(p, s) : null;
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Badge variant="secondary">{r.tipo_agente}</Badge>
+                      <h3 className="font-semibold mt-1">{r.agente_nome}</h3>
+                    </div>
+                    {calc && (
+                      <Badge variant="outline" className={`text-sm py-1.5 px-3 ${calc.corBadge}`}>
+                        Nível: {calc.nivel} ({calc.resultado})
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Probabilidade</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {([1, 2, 3] as Nivel[]).map(n => (
+                            <Button key={n} type="button" variant={p === n ? "default" : "outline"} onClick={() => updateRiscoMatriz(r.id, { probabilidade: n })}>
+                              {n} — {PROBABILIDADE_LABELS[n]}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Severidade</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {([1, 2, 3] as Nivel[]).map(n => (
+                            <Button key={n} type="button" variant={s === n ? "default" : "outline"} onClick={() => updateRiscoMatriz(r.id, { severidade: n })}>
+                              {n} — {SEVERIDADE_LABELS[n]}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      {calc && (
+                        <div className="rounded-lg border p-4 bg-muted/30 space-y-1.5 text-sm">
+                          <div><span className="font-semibold">Resultado:</span> {calc.resultado}</div>
+                          <div><span className="font-semibold">Nível do risco:</span> {calc.nivel}</div>
+                          <div><span className="font-semibold">Classificação:</span> {calc.classificacao}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs font-bold uppercase mb-2 block">Tabela 3x3</Label>
+                      <div className="inline-block">
+                        <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1 text-xs">
+                          <div></div>
+                          {([1, 2, 3] as Nivel[]).map(pp => (
+                            <div key={`h-${pp}`} className="text-center font-semibold py-1 text-muted-foreground">P{pp}</div>
+                          ))}
+                          {([3, 2, 1] as Nivel[]).map(ss => (
+                            <Fragment key={`row-${ss}`}>
+                              <div className="text-right font-semibold pr-2 self-center text-muted-foreground">S{ss}</div>
+                              {([1, 2, 3] as Nivel[]).map(pp => {
+                                const val = pp * ss;
+                                const isSel = p === pp && s === ss;
+                                return (
+                                  <button type="button" key={`c-${ss}-${pp}`} onClick={() => updateRiscoMatriz(r.id, { probabilidade: pp, severidade: ss })}
+                                    className={`${CELL_COLOR[val]} h-12 w-12 rounded-md text-white font-bold flex items-center justify-center transition-all ${isSel ? "ring-4 ring-foreground ring-offset-2 ring-offset-background scale-105" : "hover:scale-105"}`}>
+                                    {val}
+                                  </button>
+                                );
+                              })}
+                            </Fragment>
+                          ))}
+                        </div>
+                        <div className="flex gap-3 mt-3 text-xs">
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500/80" /> Baixo</div>
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/80" /> Médio</div>
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500/80" /> Alto</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button onClick={() => setMatrixRiscoId(null)} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar e voltar
               </Button>
             </DialogFooter>
           </DialogContent>
