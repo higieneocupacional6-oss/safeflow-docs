@@ -3,6 +3,7 @@ import { TemplateVariables } from "@/components/TemplateVariables";
 import { LtcatTemplateHelper } from "@/components/LtcatTemplateHelper";
 import { AetTemplateHelper } from "@/components/AetTemplateHelper";
 import { CopsoqTemplateHelper } from "@/components/CopsoqTemplateHelper";
+import { PgrTemplateHelper } from "@/components/PgrTemplateHelper";
 import { Plus, FileText, Upload, Trash2, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
@@ -189,6 +190,7 @@ export default function Templates() {
           <LtcatTemplateHelper />
           <AetTemplateHelper />
           <CopsoqTemplateHelper />
+          <PgrTemplateHelper />
           <TemplateVariables />
         </div>
       </div>
