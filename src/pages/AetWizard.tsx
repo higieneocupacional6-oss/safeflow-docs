@@ -434,6 +434,24 @@ export default function AetWizard() {
     setSetoresAet(setoresAet.filter((_, i) => i !== idx));
   };
 
+  const removeSetorGroup = (setorId: string) => {
+    setSetoresAet(setoresAet.filter((s) => s.setor_id !== setorId));
+  };
+
+  const addAvaliacaoSetor = (setorId: string) => {
+    const base = setoresAet.find((s) => s.setor_id === setorId);
+    if (!base) return;
+    const nova = newSetor({
+      id: base.setor_id,
+      nome_setor: base.setor_nome,
+      ghe_ges: base.ges,
+      descricao_ambiente: base.descricao_ambiente,
+    });
+    const next = [...setoresAet, nova];
+    setSetoresAet(next);
+    setEditingSetorIdx(next.length - 1);
+  };
+
   const updateSetor = (idx: number, patch: Partial<SetorAet>) => {
     setSetoresAet(setoresAet.map((s, i) => (i === idx ? { ...s, ...patch, _salvo: patch._salvo ?? false } : s)));
   };
