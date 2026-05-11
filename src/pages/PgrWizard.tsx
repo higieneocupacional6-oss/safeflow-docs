@@ -293,6 +293,19 @@ export default function PgrWizard() {
     toast.success("Risco removido");
   };
 
+  const updateRiscoMatriz = async (riscoId: string, patch: Partial<Pick<RiscoPgr, "probabilidade" | "severidade">>) => {
+    if (!activeSetor) return;
+    const setorId = activeSetor.id;
+    const current = snapshot.setores[setorId] || { riscos: [] };
+    const novosRiscos = current.riscos.map(r => (r.id === riscoId ? { ...r, ...patch } : r));
+    const novoSnap: PgrSnapshot = {
+      ...snapshot,
+      setores: { ...snapshot.setores, [setorId]: { riscos: novosRiscos } },
+    };
+    setSnapshot(novoSnap);
+    await persist({ snapshot: novoSnap });
+  };
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
