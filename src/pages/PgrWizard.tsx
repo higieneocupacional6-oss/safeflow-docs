@@ -494,8 +494,8 @@ export default function PgrWizard() {
                               </div>
                             ))}
                             {([3, 2, 1] as Nivel[]).map(ss => (
-                              <>
-                                <div key={`l-${ss}`} className="text-right font-semibold pr-2 self-center text-muted-foreground">S{ss}</div>
+                              <Fragment key={`row-${ss}`}>
+                                <div className="text-right font-semibold pr-2 self-center text-muted-foreground">S{ss}</div>
                                 {([1, 2, 3] as Nivel[]).map(pp => {
                                   const val = pp * ss;
                                   const isSel = p === pp && s === ss;
@@ -510,7 +510,7 @@ export default function PgrWizard() {
                                     </button>
                                   );
                                 })}
-                              </>
+                              </Fragment>
                             ))}
                           </div>
                           <div className="flex gap-3 mt-3 text-xs">
