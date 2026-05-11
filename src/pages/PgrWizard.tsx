@@ -398,6 +398,147 @@ export default function PgrWizard() {
   // Subview: setor selecionado
   if (activeSetor) {
     const riscosSetor = snapshot.setores[activeSetor.id]?.riscos || [];
+
+    // === Subview: Matriz 3x3 ===
+    if (sectorView === "matriz") {
+      return (
+        <div className="max-w-6xl mx-auto pb-12">
+          <div className="flex items-center gap-3 mb-6">
+            <Button variant="ghost" size="icon" onClick={() => setSectorView("riscos")}><ArrowLeft className="w-5 h-5" /></Button>
+            <div className="flex-1">
+              <h1 className="text-2xl font-heading font-bold flex items-center gap-2">
+                <Grid3x3 className="w-6 h-6 text-primary" /> Matriz de Risco 3x3
+              </h1>
+              <p className="text-sm text-muted-foreground">{activeSetor.nome_setor} — selecione probabilidade e severidade para cada risco</p>
+            </div>
+          </div>
+
+          {riscosSetor.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">Nenhum risco cadastrado para avaliar.</p>
+            </Card>
+          ) : (
+            <div className="space-y-6">
+              {riscosSetor.map(r => {
+                const p = (r.probabilidade ?? null) as Nivel | null;
+                const s = (r.severidade ?? null) as Nivel | null;
+                const calc = p && s ? calcularMatriz(p, s) : null;
+                return (
+                  <Card key={r.id} className="p-5">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <Badge variant="secondary">{r.tipo_agente}</Badge>
+                        </div>
+                        <h3 className="font-semibold">{r.agente_nome}</h3>
+                      </div>
+                      {calc && (
+                        <Badge variant="outline" className={`text-sm py-1.5 px-3 ${calc.corBadge}`}>
+                          Nível: {calc.nivel} ({calc.resultado})
+                        </Badge>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                      {/* Seleções */}
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Probabilidade</Label>
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {([1, 2, 3] as Nivel[]).map(n => (
+                              <Button
+                                key={n}
+                                type="button"
+                                variant={p === n ? "default" : "outline"}
+                                onClick={() => updateRiscoMatriz(r.id, { probabilidade: n })}
+                              >
+                                {n} — {PROBABILIDADE_LABELS[n]}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Severidade</Label>
+                          <div className="grid grid-cols-3 gap-2 mt-2">
+                            {([1, 2, 3] as Nivel[]).map(n => (
+                              <Button
+                                key={n}
+                                type="button"
+                                variant={s === n ? "default" : "outline"}
+                                onClick={() => updateRiscoMatriz(r.id, { severidade: n })}
+                              >
+                                {n} — {SEVERIDADE_LABELS[n]}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        {calc && (
+                          <div className="rounded-lg border p-4 bg-muted/30 space-y-1.5 text-sm">
+                            <div><span className="font-semibold">Resultado:</span> {calc.resultado}</div>
+                            <div><span className="font-semibold">Nível do risco:</span> {calc.nivel}</div>
+                            <div><span className="font-semibold">Classificação:</span> {calc.classificacao}</div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Tabela 3x3 */}
+                      <div>
+                        <Label className="text-xs font-bold uppercase mb-2 block">Tabela 3x3 (Severidade × Probabilidade)</Label>
+                        <div className="inline-block">
+                          <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1 text-xs">
+                            <div></div>
+                            {([1, 2, 3] as Nivel[]).map(pp => (
+                              <div key={`h-${pp}`} className="text-center font-semibold py-1 text-muted-foreground">
+                                P{pp}
+                              </div>
+                            ))}
+                            {([3, 2, 1] as Nivel[]).map(ss => (
+                              <>
+                                <div key={`l-${ss}`} className="text-right font-semibold pr-2 self-center text-muted-foreground">S{ss}</div>
+                                {([1, 2, 3] as Nivel[]).map(pp => {
+                                  const val = pp * ss;
+                                  const isSel = p === pp && s === ss;
+                                  return (
+                                    <button
+                                      type="button"
+                                      key={`c-${ss}-${pp}`}
+                                      onClick={() => updateRiscoMatriz(r.id, { probabilidade: pp, severidade: ss })}
+                                      className={`${CELL_COLOR[val]} h-14 w-14 rounded-md text-white font-bold flex items-center justify-center transition-all ${isSel ? "ring-4 ring-foreground ring-offset-2 ring-offset-background scale-105" : "hover:scale-105"}`}
+                                    >
+                                      {val}
+                                    </button>
+                                  );
+                                })}
+                              </>
+                            ))}
+                          </div>
+                          <div className="flex gap-3 mt-3 text-xs">
+                            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500/80" /> Baixo (1-2)</div>
+                            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/80" /> Médio (3-4)</div>
+                            <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500/80" /> Alto (6-9)</div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex justify-between mt-6">
+            <Button variant="outline" onClick={() => setSectorView("riscos")}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+            </Button>
+            <Button variant="outline" onClick={async () => { await persist(); toast.success("Matriz salva"); }} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
+            </Button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <div className="max-w-5xl mx-auto pb-12">
         <div className="flex items-center gap-3 mb-6">
@@ -406,6 +547,9 @@ export default function PgrWizard() {
             <h1 className="text-2xl font-heading font-bold">{activeSetor.nome_setor}</h1>
             <p className="text-sm text-muted-foreground">Riscos identificados no setor</p>
           </div>
+          <Button variant="outline" onClick={() => setSectorView("matriz")} disabled={riscosSetor.length === 0}>
+            <Grid3x3 className="w-4 h-4 mr-1" /> Matriz 3x3
+          </Button>
           <Button onClick={openNovoRisco}><Plus className="w-4 h-4 mr-1" /> Novo Risco</Button>
         </div>
 
