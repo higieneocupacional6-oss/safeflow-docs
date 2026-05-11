@@ -85,6 +85,7 @@ export default function PgrWizard() {
   const [riskOpen, setRiskOpen] = useState(false);
   const [riskForm, setRiskForm] = useState<RiscoPgr>(emptyRisco());
   const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
+  const [matrixRiscoId, setMatrixRiscoId] = useState<string | null>(null);
 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
