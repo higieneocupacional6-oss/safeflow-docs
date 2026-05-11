@@ -162,6 +162,15 @@ export default function PgrWizard() {
       return data;
     },
   });
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-pgr"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("templates").select("id,title,file_path").order("title");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const tiposAgente = Array.from(new Set((catRiscos as any[]).map(r => r.tipo).filter(Boolean))).sort();
 
   // Carregar rascunho
