@@ -40,6 +40,18 @@ const groups = [
       "{{classificacao_risco}}", "{{resultado_matriz_risco}}",
     ],
   },
+  {
+    title: "EPIs (loop)",
+    vars: [
+      "{{#epis}}", "{{funcao}}", "{{nome_epi}}", "{{ca}}", "{{uso}}", "{{/epis}}",
+    ],
+  },
+  {
+    title: "Treinamentos (loop)",
+    vars: [
+      "{{#treinamentos}}", "{{funcao}}", "{{nome_treinamento}}", "{{/treinamentos}}",
+    ],
+  },
 ];
 
 const exemplo = `{{#setores}}
