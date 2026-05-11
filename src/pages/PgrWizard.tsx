@@ -36,7 +36,15 @@ type RiscoPgr = {
 };
 
 type PgrSetorData = { riscos: RiscoPgr[] };
-type PgrSnapshot = { setores: Record<string, PgrSetorData> };
+type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string };
+type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
+type TreinItem = { id: string; nome_treinamento: string };
+type TreinBloco = { id: string; funcao_ids: string[]; treinamentos: TreinItem[] };
+type PgrSnapshot = {
+  setores: Record<string, PgrSetorData>;
+  epi_blocos?: EpiBloco[];
+  treinamento_blocos?: TreinBloco[];
+};
 
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
 const emptyRisco = (): RiscoPgr => ({
