@@ -101,6 +101,15 @@ export default function PgrWizard() {
   const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
   const [matrixRiscoId, setMatrixRiscoId] = useState<string | null>(null);
 
+  // Step 4 — Gerar Documento
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null);
+  const [generatedFileName, setGeneratedFileName] = useState<string>("");
+  const [savedFilePath, setSavedFilePath] = useState<string>("");
+
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
     queryFn: async () => {
