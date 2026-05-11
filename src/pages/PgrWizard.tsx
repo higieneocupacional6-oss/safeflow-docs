@@ -191,6 +191,8 @@ export default function PgrWizard() {
           setStep(typeof (data as any).current_step === "number" ? (data as any).current_step : 0);
           const snap = (data as any).draft_snapshot;
           if (snap && typeof snap === "object" && snap.setores) setSnapshot(snap as PgrSnapshot);
+          if ((data as any).template_id) setSelectedTemplate((data as any).template_id);
+          if ((data as any).file_path) setSavedFilePath((data as any).file_path);
         }
       } catch (e: any) {
         toast.error("Erro ao carregar rascunho: " + (e.message || ""));
