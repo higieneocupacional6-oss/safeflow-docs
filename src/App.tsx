@@ -14,6 +14,7 @@ import Cadastros from "./pages/Cadastros";
 import Templates from "./pages/Templates";
 import Documentos from "./pages/Documentos";
 import LtcatWizard from "./pages/LtcatWizard";
+import PgrWizard from "./pages/PgrWizard";
 import AetWizard from "./pages/AetWizard";
 import SetoresFuncoes from "./pages/SetoresFuncoes";
 import Usuarios from "./pages/Usuarios";
@@ -55,6 +56,8 @@ const App = () => (
             <Route path="/documentos/insalubridade/editar/:documentoId" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
             <Route path="/documentos/periculosidade/novo" element={<Protected><LtcatWizard modo="periculosidade" /></Protected>} />
             <Route path="/documentos/periculosidade/editar/:documentoId" element={<Protected><LtcatWizard modo="periculosidade" /></Protected>} />
+            <Route path="/documentos/pgr/novo" element={<Protected><PgrWizard /></Protected>} />
+            <Route path="/documentos/pgr/editar/:documentoId" element={<Protected><PgrWizard /></Protected>} />
             <Route path="/documentos/aet/novo" element={<Protected><AetWizard /></Protected>} />
             <Route path="/documentos/aet/editar/:documentoId" element={<Protected><AetWizard /></Protected>} />
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
