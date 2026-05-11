@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3 } from "lucide-react";
+import { calcularMatriz, PROBABILIDADE_LABELS, SEVERIDADE_LABELS, CELL_COLOR, type Nivel } from "@/lib/pgrMatriz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -28,6 +29,8 @@ type RiscoPgr = {
   fonte_geradora: string;
   danos_saude: string;
   medidas_controle: string;
+  probabilidade?: Nivel | null;
+  severidade?: Nivel | null;
 };
 
 type PgrSetorData = { riscos: RiscoPgr[] };
@@ -47,6 +50,8 @@ const emptyRisco = (): RiscoPgr => ({
   fonte_geradora: "",
   danos_saude: "",
   medidas_controle: "",
+  probabilidade: null,
+  severidade: null,
 });
 
 const tipoAvaliacaoFromTipo = (tipo: string) => {
