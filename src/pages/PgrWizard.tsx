@@ -1,6 +1,10 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users, FileDown, FileCheck2, Link2 } from "lucide-react";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { calcularMatriz, PROBABILIDADE_LABELS, SEVERIDADE_LABELS, CELL_COLOR, type Nivel } from "@/lib/pgrMatriz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
