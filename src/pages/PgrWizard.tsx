@@ -909,46 +909,263 @@ export default function PgrWizard() {
     );
   }
 
-  // Lista de setores (Reconhecimento)
-  return (
-    <div className="max-w-5xl mx-auto pb-12">
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => setStep(0)}><ArrowLeft className="w-5 h-5" /></Button>
-        <div className="flex-1">
-          <h1 className="text-2xl font-heading font-bold">Reconhecimento</h1>
-          <p className="text-sm text-muted-foreground">Selecione um setor para cadastrar os riscos</p>
+  // ============ STEP 1 — Lista de setores (Reconhecimento) ============
+  if (step === 1) {
+    return (
+      <div className="max-w-5xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setStep(0)}><ArrowLeft className="w-5 h-5" /></Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-heading font-bold">Reconhecimento</h1>
+            <p className="text-sm text-muted-foreground">Selecione um setor para cadastrar os riscos</p>
+          </div>
+        </div>
+
+        {(setores as any[]).length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">Nenhum setor cadastrado para esta empresa.</p>
+            <Button variant="outline" className="mt-4" onClick={() => navigate("/setores-funcoes")}>Ir para Setores e Funções</Button>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {(setores as any[]).map(s => {
+              const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
+              return (
+                <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
+                      <div>
+                        <h3 className="font-semibold">{s.nome_setor}</h3>
+                        {s.ghe_ges && <p className="text-xs text-muted-foreground">GHE/GES: {s.ghe_ges}</p>}
+                      </div>
+                    </div>
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="mt-3 flex items-center gap-2">
+                    <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+
+        <div className="flex justify-between mt-6">
+          <Button variant="outline" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+          <Button onClick={() => goToStep(2)} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+          </Button>
         </div>
       </div>
+    );
+  }
 
-      {(setores as any[]).length === 0 ? (
-        <Card className="p-12 text-center">
-          <p className="text-muted-foreground">Nenhum setor cadastrado para esta empresa.</p>
-          <Button variant="outline" className="mt-4" onClick={() => navigate("/setores-funcoes")}>Ir para Setores e Funções</Button>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {(setores as any[]).map(s => {
-            const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
+  // ============ Multi-select de funções (componente local) ============
+  const FuncoesMultiSelect = ({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) => {
+    const todas = funcoesEmpresa as any[];
+    const sel = todas.filter(f => value.includes(f.id));
+    const label = sel.length === 0 ? "Selecionar funções" : `${sel.length} função(ões) selecionada(s)`;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            <span className="truncate">{label}</span>
+            <Users className="w-4 h-4 ml-2 opacity-60" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 max-h-72 overflow-y-auto p-2">
+          {todas.length === 0 ? (
+            <p className="text-sm text-muted-foreground p-2">Nenhuma função cadastrada</p>
+          ) : todas.map(f => {
+            const checked = value.includes(f.id);
             return (
-              <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
-                    <div>
-                      <h3 className="font-semibold">{s.nome_setor}</h3>
-                      {s.ghe_ges && <p className="text-xs text-muted-foreground">GHE/GES: {s.ghe_ges}</p>}
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <div className="mt-3 flex items-center gap-2">
-                  <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
-                </div>
-              </Card>
+              <label key={f.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                <Checkbox checked={checked} onCheckedChange={(c) => {
+                  onChange(c ? [...value, f.id] : value.filter(id => id !== f.id));
+                }} />
+                <span className="text-sm">{f.nome_funcao}</span>
+              </label>
             );
           })}
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
+  const funcoesNomes = (ids: string[]) =>
+    (funcoesEmpresa as any[]).filter(f => ids.includes(f.id)).map(f => f.nome_funcao).join(", ");
+
+  // ============ STEP 2 — EPI ============
+  if (step === 2) {
+    return (
+      <div className="max-w-5xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => goToStep(1)}><ArrowLeft className="w-5 h-5" /></Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-heading font-bold flex items-center gap-2"><ShieldCheck className="w-6 h-6 text-primary" /> EPI</h1>
+            <p className="text-sm text-muted-foreground">Vincule EPIs às funções da empresa</p>
+          </div>
         </div>
-      )}
-    </div>
-  );
+
+        {epiBlocos.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
+            <Button className="mt-4" onClick={addEpiBloco}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco de funções</Button>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {epiBlocos.map(b => (
+              <Card key={b.id} className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <Label className="text-xs font-bold uppercase">Funções *</Label>
+                    <div className="mt-1">
+                      <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateEpiBloco(b.id, { funcao_ids: v })} />
+                    </div>
+                    {b.funcao_ids.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                    )}
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeEpiBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">EPIs vinculados</h4>
+                    <Button variant="outline" size="sm" onClick={() => addEpiItem(b.id)}><Plus className="w-4 h-4 mr-1" /> EPI</Button>
+                  </div>
+                  {b.epis.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Nenhum EPI adicionado.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {b.epis.map(item => (
+                        <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_160px_auto] gap-2 items-end border rounded-lg p-3">
+                          <div>
+                            <Label className="text-xs">Nome do EPI</Label>
+                            <Select
+                              value={item.epi_id}
+                              onValueChange={(v) => {
+                                const epi: any = (catEpis as any[]).find(e => e.id === v);
+                                updateEpiItem(b.id, item.id, { epi_id: v, nome_epi: epi?.nome || "" });
+                              }}
+                            >
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                {(catEpis as any[]).map(e => <SelectItem key={e.id} value={e.id}>{e.nome}{e.tipo ? ` (${e.tipo})` : ""}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">CA</Label>
+                            <Input className="mt-1" value={item.ca} onChange={e => updateEpiItem(b.id, item.id, { ca: e.target.value })} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Uso</Label>
+                            <Select value={item.uso} onValueChange={(v) => updateEpiItem(b.id, item.id, { uso: v })}>
+                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Contínuo">Contínuo</SelectItem>
+                                <SelectItem value="Eventual">Eventual</SelectItem>
+                                <SelectItem value="Não aplicado">Não aplicado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeEpiItem(b.id, item.id)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+            <Button variant="outline" onClick={addEpiBloco}><Plus className="w-4 h-4 mr-1" /> Funções</Button>
+          </div>
+        )}
+
+        <div className="flex justify-between mt-6">
+          <Button variant="outline" onClick={() => goToStep(1)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
+            </Button>
+            <Button onClick={() => goToStep(3)} disabled={saving}>Avançar</Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============ STEP 3 — Treinamentos ============
+  if (step === 3) {
+    return (
+      <div className="max-w-5xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => goToStep(2)}><ArrowLeft className="w-5 h-5" /></Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-heading font-bold flex items-center gap-2"><GraduationCap className="w-6 h-6 text-primary" /> Treinamentos</h1>
+            <p className="text-sm text-muted-foreground">Vincule treinamentos às funções da empresa</p>
+          </div>
+        </div>
+
+        {treinBlocos.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
+            <Button className="mt-4" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco de funções</Button>
+          </Card>
+        ) : (
+          <div className="space-y-4">
+            {treinBlocos.map(b => (
+              <Card key={b.id} className="p-5 space-y-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1">
+                    <Label className="text-xs font-bold uppercase">Funções *</Label>
+                    <div className="mt-1">
+                      <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateTreinBloco(b.id, { funcao_ids: v })} />
+                    </div>
+                    {b.funcao_ids.length > 0 && (
+                      <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                    )}
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                </div>
+
+                <div className="border-t pt-3">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="text-sm font-semibold">Treinamentos</h4>
+                    <Button variant="outline" size="sm" onClick={() => addTreinItem(b.id)}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
+                  </div>
+                  {b.treinamentos.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">Nenhum treinamento adicionado.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {b.treinamentos.map(item => (
+                        <div key={item.id} className="flex items-end gap-2 border rounded-lg p-3">
+                          <div className="flex-1">
+                            <Label className="text-xs">Nome do treinamento</Label>
+                            <Input className="mt-1" value={item.nome_treinamento} onChange={e => updateTreinItem(b.id, item.id, { nome_treinamento: e.target.value })} />
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinItem(b.id, item.id)}><Trash2 className="w-4 h-4" /></Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Card>
+            ))}
+            <Button variant="outline" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Funções</Button>
+          </div>
+        )}
+
+        <div className="flex justify-between mt-6">
+          <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+          <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }
