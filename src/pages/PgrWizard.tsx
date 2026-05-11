@@ -1,6 +1,10 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users, FileDown, FileCheck2, Link2 } from "lucide-react";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { calcularMatriz, PROBABILIDADE_LABELS, SEVERIDADE_LABELS, CELL_COLOR, type Nivel } from "@/lib/pgrMatriz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -97,6 +101,15 @@ export default function PgrWizard() {
   const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
   const [matrixRiscoId, setMatrixRiscoId] = useState<string | null>(null);
 
+  // Step 4 — Gerar Documento
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null);
+  const [generatedFileName, setGeneratedFileName] = useState<string>("");
+  const [savedFilePath, setSavedFilePath] = useState<string>("");
+
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
     queryFn: async () => {
@@ -149,6 +162,15 @@ export default function PgrWizard() {
       return data;
     },
   });
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-pgr"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("templates").select("id,title,file_path").order("title");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const tiposAgente = Array.from(new Set((catRiscos as any[]).map(r => r.tipo).filter(Boolean))).sort();
 
   // Carregar rascunho
@@ -169,6 +191,8 @@ export default function PgrWizard() {
           setStep(typeof (data as any).current_step === "number" ? (data as any).current_step : 0);
           const snap = (data as any).draft_snapshot;
           if (snap && typeof snap === "object" && snap.setores) setSnapshot(snap as PgrSnapshot);
+          if ((data as any).template_id) setSelectedTemplate((data as any).template_id);
+          if ((data as any).file_path) setSavedFilePath((data as any).file_path);
         }
       } catch (e: any) {
         toast.error("Erro ao carregar rascunho: " + (e.message || ""));
@@ -1159,9 +1183,208 @@ export default function PgrWizard() {
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
+            </Button>
+            <Button onClick={() => goToStep(4)} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Finalizar
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ============ STEP 4 — Gerar Documento ============
+  if (step === 4) {
+    const buildTemplateData = () => {
+      const emp: any = (empresas as any[]).find(e => e.id === empresaId) || {};
+      const setoresArr = (setores as any[]).map(s => {
+        const data = snapshot.setores[s.id] || { riscos: [] };
+        return {
+          nome_setor: s.nome_setor,
+          ghe_ges: s.ghe_ges || "",
+          descricao_ambiente: s.descricao_ambiente || "",
+          riscos: (data.riscos || []).map(r => {
+            const m = r.probabilidade && r.severidade
+              ? calcularMatriz(r.probabilidade as Nivel, r.severidade as Nivel)
+              : null;
+            return {
+              agente: r.agente_nome,
+              agente_nome: r.agente_nome,
+              tipo_agente: r.tipo_agente,
+              tipo_avaliacao: r.tipo_avaliacao,
+              codigo_esocial: r.codigo_esocial,
+              descricao_esocial: r.descricao_esocial,
+              propagacao: r.propagacao,
+              tipo_exposicao: r.tipo_exposicao,
+              fonte_geradora: r.fonte_geradora,
+              danos_saude: r.danos_saude,
+              medidas_controle: r.medidas_controle,
+              probabilidade: r.probabilidade ? PROBABILIDADE_LABELS[r.probabilidade as Nivel] : "",
+              severidade: r.severidade ? SEVERIDADE_LABELS[r.severidade as Nivel] : "",
+              nivel_risco: m?.nivel || "",
+              classificacao_risco: m?.classificacao || "",
+              resultado_matriz_risco: m?.resultado ?? "",
+            };
+          }),
+        };
+      });
+      const epis: any[] = [];
+      (snapshot.epi_blocos || []).forEach(b => {
+        const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
+        funcs.forEach(f => b.epis.forEach(e => epis.push({
+          funcao: f.nome_funcao, nome_epi: e.nome_epi, ca: e.ca, uso: e.uso,
+        })));
+      });
+      const treinamentos: any[] = [];
+      (snapshot.treinamento_blocos || []).forEach(b => {
+        const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
+        funcs.forEach(f => b.treinamentos.forEach(t => treinamentos.push({
+          funcao: f.nome_funcao, nome_treinamento: t.nome_treinamento,
+        })));
+      });
+      return {
+        empresa: empresaNome,
+        razao_social: emp.razao_social || empresaNome,
+        nome_fantasia: emp.nome_fantasia || "",
+        cnpj: emp.cnpj || "",
+        responsavel_tecnico: responsavelTecnico,
+        crea, cargo,
+        data_elaboracao: dataElaboracao,
+        revisoes,
+        setores: setoresArr,
+        epis,
+        treinamentos,
+      };
+    };
+
+    const loadTemplateDoc = async () => {
+      const tpl: any = (templates as any[]).find(t => t.id === selectedTemplate);
+      if (!tpl) throw new Error("Template não encontrado");
+      const { data: fileData, error } = await supabase.storage.from("templates").download(tpl.file_path);
+      if (error) throw error;
+      const path = String(tpl.file_path || "").toLowerCase();
+      if (path.endsWith(".html") || path.endsWith(".htm")) {
+        const htmlSource = await fileData.text();
+        let lastData: any = null;
+        return {
+          kind: "html",
+          render(data: any) { lastData = data; },
+          async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+        } as any;
+      }
+      const ab = await fileData.arrayBuffer();
+      const zip = new PizZip(ab);
+      return new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" } });
+    };
+
+    const handleVincular = async () => {
+      if (!selectedTemplate) { toast.error("Selecione um template"); return; }
+      setValidating(true);
+      setValidated(false);
+      setGeneratedBlob(null);
+      try {
+        const doc = await loadTemplateDoc();
+        const data = buildTemplateData();
+        doc.render(data);
+        const output: Blob = (doc as any).kind === "html"
+          ? await (doc as any).toBlob()
+          : (doc as any).getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+        const fileName = `PGR_${(empresaNome || "documento").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().getFullYear()}.docx`;
+        setGeneratedBlob(output);
+        setGeneratedFileName(fileName);
+        setValidated(true);
+        toast.success("✅ Documento vinculado com sucesso");
+      } catch (e: any) {
+        toast.error("Erro ao vincular: " + (e.message || ""));
+      } finally {
+        setValidating(false);
+      }
+    };
+
+    const handleSalvarDocumento = async () => {
+      if (!docId) { toast.error("Salve o rascunho antes"); return; }
+      setGenerating(true);
+      try {
+        let filePath = savedFilePath;
+        if (generatedBlob) {
+          const storagePath = `documentos/${Date.now()}_${generatedFileName}`;
+          const { error: upErr } = await supabase.storage.from("templates").upload(storagePath, generatedBlob);
+          if (upErr) throw upErr;
+          filePath = storagePath;
+          setSavedFilePath(storagePath);
+        }
+        const { error } = await supabase.from("documentos").update({
+          ...buildPayload({ step: 4 }),
+          template_id: selectedTemplate || null,
+          file_path: filePath || null,
+          status: generatedBlob ? "concluido" : "rascunho",
+        }).eq("id", docId);
+        if (error) throw error;
+        toast.success("Documento salvo");
+      } catch (e: any) {
+        toast.error("Erro ao salvar: " + (e.message || ""));
+      } finally {
+        setGenerating(false);
+      }
+    };
+
+    const handleBaixar = () => {
+      if (!generatedBlob) return;
+      saveAs(generatedBlob, generatedFileName);
+    };
+
+    return (
+      <div className="max-w-3xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => goToStep(3)}><ArrowLeft className="w-5 h-5" /></Button>
+          <div>
+            <h1 className="text-2xl font-heading font-bold">Gerar Documento PGR</h1>
+            <p className="text-sm text-muted-foreground">{empresaNome}</p>
+          </div>
+        </div>
+
+        <Card className="p-8">
+          <div className="text-center mb-6">
+            <FileDown className="w-12 h-12 mx-auto text-accent mb-3" />
+            <h2 className="font-heading text-xl font-bold mb-2">Selecione o template PGR</h2>
+            <p className="text-muted-foreground text-sm">Vincule os dados ao template e baixe o documento final</p>
+          </div>
+
+          <Label className="text-xs font-bold uppercase">Template *</Label>
+          <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setValidated(false); setGeneratedBlob(null); }}>
+            <SelectTrigger className="mt-1"><SelectValue placeholder="Escolher template" /></SelectTrigger>
+            <SelectContent>
+              {(templates as any[]).length === 0 && <div className="p-2 text-sm text-muted-foreground">Nenhum template cadastrado</div>}
+              {(templates as any[]).map(t => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+            </SelectContent>
+          </Select>
+
+          <div className="flex flex-wrap justify-center gap-2 mt-6">
+            <Button variant="outline" onClick={handleSalvarDocumento} disabled={generating}>
+              {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              Salvar Documento
+            </Button>
+            <Button variant="outline" onClick={handleVincular} disabled={validating || !selectedTemplate}>
+              {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              Vincular
+            </Button>
+            <Button onClick={handleBaixar} disabled={!validated || !generatedBlob} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <FileDown className="w-4 h-4" /> Baixar Documento
+            </Button>
+          </div>
+
+          {validated && (
+            <p className="text-center text-xs text-success mt-4">
+              <FileCheck2 className="w-3 h-3 inline mr-1" /> Variáveis preenchidas — pronto para baixar
+            </p>
+          )}
+        </Card>
+
+        <div className="flex justify-between mt-6">
+          <Button variant="outline" onClick={() => goToStep(3)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
         </div>
       </div>
     );
