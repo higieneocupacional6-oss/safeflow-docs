@@ -681,6 +681,106 @@ export default function PgrWizard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Modal Matriz 3x3 por risco */}
+        <Dialog open={!!matrixRiscoId} onOpenChange={(o) => !o && setMatrixRiscoId(null)}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Grid3x3 className="w-5 h-5 text-primary" /> Matriz de Risco 3x3
+              </DialogTitle>
+            </DialogHeader>
+            {(() => {
+              const r = riscosSetor.find(x => x.id === matrixRiscoId);
+              if (!r) return null;
+              const p = (r.probabilidade ?? null) as Nivel | null;
+              const s = (r.severidade ?? null) as Nivel | null;
+              const calc = p && s ? calcularMatriz(p, s) : null;
+              return (
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <Badge variant="secondary">{r.tipo_agente}</Badge>
+                      <h3 className="font-semibold mt-1">{r.agente_nome}</h3>
+                    </div>
+                    {calc && (
+                      <Badge variant="outline" className={`text-sm py-1.5 px-3 ${calc.corBadge}`}>
+                        Nível: {calc.nivel} ({calc.resultado})
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Probabilidade</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {([1, 2, 3] as Nivel[]).map(n => (
+                            <Button key={n} type="button" variant={p === n ? "default" : "outline"} onClick={() => updateRiscoMatriz(r.id, { probabilidade: n })}>
+                              {n} — {PROBABILIDADE_LABELS[n]}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Severidade</Label>
+                        <div className="grid grid-cols-3 gap-2 mt-2">
+                          {([1, 2, 3] as Nivel[]).map(n => (
+                            <Button key={n} type="button" variant={s === n ? "default" : "outline"} onClick={() => updateRiscoMatriz(r.id, { severidade: n })}>
+                              {n} — {SEVERIDADE_LABELS[n]}
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                      {calc && (
+                        <div className="rounded-lg border p-4 bg-muted/30 space-y-1.5 text-sm">
+                          <div><span className="font-semibold">Resultado:</span> {calc.resultado}</div>
+                          <div><span className="font-semibold">Nível do risco:</span> {calc.nivel}</div>
+                          <div><span className="font-semibold">Classificação:</span> {calc.classificacao}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <Label className="text-xs font-bold uppercase mb-2 block">Tabela 3x3</Label>
+                      <div className="inline-block">
+                        <div className="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] gap-1 text-xs">
+                          <div></div>
+                          {([1, 2, 3] as Nivel[]).map(pp => (
+                            <div key={`h-${pp}`} className="text-center font-semibold py-1 text-muted-foreground">P{pp}</div>
+                          ))}
+                          {([3, 2, 1] as Nivel[]).map(ss => (
+                            <Fragment key={`row-${ss}`}>
+                              <div className="text-right font-semibold pr-2 self-center text-muted-foreground">S{ss}</div>
+                              {([1, 2, 3] as Nivel[]).map(pp => {
+                                const val = pp * ss;
+                                const isSel = p === pp && s === ss;
+                                return (
+                                  <button type="button" key={`c-${ss}-${pp}`} onClick={() => updateRiscoMatriz(r.id, { probabilidade: pp, severidade: ss })}
+                                    className={`${CELL_COLOR[val]} h-12 w-12 rounded-md text-white font-bold flex items-center justify-center transition-all ${isSel ? "ring-4 ring-foreground ring-offset-2 ring-offset-background scale-105" : "hover:scale-105"}`}>
+                                    {val}
+                                  </button>
+                                );
+                              })}
+                            </Fragment>
+                          ))}
+                        </div>
+                        <div className="flex gap-3 mt-3 text-xs">
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-emerald-500/80" /> Baixo</div>
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-amber-500/80" /> Médio</div>
+                          <div className="flex items-center gap-1.5"><span className="w-3 h-3 rounded bg-red-500/80" /> Alto</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+            <DialogFooter>
+              <Button onClick={() => setMatrixRiscoId(null)} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar e voltar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
