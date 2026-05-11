@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3 } from "lucide-react";
 import { calcularMatriz, PROBABILIDADE_LABELS, SEVERIDADE_LABELS, CELL_COLOR, type Nivel } from "@/lib/pgrMatriz";
