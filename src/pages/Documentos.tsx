@@ -64,6 +64,8 @@ export default function Documentos() {
       setTimeout(() => setPericulosidadeOpen(true), 100);
     } else if (typeId === "aet") {
       navigate("/documentos/aet/novo");
+    } else if (typeId === "pgr") {
+      navigate("/documentos/pgr/novo");
     }
   };
 
@@ -103,6 +105,8 @@ export default function Documentos() {
       navigate(`/documentos/periculosidade/editar/${doc.id}`);
     } else if (tipo === "AET") {
       navigate(`/documentos/aet/editar/${doc.id}`);
+    } else if (tipo === "PGR") {
+      navigate(`/documentos/pgr/editar/${doc.id}`);
     }
   };
 
