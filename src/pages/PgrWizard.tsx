@@ -343,6 +343,97 @@ export default function PgrWizard() {
     await persist({ snapshot: novoSnap });
   };
 
+  // ============ EPI / Treinamentos helpers ============
+  const epiBlocos: EpiBloco[] = snapshot.epi_blocos || [];
+  const treinBlocos: TreinBloco[] = snapshot.treinamento_blocos || [];
+
+  const updateSnapAndPersist = async (novoSnap: PgrSnapshot, silent = false) => {
+    setSnapshot(novoSnap);
+    const id = await persist({ snapshot: novoSnap });
+    if (id && !silent) toast.success("Salvo");
+  };
+
+  const addEpiBloco = () =>
+    updateSnapAndPersist({
+      ...snapshot,
+      epi_blocos: [...epiBlocos, { id: crypto.randomUUID(), funcao_ids: [], epis: [] }],
+    }, true);
+
+  const removeEpiBloco = (id: string) =>
+    updateSnapAndPersist({ ...snapshot, epi_blocos: epiBlocos.filter(b => b.id !== id) });
+
+  const updateEpiBloco = (id: string, patch: Partial<EpiBloco>) =>
+    setSnapshot(s => ({ ...s, epi_blocos: (s.epi_blocos || []).map(b => b.id === id ? { ...b, ...patch } : b) }));
+
+  const addEpiItem = (blocoId: string) =>
+    setSnapshot(s => ({
+      ...s,
+      epi_blocos: (s.epi_blocos || []).map(b => b.id === blocoId
+        ? { ...b, epis: [...b.epis, { id: crypto.randomUUID(), epi_id: "", nome_epi: "", ca: "", uso: "Contínuo" }] }
+        : b),
+    }));
+
+  const updateEpiItem = (blocoId: string, itemId: string, patch: Partial<EpiItem>) =>
+    setSnapshot(s => ({
+      ...s,
+      epi_blocos: (s.epi_blocos || []).map(b => b.id === blocoId
+        ? { ...b, epis: b.epis.map(i => i.id === itemId ? { ...i, ...patch } : i) }
+        : b),
+    }));
+
+  const removeEpiItem = (blocoId: string, itemId: string) =>
+    setSnapshot(s => ({
+      ...s,
+      epi_blocos: (s.epi_blocos || []).map(b => b.id === blocoId
+        ? { ...b, epis: b.epis.filter(i => i.id !== itemId) }
+        : b),
+    }));
+
+  const addTreinBloco = () =>
+    updateSnapAndPersist({
+      ...snapshot,
+      treinamento_blocos: [...treinBlocos, { id: crypto.randomUUID(), funcao_ids: [], treinamentos: [] }],
+    }, true);
+
+  const removeTreinBloco = (id: string) =>
+    updateSnapAndPersist({ ...snapshot, treinamento_blocos: treinBlocos.filter(b => b.id !== id) });
+
+  const updateTreinBloco = (id: string, patch: Partial<TreinBloco>) =>
+    setSnapshot(s => ({ ...s, treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === id ? { ...b, ...patch } : b) }));
+
+  const addTreinItem = (blocoId: string) =>
+    setSnapshot(s => ({
+      ...s,
+      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
+        ? { ...b, treinamentos: [...b.treinamentos, { id: crypto.randomUUID(), nome_treinamento: "" }] }
+        : b),
+    }));
+
+  const updateTreinItem = (blocoId: string, itemId: string, patch: Partial<TreinItem>) =>
+    setSnapshot(s => ({
+      ...s,
+      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
+        ? { ...b, treinamentos: b.treinamentos.map(i => i.id === itemId ? { ...i, ...patch } : i) }
+        : b),
+    }));
+
+  const removeTreinItem = (blocoId: string, itemId: string) =>
+    setSnapshot(s => ({
+      ...s,
+      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
+        ? { ...b, treinamentos: b.treinamentos.filter(i => i.id !== itemId) }
+        : b),
+    }));
+
+  const goToStep = async (n: number) => {
+    const id = await persist({ step: n, snapshot });
+    if (id) {
+      setStep(n);
+      setActiveSetor(null);
+      if (!documentoId) navigate(`/documentos/pgr/editar/${id}`, { replace: true });
+    }
+  };
+
   if (loading) {
     return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
   }
