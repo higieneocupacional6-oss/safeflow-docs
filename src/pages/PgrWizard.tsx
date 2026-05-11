@@ -263,11 +263,13 @@ export default function PgrWizard() {
 
     const setorId = activeSetor.id;
     const current = snapshot.setores[setorId] || { riscos: [] };
+    const isNew = !editingRiskId;
+    const riscoId = editingRiskId || riskForm.id;
     let novosRiscos: RiscoPgr[];
     if (editingRiskId) {
       novosRiscos = current.riscos.map(r => (r.id === editingRiskId ? { ...riskForm, id: editingRiskId } : r));
     } else {
-      novosRiscos = [...current.riscos, { ...riskForm }];
+      novosRiscos = [...current.riscos, { ...riskForm, id: riscoId }];
     }
     const novoSnap: PgrSnapshot = {
       ...snapshot,
@@ -278,6 +280,7 @@ export default function PgrWizard() {
     if (id) {
       toast.success(editingRiskId ? "Risco atualizado" : "Risco salvo");
       setRiskOpen(false);
+      if (isNew) setMatrixRiscoId(riscoId);
     }
   };
 
