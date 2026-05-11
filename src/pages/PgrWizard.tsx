@@ -1,6 +1,6 @@
 import { useState, useEffect, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users } from "lucide-react";
 import { calcularMatriz, PROBABILIDADE_LABELS, SEVERIDADE_LABELS, CELL_COLOR, type Nivel } from "@/lib/pgrMatriz";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
