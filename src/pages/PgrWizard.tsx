@@ -564,25 +564,43 @@ export default function PgrWizard() {
           </Card>
         ) : (
           <div className="space-y-3">
-            {riscosSetor.map(r => (
-              <Card key={r.id} className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge variant="secondary">{r.tipo_agente}</Badge>
-                      <Badge variant="outline">{r.tipo_avaliacao}</Badge>
+            {riscosSetor.map(r => {
+              const p = (r.probabilidade ?? null) as Nivel | null;
+              const s = (r.severidade ?? null) as Nivel | null;
+              const calc = p && s ? calcularMatriz(p, s) : null;
+              const matrixColor = calc
+                ? (calc.nivel === "Baixo" ? "text-emerald-600 hover:text-emerald-700"
+                  : calc.nivel === "Médio" ? "text-amber-600 hover:text-amber-700"
+                  : "text-red-600 hover:text-red-700")
+                : "text-muted-foreground";
+              return (
+                <Card key={r.id} className="p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <Badge variant="secondary">{r.tipo_agente}</Badge>
+                        <Badge variant="outline">{r.tipo_avaliacao}</Badge>
+                        {calc && (
+                          <Badge variant="outline" className={calc.corBadge}>
+                            {calc.nivel} ({calc.resultado})
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="font-semibold">{r.agente_nome}</h3>
+                      {r.codigo_esocial && <p className="text-xs text-muted-foreground mt-1">eSocial: {r.codigo_esocial} — {r.descricao_esocial}</p>}
+                      {r.fonte_geradora && <p className="text-sm mt-2"><span className="font-medium">Fonte:</span> {r.fonte_geradora}</p>}
                     </div>
-                    <h3 className="font-semibold">{r.agente_nome}</h3>
-                    {r.codigo_esocial && <p className="text-xs text-muted-foreground mt-1">eSocial: {r.codigo_esocial} — {r.descricao_esocial}</p>}
-                    {r.fonte_geradora && <p className="text-sm mt-2"><span className="font-medium">Fonte:</span> {r.fonte_geradora}</p>}
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className={matrixColor} title="Matriz 3x3" onClick={() => setMatrixRiscoId(r.id)}>
+                        <Grid3x3 className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => openEditRisco(r)}><Pencil className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoverRisco(r.id)}><Trash2 className="w-4 h-4" /></Button>
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" onClick={() => openEditRisco(r)}><Pencil className="w-4 h-4" /></Button>
-                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoverRisco(r.id)}><Trash2 className="w-4 h-4" /></Button>
-                  </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
         )}
 
