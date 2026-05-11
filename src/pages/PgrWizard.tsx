@@ -125,7 +125,30 @@ export default function PgrWizard() {
     },
   });
 
-  // Tipos de agente distintos a partir do cadastro de Riscos
+  const { data: funcoesEmpresa = [] } = useQuery({
+    queryKey: ["funcoes-pgr", empresaId, (setores as any[]).map(s => s.id).join(",")],
+    enabled: !!empresaId && (setores as any[]).length > 0,
+    queryFn: async () => {
+      const setorIds = (setores as any[]).map(s => s.id);
+      if (setorIds.length === 0) return [];
+      const { data, error } = await supabase
+        .from("funcoes")
+        .select("id,nome_funcao,setor_id")
+        .in("setor_id", setorIds)
+        .order("nome_funcao");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: catEpis = [] } = useQuery({
+    queryKey: ["epi-epc-cadastro"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("epi_epc").select("id,nome,tipo").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
   const tiposAgente = Array.from(new Set((catRiscos as any[]).map(r => r.tipo).filter(Boolean))).sort();
 
   // Carregar rascunho
