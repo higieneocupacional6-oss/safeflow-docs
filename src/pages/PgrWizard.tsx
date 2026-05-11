@@ -1,29 +1,68 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
-type Revisao = {
-  revisao: string;
-  data: string;
-  motivo: string;
-  responsavel: string;
+type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
+
+type RiscoPgr = {
+  id: string;
+  tipo_agente: string;
+  tipo_avaliacao: string;
+  agente_id: string;
+  agente_nome: string;
+  codigo_esocial: string;
+  descricao_esocial: string;
+  propagacao: string;
+  tipo_exposicao: string;
+  fonte_geradora: string;
+  danos_saude: string;
+  medidas_controle: string;
 };
 
+type PgrSetorData = { riscos: RiscoPgr[] };
+type PgrSnapshot = { setores: Record<string, PgrSetorData> };
+
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
+const emptyRisco = (): RiscoPgr => ({
+  id: crypto.randomUUID(),
+  tipo_agente: "",
+  tipo_avaliacao: "",
+  agente_id: "",
+  agente_nome: "",
+  codigo_esocial: "",
+  descricao_esocial: "",
+  propagacao: "",
+  tipo_exposicao: "",
+  fonte_geradora: "",
+  danos_saude: "",
+  medidas_controle: "",
+});
+
+const tipoAvaliacaoFromTipo = (tipo: string) => {
+  const t = (tipo || "").toLowerCase();
+  if (t.includes("biológic") || t.includes("biologic")) return "Qualitativa";
+  if (t.includes("ergonômic") || t.includes("ergonomic") || t.includes("acidente") || t.includes("psicoss")) return "Qualitativa";
+  if (t.includes("físic") || t.includes("fisic") || t.includes("químic") || t.includes("quimic")) return "Quantitativa";
+  return "Qualitativa";
+};
 
 export default function PgrWizard() {
   const { documentoId } = useParams<{ documentoId?: string }>();
   const navigate = useNavigate();
 
   const [docId, setDocId] = useState<string | null>(documentoId || null);
+  const [step, setStep] = useState(0);
   const [empresaId, setEmpresaId] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
@@ -31,31 +70,53 @@ export default function PgrWizard() {
   const [cargo, setCargo] = useState("");
   const [dataElaboracao, setDataElaboracao] = useState("");
   const [revisoes, setRevisoes] = useState<Revisao[]>([]);
+  const [snapshot, setSnapshot] = useState<PgrSnapshot>({ setores: {} });
+  const [activeSetor, setActiveSetor] = useState<{ id: string; nome_setor: string } | null>(null);
+
   const [loading, setLoading] = useState(!!documentoId);
   const [saving, setSaving] = useState(false);
+
+  const [riskOpen, setRiskOpen] = useState(false);
+  const [riskForm, setRiskForm] = useState<RiscoPgr>(emptyRisco());
+  const [editingRiskId, setEditingRiskId] = useState<string | null>(null);
 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("empresas")
-        .select("id,razao_social,nome_fantasia")
-        .order("razao_social");
+      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
       if (error) throw error;
       return data;
     },
   });
 
-  // Carregar rascunho existente
+  const { data: setores = [] } = useQuery({
+    queryKey: ["setores-pgr", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: catRiscos = [] } = useQuery({
+    queryKey: ["riscos-cadastro"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("riscos").select("*").order("nome");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Tipos de agente distintos a partir do cadastro de Riscos
+  const tiposAgente = Array.from(new Set((catRiscos as any[]).map(r => r.tipo).filter(Boolean))).sort();
+
+  // Carregar rascunho
   useEffect(() => {
     if (!documentoId) return;
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from("documentos")
-          .select("*")
-          .eq("id", documentoId)
-          .maybeSingle();
+        const { data, error } = await supabase.from("documentos").select("*").eq("id", documentoId).maybeSingle();
         if (error) throw error;
         if (data) {
           setEmpresaId(data.empresa_id || "");
@@ -65,6 +126,9 @@ export default function PgrWizard() {
           setCargo(data.cargo || "");
           setDataElaboracao(data.data_elaboracao || "");
           setRevisoes(Array.isArray(data.revisoes) ? (data.revisoes as any[]) : []);
+          setStep(typeof (data as any).current_step === "number" ? (data as any).current_step : 0);
+          const snap = (data as any).draft_snapshot;
+          if (snap && typeof snap === "object" && snap.setores) setSnapshot(snap as PgrSnapshot);
         }
       } catch (e: any) {
         toast.error("Erro ao carregar rascunho: " + (e.message || ""));
@@ -76,16 +140,16 @@ export default function PgrWizard() {
 
   const handleEmpresaChange = (id: string) => {
     setEmpresaId(id);
-    const emp = empresas.find((e: any) => e.id === id);
+    const emp = (empresas as any[]).find(e => e.id === id);
     setEmpresaNome(emp ? (emp.razao_social || emp.nome_fantasia || "") : "");
   };
 
-  const addRevisao = () => setRevisoes((prev) => [...prev, emptyRevisao()]);
-  const removeRevisao = (i: number) => setRevisoes((prev) => prev.filter((_, idx) => idx !== i));
-  const updateRevisao = (i: number, field: keyof Revisao, value: string) =>
-    setRevisoes((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: value } : r)));
+  const addRevisao = () => setRevisoes(prev => [...prev, emptyRevisao()]);
+  const removeRevisao = (i: number) => setRevisoes(prev => prev.filter((_, idx) => idx !== i));
+  const updateRevisao = (i: number, f: keyof Revisao, v: string) =>
+    setRevisoes(prev => prev.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
 
-  const buildPayload = () => ({
+  const buildPayload = (overrides: Partial<{ step: number; snapshot: PgrSnapshot }> = {}) => ({
     tipo: "PGR",
     empresa_id: empresaId || null,
     empresa_nome: empresaNome || "",
@@ -94,18 +158,20 @@ export default function PgrWizard() {
     cargo: cargo || null,
     data_elaboracao: dataElaboracao || null,
     revisoes: revisoes as any,
+    current_step: overrides.step ?? step,
+    draft_snapshot: (overrides.snapshot ?? snapshot) as any,
     status: "rascunho",
   });
 
-  const persist = async (): Promise<string | null> => {
+  const persist = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
     setSaving(true);
     try {
       if (docId) {
-        const { error } = await supabase.from("documentos").update(buildPayload()).eq("id", docId);
+        const { error } = await supabase.from("documentos").update(buildPayload(overrides)).eq("id", docId);
         if (error) throw error;
         return docId;
       }
-      const { data, error } = await supabase.from("documentos").insert(buildPayload()).select("id").single();
+      const { data, error } = await supabase.from("documentos").insert(buildPayload(overrides)).select("id").single();
       if (error) throw error;
       setDocId(data.id);
       return data.id;
@@ -128,126 +194,352 @@ export default function PgrWizard() {
 
   const handleAvancar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
-    const id = await persist();
+    const id = await persist({ step: 1 });
     if (id) {
-      toast.success("Identificação salva");
-      // Próxima página ainda não implementada; mantém na tela como rascunho
+      setStep(1);
       if (!documentoId) navigate(`/documentos/pgr/editar/${id}`, { replace: true });
     }
   };
 
+  // ============ Modal Novo Risco ============
+  const openNovoRisco = () => {
+    setEditingRiskId(null);
+    setRiskForm(emptyRisco());
+    setRiskOpen(true);
+  };
+
+  const openEditRisco = (r: RiscoPgr) => {
+    setEditingRiskId(r.id);
+    setRiskForm({ ...r });
+    setRiskOpen(true);
+  };
+
+  const onSelectAgente = (agentId: string) => {
+    const agent: any = (catRiscos as any[]).find(r => r.id === agentId);
+    if (!agent) {
+      setRiskForm(prev => ({ ...prev, agente_id: agentId }));
+      return;
+    }
+    const tipo = riskForm.tipo_agente || agent.tipo || "";
+    setRiskForm({
+      ...riskForm,
+      agente_id: agentId,
+      agente_nome: agent.nome || "",
+      tipo_agente: tipo,
+      tipo_avaliacao: riskForm.tipo_avaliacao || tipoAvaliacaoFromTipo(tipo),
+      codigo_esocial: agent.codigo_esocial || "",
+      descricao_esocial: agent.descricao_esocial || "",
+      propagacao: Array.isArray(agent.propagacao) ? agent.propagacao.join(", ") : (agent.propagacao || ""),
+      tipo_exposicao: agent.tipo_exposicao || "",
+      fonte_geradora: agent.fonte_geradora || "",
+      danos_saude: agent.danos_saude || "",
+      medidas_controle: agent.medidas_controle || "",
+    });
+  };
+
+  const onSelectTipoAgente = (tipo: string) => {
+    setRiskForm(prev => ({
+      ...prev,
+      tipo_agente: tipo,
+      tipo_avaliacao: prev.tipo_avaliacao || tipoAvaliacaoFromTipo(tipo),
+    }));
+  };
+
+  const agentesFiltrados = riskForm.tipo_agente
+    ? (catRiscos as any[]).filter(r => (r.tipo || "") === riskForm.tipo_agente)
+    : (catRiscos as any[]);
+
+  const handleSalvarRisco = async () => {
+    if (!activeSetor) return;
+    if (!riskForm.tipo_agente) { toast.error("Selecione o tipo de agente"); return; }
+    if (!riskForm.agente_id) { toast.error("Selecione o agente"); return; }
+
+    const setorId = activeSetor.id;
+    const current = snapshot.setores[setorId] || { riscos: [] };
+    let novosRiscos: RiscoPgr[];
+    if (editingRiskId) {
+      novosRiscos = current.riscos.map(r => (r.id === editingRiskId ? { ...riskForm, id: editingRiskId } : r));
+    } else {
+      novosRiscos = [...current.riscos, { ...riskForm }];
+    }
+    const novoSnap: PgrSnapshot = {
+      ...snapshot,
+      setores: { ...snapshot.setores, [setorId]: { riscos: novosRiscos } },
+    };
+    setSnapshot(novoSnap);
+    const id = await persist({ snapshot: novoSnap });
+    if (id) {
+      toast.success(editingRiskId ? "Risco atualizado" : "Risco salvo");
+      setRiskOpen(false);
+    }
+  };
+
+  const handleRemoverRisco = async (riscoId: string) => {
+    if (!activeSetor) return;
+    const setorId = activeSetor.id;
+    const current = snapshot.setores[setorId] || { riscos: [] };
+    const novoSnap: PgrSnapshot = {
+      ...snapshot,
+      setores: { ...snapshot.setores, [setorId]: { riscos: current.riscos.filter(r => r.id !== riscoId) } },
+    };
+    setSnapshot(novoSnap);
+    await persist({ snapshot: novoSnap });
+    toast.success("Risco removido");
+  };
+
   if (loading) {
+    return <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>;
+  }
+
+  // ============ STEP 0 — Identificação ============
+  if (step === 0) {
     return (
-      <div className="flex justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      <div className="max-w-4xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => navigate("/documentos")}><ArrowLeft className="w-5 h-5" /></Button>
+          <div>
+            <h1 className="text-2xl font-heading font-bold">PGR — Identificação</h1>
+            <p className="text-sm text-muted-foreground">Programa de Gerenciamento de Riscos</p>
+          </div>
+        </div>
+
+        <Card className="p-6 space-y-5">
+          <div>
+            <Label className="text-xs font-bold uppercase">Empresa *</Label>
+            <Select value={empresaId} onValueChange={handleEmpresaChange}>
+              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+              <SelectContent>
+                {(empresas as any[]).map(e => (
+                  <SelectItem key={e.id} value={e.id}>{e.razao_social || e.nome_fantasia}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label className="text-xs font-bold uppercase">Responsável Técnico</Label>
+              <Input className="mt-1" value={responsavelTecnico} onChange={e => setResponsavelTecnico(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase">CREA</Label>
+              <Input className="mt-1" value={crea} onChange={e => setCrea(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase">Cargo</Label>
+              <Input className="mt-1" value={cargo} onChange={e => setCargo(e.target.value)} />
+            </div>
+            <div>
+              <Label className="text-xs font-bold uppercase">Data de Elaboração</Label>
+              <Input className="mt-1" type="date" value={dataElaboracao} onChange={e => setDataElaboracao(e.target.value)} />
+            </div>
+          </div>
+        </Card>
+
+        <Card className="p-6 mt-4">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-heading font-semibold">Revisões</h2>
+              <p className="text-xs text-muted-foreground">Histórico de revisões do documento</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={addRevisao}><Plus className="w-4 h-4 mr-1" /> Adicionar revisão</Button>
+          </div>
+          {revisoes.length === 0 ? (
+            <p className="text-sm text-muted-foreground text-center py-6">Nenhuma revisão cadastrada</p>
+          ) : (
+            <div className="space-y-3">
+              {revisoes.map((r, i) => (
+                <div key={i} className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-4 gap-3">
+                  <div><Label className="text-xs">Revisão</Label><Input className="mt-1" value={r.revisao} onChange={e => updateRevisao(i, "revisao", e.target.value)} /></div>
+                  <div><Label className="text-xs">Data</Label><Input className="mt-1" type="date" value={r.data} onChange={e => updateRevisao(i, "data", e.target.value)} /></div>
+                  <div><Label className="text-xs">Motivo</Label><Input className="mt-1" value={r.motivo} onChange={e => updateRevisao(i, "motivo", e.target.value)} /></div>
+                  <div className="flex gap-2">
+                    <div className="flex-1"><Label className="text-xs">Responsável</Label><Input className="mt-1" value={r.responsavel} onChange={e => updateRevisao(i, "responsavel", e.target.value)} /></div>
+                    <Button variant="ghost" size="icon" className="self-end text-destructive" onClick={() => removeRevisao(i)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+
+        <div className="flex justify-between mt-6">
+          <Button variant="outline" onClick={handleSalvar} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
+          </Button>
+          <Button onClick={handleAvancar} disabled={saving}>
+            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+          </Button>
+        </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto pb-12">
-      <div className="flex items-center gap-3 mb-6">
-        <Button variant="ghost" size="icon" onClick={() => navigate("/documentos")}>
-          <ArrowLeft className="w-5 h-5" />
-        </Button>
-        <div>
-          <h1 className="text-2xl font-heading font-bold">PGR — Identificação</h1>
-          <p className="text-sm text-muted-foreground">Programa de Gerenciamento de Riscos</p>
-        </div>
-      </div>
-
-      <Card className="p-6 space-y-5">
-        <div>
-          <Label className="text-xs font-bold uppercase">Empresa *</Label>
-          <Select value={empresaId} onValueChange={handleEmpresaChange}>
-            <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
-            <SelectContent>
-              {empresas.map((e: any) => (
-                <SelectItem key={e.id} value={e.id}>{e.razao_social || e.nome_fantasia}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+  // ============ STEP 1 — Reconhecimento ============
+  // Subview: setor selecionado
+  if (activeSetor) {
+    const riscosSetor = snapshot.setores[activeSetor.id]?.riscos || [];
+    return (
+      <div className="max-w-5xl mx-auto pb-12">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setActiveSetor(null)}><ArrowLeft className="w-5 h-5" /></Button>
+          <div className="flex-1">
+            <h1 className="text-2xl font-heading font-bold">{activeSetor.nome_setor}</h1>
+            <p className="text-sm text-muted-foreground">Riscos identificados no setor</p>
+          </div>
+          <Button onClick={openNovoRisco}><Plus className="w-4 h-4 mr-1" /> Novo Risco</Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <Label className="text-xs font-bold uppercase">Responsável Técnico</Label>
-            <Input className="mt-1" value={responsavelTecnico} onChange={(e) => setResponsavelTecnico(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs font-bold uppercase">CREA</Label>
-            <Input className="mt-1" value={crea} onChange={(e) => setCrea(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs font-bold uppercase">Cargo</Label>
-            <Input className="mt-1" value={cargo} onChange={(e) => setCargo(e.target.value)} />
-          </div>
-          <div>
-            <Label className="text-xs font-bold uppercase">Data de Elaboração</Label>
-            <Input className="mt-1" type="date" value={dataElaboracao} onChange={(e) => setDataElaboracao(e.target.value)} />
-          </div>
-        </div>
-      </Card>
-
-      <Card className="p-6 mt-4">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h2 className="font-heading font-semibold">Revisões</h2>
-            <p className="text-xs text-muted-foreground">Histórico de revisões do documento</p>
-          </div>
-          <Button variant="outline" size="sm" onClick={addRevisao}>
-            <Plus className="w-4 h-4 mr-1" /> Adicionar revisão
-          </Button>
-        </div>
-
-        {revisoes.length === 0 ? (
-          <p className="text-sm text-muted-foreground text-center py-6">Nenhuma revisão cadastrada</p>
+        {riscosSetor.length === 0 ? (
+          <Card className="p-12 text-center">
+            <p className="text-muted-foreground">Nenhum risco cadastrado neste setor.</p>
+            <Button className="mt-4" onClick={openNovoRisco}><Plus className="w-4 h-4 mr-1" /> Adicionar primeiro risco</Button>
+          </Card>
         ) : (
           <div className="space-y-3">
-            {revisoes.map((r, i) => (
-              <div key={i} className="border rounded-lg p-4 grid grid-cols-1 md:grid-cols-4 gap-3 relative">
-                <div>
-                  <Label className="text-xs">Revisão</Label>
-                  <Input className="mt-1" value={r.revisao} onChange={(e) => updateRevisao(i, "revisao", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs">Data</Label>
-                  <Input className="mt-1" type="date" value={r.data} onChange={(e) => updateRevisao(i, "data", e.target.value)} />
-                </div>
-                <div>
-                  <Label className="text-xs">Motivo</Label>
-                  <Input className="mt-1" value={r.motivo} onChange={(e) => updateRevisao(i, "motivo", e.target.value)} />
-                </div>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Label className="text-xs">Responsável</Label>
-                    <Input className="mt-1" value={r.responsavel} onChange={(e) => updateRevisao(i, "responsavel", e.target.value)} />
+            {riscosSetor.map(r => (
+              <Card key={r.id} className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge variant="secondary">{r.tipo_agente}</Badge>
+                      <Badge variant="outline">{r.tipo_avaliacao}</Badge>
+                    </div>
+                    <h3 className="font-semibold">{r.agente_nome}</h3>
+                    {r.codigo_esocial && <p className="text-xs text-muted-foreground mt-1">eSocial: {r.codigo_esocial} — {r.descricao_esocial}</p>}
+                    {r.fonte_geradora && <p className="text-sm mt-2"><span className="font-medium">Fonte:</span> {r.fonte_geradora}</p>}
                   </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="self-end text-destructive"
-                    onClick={() => removeRevisao(i)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => openEditRisco(r)}><Pencil className="w-4 h-4" /></Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => handleRemoverRisco(r.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
                 </div>
-              </div>
+              </Card>
             ))}
           </div>
         )}
-      </Card>
 
-      <div className="flex justify-between mt-6">
-        <Button variant="outline" onClick={handleSalvar} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-          Salvar
-        </Button>
-        <Button onClick={handleAvancar} disabled={saving}>
-          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-          Avançar
-        </Button>
+        {/* Modal Novo Risco */}
+        <Dialog open={riskOpen} onOpenChange={setRiskOpen}>
+          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{editingRiskId ? "Editar Risco" : "Novo Risco"}</DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs font-bold uppercase">Tipo de Agente *</Label>
+                  <Select value={riskForm.tipo_agente} onValueChange={onSelectTipoAgente}>
+                    <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                    <SelectContent>
+                      {tiposAgente.map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs font-bold uppercase">Tipo de Avaliação</Label>
+                  <Input className="mt-1" value={riskForm.tipo_avaliacao} onChange={e => setRiskForm({ ...riskForm, tipo_avaliacao: e.target.value })} placeholder="Auto-preenchido" />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold uppercase">Agente *</Label>
+                <Select value={riskForm.agente_id} onValueChange={onSelectAgente}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o agente" /></SelectTrigger>
+                  <SelectContent>
+                    {agentesFiltrados.map((r: any) => (
+                      <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-xs font-bold uppercase">Código eSocial</Label>
+                  <Input className="mt-1" value={riskForm.codigo_esocial} onChange={e => setRiskForm({ ...riskForm, codigo_esocial: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold uppercase">Descrição eSocial</Label>
+                  <Input className="mt-1" value={riskForm.descricao_esocial} onChange={e => setRiskForm({ ...riskForm, descricao_esocial: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold uppercase">Propagação</Label>
+                  <Input className="mt-1" value={riskForm.propagacao} onChange={e => setRiskForm({ ...riskForm, propagacao: e.target.value })} />
+                </div>
+                <div>
+                  <Label className="text-xs font-bold uppercase">Tipo de Exposição</Label>
+                  <Input className="mt-1" value={riskForm.tipo_exposicao} onChange={e => setRiskForm({ ...riskForm, tipo_exposicao: e.target.value })} />
+                </div>
+              </div>
+
+              <div>
+                <Label className="text-xs font-bold uppercase">Fonte Geradora</Label>
+                <Textarea className="mt-1" rows={2} value={riskForm.fonte_geradora} onChange={e => setRiskForm({ ...riskForm, fonte_geradora: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase">Danos à Saúde</Label>
+                <Textarea className="mt-1" rows={2} value={riskForm.danos_saude} onChange={e => setRiskForm({ ...riskForm, danos_saude: e.target.value })} />
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase">Medidas de Controle Existentes</Label>
+                <Textarea className="mt-1" rows={2} value={riskForm.medidas_controle} onChange={e => setRiskForm({ ...riskForm, medidas_controle: e.target.value })} />
+              </div>
+            </div>
+
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRiskOpen(false)}>Cancelar</Button>
+              <Button onClick={handleSalvarRisco} disabled={saving}>
+                {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Salvar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+    );
+  }
+
+  // Lista de setores (Reconhecimento)
+  return (
+    <div className="max-w-5xl mx-auto pb-12">
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => setStep(0)}><ArrowLeft className="w-5 h-5" /></Button>
+        <div className="flex-1">
+          <h1 className="text-2xl font-heading font-bold">Reconhecimento</h1>
+          <p className="text-sm text-muted-foreground">Selecione um setor para cadastrar os riscos</p>
+        </div>
+      </div>
+
+      {(setores as any[]).length === 0 ? (
+        <Card className="p-12 text-center">
+          <p className="text-muted-foreground">Nenhum setor cadastrado para esta empresa.</p>
+          <Button variant="outline" className="mt-4" onClick={() => navigate("/setores-funcoes")}>Ir para Setores e Funções</Button>
+        </Card>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {(setores as any[]).map(s => {
+            const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
+            return (
+              <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center"><Building2 className="w-5 h-5 text-primary" /></div>
+                    <div>
+                      <h3 className="font-semibold">{s.nome_setor}</h3>
+                      {s.ghe_ges && <p className="text-xs text-muted-foreground">GHE/GES: {s.ghe_ges}</p>}
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                </div>
+                <div className="mt-3 flex items-center gap-2">
+                  <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
+                </div>
+              </Card>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
