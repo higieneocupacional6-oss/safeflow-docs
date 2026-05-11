@@ -434,6 +434,24 @@ export default function AetWizard() {
     setSetoresAet(setoresAet.filter((_, i) => i !== idx));
   };
 
+  const removeSetorGroup = (setorId: string) => {
+    setSetoresAet(setoresAet.filter((s) => s.setor_id !== setorId));
+  };
+
+  const addAvaliacaoSetor = (setorId: string) => {
+    const base = setoresAet.find((s) => s.setor_id === setorId);
+    if (!base) return;
+    const nova = newSetor({
+      id: base.setor_id,
+      nome_setor: base.setor_nome,
+      ghe_ges: base.ges,
+      descricao_ambiente: base.descricao_ambiente,
+    });
+    const next = [...setoresAet, nova];
+    setSetoresAet(next);
+    setEditingSetorIdx(next.length - 1);
+  };
+
   const updateSetor = (idx: number, patch: Partial<SetorAet>) => {
     setSetoresAet(setoresAet.map((s, i) => (i === idx ? { ...s, ...patch, _salvo: patch._salvo ?? false } : s)));
   };
@@ -1541,40 +1559,65 @@ export default function AetWizard() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 gap-3">
-            {setoresAet.map((s, i) => (
-              <div
-                key={s.setor_id}
-                className={`border rounded-lg p-4 transition-colors ${
-                  s._salvo
-                    ? "border-emerald-500/50 bg-emerald-50/50"
-                    : "border-border hover:border-accent"
-                }`}
-              >
-                <div className="flex items-start justify-between mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-semibold flex items-center gap-2">
-                      {s.setor_nome}
-                      {s._salvo && <CheckCircle2 className="w-4 h-4 text-emerald-600" />}
-                    </h3>
-                    {s.ges && <p className="text-xs text-muted-foreground">GES: {s.ges}</p>}
-                    {s._salvo && (
-                      <p className="text-xs text-emerald-700 font-medium mt-0.5">Cadastro concluído</p>
-                    )}
+            {Array.from(
+              setoresAet.reduce((map, s, idx) => {
+                const g = map.get(s.setor_id) || { setor_id: s.setor_id, setor_nome: s.setor_nome, ges: s.ges, items: [] as { idx: number; data: SetorAet }[] };
+                g.items.push({ idx, data: s });
+                map.set(s.setor_id, g);
+                return map;
+              }, new Map<string, { setor_id: string; setor_nome: string; ges: string; items: { idx: number; data: SetorAet }[] }>()).values()
+            ).map((g) => {
+              const algumSalvo = g.items.some((it) => it.data._salvo);
+              return (
+                <div key={g.setor_id} className="border rounded-lg p-4 border-border">
+                  <div className="flex items-start justify-between mb-2">
+                    <div className="flex-1">
+                      <h3 className="font-semibold">{g.setor_nome}</h3>
+                      {g.ges && <p className="text-xs text-muted-foreground">GES: {g.ges}</p>}
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {g.items.length} avaliação{g.items.length !== 1 ? "ões" : ""}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetorGroup(g.setor_id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
                   </div>
-                  <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetor(i)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
+
+                  <div className="space-y-1.5 mt-2">
+                    {g.items.map((it, n) => (
+                      <div
+                        key={it.idx}
+                        className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded border text-sm ${
+                          it.data._salvo ? "border-emerald-500/40 bg-emerald-50/40" : "border-border"
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          {it.data._salvo && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                          <span className="truncate">Avaliação {n + 1}</span>
+                          {!it.data._salvo && <span className="text-xs text-muted-foreground">(pendente)</span>}
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button size="sm" variant={it.data._salvo ? "outline" : "default"} className="h-7" onClick={() => setEditingSetorIdx(it.idx)}>
+                            {it.data._salvo ? "Editar" : "Registrar"}
+                          </Button>
+                          {g.items.length > 1 && (
+                            <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetor(it.idx)}>
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </Button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {algumSalvo && (
+                    <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
+                      <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar mais
+                    </Button>
+                  )}
                 </div>
-                <Button
-                  size="sm"
-                  variant={s._salvo ? "outline" : "default"}
-                  className="w-full mt-2"
-                  onClick={() => setEditingSetorIdx(i)}
-                >
-                  {s._salvo ? "Editar" : "Registrar"}
-                </Button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </Card>
