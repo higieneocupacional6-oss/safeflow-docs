@@ -19,6 +19,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
 
@@ -146,7 +147,7 @@ export default function PgrWizard() {
       if (setorIds.length === 0) return [];
       const { data, error } = await supabase
         .from("funcoes")
-        .select("id,nome_funcao,setor_id")
+        .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades")
         .in("setor_id", setorIds)
         .order("nome_funcao");
       if (error) throw error;
@@ -1200,35 +1201,48 @@ export default function PgrWizard() {
   if (step === 4) {
     const buildTemplateData = () => {
       const emp: any = (empresas as any[]).find(e => e.id === empresaId) || {};
-      const setoresArr = (setores as any[]).map(s => {
+      const setoresOrdenados = sortByGes(setores as any[]);
+      const setoresArr = setoresOrdenados.map(s => {
         const data = snapshot.setores[s.id] || { riscos: [] };
+        const funcoes_ghe = (funcoesEmpresa as any[])
+          .filter(f => f.setor_id === s.id)
+          .map(f => ({
+            nome_funcao: f.nome_funcao || "",
+            cbo_codigo: f.cbo_codigo || "",
+            cbo_descricao: f.cbo_descricao || "",
+            descricao_atividades: f.descricao_atividades || "",
+          }));
+        const riscos_ghe = (data.riscos || []).map(r => {
+          const m = r.probabilidade && r.severidade
+            ? calcularMatriz(r.probabilidade as Nivel, r.severidade as Nivel)
+            : null;
+          return {
+            agente: r.agente_nome || "",
+            agente_nome: r.agente_nome || "",
+            tipo_agente: r.tipo_agente || "",
+            tipo_avaliacao: r.tipo_avaliacao || "",
+            codigo_esocial: r.codigo_esocial || "",
+            descricao_esocial: r.descricao_esocial || "",
+            propagacao: Array.isArray(r.propagacao) ? r.propagacao.join(", ") : (r.propagacao || ""),
+            tipo_exposicao: r.tipo_exposicao || "",
+            fonte_geradora: r.fonte_geradora || "",
+            danos_saude: r.danos_saude || "",
+            medidas_controle: r.medidas_controle || "",
+            probabilidade: r.probabilidade ? PROBABILIDADE_LABELS[r.probabilidade as Nivel] : "",
+            severidade: r.severidade ? SEVERIDADE_LABELS[r.severidade as Nivel] : "",
+            nivel_risco: m?.nivel || "",
+            classificacao_risco: m?.classificacao || "",
+            resultado_matriz_risco: m?.resultado ?? "",
+          };
+        });
         return {
-          nome_setor: s.nome_setor,
           ghe_ges: s.ghe_ges || "",
+          nome_setor: s.nome_setor || "",
           descricao_ambiente: s.descricao_ambiente || "",
-          riscos: (data.riscos || []).map(r => {
-            const m = r.probabilidade && r.severidade
-              ? calcularMatriz(r.probabilidade as Nivel, r.severidade as Nivel)
-              : null;
-            return {
-              agente: r.agente_nome,
-              agente_nome: r.agente_nome,
-              tipo_agente: r.tipo_agente,
-              tipo_avaliacao: r.tipo_avaliacao,
-              codigo_esocial: r.codigo_esocial,
-              descricao_esocial: r.descricao_esocial,
-              propagacao: r.propagacao,
-              tipo_exposicao: r.tipo_exposicao,
-              fonte_geradora: r.fonte_geradora,
-              danos_saude: r.danos_saude,
-              medidas_controle: r.medidas_controle,
-              probabilidade: r.probabilidade ? PROBABILIDADE_LABELS[r.probabilidade as Nivel] : "",
-              severidade: r.severidade ? SEVERIDADE_LABELS[r.severidade as Nivel] : "",
-              nivel_risco: m?.nivel || "",
-              classificacao_risco: m?.classificacao || "",
-              resultado_matriz_risco: m?.resultado ?? "",
-            };
-          }),
+          funcoes_ghe,
+          riscos_ghe,
+          // legado / compat com loop {{#riscos}}
+          riscos: riscos_ghe,
         };
       });
       const epis: any[] = [];
@@ -1254,6 +1268,8 @@ export default function PgrWizard() {
         crea, cargo,
         data_elaboracao: dataElaboracao,
         revisoes,
+        ghe_setores: setoresArr,
+        // legado
         setores: setoresArr,
         epis,
         treinamentos,
