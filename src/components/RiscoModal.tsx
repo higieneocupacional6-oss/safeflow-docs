@@ -143,6 +143,7 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
                     <SelectItem value="Biológico">Biológico</SelectItem>
                     <SelectItem value="Ergonômico">Ergonômico</SelectItem>
                     <SelectItem value="Acidente">Acidente</SelectItem>
+                    <SelectItem value="Psicossocial">Psicossocial</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
