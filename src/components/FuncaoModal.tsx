@@ -24,9 +24,10 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
   const [cboCodigo, setCboCodigo] = useState("");
   const [cboDescricao, setCboDescricao] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
+  const [expostos, setExpostos] = useState("");
 
   const reset = () => {
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades("");
+    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
