@@ -346,6 +346,24 @@ export default function SetoresFuncoes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Funcao Confirmation */}
+      <AlertDialog open={!!deleteFuncao} onOpenChange={(o) => !o && setDeleteFuncao(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir função?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteFuncao?.nome_funcao}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingFuncao}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFuncao} disabled={deletingFuncao} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingFuncao && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
