@@ -127,7 +127,7 @@ export default function PgrWizard() {
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pgr"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      const { data, error } = await supabase.from("empresas").select("*").order("razao_social");
       if (error) throw error;
       return data;
     },
