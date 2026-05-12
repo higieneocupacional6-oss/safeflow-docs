@@ -303,12 +303,13 @@ export default function SetoresFuncoes() {
             <div><Label>Nome da Função *</Label><Input className="mt-1" value={editFuncaoForm.nome_funcao} onChange={e => setEditFuncaoForm(p => ({ ...p, nome_funcao: e.target.value }))} /></div>
             <div>
               <Label>CBO</Label>
-              <CboAutocomplete
+              <Input
+                className="mt-1"
+                placeholder="Ex: 5143-25 ou Técnico de Segurança"
                 value={editFuncaoForm.cbo_codigo}
-                onSelect={(codigo, descricao) => setEditFuncaoForm(p => ({ ...p, cbo_codigo: codigo, cbo_descricao: descricao }))}
+                onChange={e => setEditFuncaoForm(p => ({ ...p, cbo_codigo: e.target.value, cbo_descricao: "" }))}
               />
             </div>
-            {editFuncaoForm.cbo_descricao && <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">CBO: {editFuncaoForm.cbo_codigo} — {editFuncaoForm.cbo_descricao}</p>}
             <div><Label>Descrição das Atividades</Label><Textarea className="mt-1" value={editFuncaoForm.descricao_atividades} onChange={e => setEditFuncaoForm(p => ({ ...p, descricao_atividades: e.target.value }))} /></div>
           </div>
           <DialogFooter>
