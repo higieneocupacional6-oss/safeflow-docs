@@ -1237,7 +1237,7 @@ export default function PgrWizard() {
 
   // ============ STEP 4 — Cronograma do PGR ============
   if (step === 4) {
-    return <CronogramaStep
+    return <PgrCronogramaStep
       goToStep={goToStep}
       saving={saving}
       empresaId={empresaId}
