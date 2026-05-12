@@ -1437,7 +1437,7 @@ export default function PgrWizard() {
         </Card>
 
         <div className="flex justify-between mt-6">
-          <Button variant="outline" onClick={() => goToStep(3)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+          <Button variant="outline" onClick={() => goToStep(4)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
         </div>
       </div>
     );
