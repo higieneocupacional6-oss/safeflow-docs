@@ -460,6 +460,33 @@ export default function PgrWizard() {
         : b),
     }));
 
+  // ============ Cronograma do PGR helpers ============
+  const cronograma: CronogramaItem[] = snapshot.cronograma_pgr || [];
+
+  const emptyCronoItem = (): CronogramaItem => ({
+    id: crypto.randomUUID(), item: "", acao: "", responsavel: "",
+    prazo_mes: "", prazo_ano: String(new Date().getFullYear()), situacao: "Previsto",
+  });
+
+  const addCronoItem = () =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: [...(s.cronograma_pgr || []), emptyCronoItem()] }));
+
+  const updateCronoItem = (id: string, patch: Partial<CronogramaItem>) =>
+    setSnapshot(s => ({
+      ...s,
+      cronograma_pgr: (s.cronograma_pgr || []).map(c => c.id === id ? { ...c, ...patch } : c),
+    }));
+
+  const removeCronoItem = (id: string) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: (s.cronograma_pgr || []).filter(c => c.id !== id) }));
+
+  const replaceCronograma = (items: CronogramaItem[]) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: items.map(i => ({ ...i, id: crypto.randomUUID() })) }));
+
+  const appendCronograma = (items: CronogramaItem[]) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: [...(s.cronograma_pgr || []), ...items.map(i => ({ ...i, id: crypto.randomUUID() }))] }));
+
+
   const goToStep = async (n: number) => {
     const id = await persist({ step: n, snapshot });
     if (id) {
