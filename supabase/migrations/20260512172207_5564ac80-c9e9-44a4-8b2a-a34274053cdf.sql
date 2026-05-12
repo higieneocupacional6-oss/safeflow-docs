@@ -1,0 +1,100 @@
+
+ALTER TABLE public.riscos ADD COLUMN IF NOT EXISTS is_padrao boolean NOT NULL DEFAULT false;
+
+-- Seed standard risks (only inserts if no padrao risks exist yet, to avoid duplicating across re-runs)
+DO $$
+BEGIN
+IF NOT EXISTS (SELECT 1 FROM public.riscos WHERE is_padrao = true) THEN
+
+INSERT INTO public.riscos (nome, tipo, fonte_geradora, propagacao, danos_saude, medidas_controle, tipo_exposicao, is_padrao) VALUES
+-- FÍSICOS
+('Ruído contínuo ou intermitente','Físico','Operação de máquinas, motores, equipamentos pneumáticos e processos industriais.',ARRAY['Aérea'],'Perda auditiva induzida por ruído (PAIR), zumbidos, estresse, hipertensão.','Enclausuramento de fontes, manutenção preventiva, EPI auditivo (protetor auricular tipo plug ou concha).','Habitual',true),
+('Calor','Físico','Fornos, caldeiras, ambientes com radiação solar direta, processos com altas temperaturas.',ARRAY['Aérea'],'Desidratação, câimbras, exaustão térmica, intermação.','Ventilação, exaustão, isolamento térmico, hidratação, pausas e vestimenta adequada.','Habitual',true),
+('Vibração de corpo inteiro','Físico','Operação de veículos pesados, tratores, empilhadeiras e plataformas vibratórias.',ARRAY['Contato'],'Lombalgia, lesões na coluna vertebral, distúrbios circulatórios.','Manutenção de assentos amortecedores, redução do tempo de exposição, treinamento.','Habitual',true),
+('Vibração mãos e braços','Físico','Uso de ferramentas manuais vibratórias (lixadeiras, marteletes, furadeiras).',ARRAY['Contato'],'Síndrome do dedo branco, lesões osteomusculares, distúrbios neurovasculares.','Ferramentas com amortecimento, luvas anti-vibração, rodízio de tarefas.','Intermitente',true),
+('Radiação não ionizante','Físico','Solda elétrica, lâmpadas UV, fornos de microondas, exposição solar.',ARRAY['Aérea'],'Queimaduras, lesões oculares (ceratite), envelhecimento da pele, câncer de pele.','Barreiras físicas, óculos com filtro, protetor solar, EPIs específicos.','Intermitente',true),
+('Radiação ionizante','Físico','Equipamentos de raios-X, materiais radioativos, gamagrafia industrial.',ARRAY['Aérea'],'Queimaduras, mutações celulares, câncer, esterilidade.','Blindagem, monitoramento dosimétrico, distância da fonte e tempo reduzido de exposição.','Intermitente',true),
+('Umidade','Físico','Trabalho em ambientes alagados, encharcados ou com excesso de umidade.',ARRAY['Contato'],'Doenças de pele, problemas respiratórios, micoses.','Drenagem, ventilação, vestimenta impermeável e calçados adequados.','Habitual',true),
+('Frio','Físico','Câmaras frigoríficas, trabalho ao ar livre em baixas temperaturas.',ARRAY['Aérea'],'Hipotermia, congelamento de extremidades, doenças respiratórias.','Vestimenta térmica, pausas em ambiente aquecido, hidratação.','Habitual',true),
+('Pressões anormais','Físico','Trabalho em caixões pneumáticos, mergulho, câmaras hiperbáricas.',ARRAY['Aérea'],'Doença descompressiva, embolia gasosa, barotrauma.','Procedimentos de descompressão, monitoramento médico, treinamento.','Eventual',true),
+
+-- QUÍMICOS
+('Poeira mineral','Químico','Processos de britagem, moagem e movimentação de materiais minerais.',ARRAY['Aérea'],'Irritação respiratória, pneumoconioses e doenças pulmonares.','Ventilação, exaustão local, umidificação e uso de respiradores.','Habitual',true),
+('Poeira vegetal','Químico','Manuseio de algodão, madeira, grãos e fibras vegetais.',ARRAY['Aérea'],'Bissinose, asma ocupacional, alergias respiratórias.','Exaustão, umidificação, respirador PFF2.','Habitual',true),
+('Poeira respirável','Químico','Cortes, lixamentos e processos que geram partículas finas.',ARRAY['Aérea'],'Pneumoconioses, fibrose pulmonar, doenças respiratórias crônicas.','Exaustão localizada, EPI respiratório PFF2/PFF3, umidificação.','Habitual',true),
+('Sílica livre','Químico','Jateamento de areia, mineração, britagem e marmoraria.',ARRAY['Aérea'],'Silicose, câncer de pulmão, doenças pulmonares irreversíveis.','Substituição do agente, exaustão, umidificação, respirador com filtro P3.','Habitual',true),
+('Fumos metálicos','Químico','Soldagem, corte e fundição de metais.',ARRAY['Aérea'],'Febre dos fumos metálicos, intoxicação, doenças pulmonares.','Exaustão localizada, ventilação, respirador para fumos metálicos.','Habitual',true),
+('Névoas e Neblinas','Químico','Pintura por aspersão, processos de pulverização química.',ARRAY['Aérea'],'Irritação das vias respiratórias, intoxicação sistêmica.','Cabines de pintura com exaustão, respiradores com filtro químico.','Habitual',true),
+('Gases','Químico','Processos químicos, soldagem, fermentação e combustão.',ARRAY['Aérea'],'Asfixia, intoxicação, irritação respiratória.','Ventilação geral, monitoramento de atmosfera, máscara autônoma.','Intermitente',true),
+('Vapores orgânicos','Químico','Manuseio de solventes, tintas, colas e combustíveis.',ARRAY['Aérea'],'Depressão do SNC, hepatotoxicidade, câncer.','Ventilação, exaustão, respirador com filtro químico, substituição do agente.','Habitual',true),
+('Solventes','Químico','Limpeza industrial, pintura, desengraxe e diluição de produtos.',ARRAY['Aérea','Dérmica'],'Lesões cutâneas, intoxicação sistêmica, danos hepáticos e neurológicos.','Substituição por produtos menos agressivos, ventilação, EPI químico.','Habitual',true),
+('Hidrocarbonetos','Químico','Manipulação de derivados de petróleo, óleos e graxas.',ARRAY['Aérea','Dérmica'],'Dermatites, intoxicação, alterações neurológicas, câncer.','Ventilação, EPI químico, controle de exposição, higiene ocupacional.','Habitual',true),
+('Produtos químicos corrosivos','Químico','Manuseio de ácidos, bases fortes e produtos cáusticos.',ARRAY['Contato','Dérmica'],'Queimaduras químicas, lesões oculares, perfurações de tecidos.','Luvas, óculos, avental, chuveiros de emergência e lava-olhos.','Intermitente',true),
+('Produtos inflamáveis','Químico','Estoque e manipulação de combustíveis, solventes e gases inflamáveis.',ARRAY['Aérea'],'Queimaduras, intoxicação por inalação, risco de explosão.','Aterramento, ventilação, sinalização e brigada de incêndio.','Eventual',true),
+('Óleos minerais','Químico','Lubrificação de máquinas, usinagem e operações com fluidos de corte.',ARRAY['Dérmica'],'Dermatites, foliculites, câncer de pele.','Higiene das mãos, luvas, cremes de proteção, troca de uniforme.','Habitual',true),
+('Benzeno','Químico','Indústria petroquímica, siderurgia, laboratórios e combustíveis.',ARRAY['Aérea','Dérmica'],'Leucemia, anemia aplástica, alterações hematológicas.','Substituição obrigatória, sistema fechado, monitoramento biológico, PPEOB.','Habitual',true),
+
+-- BIOLÓGICOS
+('Vírus','Biológico','Atendimento à saúde, contato com pacientes, manipulação de amostras.',ARRAY['Aérea','Contato'],'Doenças infectocontagiosas (hepatites, HIV, COVID-19, gripes).','Vacinação, EPI completo, protocolos de biossegurança, descarte adequado.','Habitual',true),
+('Bactérias e Fungos','Biológico','Ambientes hospitalares, tratamento de resíduos, manipulação de alimentos.',ARRAY['Aérea','Contato'],'Infecções, micoses, doenças respiratórias e cutâneas.','Higienização, EPI, controle ambiental, vacinação.','Habitual',true),
+('Protozoários e Parasitas','Biológico','Saneamento, contato com solo e água contaminada.',ARRAY['Contato'],'Doenças parasitárias (amebíase, giardíase, leishmaniose).','Higiene, EPI, controle de vetores, água potável.','Intermitente',true),
+('Material biológico contaminado','Biológico','Coleta, manipulação e descarte de amostras biológicas.',ARRAY['Contato'],'Risco de contaminação por agentes infecciosos diversos.','Procedimentos de biossegurança, EPI, descarte em recipientes adequados.','Habitual',true),
+('Resíduos hospitalares','Biológico','Coleta e tratamento de resíduos do grupo A (infectantes).',ARRAY['Contato'],'Infecções, contaminação por agentes biológicos.','PGRSS, EPI, treinamento, vacinação.','Habitual',true),
+('Contato com sangue','Biológico','Procedimentos médicos, atendimento de emergência, laboratórios.',ARRAY['Contato'],'Hepatites B e C, HIV, sífilis e outras doenças hematogênicas.','Precauções padrão, EPI, descarte de perfurocortantes, profilaxia pós-exposição.','Habitual',true),
+('Contato com secreções','Biológico','Higienização de pacientes, limpeza hospitalar, atendimento odontológico.',ARRAY['Contato'],'Infecções respiratórias, gastrointestinais e dermatológicas.','EPI, higienização das mãos, protocolos de biossegurança.','Habitual',true),
+('Contato com lixo contaminado','Biológico','Coleta urbana, limpeza, manuseio de resíduos infectantes.',ARRAY['Contato'],'Infecções diversas, parasitoses, doenças cutâneas.','EPI completo, vacinação, treinamento.','Habitual',true),
+('Micro-organismos patogênicos','Biológico','Laboratórios de pesquisa, serviços de saúde, tratamento de água e esgoto.',ARRAY['Aérea','Contato'],'Infecções graves, doenças ocupacionais infectocontagiosas.','NB (níveis de biossegurança), EPI específico, capelas de fluxo laminar.','Habitual',true),
+
+-- ERGONÔMICOS
+('Exigência de alto nível de concentração','Ergonômico','Atividades que demandam atenção contínua e tomada de decisão precisa.',ARRAY['Aérea'],'Fadiga mental, estresse, redução do desempenho, erros operacionais.','Pausas regulares, organização do trabalho, ginástica laboral.','Habitual',true),
+('Exigência de atenção constante','Ergonômico','Operações de monitoramento, controle de qualidade, condução de veículos.',ARRAY['Aérea'],'Estresse, fadiga visual e mental, distúrbios do sono.','Rodízio de funções, pausas, ambiente adequado de trabalho.','Habitual',true),
+('Postura sentada por longos períodos','Ergonômico','Trabalho administrativo, operação de computadores, atividades em escritórios.',ARRAY['Contato'],'Lombalgias, problemas circulatórios, LER/DORT.','Mobiliário ergonômico, pausas, ginástica laboral, ajuste postural.','Habitual',true),
+('Postura em pé por longos períodos','Ergonômico','Atendimento, linhas de produção, operações em balcões.',ARRAY['Contato'],'Varizes, dores nos membros inferiores, fadiga muscular.','Tapetes ergonômicos, pausas para sentar, calçados adequados.','Habitual',true),
+('Movimentos repetitivos','Ergonômico','Linhas de montagem, digitação, embalagem.',ARRAY['Contato'],'LER/DORT, tendinites, síndrome do túnel do carpo.','Rodízio de tarefas, pausas, adequação ergonômica do posto.','Habitual',true),
+('Esforço visual excessivo','Ergonômico','Trabalho prolongado em telas, microscopia, conferência de detalhes.',ARRAY['Aérea'],'Fadiga visual, cefaleia, ressecamento ocular.','Iluminação adequada, pausas visuais, ajuste de monitor.','Habitual',true),
+('Levantamento manual de cargas','Ergonômico','Movimentação de materiais, carga e descarga, estoque.',ARRAY['Contato'],'Lombalgias, hérnias de disco, lesões osteomusculares.','Treinamento, equipamentos de auxílio, limites de peso conforme NR-17.','Habitual',true),
+('Ritmo excessivo de trabalho','Ergonômico','Linhas de produção com cadência elevada, metas rígidas.',ARRAY['Aérea'],'Estresse, fadiga, aumento de erros e acidentes.','Revisão de metas, pausas programadas, dimensionamento de equipe.','Habitual',true),
+('Monotonia','Ergonômico','Atividades repetitivas e sem variação de estímulos.',ARRAY['Aérea'],'Desmotivação, fadiga mental, erros operacionais.','Rodízio de funções, enriquecimento de tarefas.','Habitual',true),
+('Jornadas prolongadas','Ergonômico','Trabalho com excesso de horas extras ou turnos longos.',ARRAY['Aérea'],'Fadiga, distúrbios do sono, aumento de acidentes.','Cumprimento da jornada legal, controle de horas extras.','Habitual',true),
+('Trabalho noturno','Ergonômico','Atividades em turnos noturnos ou alternados.',ARRAY['Aérea'],'Distúrbios do sono, problemas gastrointestinais, isolamento social.','Rodízio adequado, exames periódicos, adicional noturno.','Habitual',true),
+('Controle rígido de produtividade','Ergonômico','Monitoramento contínuo de metas e indicadores individuais.',ARRAY['Aérea'],'Estresse, ansiedade, transtornos psicossomáticos.','Revisão de critérios, gestão participativa, pausas.','Habitual',true),
+('Trabalho sob pressão','Ergonômico','Prazos curtos, demandas urgentes, alta responsabilidade.',ARRAY['Aérea'],'Estresse, ansiedade, hipertensão, burnout.','Planejamento, suporte gerencial, pausas, apoio psicológico.','Habitual',true),
+('Posturas inadequadas','Ergonômico','Trabalho em locais sem adequação ergonômica, espaços confinados.',ARRAY['Contato'],'Dores musculares, lesões osteomusculares, LER/DORT.','Análise ergonômica do trabalho (AET), adequação do posto.','Habitual',true),
+('Sobrecarga cognitiva','Ergonômico','Múltiplas tarefas simultâneas, alta complexidade de informações.',ARRAY['Aérea'],'Fadiga mental, erros, queda de desempenho.','Organização do trabalho, pausas, divisão de tarefas.','Habitual',true),
+
+-- ACIDENTES
+('Queda de pessoa do mesmo nível','Acidente','Pisos escorregadios, irregulares, obstruídos ou molhados.',ARRAY['Contato'],'Fraturas, contusões, traumas.','Sinalização, manutenção de pisos, calçados antiderrapantes, organização.','Eventual',true),
+('Queda de nível diferente','Acidente','Trabalho em altura, escadas, andaimes, telhados, plataformas.',ARRAY['Contato'],'Politraumas, fraturas graves, óbito.','NR-35, sistemas de proteção contra quedas, cinturão tipo paraquedista, treinamento.','Eventual',true),
+('Acidente de trânsito','Acidente','Deslocamentos a serviço, condução de veículos.',ARRAY['Contato'],'Politraumas, fraturas, óbito.','Treinamento defensivo, manutenção veicular, cumprimento da legislação.','Eventual',true),
+('Animais peçonhentos','Acidente','Trabalho rural, em matas, áreas com presença de cobras, aranhas e escorpiões.',ARRAY['Contato'],'Envenenamento, reações alérgicas, óbito.','Perneiras, luvas, inspeção do local, soro antiveneno disponível.','Eventual',true),
+('Choque elétrico','Acidente','Contato com partes energizadas, instalações elétricas defeituosas.',ARRAY['Contato'],'Queimaduras, parada cardiorrespiratória, óbito.','NR-10, bloqueio e etiquetagem, EPI dielétrico, manutenção.','Eventual',true),
+('Incêndio','Acidente','Materiais inflamáveis, instalações elétricas, trabalho a quente.',ARRAY['Aérea'],'Queimaduras, intoxicação por fumaça, óbito.','Brigada de incêndio, extintores, plano de emergência, sinalização.','Eventual',true),
+('Explosão','Acidente','Atmosferas explosivas, vasos de pressão, gases inflamáveis.',ARRAY['Aérea'],'Politraumas, queimaduras graves, óbito.','Classificação de áreas, equipamentos Ex, monitoramento de gases.','Eventual',true),
+('Aprisionamento','Acidente','Operação de máquinas, espaços confinados, cargas suspensas.',ARRAY['Contato'],'Esmagamentos, asfixia, fraturas, óbito.','Proteções fixas, bloqueio, treinamento, NR-12 e NR-33.','Eventual',true),
+('Projeção de partículas','Acidente','Esmerilhamento, corte, soldagem, jateamento.',ARRAY['Contato'],'Lesões oculares, cortes, perfurações.','Óculos de proteção, viseiras, anteparos físicos.','Habitual',true),
+('Cortes e perfurações','Acidente','Manuseio de ferramentas, materiais cortantes, agulhas.',ARRAY['Contato'],'Cortes, perfurações, infecções secundárias.','Luvas resistentes, treinamento, descarte adequado de perfurocortantes.','Habitual',true),
+('Atropelamento','Acidente','Áreas com tráfego de veículos e empilhadeiras.',ARRAY['Contato'],'Politraumas, fraturas, óbito.','Sinalização, faixas de pedestres, vestes refletivas, controle de velocidade.','Eventual',true),
+('Tombamento','Acidente','Operação de máquinas pesadas, empilhadeiras, veículos em terrenos inclinados.',ARRAY['Contato'],'Esmagamentos, politraumas, óbito.','Treinamento, manutenção, uso de cinto, inspeção de terreno.','Eventual',true),
+('Colisão','Acidente','Áreas com circulação de veículos, equipamentos móveis.',ARRAY['Contato'],'Politraumas, contusões, fraturas.','Sinalização, regras de trânsito interno, alarmes de ré.','Eventual',true),
+('Máquinas sem proteção','Acidente','Operação de máquinas com partes móveis expostas.',ARRAY['Contato'],'Amputações, esmagamentos, cortes graves.','NR-12, proteções fixas e móveis, dispositivos de segurança.','Habitual',true),
+('Ferramentas inadequadas','Acidente','Uso de ferramentas improvisadas ou em mau estado.',ARRAY['Contato'],'Cortes, contusões, fraturas.','Inspeção, padronização, treinamento, substituição periódica.','Habitual',true),
+('Queda de objetos','Acidente','Trabalho sob áreas com material suspenso ou empilhado.',ARRAY['Contato'],'Traumas cranianos, contusões, fraturas.','Capacete, sinalização, organização de estoques, redes de proteção.','Habitual',true),
+('Espaço confinado','Acidente','Tanques, silos, dutos, galerias subterrâneas.',ARRAY['Aérea'],'Asfixia, intoxicação, explosão, óbito.','NR-33, PET, monitoramento atmosférico, vigia, resgate.','Eventual',true),
+
+-- PSICOSSOCIAIS (tipo "Ergonômico" pois schema atual aceita; ajuste se necessário)
+('Estresse ocupacional','Psicossocial','Excesso de demandas, prazos curtos, alta responsabilidade.',ARRAY['Aérea'],'Ansiedade, depressão, hipertensão, distúrbios do sono.','Gestão participativa, apoio psicológico, organização do trabalho.','Habitual',true),
+('Fadiga mental','Psicossocial','Atividades cognitivamente exigentes por longos períodos.',ARRAY['Aérea'],'Queda de desempenho, erros, esgotamento, transtornos psíquicos.','Pausas, rodízio, planejamento de jornada.','Habitual',true),
+('Pressão no trabalho','Psicossocial','Cobranças excessivas por resultados e prazos.',ARRAY['Aérea'],'Ansiedade, estresse crônico, burnout.','Revisão de metas, suporte gerencial, canais de escuta.','Habitual',true),
+('Assédio moral','Psicossocial','Conduta abusiva reiterada de superiores ou colegas.',ARRAY['Aérea'],'Depressão, ansiedade, transtornos psicossomáticos, afastamentos.','Política de prevenção, canal de denúncia, treinamento de lideranças.','Habitual',true),
+('Sobrecarga emocional','Psicossocial','Atividades com forte conteúdo emocional (saúde, atendimento, emergências).',ARRAY['Aérea'],'Esgotamento emocional, burnout, depressão.','Apoio psicológico, supervisão clínica, rodízio.','Habitual',true),
+('Exigência emocional elevada','Psicossocial','Atendimento ao público, situações conflituosas, lidar com sofrimento alheio.',ARRAY['Aérea'],'Estresse, ansiedade, transtornos psíquicos.','Capacitação, apoio psicológico, pausas.','Habitual',true),
+('Falta de reconhecimento','Psicossocial','Ausência de feedback positivo e valorização profissional.',ARRAY['Aérea'],'Desmotivação, depressão, queda de produtividade.','Programas de reconhecimento, comunicação eficaz, gestão participativa.','Habitual',true),
+('Conflitos interpessoais','Psicossocial','Relações de trabalho deterioradas, divergências não mediadas.',ARRAY['Aérea'],'Estresse, ansiedade, queda de desempenho, afastamentos.','Mediação, treinamento de liderança, comunicação não-violenta.','Habitual',true),
+('Insegurança profissional','Psicossocial','Instabilidade de emprego, reestruturações, ameaças de demissão.',ARRAY['Aérea'],'Ansiedade, depressão, transtornos psicossomáticos.','Comunicação clara, planejamento, apoio psicológico.','Habitual',true),
+('Falta de apoio organizacional','Psicossocial','Ausência de suporte de gestores e da empresa nas demandas do trabalho.',ARRAY['Aérea'],'Sentimento de isolamento, estresse, burnout.','Canais de escuta, suporte gerencial, políticas de bem-estar.','Habitual',true),
+('Burnout','Psicossocial','Exposição prolongada a estressores ocupacionais sem recuperação adequada.',ARRAY['Aérea'],'Exaustão emocional, despersonalização, baixa realização profissional.','Apoio psicológico, gestão de demandas, pausas, afastamento se necessário.','Habitual',true),
+('Excesso de responsabilidade','Psicossocial','Atribuições além da capacidade ou autonomia do trabalhador.',ARRAY['Aérea'],'Ansiedade, estresse, queda de desempenho.','Distribuição equilibrada de tarefas, suporte da liderança.','Habitual',true),
+('Trabalho sob metas abusivas','Psicossocial','Metas inatingíveis ou desproporcionais aos recursos disponíveis.',ARRAY['Aérea'],'Estresse crônico, ansiedade, transtornos psíquicos, burnout.','Revisão de metas com base em estudos de carga, gestão participativa.','Habitual',true);
+
+END IF;
+END $$;

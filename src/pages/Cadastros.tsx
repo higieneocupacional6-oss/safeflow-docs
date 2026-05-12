@@ -373,51 +373,93 @@ export default function Cadastros() {
 
         <div className="glass-card rounded-xl overflow-hidden">
           <TabsContent value="riscos" className="m-0">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agente</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>eSocial</TableHead>
-                  <TableHead>Exposição</TableHead>
-                  <TableHead>EPI</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {riscos.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
-                      Nenhum risco cadastrado. Clique em "+ Novo" para começar.
-                    </TableCell>
-                  </TableRow>
-                )}
-                {riscos.map((r: any) => (
-                  <TableRow key={r.id}>
-                    <TableCell className="font-medium">{r.nome}</TableCell>
-                    <TableCell><Badge variant="outline">{r.tipo}</Badge></TableCell>
-                    <TableCell className="font-mono text-xs">{r.codigo_esocial || "—"}</TableCell>
-                    <TableCell className="text-sm">{r.tipo_exposicao || "—"}</TableCell>
-                    <TableCell>
-                      {r.epi_eficaz ? (
-                        <Badge variant={r.epi_eficaz === "Sim" ? "default" : "destructive"} className="text-xs">
-                          {r.epi_eficaz}
-                        </Badge>
-                      ) : "—"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" title="Editar" onClick={() => handleEdit(r)}>
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => handleDeleteClick(r.id)}>
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            {(() => {
+              const categorias = ["Físico","Químico","Biológico","Ergonômico","Psicossocial","Acidente"];
+              const grupos = categorias
+                .map(cat => ({ cat, itens: (riscos as any[]).filter(r => r.tipo === cat) }))
+                .filter(g => g.itens.length > 0);
+              const semCategoria = (riscos as any[]).filter(r => !categorias.includes(r.tipo));
+              if (riscos.length === 0) {
+                return (
+                  <div className="text-center text-muted-foreground py-8">
+                    Nenhum risco cadastrado. Clique em "+ Novo" para começar.
+                  </div>
+                );
+              }
+              return (
+                <div className="space-y-6">
+                  {grupos.map(g => (
+                    <div key={g.cat}>
+                      <h3 className="text-sm font-semibold text-foreground/80 mb-2 px-2 flex items-center gap-2">
+                        📁 {g.cat}s <span className="text-xs text-muted-foreground font-normal">({g.itens.length})</span>
+                      </h3>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Agente</TableHead>
+                            <TableHead>Origem</TableHead>
+                            <TableHead>eSocial</TableHead>
+                            <TableHead>Exposição</TableHead>
+                            <TableHead>EPI</TableHead>
+                            <TableHead className="text-right">Ações</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {g.itens.map((r: any) => (
+                            <TableRow key={r.id}>
+                              <TableCell className="font-medium">{r.nome}</TableCell>
+                              <TableCell>
+                                {r.is_padrao
+                                  ? <Badge variant="secondary" className="text-xs">Padrão</Badge>
+                                  : <Badge variant="outline" className="text-xs">Personalizado</Badge>}
+                              </TableCell>
+                              <TableCell className="font-mono text-xs">{r.codigo_esocial || "—"}</TableCell>
+                              <TableCell className="text-sm">{r.tipo_exposicao || "—"}</TableCell>
+                              <TableCell>
+                                {r.epi_eficaz ? (
+                                  <Badge variant={r.epi_eficaz === "Sim" ? "default" : "destructive"} className="text-xs">
+                                    {r.epi_eficaz}
+                                  </Badge>
+                                ) : "—"}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" title="Editar" onClick={() => handleEdit(r)}>
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" title="Excluir" onClick={() => handleDeleteClick(r.id)}>
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  ))}
+                  {semCategoria.length > 0 && (
+                    <div>
+                      <h3 className="text-sm font-semibold text-foreground/80 mb-2 px-2">📁 Outros</h3>
+                      <Table>
+                        <TableBody>
+                          {semCategoria.map((r: any) => (
+                            <TableRow key={r.id}>
+                              <TableCell className="font-medium">{r.nome}</TableCell>
+                              <TableCell><Badge variant="outline">{r.tipo}</Badge></TableCell>
+                              <TableCell className="text-right">
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleEdit(r)}><Edit className="h-4 w-4" /></Button>
+                                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleDeleteClick(r.id)}><Trash2 className="h-4 w-4" /></Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
           </TabsContent>
 
           <TabsContent value="tecnicas" className="m-0">

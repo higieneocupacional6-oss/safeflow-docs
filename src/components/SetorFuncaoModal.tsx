@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CboAutocomplete } from "@/components/CboAutocomplete";
+
 
 interface Props {
   open: boolean;
@@ -24,14 +24,13 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
   const [nomeSetor, setNomeSetor] = useState("");
   const [descAmbiente, setDescAmbiente] = useState("");
   const [nomeFuncao, setNomeFuncao] = useState("");
-  const [cboCodigo, setCboCodigo] = useState("");
-  const [cboDescricao, setCboDescricao] = useState("");
+  const [cbo, setCbo] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
   const [expostos, setExpostos] = useState("");
 
   const reset = () => {
     setGheGes(""); setNomeSetor(""); setDescAmbiente("");
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
+    setNomeFuncao(""); setCbo(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
@@ -52,8 +51,8 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
         .insert({
           setor_id: setor.id,
           nome_funcao: nomeFuncao.trim(),
-          cbo_codigo: cboCodigo || null,
-          cbo_descricao: cboDescricao || null,
+          cbo_codigo: cbo || null,
+          cbo_descricao: null,
           descricao_atividades: descAtividades || null,
           expostos: expostos || null,
         } as any);
@@ -107,14 +106,13 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
               </div>
               <div>
                 <Label>CBO</Label>
-                <CboAutocomplete
-                  value={cboCodigo}
-                  onSelect={(codigo, descricao) => { setCboCodigo(codigo); setCboDescricao(descricao); }}
+                <Input
+                  className="mt-1"
+                  placeholder="Ex: 5143-25 ou Técnico de Segurança"
+                  value={cbo}
+                  onChange={e => setCbo(e.target.value)}
                 />
               </div>
-              {cboDescricao && (
-                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">CBO: {cboCodigo} — {cboDescricao}</p>
-              )}
               <div>
                 <Label>Descrição das Atividades</Label>
                 <Textarea className="mt-1" placeholder="Descreva as atividades exercidas na função" value={descAtividades} onChange={e => setDescAtividades(e.target.value)} />
