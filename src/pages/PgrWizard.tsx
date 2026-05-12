@@ -45,10 +45,20 @@ type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: 
 type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
 type TreinItem = { id: string; nome_treinamento: string };
 type TreinBloco = { id: string; funcao_ids: string[]; treinamentos: TreinItem[] };
+type CronogramaItem = {
+  id: string;
+  item: string;
+  acao: string;
+  responsavel: string;
+  prazo_mes: string; // "01".."12"
+  prazo_ano: string; // "2026"
+  situacao: "Previsto" | "Realizado" | "";
+};
 type PgrSnapshot = {
   setores: Record<string, PgrSetorData>;
   epi_blocos?: EpiBloco[];
   treinamento_blocos?: TreinBloco[];
+  cronograma_pgr?: CronogramaItem[];
 };
 
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
