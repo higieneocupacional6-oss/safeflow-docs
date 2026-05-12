@@ -1226,7 +1226,7 @@ export default function PgrWizard() {
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
             </Button>
             <Button onClick={() => goToStep(4)} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Finalizar
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
             </Button>
           </div>
         </div>
