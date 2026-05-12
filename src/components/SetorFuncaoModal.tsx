@@ -24,14 +24,13 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
   const [nomeSetor, setNomeSetor] = useState("");
   const [descAmbiente, setDescAmbiente] = useState("");
   const [nomeFuncao, setNomeFuncao] = useState("");
-  const [cboCodigo, setCboCodigo] = useState("");
-  const [cboDescricao, setCboDescricao] = useState("");
+  const [cbo, setCbo] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
   const [expostos, setExpostos] = useState("");
 
   const reset = () => {
     setGheGes(""); setNomeSetor(""); setDescAmbiente("");
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
+    setNomeFuncao(""); setCbo(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
