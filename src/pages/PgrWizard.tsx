@@ -160,7 +160,7 @@ export default function PgrWizard() {
       if (setorIds.length === 0) return [];
       const { data, error } = await supabase
         .from("funcoes")
-        .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades")
+        .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades,expostos")
         .in("setor_id", setorIds)
         .order("nome_funcao");
       if (error) throw error;
