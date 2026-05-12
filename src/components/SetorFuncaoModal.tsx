@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CboAutocomplete } from "@/components/CboAutocomplete";
+
 
 interface Props {
   open: boolean;
