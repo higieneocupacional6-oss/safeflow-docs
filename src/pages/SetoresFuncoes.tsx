@@ -261,6 +261,9 @@ export default function SetoresFuncoes() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveFuncao(f)} title="Trocar Setor">
                           <ArrowRightLeft className="w-3.5 h-3.5" />
                         </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteFuncao(f)} title="Excluir Função">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </div>
                   ))}
