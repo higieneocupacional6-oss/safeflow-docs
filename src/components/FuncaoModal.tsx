@@ -41,7 +41,8 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
         cbo_codigo: cboCodigo || null,
         cbo_descricao: cboDescricao || null,
         descricao_atividades: descAtividades || null,
-      });
+        expostos: expostos || null,
+      } as any);
       if (error) throw error;
 
       toast.success("Função cadastrada com sucesso!");
