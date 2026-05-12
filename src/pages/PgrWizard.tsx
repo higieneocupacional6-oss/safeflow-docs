@@ -1291,6 +1291,7 @@ export default function PgrWizard() {
             cbo_codigo: f.cbo_codigo || "",
             cbo_descricao: f.cbo_descricao || "",
             descricao_atividades: f.descricao_atividades || "",
+            expostos: f.expostos || "",
           }));
         const riscos_ghe = (data.riscos || []).map(r => {
           const m = r.probabilidade && r.severidade
@@ -1325,20 +1326,38 @@ export default function PgrWizard() {
           riscos: riscos_ghe,
         };
       });
+      // EPIs — incluir nome_funcao em cada item
       const epis: any[] = [];
       (snapshot.epi_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
         funcs.forEach(f => b.epis.forEach(e => epis.push({
-          funcao: f.nome_funcao, nome_epi: e.nome_epi, ca: e.ca, uso: e.uso,
+          funcao: f.nome_funcao || "",
+          nome_funcao: f.nome_funcao || "",
+          nome_epi: e.nome_epi || "",
+          ca: e.ca || "",
+          uso: e.uso || "",
         })));
       });
-      const treinamentos: any[] = [];
+      // Treinamentos — agrupar por função em UMA linha
+      const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
       (snapshot.treinamento_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
-        funcs.forEach(f => b.treinamentos.forEach(t => treinamentos.push({
-          funcao: f.nome_funcao, nome_treinamento: t.nome_treinamento,
-        })));
+        funcs.forEach(f => {
+          const key = f.id;
+          if (!treinPorFuncao.has(key)) treinPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
+          const bucket = treinPorFuncao.get(key)!;
+          b.treinamentos.forEach(t => {
+            const nome = (t.nome_treinamento || "").trim();
+            if (nome && !bucket.itens.includes(nome)) bucket.itens.push(nome);
+          });
+        });
       });
+      const treinamentos = Array.from(treinPorFuncao.values()).map(g => ({
+        funcao: g.nome_funcao,
+        nome_funcao: g.nome_funcao,
+        treinamentos_funcao: g.itens.join(", "),
+        nome_treinamento: g.itens.join(", "),
+      }));
       const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
         const mesNum = parseInt(c.prazo_mes || "0", 10);
@@ -1352,15 +1371,52 @@ export default function PgrWizard() {
           situacao_cronograma: c.situacao || "",
         };
       });
+      const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+      const ultimaRevisao = revisoes.length ? revisoes[revisoes.length - 1] : null;
+      // Total de expostos
+      const totalExpostos = (funcoesEmpresa as any[]).reduce((acc, f) => acc + (parseInt(f.expostos || "0", 10) || 0), 0);
       return {
-        empresa: empresaNome,
-        razao_social: emp.razao_social || empresaNome,
+        // Empresa
+        empresa: empresaNome || emp.razao_social || emp.nome_fantasia || "",
+        razao_social: emp.razao_social || empresaNome || "",
         nome_fantasia: emp.nome_fantasia || "",
         cnpj: emp.cnpj || "",
-        responsavel_tecnico: responsavelTecnico,
-        crea, cargo,
-        data_elaboracao: dataElaboracao,
+        cnae_principal: emp.cnae_principal || "",
+        cnae: emp.cnae_principal || "",
+        grau_risco: emp.grau_risco || "",
+        endereco: emp.endereco || "",
+        numero_funcionarios_fem: (emp.numero_funcionarios_fem ?? 0).toString(),
+        numero_funcionarios_masc: (emp.numero_funcionarios_masc ?? 0).toString(),
+        total_funcionarios: (emp.total_funcionarios ?? 0).toString(),
+        jornada_trabalho: emp.jornada_trabalho || "",
+        local_trabalho: emp.local_trabalho || "",
+        // Contrato
+        numero_contrato: emp.numero_contrato || "",
+        cnpj_contratante: emp.cnpj_contratante || "",
+        nome_contratante: emp.nome_contratante || "",
+        vigencia_inicio: fmtDate(vigenciaInicio || emp.vigencia_inicio),
+        vigencia_fim: fmtDate(vigenciaFim || emp.vigencia_fim),
+        escopo_contrato: emp.escopo_contrato || "",
+        // Responsáveis
+        gestor_nome: emp.gestor_nome || "",
+        gestor_email: emp.gestor_email || "",
+        gestor_telefone: emp.gestor_telefone || "",
+        fiscal_nome: emp.fiscal_nome || "",
+        fiscal_email: emp.fiscal_email || "",
+        fiscal_telefone: emp.fiscal_telefone || "",
+        preposto_nome: emp.preposto_nome || "",
+        preposto_email: emp.preposto_email || "",
+        preposto_telefone: emp.preposto_telefone || "",
+        // Identificação PGR
+        responsavel: responsavelTecnico || "",
+        responsavel_tecnico: responsavelTecnico || "",
+        crea: crea || "",
+        cargo: cargo || "",
+        data_elaboracao: fmtDate(dataElaboracao),
+        data_revisao: ultimaRevisao ? fmtDate(ultimaRevisao.data) : "",
         revisoes,
+        // Estrutura agrupada
+        expostos: totalExpostos.toString(),
         ghe_setores: setoresArr,
         // legado
         setores: setoresArr,
