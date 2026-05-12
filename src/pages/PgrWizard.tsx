@@ -41,7 +41,7 @@ type RiscoPgr = {
   severidade?: Nivel | null;
 };
 
-type PgrSetorData = { riscos: RiscoPgr[] };
+type PgrSetorData = { riscos: RiscoPgr[]; vinculado_de?: string | null };
 type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string };
 type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
 type TreinItem = { id: string; nome_treinamento: string };
