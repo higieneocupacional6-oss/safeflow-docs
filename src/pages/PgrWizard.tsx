@@ -1235,7 +1235,7 @@ export default function PgrWizard() {
   }
 
   // ============ STEP 4 — Gerar Documento ============
-  if (step === 4) {
+  if (step === 5) {
     const buildTemplateData = () => {
       const emp: any = (empresas as any[]).find(e => e.id === empresaId) || {};
       const setoresOrdenados = sortByGes(setores as any[]);
