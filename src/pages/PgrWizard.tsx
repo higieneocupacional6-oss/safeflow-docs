@@ -398,6 +398,45 @@ export default function PgrWizard() {
     await persist({ snapshot: novoSnap });
   };
 
+  // ============ Vincular riscos de outro setor ============
+  const [linkModal, setLinkModal] = useState<{ destinoId: string; destinoNome: string } | null>(null);
+  const [linkOrigemId, setLinkOrigemId] = useState("");
+  const [linkConfirm, setLinkConfirm] = useState<"add" | "replace" | null>(null);
+  const [linking, setLinking] = useState(false);
+
+  const openLinkModal = (e: any, setor: any) => {
+    e.stopPropagation();
+    setLinkOrigemId("");
+    setLinkConfirm(null);
+    setLinkModal({ destinoId: setor.id, destinoNome: setor.nome_setor });
+  };
+
+  const aplicarVinculacao = async (modo: "add" | "replace") => {
+    if (!linkModal || !linkOrigemId) { toast.error("Selecione o setor origem"); return; }
+    const origem = (setores as any[]).find(s => s.id === linkOrigemId);
+    const origemRiscos = snapshot.setores[linkOrigemId]?.riscos || [];
+    if (origemRiscos.length === 0) { toast.error("O setor origem não possui riscos cadastrados"); return; }
+
+    setLinking(true);
+    const destinoId = linkModal.destinoId;
+    const atuais = snapshot.setores[destinoId]?.riscos || [];
+    const copiados = origemRiscos.map(r => ({ ...r, id: crypto.randomUUID() }));
+    const novosRiscos = modo === "replace" ? copiados : [...atuais, ...copiados];
+
+    const novoSnap: PgrSnapshot = {
+      ...snapshot,
+      setores: {
+        ...snapshot.setores,
+        [destinoId]: { riscos: novosRiscos, vinculado_de: origem?.nome_setor || null },
+      },
+    };
+    setSnapshot(novoSnap);
+    await persist({ snapshot: novoSnap });
+    setLinking(false);
+    setLinkModal(null);
+    toast.success(`${copiados.length} risco(s) vinculado(s) de ${origem?.nome_setor}`);
+  };
+
   // ============ EPI / Treinamentos helpers ============
   const epiBlocos: EpiBloco[] = snapshot.epi_blocos || [];
   const treinBlocos: TreinBloco[] = snapshot.treinamento_blocos || [];
