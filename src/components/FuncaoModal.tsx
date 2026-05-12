@@ -82,6 +82,10 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
             <Label>Descrição das Atividades</Label>
             <Textarea className="mt-1" placeholder="Descreva as atividades exercidas" value={descAtividades} onChange={e => setDescAtividades(e.target.value)} />
           </div>
+          <div>
+            <Label>Expostos</Label>
+            <Input className="mt-1" type="number" min="0" placeholder="Quantidade de trabalhadores expostos" value={expostos} onChange={e => setExpostos(e.target.value)} />
+          </div>
         </div>
 
         <DialogFooter>
