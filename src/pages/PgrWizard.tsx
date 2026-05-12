@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { sortByGes } from "@/lib/sortGes";
+import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
 type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
 
