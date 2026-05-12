@@ -51,8 +51,8 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
         .insert({
           setor_id: setor.id,
           nome_funcao: nomeFuncao.trim(),
-          cbo_codigo: cboCodigo || null,
-          cbo_descricao: cboDescricao || null,
+          cbo_codigo: cbo || null,
+          cbo_descricao: null,
           descricao_atividades: descAtividades || null,
           expostos: expostos || null,
         } as any);
