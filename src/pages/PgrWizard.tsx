@@ -1234,7 +1234,24 @@ export default function PgrWizard() {
     );
   }
 
-  // ============ STEP 4 — Gerar Documento ============
+  // ============ STEP 4 — Cronograma do PGR ============
+  if (step === 4) {
+    return <CronogramaStep
+      goToStep={goToStep}
+      saving={saving}
+      empresaId={empresaId}
+      empresaNome={empresaNome}
+      cronograma={cronograma}
+      addCronoItem={addCronoItem}
+      updateCronoItem={updateCronoItem}
+      removeCronoItem={removeCronoItem}
+      replaceCronograma={replaceCronograma}
+      appendCronograma={appendCronograma}
+      persist={persist}
+    />;
+  }
+
+  // ============ STEP 5 — Gerar Documento ============
   if (step === 5) {
     const buildTemplateData = () => {
       const emp: any = (empresas as any[]).find(e => e.id === empresaId) || {};
