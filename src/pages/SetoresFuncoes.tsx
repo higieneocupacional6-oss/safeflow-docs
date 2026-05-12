@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft } from "lucide-react";
+import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +51,21 @@ export default function SetoresFuncoes() {
   const [moveFuncao, setMoveFuncao] = useState<any>(null);
   const [moveTargetSetor, setMoveTargetSetor] = useState("");
   const [movingFuncao, setMovingFuncao] = useState(false);
+
+  // Delete funcao state
+  const [deleteFuncao, setDeleteFuncao] = useState<any>(null);
+  const [deletingFuncao, setDeletingFuncao] = useState(false);
+
+  const handleDeleteFuncao = async () => {
+    if (!deleteFuncao) return;
+    setDeletingFuncao(true);
+    const { error } = await supabase.from("funcoes").delete().eq("id", deleteFuncao.id);
+    setDeletingFuncao(false);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    toast.success("Função excluída!");
+    setDeleteFuncao(null);
+    handleSaved();
+  };
 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
@@ -245,6 +261,9 @@ export default function SetoresFuncoes() {
                         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleMoveFuncao(f)} title="Trocar Setor">
                           <ArrowRightLeft className="w-3.5 h-3.5" />
                         </Button>
+                        <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteFuncao(f)} title="Excluir Função">
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
                       </div>
                     </div>
                   ))}
@@ -284,12 +303,13 @@ export default function SetoresFuncoes() {
             <div><Label>Nome da Função *</Label><Input className="mt-1" value={editFuncaoForm.nome_funcao} onChange={e => setEditFuncaoForm(p => ({ ...p, nome_funcao: e.target.value }))} /></div>
             <div>
               <Label>CBO</Label>
-              <CboAutocomplete
+              <Input
+                className="mt-1"
+                placeholder="Ex: 5143-25 ou Técnico de Segurança"
                 value={editFuncaoForm.cbo_codigo}
-                onSelect={(codigo, descricao) => setEditFuncaoForm(p => ({ ...p, cbo_codigo: codigo, cbo_descricao: descricao }))}
+                onChange={e => setEditFuncaoForm(p => ({ ...p, cbo_codigo: e.target.value, cbo_descricao: "" }))}
               />
             </div>
-            {editFuncaoForm.cbo_descricao && <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">CBO: {editFuncaoForm.cbo_codigo} — {editFuncaoForm.cbo_descricao}</p>}
             <div><Label>Descrição das Atividades</Label><Textarea className="mt-1" value={editFuncaoForm.descricao_atividades} onChange={e => setEditFuncaoForm(p => ({ ...p, descricao_atividades: e.target.value }))} /></div>
           </div>
           <DialogFooter>
@@ -326,6 +346,24 @@ export default function SetoresFuncoes() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Funcao Confirmation */}
+      <AlertDialog open={!!deleteFuncao} onOpenChange={(o) => !o && setDeleteFuncao(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir função?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteFuncao?.nome_funcao}</strong>? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingFuncao}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteFuncao} disabled={deletingFuncao} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingFuncao && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
