@@ -232,19 +232,31 @@ export default function PgrWizard() {
   const updateRevisao = (i: number, f: keyof Revisao, v: string) =>
     setRevisoes(prev => prev.map((r, idx) => (idx === i ? { ...r, [f]: v } : r)));
 
-  const buildPayload = (overrides: Partial<{ step: number; snapshot: PgrSnapshot }> = {}) => ({
-    tipo: "PGR",
-    empresa_id: empresaId || null,
-    empresa_nome: empresaNome || "",
-    responsavel_tecnico: responsavelTecnico || null,
-    crea: crea || null,
-    cargo: cargo || null,
-    data_elaboracao: dataElaboracao || null,
-    revisoes: revisoes as any,
-    current_step: overrides.step ?? step,
-    draft_snapshot: (overrides.snapshot ?? snapshot) as any,
-    status: "rascunho",
-  });
+  const buildPayload = (overrides: Partial<{ step: number; snapshot: PgrSnapshot }> = {}) => {
+    const baseSnap = overrides.snapshot ?? snapshot;
+    const snapWithIdent: any = {
+      ...baseSnap,
+      identificacao: {
+        ...((baseSnap as any).identificacao || {}),
+        vigencia_inicio: vigenciaInicio || "",
+        vigencia_fim: vigenciaFim || "",
+        responsavel: responsavelTecnico || "",
+      },
+    };
+    return {
+      tipo: "PGR",
+      empresa_id: empresaId || null,
+      empresa_nome: empresaNome || "",
+      responsavel_tecnico: responsavelTecnico || null,
+      crea: crea || null,
+      cargo: cargo || null,
+      data_elaboracao: dataElaboracao || null,
+      revisoes: revisoes as any,
+      current_step: overrides.step ?? step,
+      draft_snapshot: snapWithIdent,
+      status: "rascunho",
+    };
+  };
 
   const persist = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
     setSaving(true);
