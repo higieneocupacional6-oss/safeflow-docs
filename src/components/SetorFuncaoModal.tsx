@@ -106,14 +106,13 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
               </div>
               <div>
                 <Label>CBO</Label>
-                <CboAutocomplete
-                  value={cboCodigo}
-                  onSelect={(codigo, descricao) => { setCboCodigo(codigo); setCboDescricao(descricao); }}
+                <Input
+                  className="mt-1"
+                  placeholder="Ex: 5143-25 ou Técnico de Segurança"
+                  value={cbo}
+                  onChange={e => setCbo(e.target.value)}
                 />
               </div>
-              {cboDescricao && (
-                <p className="text-xs text-muted-foreground bg-muted/50 p-2 rounded">CBO: {cboCodigo} — {cboDescricao}</p>
-              )}
               <div>
                 <Label>Descrição das Atividades</Label>
                 <Textarea className="mt-1" placeholder="Descreva as atividades exercidas na função" value={descAtividades} onChange={e => setDescAtividades(e.target.value)} />
