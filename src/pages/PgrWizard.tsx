@@ -1057,6 +1057,7 @@ export default function PgrWizard() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {(setores as any[]).map(s => {
               const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
+              const vinc = snapshot.setores[s.id]?.vinculado_de;
               return (
                 <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
                   <div className="flex items-start justify-between">
@@ -1067,10 +1068,20 @@ export default function PgrWizard() {
                         {s.ghe_ges && <p className="text-xs text-muted-foreground">GHE/GES: {s.ghe_ges}</p>}
                       </div>
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" title="Vincular riscos de outro setor" onClick={(e) => openLinkModal(e, s)}>
+                        <Link2 className="w-4 h-4" />
+                      </Button>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
+                    </div>
                   </div>
-                  <div className="mt-3 flex items-center gap-2">
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
+                    {vinc && (
+                      <Badge variant="outline" className="gap-1">
+                        <Link2 className="w-3 h-3" /> Vinculado de: {vinc}
+                      </Badge>
+                    )}
                   </div>
                 </Card>
               );
@@ -1084,6 +1095,48 @@ export default function PgrWizard() {
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
           </Button>
         </div>
+
+        {/* Modal Vincular riscos */}
+        <Dialog open={!!linkModal} onOpenChange={(o) => !o && setLinkModal(null)}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Vincular riscos de outro setor</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3 py-2">
+              <p className="text-sm text-muted-foreground">
+                Destino: <strong>{linkModal?.destinoNome}</strong>
+              </p>
+              <div>
+                <Label>Selecionar setor origem</Label>
+                <Select value={linkOrigemId} onValueChange={(v) => { setLinkOrigemId(v); setLinkConfirm(null); }}>
+                  <SelectTrigger className="mt-1"><SelectValue placeholder="Escolha o setor" /></SelectTrigger>
+                  <SelectContent>
+                    {(setores as any[])
+                      .filter(s => s.id !== linkModal?.destinoId)
+                      .map(s => {
+                        const q = snapshot.setores[s.id]?.riscos?.length || 0;
+                        return <SelectItem key={s.id} value={s.id}>{s.nome_setor} ({q} risco{q !== 1 ? "s" : ""})</SelectItem>;
+                      })}
+                  </SelectContent>
+                </Select>
+              </div>
+              {linkOrigemId && (
+                <div className="rounded-md border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+                  ⚠️ Deseja copiar todos os riscos deste setor? Os riscos atuais do setor destino poderão ser mantidos ou substituídos.
+                </div>
+              )}
+            </div>
+            <DialogFooter className="gap-2 flex-wrap">
+              <Button variant="outline" onClick={() => setLinkModal(null)} disabled={linking}>Cancelar</Button>
+              <Button variant="outline" onClick={() => aplicarVinculacao("add")} disabled={!linkOrigemId || linking}>
+                {linking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Adicionar aos existentes
+              </Button>
+              <Button onClick={() => aplicarVinculacao("replace")} disabled={!linkOrigemId || linking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {linking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Substituir existentes
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
