@@ -20,6 +20,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { sortByGes } from "@/lib/sortGes";
+import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
 type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
 
@@ -45,10 +46,20 @@ type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: 
 type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
 type TreinItem = { id: string; nome_treinamento: string };
 type TreinBloco = { id: string; funcao_ids: string[]; treinamentos: TreinItem[] };
+type CronogramaItem = {
+  id: string;
+  item: string;
+  acao: string;
+  responsavel: string;
+  prazo_mes: string; // "01".."12"
+  prazo_ano: string; // "2026"
+  situacao: "Previsto" | "Realizado" | "";
+};
 type PgrSnapshot = {
   setores: Record<string, PgrSetorData>;
   epi_blocos?: EpiBloco[];
   treinamento_blocos?: TreinBloco[];
+  cronograma_pgr?: CronogramaItem[];
 };
 
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
@@ -449,6 +460,33 @@ export default function PgrWizard() {
         ? { ...b, treinamentos: b.treinamentos.filter(i => i.id !== itemId) }
         : b),
     }));
+
+  // ============ Cronograma do PGR helpers ============
+  const cronograma: CronogramaItem[] = snapshot.cronograma_pgr || [];
+
+  const emptyCronoItem = (): CronogramaItem => ({
+    id: crypto.randomUUID(), item: "", acao: "", responsavel: "",
+    prazo_mes: "", prazo_ano: String(new Date().getFullYear()), situacao: "Previsto",
+  });
+
+  const addCronoItem = () =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: [...(s.cronograma_pgr || []), emptyCronoItem()] }));
+
+  const updateCronoItem = (id: string, patch: Partial<CronogramaItem>) =>
+    setSnapshot(s => ({
+      ...s,
+      cronograma_pgr: (s.cronograma_pgr || []).map(c => c.id === id ? { ...c, ...patch } : c),
+    }));
+
+  const removeCronoItem = (id: string) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: (s.cronograma_pgr || []).filter(c => c.id !== id) }));
+
+  const replaceCronograma = (items: CronogramaItem[]) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: items.map(i => ({ ...i, id: crypto.randomUUID() })) }));
+
+  const appendCronograma = (items: CronogramaItem[]) =>
+    setSnapshot(s => ({ ...s, cronograma_pgr: [...(s.cronograma_pgr || []), ...items.map(i => ({ ...i, id: crypto.randomUUID() }))] }));
+
 
   const goToStep = async (n: number) => {
     const id = await persist({ step: n, snapshot });
@@ -1189,7 +1227,7 @@ export default function PgrWizard() {
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
             </Button>
             <Button onClick={() => goToStep(4)} disabled={saving}>
-              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Finalizar
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
             </Button>
           </div>
         </div>
@@ -1197,8 +1235,25 @@ export default function PgrWizard() {
     );
   }
 
-  // ============ STEP 4 — Gerar Documento ============
+  // ============ STEP 4 — Cronograma do PGR ============
   if (step === 4) {
+    return <PgrCronogramaStep
+      goToStep={goToStep}
+      saving={saving}
+      empresaId={empresaId}
+      empresaNome={empresaNome}
+      cronograma={cronograma}
+      addCronoItem={addCronoItem}
+      updateCronoItem={updateCronoItem}
+      removeCronoItem={removeCronoItem}
+      replaceCronograma={replaceCronograma}
+      appendCronograma={appendCronograma}
+      persist={persist}
+    />;
+  }
+
+  // ============ STEP 5 — Gerar Documento ============
+  if (step === 5) {
     const buildTemplateData = () => {
       const emp: any = (empresas as any[]).find(e => e.id === empresaId) || {};
       const setoresOrdenados = sortByGes(setores as any[]);
@@ -1259,6 +1314,19 @@ export default function PgrWizard() {
           funcao: f.nome_funcao, nome_treinamento: t.nome_treinamento,
         })));
       });
+      const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
+        const mesNum = parseInt(c.prazo_mes || "0", 10);
+        const mesLabel = mesNum >= 1 && mesNum <= 12 ? MESES_PT[mesNum] : "";
+        const prazo = mesLabel && c.prazo_ano ? `${mesLabel}/${c.prazo_ano}` : (c.prazo_ano || "");
+        return {
+          item_cronograma: c.item || "",
+          acao_cronograma: c.acao || "",
+          responsavel_cronograma: c.responsavel || "",
+          prazo_cronograma: prazo,
+          situacao_cronograma: c.situacao || "",
+        };
+      });
       return {
         empresa: empresaNome,
         razao_social: emp.razao_social || empresaNome,
@@ -1273,6 +1341,7 @@ export default function PgrWizard() {
         setores: setoresArr,
         epis,
         treinamentos,
+        cronograma_pgr,
       };
     };
 
@@ -1333,7 +1402,7 @@ export default function PgrWizard() {
           setSavedFilePath(storagePath);
         }
         const { error } = await supabase.from("documentos").update({
-          ...buildPayload({ step: 4 }),
+          ...buildPayload({ step: 5 }),
           template_id: selectedTemplate || null,
           file_path: filePath || null,
           status: generatedBlob ? "concluido" : "rascunho",
@@ -1355,7 +1424,7 @@ export default function PgrWizard() {
     return (
       <div className="max-w-3xl mx-auto pb-12">
         <div className="flex items-center gap-3 mb-6">
-          <Button variant="ghost" size="icon" onClick={() => goToStep(3)}><ArrowLeft className="w-5 h-5" /></Button>
+          <Button variant="ghost" size="icon" onClick={() => goToStep(4)}><ArrowLeft className="w-5 h-5" /></Button>
           <div>
             <h1 className="text-2xl font-heading font-bold">Gerar Documento PGR</h1>
             <p className="text-sm text-muted-foreground">{empresaNome}</p>
@@ -1400,7 +1469,7 @@ export default function PgrWizard() {
         </Card>
 
         <div className="flex justify-between mt-6">
-          <Button variant="outline" onClick={() => goToStep(3)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
+          <Button variant="outline" onClick={() => goToStep(4)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
         </div>
       </div>
     );

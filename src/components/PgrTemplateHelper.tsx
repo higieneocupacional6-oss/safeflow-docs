@@ -75,6 +75,15 @@ const groups = [
       "{{#treinamentos}}", "{{funcao}}", "{{nome_treinamento}}", "{{/treinamentos}}",
     ],
   },
+  {
+    title: "Cronograma do PGR (loop)",
+    vars: [
+      "{{#cronograma_pgr}}",
+      "{{item_cronograma}}", "{{acao_cronograma}}", "{{responsavel_cronograma}}",
+      "{{prazo_cronograma}}", "{{situacao_cronograma}}",
+      "{{/cronograma_pgr}}",
+    ],
+  },
 ];
 
 const exemplo = `{{#ghe_setores}}
@@ -96,7 +105,12 @@ Riscos:
 {{/ghe_setores}}
 
 Dica para tabelas no .docx: coloque {{#riscos_ghe}} ... {{/riscos_ghe}}
-SOMENTE na linha de dados da tabela, nunca envolvendo a tabela inteira.`;
+SOMENTE na linha de dados da tabela, nunca envolvendo a tabela inteira.
+
+Cronograma (use somente na LINHA da tabela):
+{{#cronograma_pgr}}
+| {{item_cronograma}} | {{acao_cronograma}} | {{responsavel_cronograma}} | {{prazo_cronograma}} | {{situacao_cronograma}} |
+{{/cronograma_pgr}}`;
 
 export function PgrTemplateHelper() {
   const [open, setOpen] = useState(false);
