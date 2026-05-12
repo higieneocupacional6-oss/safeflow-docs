@@ -55,7 +55,8 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
           cbo_codigo: cboCodigo || null,
           cbo_descricao: cboDescricao || null,
           descricao_atividades: descAtividades || null,
-        });
+          expostos: expostos || null,
+        } as any);
       if (fErr) throw fErr;
 
       toast.success("Setor e função cadastrados com sucesso!");
