@@ -1370,7 +1370,7 @@ export default function PgrWizard() {
           setSavedFilePath(storagePath);
         }
         const { error } = await supabase.from("documentos").update({
-          ...buildPayload({ step: 4 }),
+          ...buildPayload({ step: 5 }),
           template_id: selectedTemplate || null,
           file_path: filePath || null,
           status: generatedBlob ? "concluido" : "rascunho",
