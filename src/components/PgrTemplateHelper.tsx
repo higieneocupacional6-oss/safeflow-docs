@@ -77,17 +77,26 @@ const groups = [
   },
 ];
 
-const exemplo = `{{#setores}}
-Setor: {{nome_setor}}
-{{#riscos}}
-  - Agente: {{agente}}
-    Probabilidade: {{probabilidade}}
-    Severidade: {{severidade}}
-    Nível: {{nivel_risco}}
-    Classificação: {{classificacao_risco}}
-    Resultado: {{resultado_matriz_risco}}
-{{/riscos}}
-{{/setores}}`;
+const exemplo = `{{#ghe_setores}}
+GHE: {{ghe_ges}} — {{nome_setor}}
+Ambiente: {{descricao_ambiente}}
+
+Funções:
+{{#funcoes_ghe}}
+  - {{nome_funcao}} (CBO {{cbo_codigo}}) — {{descricao_atividades}}
+{{/funcoes_ghe}}
+
+Riscos:
+{{#riscos_ghe}}
+  - {{tipo_agente}} | {{agente_nome}}
+    Fonte: {{fonte_geradora}} | Exposição: {{tipo_exposicao}}
+    Probabilidade: {{probabilidade}} | Severidade: {{severidade}}
+    Nível: {{nivel_risco}} ({{classificacao_risco}}) — Resultado: {{resultado_matriz_risco}}
+{{/riscos_ghe}}
+{{/ghe_setores}}
+
+Dica para tabelas no .docx: coloque {{#riscos_ghe}} ... {{/riscos_ghe}}
+SOMENTE na linha de dados da tabela, nunca envolvendo a tabela inteira.`;
 
 export function PgrTemplateHelper() {
   const [open, setOpen] = useState(false);
