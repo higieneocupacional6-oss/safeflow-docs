@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft } from "lucide-react";
+import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft, Trash2 } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
