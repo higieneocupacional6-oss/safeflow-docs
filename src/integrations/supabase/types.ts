@@ -582,6 +582,7 @@ export type Database = {
           cbo_descricao: string | null
           created_at: string
           descricao_atividades: string | null
+          expostos: string | null
           id: string
           nome_funcao: string
           setor_id: string
@@ -592,6 +593,7 @@ export type Database = {
           cbo_descricao?: string | null
           created_at?: string
           descricao_atividades?: string | null
+          expostos?: string | null
           id?: string
           nome_funcao: string
           setor_id: string
@@ -602,6 +604,7 @@ export type Database = {
           cbo_descricao?: string | null
           created_at?: string
           descricao_atividades?: string | null
+          expostos?: string | null
           id?: string
           nome_funcao?: string
           setor_id?: string

@@ -24,9 +24,10 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
   const [cboCodigo, setCboCodigo] = useState("");
   const [cboDescricao, setCboDescricao] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
+  const [expostos, setExpostos] = useState("");
 
   const reset = () => {
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades("");
+    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
@@ -40,7 +41,8 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
         cbo_codigo: cboCodigo || null,
         cbo_descricao: cboDescricao || null,
         descricao_atividades: descAtividades || null,
-      });
+        expostos: expostos || null,
+      } as any);
       if (error) throw error;
 
       toast.success("Função cadastrada com sucesso!");
@@ -79,6 +81,10 @@ export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
           <div>
             <Label>Descrição das Atividades</Label>
             <Textarea className="mt-1" placeholder="Descreva as atividades exercidas" value={descAtividades} onChange={e => setDescAtividades(e.target.value)} />
+          </div>
+          <div>
+            <Label>Expostos</Label>
+            <Input className="mt-1" type="number" min="0" placeholder="Quantidade de trabalhadores expostos" value={expostos} onChange={e => setExpostos(e.target.value)} />
           </div>
         </div>
 

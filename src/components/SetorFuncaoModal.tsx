@@ -27,10 +27,11 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
   const [cboCodigo, setCboCodigo] = useState("");
   const [cboDescricao, setCboDescricao] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
+  const [expostos, setExpostos] = useState("");
 
   const reset = () => {
     setGheGes(""); setNomeSetor(""); setDescAmbiente("");
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades("");
+    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
@@ -54,7 +55,8 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
           cbo_codigo: cboCodigo || null,
           cbo_descricao: cboDescricao || null,
           descricao_atividades: descAtividades || null,
-        });
+          expostos: expostos || null,
+        } as any);
       if (fErr) throw fErr;
 
       toast.success("Setor e função cadastrados com sucesso!");
@@ -116,6 +118,10 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
               <div>
                 <Label>Descrição das Atividades</Label>
                 <Textarea className="mt-1" placeholder="Descreva as atividades exercidas na função" value={descAtividades} onChange={e => setDescAtividades(e.target.value)} />
+              </div>
+              <div>
+                <Label>Expostos</Label>
+                <Input className="mt-1" type="number" min="0" placeholder="Quantidade de trabalhadores expostos" value={expostos} onChange={e => setExpostos(e.target.value)} />
               </div>
             </div>
           </div>
