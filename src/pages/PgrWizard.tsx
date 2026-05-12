@@ -204,7 +204,12 @@ export default function PgrWizard() {
           setRevisoes(Array.isArray(data.revisoes) ? (data.revisoes as any[]) : []);
           setStep(typeof (data as any).current_step === "number" ? (data as any).current_step : 0);
           const snap = (data as any).draft_snapshot;
-          if (snap && typeof snap === "object" && snap.setores) setSnapshot(snap as PgrSnapshot);
+          if (snap && typeof snap === "object" && snap.setores) {
+            setSnapshot(snap as PgrSnapshot);
+            const ident = (snap as any).identificacao || {};
+            setVigenciaInicio(ident.vigencia_inicio || "");
+            setVigenciaFim(ident.vigencia_fim || "");
+          }
           if ((data as any).template_id) setSelectedTemplate((data as any).template_id);
           if ((data as any).file_path) setSavedFilePath((data as any).file_path);
         }
