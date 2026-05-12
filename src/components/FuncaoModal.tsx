@@ -21,13 +21,12 @@ interface Props {
 export function FuncaoModal({ open, onOpenChange, setorId, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [nomeFuncao, setNomeFuncao] = useState("");
-  const [cboCodigo, setCboCodigo] = useState("");
-  const [cboDescricao, setCboDescricao] = useState("");
+  const [cbo, setCbo] = useState("");
   const [descAtividades, setDescAtividades] = useState("");
   const [expostos, setExpostos] = useState("");
 
   const reset = () => {
-    setNomeFuncao(""); setCboCodigo(""); setCboDescricao(""); setDescAtividades(""); setExpostos("");
+    setNomeFuncao(""); setCbo(""); setDescAtividades(""); setExpostos("");
   };
 
   const handleSave = async () => {
