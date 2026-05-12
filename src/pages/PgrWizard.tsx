@@ -1296,6 +1296,19 @@ export default function PgrWizard() {
           funcao: f.nome_funcao, nome_treinamento: t.nome_treinamento,
         })));
       });
+      const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+      const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
+        const mesNum = parseInt(c.prazo_mes || "0", 10);
+        const mesLabel = mesNum >= 1 && mesNum <= 12 ? MESES_PT[mesNum] : "";
+        const prazo = mesLabel && c.prazo_ano ? `${mesLabel}/${c.prazo_ano}` : (c.prazo_ano || "");
+        return {
+          item_cronograma: c.item || "",
+          acao_cronograma: c.acao || "",
+          responsavel_cronograma: c.responsavel || "",
+          prazo_cronograma: prazo,
+          situacao_cronograma: c.situacao || "",
+        };
+      });
       return {
         empresa: empresaNome,
         razao_social: emp.razao_social || empresaNome,
@@ -1310,6 +1323,7 @@ export default function PgrWizard() {
         setores: setoresArr,
         epis,
         treinamentos,
+        cronograma_pgr,
       };
     };
 
