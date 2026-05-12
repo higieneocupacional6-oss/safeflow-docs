@@ -75,6 +75,15 @@ const groups = [
       "{{#treinamentos}}", "{{funcao}}", "{{nome_treinamento}}", "{{/treinamentos}}",
     ],
   },
+  {
+    title: "Cronograma do PGR (loop)",
+    vars: [
+      "{{#cronograma_pgr}}",
+      "{{item_cronograma}}", "{{acao_cronograma}}", "{{responsavel_cronograma}}",
+      "{{prazo_cronograma}}", "{{situacao_cronograma}}",
+      "{{/cronograma_pgr}}",
+    ],
+  },
 ];
 
 const exemplo = `{{#ghe_setores}}
