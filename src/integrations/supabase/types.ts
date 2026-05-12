@@ -1356,6 +1356,7 @@ export type Database = {
           epi_eficaz: string | null
           fonte_geradora: string | null
           id: string
+          is_padrao: boolean
           medidas_controle: string | null
           nome: string
           propagacao: string[] | null
@@ -1372,6 +1373,7 @@ export type Database = {
           epi_eficaz?: string | null
           fonte_geradora?: string | null
           id?: string
+          is_padrao?: boolean
           medidas_controle?: string | null
           nome: string
           propagacao?: string[] | null
@@ -1388,6 +1390,7 @@ export type Database = {
           epi_eficaz?: string | null
           fonte_geradora?: string | null
           id?: string
+          is_padrao?: boolean
           medidas_controle?: string | null
           nome?: string
           propagacao?: string[] | null
