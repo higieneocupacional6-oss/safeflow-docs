@@ -558,9 +558,15 @@ export default function PgrWizard() {
               <Label className="text-xs font-bold uppercase">Cargo</Label>
               <Input className="mt-1" value={cargo} onChange={e => setCargo(e.target.value)} />
             </div>
-            <div>
-              <Label className="text-xs font-bold uppercase">Data de Elaboração</Label>
-              <Input className="mt-1" type="date" value={dataElaboracao} onChange={e => setDataElaboracao(e.target.value)} />
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <Label className="text-xs font-bold uppercase">Vigência — Início</Label>
+                <Input className="mt-1" type="date" value={vigenciaInicio} onChange={e => setVigenciaInicio(e.target.value)} />
+              </div>
+              <div>
+                <Label className="text-xs font-bold uppercase">Vigência — Fim</Label>
+                <Input className="mt-1" type="date" value={vigenciaFim} onChange={e => setVigenciaFim(e.target.value)} />
+              </div>
             </div>
           </div>
         </Card>
