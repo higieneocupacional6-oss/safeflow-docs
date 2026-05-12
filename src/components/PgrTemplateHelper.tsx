@@ -7,10 +7,39 @@ import { toast } from "sonner";
 
 const groups = [
   {
+    title: "Empresa",
+    vars: [
+      "{{empresa}}", "{{razao_social}}", "{{nome_fantasia}}", "{{cnpj}}",
+      "{{cnae_principal}}", "{{grau_risco}}", "{{endereco}}",
+      "{{total_funcionarios}}", "{{numero_funcionarios_masc}}", "{{numero_funcionarios_fem}}",
+      "{{jornada_trabalho}}", "{{expostos}}",
+    ],
+  },
+  {
+    title: "Contrato",
+    vars: [
+      "{{numero_contrato}}", "{{nome_contratante}}", "{{cnpj_contratante}}",
+      "{{escopo_contrato}}", "{{local_trabalho}}",
+    ],
+  },
+  {
+    title: "Preposto",
+    vars: ["{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}"],
+  },
+  {
+    title: "Gestor",
+    vars: ["{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}"],
+  },
+  {
+    title: "Fiscal",
+    vars: ["{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}"],
+  },
+  {
     title: "Identificação do PGR",
     vars: [
-      "{{empresa}}", "{{cnpj}}", "{{razao_social}}", "{{responsavel_tecnico}}",
-      "{{crea}}", "{{cargo}}", "{{data_elaboracao}}",
+      "{{responsavel}}", "{{responsavel_tecnico}}", "{{crea}}", "{{cargo}}",
+      "{{data_elaboracao}}", "{{data_revisao}}",
+      "{{vigencia_inicio}}", "{{vigencia_fim}}",
     ],
   },
   {
@@ -28,7 +57,8 @@ const groups = [
   {
     title: "Funções do GHE (loop dentro de ghe_setores)",
     vars: [
-      "{{#funcoes_ghe}}", "{{nome_funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{/funcoes_ghe}}",
+      "{{#funcoes_ghe}}", "{{nome_funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}",
+      "{{descricao_atividades}}", "{{expostos}}", "{{/funcoes_ghe}}",
     ],
   },
   {
@@ -66,13 +96,14 @@ const groups = [
   {
     title: "EPIs (loop)",
     vars: [
-      "{{#epis}}", "{{funcao}}", "{{nome_epi}}", "{{ca}}", "{{uso}}", "{{/epis}}",
+      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{nome_epi}}", "{{ca}}", "{{uso}}", "{{/epis}}",
     ],
   },
   {
-    title: "Treinamentos (loop)",
+    title: "Treinamentos (loop — agrupado por função)",
     vars: [
-      "{{#treinamentos}}", "{{funcao}}", "{{nome_treinamento}}", "{{/treinamentos}}",
+      "{{#treinamentos}}", "{{funcao}}", "{{nome_funcao}}",
+      "{{treinamentos_funcao}}", "{{/treinamentos}}",
     ],
   },
   {
