@@ -20,13 +20,36 @@ const groups = [
     ],
   },
   {
-    title: "Setores (loop)",
+    title: "GHE / Setores (loop principal)",
+    vars: [
+      "{{#ghe_setores}}", "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}", "{{/ghe_setores}}",
+    ],
+  },
+  {
+    title: "Funções do GHE (loop dentro de ghe_setores)",
+    vars: [
+      "{{#funcoes_ghe}}", "{{nome_funcao}}", "{{cbo_codigo}}", "{{cbo_descricao}}", "{{descricao_atividades}}", "{{/funcoes_ghe}}",
+    ],
+  },
+  {
+    title: "Riscos / Agentes do GHE (loop dentro de ghe_setores)",
+    vars: [
+      "{{#riscos_ghe}}", "{{tipo_agente}}", "{{agente_nome}}", "{{fonte_geradora}}",
+      "{{tipo_avaliacao}}", "{{tipo_exposicao}}", "{{propagacao}}",
+      "{{danos_saude}}", "{{medidas_controle}}",
+      "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}",
+      "{{classificacao_risco}}", "{{resultado_matriz_risco}}",
+      "{{/riscos_ghe}}",
+    ],
+  },
+  {
+    title: "Setores (legado — equivalente a ghe_setores)",
     vars: [
       "{{#setores}}", "{{nome_setor}}", "{{ghe_ges}}", "{{descricao_ambiente}}", "{{/setores}}",
     ],
   },
   {
-    title: "Riscos (loop dentro do setor)",
+    title: "Riscos (legado — equivalente a riscos_ghe)",
     vars: [
       "{{#riscos}}", "{{agente}}", "{{agente_nome}}", "{{tipo_agente}}", "{{tipo_avaliacao}}",
       "{{codigo_esocial}}", "{{descricao_esocial}}", "{{propagacao}}", "{{tipo_exposicao}}",
