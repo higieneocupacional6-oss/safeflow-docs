@@ -479,6 +479,18 @@ export default function Cadastros() {
                 <ClipboardList className="w-4 h-4" /> Controle de Equipamentos
               </Button>
             )}
+            {tab === "riscos" && (
+              <Button
+                variant="outline"
+                onClick={() => setDedupConfirm(true)}
+                disabled={dedupRunning}
+                className="gap-2"
+                title="Mescla riscos duplicados (mesmo nome + tipo) mantendo um único registro padronizado"
+              >
+                <Sparkles className="w-4 h-4" />
+                {dedupRunning ? "Removendo..." : "Remover duplicados"}
+              </Button>
+            )}
             <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="w-4 h-4 mr-2" />Novo
             </Button>
