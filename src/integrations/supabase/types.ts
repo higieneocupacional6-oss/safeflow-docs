@@ -191,17 +191,20 @@ export type Database = {
           created_at: string
           current_step: number
           data_elaboracao: string | null
+          data_validade: string | null
           draft_snapshot: Json | null
           empresa_id: string | null
           empresa_nome: string
           file_path: string | null
           id: string
+          nome_documento: string | null
           responsavel_tecnico: string | null
           revisoes: Json
           status: string
           template_id: string | null
           tipo: string
           updated_at: string
+          upload_file_path: string | null
         }
         Insert: {
           alteracoes_documento?: string | null
@@ -211,17 +214,20 @@ export type Database = {
           created_at?: string
           current_step?: number
           data_elaboracao?: string | null
+          data_validade?: string | null
           draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          nome_documento?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
           status?: string
           template_id?: string | null
           tipo: string
           updated_at?: string
+          upload_file_path?: string | null
         }
         Update: {
           alteracoes_documento?: string | null
@@ -231,17 +237,20 @@ export type Database = {
           created_at?: string
           current_step?: number
           data_elaboracao?: string | null
+          data_validade?: string | null
           draft_snapshot?: Json | null
           empresa_id?: string | null
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          nome_documento?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
           status?: string
           template_id?: string | null
           tipo?: string
           updated_at?: string
+          upload_file_path?: string | null
         }
         Relationships: [
           {
@@ -1283,6 +1292,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      notificacoes: {
+        Row: {
+          contrato_id: string | null
+          contrato_numero: string | null
+          created_at: string
+          data_vencimento: string
+          documento_id: string
+          documento_nome: string | null
+          documento_tipo: string | null
+          empresa_id: string | null
+          empresa_nome: string | null
+          id: string
+          lida: boolean
+          tipo: string
+        }
+        Insert: {
+          contrato_id?: string | null
+          contrato_numero?: string | null
+          created_at?: string
+          data_vencimento: string
+          documento_id: string
+          documento_nome?: string | null
+          documento_tipo?: string | null
+          empresa_id?: string | null
+          empresa_nome?: string | null
+          id?: string
+          lida?: boolean
+          tipo: string
+        }
+        Update: {
+          contrato_id?: string | null
+          contrato_numero?: string | null
+          created_at?: string
+          data_vencimento?: string
+          documento_id?: string
+          documento_nome?: string | null
+          documento_tipo?: string | null
+          empresa_id?: string | null
+          empresa_nome?: string | null
+          id?: string
+          lida?: boolean
+          tipo?: string
+        }
+        Relationships: []
       }
       pareceres_tecnicos: {
         Row: {
