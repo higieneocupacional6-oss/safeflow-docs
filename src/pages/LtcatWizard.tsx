@@ -4524,13 +4524,52 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                   <Label className="text-[10px] font-bold uppercase">Nº Série</Label>
                                   <Select
                                     value={eq.registro_id || ""}
-                                    onValueChange={(v) => {
+                                    onValueChange={async (v) => {
                                       const reg = registrosOpts.find((r: any) => r.id === v);
+                                      const novaSerie = reg?.numero_serie || "";
+
+                                      // Validação: impedir duplicidade de Nº de Série em outros setores da mesma empresa (apenas LTCAT)
+                                      if (novaSerie && empresaId && currentRiskSetor?.id) {
+                                        const conflitoMem = (riscos as any[]).find((r: any) =>
+                                          r.setor_id && r.setor_id !== currentRiskSetor.id &&
+                                          (r.equipamentos_avaliacao || []).some((e: any) => (e?.serie_equipamento || "") === novaSerie)
+                                        );
+                                        if (conflitoMem) {
+                                          toast.error(`Nº de Série "${novaSerie}" já está vinculado ao setor "${conflitoMem.setor_nome || "outro setor"}" desta empresa.`);
+                                          return;
+                                        }
+                                        try {
+                                          const { data: avs } = await supabase
+                                            .from("ltcat_avaliacoes")
+                                            .select("id, setor_id")
+                                            .eq("empresa_id", empresaId)
+                                            .eq("tipo_documento", "ltcat")
+                                            .neq("setor_id", currentRiskSetor.id);
+                                          const avIds = (avs || []).map((a: any) => a.id);
+                                          if (avIds.length > 0) {
+                                            const { data: eqs } = await supabase
+                                              .from("ltcat_av_equipamentos")
+                                              .select("serie_equipamento, avaliacao_id")
+                                              .in("avaliacao_id", avIds)
+                                              .eq("serie_equipamento", novaSerie)
+                                              .limit(1);
+                                            if (eqs && eqs.length > 0) {
+                                              const setorConflitoId = (avs || []).find((a: any) => a.id === eqs[0].avaliacao_id)?.setor_id;
+                                              const nomeSetor = (setores as any[]).find((s: any) => s.id === setorConflitoId)?.nome_setor || "outro setor";
+                                              toast.error(`Nº de Série "${novaSerie}" já está vinculado ao setor "${nomeSetor}" desta empresa.`);
+                                              return;
+                                            }
+                                          }
+                                        } catch (err) {
+                                          console.warn("Falha ao validar duplicidade de série:", err);
+                                        }
+                                      }
+
                                       const updated = [...riskForm.equipamentos_avaliacao];
                                       updated[eqi] = {
                                         ...updated[eqi],
                                         registro_id: v,
-                                        serie_equipamento: reg?.numero_serie || "",
+                                        serie_equipamento: novaSerie,
                                         modelo_equipamento: reg?.marca_modelo || "",
                                         data_calibracao: reg?.data_calibracao || "",
                                       };
