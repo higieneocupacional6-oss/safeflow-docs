@@ -59,12 +59,17 @@ export function TopNav() {
           </NavLink>
 
           <nav className="hidden md:flex items-center gap-0.5 mx-auto">
-            {menuItems.map((item) => (
+            {menuItems.map((item: any) => (
               <NavLink key={item.title} to={item.url}
-                className="group relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200"
+                className="group relative flex items-center gap-2 px-3.5 py-2 rameworkrounded-lg text-[13px] font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-all duration-200 rounded-lg"
                 activeClassName="!text-primary !bg-primary/10">
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span>{item.title}</span>
+                {item.badgeKey === "notif" && notifCount > 0 && (
+                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-semibold min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white">
+                    {notifCount > 99 ? "99+" : notifCount}
+                  </span>
+                )}
               </NavLink>
             ))}
           </nav>
