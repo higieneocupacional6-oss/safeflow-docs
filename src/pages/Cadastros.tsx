@@ -1272,6 +1272,34 @@ export default function Cadastros() {
         </DialogContent>
       </Dialog>
 
+      {/* Confirmação: remover riscos duplicados */}
+      <Dialog open={dedupConfirm} onOpenChange={setDedupConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-accent" /> Remover riscos duplicados
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-2 text-sm">
+            <p>
+              O sistema irá agrupar riscos com <strong>mesmo nome e tipo</strong>, manter apenas
+              o registro padronizado (preferindo o marcado como <em>Padrão</em>) e
+              <strong> reapontar automaticamente todos os vínculos</strong> (EPI/EPC, LTCAT, pareceres)
+              para o canônico antes de excluir as duplicatas.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Nenhum documento já cadastrado será afetado — os dados permanecem íntegros.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDedupConfirm(false)} disabled={dedupRunning}>Cancelar</Button>
+            <Button onClick={handleDedupRiscos} disabled={dedupRunning} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              {dedupRunning ? "Removendo..." : "Confirmar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ControleEquipamentosModal open={controleOpen} onOpenChange={setControleOpen} />
     </div>
   );
