@@ -346,6 +346,116 @@ export default function Cadastros() {
     }
   };
 
+  // ---------- DEDUPLICAÇÃO DE RISCOS ----------
+  const handleDedupRiscos = async () => {
+    setDedupRunning(true);
+    try {
+      const normTxt = (s: string) =>
+        (s || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      const groups = new Map<string, any[]>();
+      for (const r of riscos as any[]) {
+        const key = `${normTxt(r.tipo || "")}::${normTxt(r.nome || "")}`;
+        if (!key.endsWith("::")) {
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(r);
+        }
+      }
+      let mergedGroups = 0;
+      let removed = 0;
+      for (const [, items] of groups) {
+        if (items.length < 2) continue;
+        items.sort((a, b) => {
+          if (!!b.is_padrao !== !!a.is_padrao) return b.is_padrao ? 1 : -1;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        const canonical = items[0];
+        const dups = items.slice(1);
+        for (const d of dups) {
+          // Reaponta vínculos antes de remover (mantém integridade em documentos cadastrados)
+          await supabase.from("epi_epc_riscos").update({ risco_id: canonical.id }).eq("risco_id", d.id);
+          await (supabase as any).from("ltcat_avaliacoes").update({ agente_id: canonical.id }).eq("agente_id", d.id);
+          await (supabase as any).from("pareceres_tecnicos").update({ risco_id: canonical.id }).eq("risco_id", d.id);
+          const { error } = await supabase.from("riscos").delete().eq("id", d.id);
+          if (!error) removed++;
+        }
+        mergedGroups++;
+      }
+      queryClient.invalidateQueries({ queryKey: ["riscos"] });
+      queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
+      if (removed === 0) toast.info("Nenhum risco duplicado encontrado.");
+      else toast.success(`${removed} duplicata(s) removida(s) em ${mergedGroups} grupo(s).`);
+    } catch (err: any) {
+      toast.error("Erro ao remover duplicados: " + (err.message || "Tente novamente"));
+    } finally {
+      setDedupRunning(false);
+      setDedupConfirm(false);
+    }
+  };
+
+  // ---------- CRIAÇÃO AUTOMÁTICA EM LOTE DE EPI/EPC SUGERIDOS ----------
+  const handleBulkCreateSugestoes = async () => {
+    if (epiEpcForm.risco_ids.length === 0) {
+      toast.error("Selecione pelo menos um risco para gerar sugestões.");
+      return;
+    }
+    const riscosSelecionados = (riscos as any[]).filter((r) => epiEpcForm.risco_ids.includes(r.id));
+    const sugestoes = sugerirEpiEpcParaRiscos(riscosSelecionados);
+    if (sugestoes.length === 0) {
+      toast.info("Nenhuma sugestão automática para os riscos selecionados.");
+      return;
+    }
+    setBulkCreating(true);
+    try {
+      let criados = 0;
+      let vinculados = 0;
+      const normTxt = (s: string) => (s || "").trim().toLowerCase();
+      for (const sug of sugestoes) {
+        const existing = (epiEpcList as any[]).find(
+          (i) => i.tipo === sug.tipo && normTxt(i.nome) === normTxt(sug.nome),
+        );
+        let epiId = existing?.id as string | undefined;
+        if (!epiId) {
+          const { data: ins, error } = await supabase
+            .from("epi_epc")
+            .insert({ tipo: sug.tipo, nome: sug.nome })
+            .select("id")
+            .single();
+          if (error) continue;
+          epiId = ins.id;
+          criados++;
+        }
+        const aplicaveis = riscosSelecionados.filter((r) => {
+          const s2 = sugerirEpiEpcParaRiscos([r]);
+          return s2.some((x) => x.tipo === sug.tipo && normTxt(x.nome) === normTxt(sug.nome));
+        });
+        const existingLinks = existing?.epi_epc_riscos?.map((x: any) => x.risco_id) || [];
+        const novosLinks = aplicaveis
+          .map((r) => r.id)
+          .filter((rid) => !existingLinks.includes(rid))
+          .map((rid) => ({ epi_epc_id: epiId!, risco_id: rid }));
+        if (novosLinks.length > 0) {
+          await supabase.from("epi_epc_riscos").insert(novosLinks);
+          vinculados += novosLinks.length;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
+      toast.success(`${criados} EPI/EPC criado(s) e ${vinculados} vínculo(s) adicionado(s).`);
+      setEpiEpcModalOpen(false);
+      setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
+      setEditingId(null);
+    } catch (err: any) {
+      toast.error("Erro ao gerar sugestões: " + (err.message || "Tente novamente"));
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
+
   return (
     <div>
       <PageHeader
