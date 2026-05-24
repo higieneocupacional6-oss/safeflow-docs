@@ -1,15 +1,20 @@
-import { Building2, FileText, LayoutTemplate, Database, Users, Menu, X, LogOut, UserCircle2, ShieldCheck } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Users, Menu, X, LogOut, UserCircle2, ShieldCheck, FolderTree, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import safedocLogo from "@/assets/safedoc-logo.png";
 
 const baseMenu = [
   { title: "Empresas", url: "/empresas", icon: Building2 },
   { title: "Setores e Funções", url: "/setores-funcoes", icon: Users },
   { title: "Documentos", url: "/documentos", icon: FileText },
+  { title: "Controle de Docs", url: "/documentos/controle", icon: FolderTree },
+  { title: "Notificações", url: "/notificacoes", icon: Bell, badgeKey: "notif" as const },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },
 ];
