@@ -19,6 +19,8 @@ import AetWizard from "./pages/AetWizard";
 import SetoresFuncoes from "./pages/SetoresFuncoes";
 import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
+import ControleDocumentos from "./pages/ControleDocumentos";
+import Notificacoes from "./pages/Notificacoes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
