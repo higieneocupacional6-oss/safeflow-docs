@@ -977,6 +977,53 @@ export default function Cadastros() {
                 </div>
               )}
             </div>
+
+            {/* Sugestões automáticas de EPI/EPC */}
+            {epiEpcForm.risco_ids.length > 0 && (() => {
+              const riscosSel = (riscos as any[]).filter((r) => epiEpcForm.risco_ids.includes(r.id));
+              const sugestoes: SugestaoEpiEpc[] = sugerirEpiEpcParaRiscos(riscosSel);
+              if (sugestoes.length === 0) return null;
+              return (
+                <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wand2 className="w-4 h-4 text-accent" />
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-accent">
+                      Sugestões automáticas ({sugestoes.length})
+                    </Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Clique em uma sugestão para preencher o nome, ou crie todos em lote já vinculados aos riscos selecionados.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto">
+                    {sugestoes.map((s, i) => (
+                      <button
+                        key={`${s.tipo}-${s.nome}-${i}`}
+                        type="button"
+                        className="text-xs px-2 py-1 rounded-md border bg-card hover:bg-accent/10 transition-colors flex items-center gap-1"
+                        onClick={() => setEpiEpcForm({ ...epiEpcForm, tipo: s.tipo, nome: s.nome })}
+                        title={`Usar como ${s.tipo}`}
+                      >
+                        <Badge variant={s.tipo === "EPI" ? "default" : "secondary"} className="text-[10px] h-4 px-1">
+                          {s.tipo}
+                        </Badge>
+                        {s.nome}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    disabled={bulkCreating}
+                    onClick={handleBulkCreateSugestoes}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {bulkCreating ? "Criando..." : `Criar todos (${sugestoes.length}) e vincular automaticamente`}
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEpiEpcModalOpen(false)}>Cancelar</Button>
