@@ -51,6 +51,9 @@ export default function Cadastros() {
   const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
   const [parecerSaving, setParecerSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
+  const [dedupRunning, setDedupRunning] = useState(false);
+  const [dedupConfirm, setDedupConfirm] = useState(false);
+  const [bulkCreating, setBulkCreating] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
