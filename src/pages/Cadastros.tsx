@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2 } from "lucide-react";
+import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugestoes";
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
@@ -50,6 +51,9 @@ export default function Cadastros() {
   const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
   const [parecerSaving, setParecerSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
+  const [dedupRunning, setDedupRunning] = useState(false);
+  const [dedupConfirm, setDedupConfirm] = useState(false);
+  const [bulkCreating, setBulkCreating] = useState(false);
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -342,6 +346,116 @@ export default function Cadastros() {
     }
   };
 
+  // ---------- DEDUPLICAÇÃO DE RISCOS ----------
+  const handleDedupRiscos = async () => {
+    setDedupRunning(true);
+    try {
+      const normTxt = (s: string) =>
+        (s || "")
+          .toLowerCase()
+          .normalize("NFD")
+          .replace(/[\u0300-\u036f]/g, "")
+          .replace(/\s+/g, " ")
+          .trim();
+      const groups = new Map<string, any[]>();
+      for (const r of riscos as any[]) {
+        const key = `${normTxt(r.tipo || "")}::${normTxt(r.nome || "")}`;
+        if (!key.endsWith("::")) {
+          if (!groups.has(key)) groups.set(key, []);
+          groups.get(key)!.push(r);
+        }
+      }
+      let mergedGroups = 0;
+      let removed = 0;
+      for (const [, items] of groups) {
+        if (items.length < 2) continue;
+        items.sort((a, b) => {
+          if (!!b.is_padrao !== !!a.is_padrao) return b.is_padrao ? 1 : -1;
+          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+        });
+        const canonical = items[0];
+        const dups = items.slice(1);
+        for (const d of dups) {
+          // Reaponta vínculos antes de remover (mantém integridade em documentos cadastrados)
+          await supabase.from("epi_epc_riscos").update({ risco_id: canonical.id }).eq("risco_id", d.id);
+          await (supabase as any).from("ltcat_avaliacoes").update({ agente_id: canonical.id }).eq("agente_id", d.id);
+          await (supabase as any).from("pareceres_tecnicos").update({ risco_id: canonical.id }).eq("risco_id", d.id);
+          const { error } = await supabase.from("riscos").delete().eq("id", d.id);
+          if (!error) removed++;
+        }
+        mergedGroups++;
+      }
+      queryClient.invalidateQueries({ queryKey: ["riscos"] });
+      queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
+      if (removed === 0) toast.info("Nenhum risco duplicado encontrado.");
+      else toast.success(`${removed} duplicata(s) removida(s) em ${mergedGroups} grupo(s).`);
+    } catch (err: any) {
+      toast.error("Erro ao remover duplicados: " + (err.message || "Tente novamente"));
+    } finally {
+      setDedupRunning(false);
+      setDedupConfirm(false);
+    }
+  };
+
+  // ---------- CRIAÇÃO AUTOMÁTICA EM LOTE DE EPI/EPC SUGERIDOS ----------
+  const handleBulkCreateSugestoes = async () => {
+    if (epiEpcForm.risco_ids.length === 0) {
+      toast.error("Selecione pelo menos um risco para gerar sugestões.");
+      return;
+    }
+    const riscosSelecionados = (riscos as any[]).filter((r) => epiEpcForm.risco_ids.includes(r.id));
+    const sugestoes = sugerirEpiEpcParaRiscos(riscosSelecionados);
+    if (sugestoes.length === 0) {
+      toast.info("Nenhuma sugestão automática para os riscos selecionados.");
+      return;
+    }
+    setBulkCreating(true);
+    try {
+      let criados = 0;
+      let vinculados = 0;
+      const normTxt = (s: string) => (s || "").trim().toLowerCase();
+      for (const sug of sugestoes) {
+        const existing = (epiEpcList as any[]).find(
+          (i) => i.tipo === sug.tipo && normTxt(i.nome) === normTxt(sug.nome),
+        );
+        let epiId = existing?.id as string | undefined;
+        if (!epiId) {
+          const { data: ins, error } = await supabase
+            .from("epi_epc")
+            .insert({ tipo: sug.tipo, nome: sug.nome })
+            .select("id")
+            .single();
+          if (error) continue;
+          epiId = ins.id;
+          criados++;
+        }
+        const aplicaveis = riscosSelecionados.filter((r) => {
+          const s2 = sugerirEpiEpcParaRiscos([r]);
+          return s2.some((x) => x.tipo === sug.tipo && normTxt(x.nome) === normTxt(sug.nome));
+        });
+        const existingLinks = existing?.epi_epc_riscos?.map((x: any) => x.risco_id) || [];
+        const novosLinks = aplicaveis
+          .map((r) => r.id)
+          .filter((rid) => !existingLinks.includes(rid))
+          .map((rid) => ({ epi_epc_id: epiId!, risco_id: rid }));
+        if (novosLinks.length > 0) {
+          await supabase.from("epi_epc_riscos").insert(novosLinks);
+          vinculados += novosLinks.length;
+        }
+      }
+      queryClient.invalidateQueries({ queryKey: ["epi_epc"] });
+      toast.success(`${criados} EPI/EPC criado(s) e ${vinculados} vínculo(s) adicionado(s).`);
+      setEpiEpcModalOpen(false);
+      setEpiEpcForm({ tipo: "EPI", nome: "", risco_ids: [] });
+      setEditingId(null);
+    } catch (err: any) {
+      toast.error("Erro ao gerar sugestões: " + (err.message || "Tente novamente"));
+    } finally {
+      setBulkCreating(false);
+    }
+  };
+
+
   return (
     <div>
       <PageHeader
@@ -363,6 +477,18 @@ export default function Cadastros() {
             {tab === "equipamentos" && (
               <Button variant="outline" onClick={() => setControleOpen(true)} className="gap-2">
                 <ClipboardList className="w-4 h-4" /> Controle de Equipamentos
+              </Button>
+            )}
+            {tab === "riscos" && (
+              <Button
+                variant="outline"
+                onClick={() => setDedupConfirm(true)}
+                disabled={dedupRunning}
+                className="gap-2"
+                title="Mescla riscos duplicados (mesmo nome + tipo) mantendo um único registro padronizado"
+              >
+                <Sparkles className="w-4 h-4" />
+                {dedupRunning ? "Removendo..." : "Remover duplicados"}
               </Button>
             )}
             <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
@@ -851,6 +977,53 @@ export default function Cadastros() {
                 </div>
               )}
             </div>
+
+            {/* Sugestões automáticas de EPI/EPC */}
+            {epiEpcForm.risco_ids.length > 0 && (() => {
+              const riscosSel = (riscos as any[]).filter((r) => epiEpcForm.risco_ids.includes(r.id));
+              const sugestoes: SugestaoEpiEpc[] = sugerirEpiEpcParaRiscos(riscosSel);
+              if (sugestoes.length === 0) return null;
+              return (
+                <div className="rounded-lg border border-accent/30 bg-accent/5 p-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Wand2 className="w-4 h-4 text-accent" />
+                    <Label className="text-xs font-semibold uppercase tracking-wide text-accent">
+                      Sugestões automáticas ({sugestoes.length})
+                    </Label>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground mb-2">
+                    Clique em uma sugestão para preencher o nome, ou crie todos em lote já vinculados aos riscos selecionados.
+                  </p>
+                  <div className="flex flex-wrap gap-1.5 mb-3 max-h-32 overflow-y-auto">
+                    {sugestoes.map((s, i) => (
+                      <button
+                        key={`${s.tipo}-${s.nome}-${i}`}
+                        type="button"
+                        className="text-xs px-2 py-1 rounded-md border bg-card hover:bg-accent/10 transition-colors flex items-center gap-1"
+                        onClick={() => setEpiEpcForm({ ...epiEpcForm, tipo: s.tipo, nome: s.nome })}
+                        title={`Usar como ${s.tipo}`}
+                      >
+                        <Badge variant={s.tipo === "EPI" ? "default" : "secondary"} className="text-[10px] h-4 px-1">
+                          {s.tipo}
+                        </Badge>
+                        {s.nome}
+                      </button>
+                    ))}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full gap-2"
+                    disabled={bulkCreating}
+                    onClick={handleBulkCreateSugestoes}
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    {bulkCreating ? "Criando..." : `Criar todos (${sugestoes.length}) e vincular automaticamente`}
+                  </Button>
+                </div>
+              );
+            })()}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEpiEpcModalOpen(false)}>Cancelar</Button>
@@ -1095,6 +1268,34 @@ export default function Cadastros() {
           <DialogFooter className="gap-2 sm:gap-0">
             <Button variant="outline" onClick={() => setDeleteConfirm({ ...deleteConfirm, open: false })}>Cancelar</Button>
             <Button variant="destructive" onClick={confirmDelete}>Confirmar exclusão</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação: remover riscos duplicados */}
+      <Dialog open={dedupConfirm} onOpenChange={setDedupConfirm}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="w-5 h-5 text-accent" /> Remover riscos duplicados
+            </DialogTitle>
+          </DialogHeader>
+          <div className="py-4 space-y-2 text-sm">
+            <p>
+              O sistema irá agrupar riscos com <strong>mesmo nome e tipo</strong>, manter apenas
+              o registro padronizado (preferindo o marcado como <em>Padrão</em>) e
+              <strong> reapontar automaticamente todos os vínculos</strong> (EPI/EPC, LTCAT, pareceres)
+              para o canônico antes de excluir as duplicatas.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Nenhum documento já cadastrado será afetado — os dados permanecem íntegros.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => setDedupConfirm(false)} disabled={dedupRunning}>Cancelar</Button>
+            <Button onClick={handleDedupRiscos} disabled={dedupRunning} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              {dedupRunning ? "Removendo..." : "Confirmar"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
