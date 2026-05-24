@@ -4060,12 +4060,37 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     </div>
                     <div className="space-y-2">
                       <Label className="text-xs font-bold uppercase text-muted-foreground">Tipo de Agente</Label>
-                      <Input
+                      <Select
                         value={riskForm.tipo_agente}
-                        readOnly
-                        className="mt-1 h-12 bg-muted/30 border-muted-foreground/20 font-medium"
-                        placeholder={isPericulosidade ? "Acidente" : "Auto-preenchido"}
-                      />
+                        onValueChange={(v) => setRiskForm({
+                          ...riskForm,
+                          tipo_agente: v,
+                          agente_id: "",
+                          agente_nome: "",
+                          codigo_esocial: "",
+                          descricao_esocial: "",
+                          propagacao: "",
+                          tipo_exposicao: "",
+                          fonte_geradora: "",
+                          danos_saude: "",
+                          medidas_controle: "",
+                        })}
+                        disabled={isPericulosidade}
+                      >
+                        <SelectTrigger className="mt-1 h-12 border-muted-foreground/20 hover:border-accent/50 transition-colors">
+                          <SelectValue placeholder={isPericulosidade ? "Acidente" : "Selecione o tipo de agente"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Array.from(new Set((catRiscos || []).map((r: any) => r.tipo).filter(Boolean)))
+                            .sort((a: any, b: any) => String(a).localeCompare(String(b)))
+                            .map((t: any) => (
+                              <SelectItem key={t as string} value={t as string}>{t as string}</SelectItem>
+                            ))}
+                        </SelectContent>
+                      </Select>
+                      {isPericulosidade && (
+                        <p className="text-[10px] text-muted-foreground">Periculosidade é sempre "Acidente".</p>
+                      )}
                     </div>
                   </div>
                 </section>
@@ -4164,13 +4189,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <Label>Agente</Label>
-                      <Select value={riskForm.agente_id} onValueChange={handleAgentSelect}>
-                        <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o Agente" /></SelectTrigger>
+                      <Label>Agente {riskForm.tipo_agente && <span className="text-muted-foreground font-normal">({riskForm.tipo_agente})</span>}</Label>
+                      <Select value={riskForm.agente_id} onValueChange={handleAgentSelect} disabled={!riskForm.tipo_agente && !isPericulosidade}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue placeholder={
+                            !riskForm.tipo_agente && !isPericulosidade
+                              ? "Selecione primeiro o Tipo de Agente"
+                              : "Selecione o Agente"
+                          } />
+                        </SelectTrigger>
                         <SelectContent>
-                          {catRiscos.map((r: any) => (
-                            <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
-                          ))}
+                          {catRiscos
+                            .filter((r: any) => !riskForm.tipo_agente || r.tipo === riskForm.tipo_agente)
+                            .map((r: any) => (
+                              <SelectItem key={r.id} value={r.id}>{r.nome}</SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
