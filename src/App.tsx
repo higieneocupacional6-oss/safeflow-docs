@@ -52,6 +52,8 @@ const App = () => (
             <Route path="/templates" element={<Protected><Templates /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
+            <Route path="/documentos/controle" element={<Protected><ControleDocumentos /></Protected>} />
+            <Route path="/notificacoes" element={<Protected><Notificacoes /></Protected>} />
             <Route path="/documentos/ltcat/novo" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
             <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
             <Route path="/documentos/insalubridade/novo" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />
