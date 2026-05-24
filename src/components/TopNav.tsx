@@ -25,6 +25,15 @@ export function TopNav() {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
 
+  useRealtimeSync([{ table: "notificacoes", queryKey: ["notif-count"] }], "topnav-notif-sync");
+  const { data: notifCount = 0 } = useQuery({
+    queryKey: ["notif-count"],
+    queryFn: async () => {
+      const { count } = await supabase.from("notificacoes").select("*", { count: "exact", head: true }).eq("lida", false);
+      return count || 0;
+    },
+  });
+
   const menuItems = isAdmin
     ? [...baseMenu, { title: "Usuários", url: "/usuarios", icon: ShieldCheck }]
     : baseMenu;
