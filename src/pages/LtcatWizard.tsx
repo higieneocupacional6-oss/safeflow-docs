@@ -3176,6 +3176,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     } finally {
       setSavingDraft(false);
       isPersistingRef.current = false;
+      // Mantém a supressão por 5s após o término para absorver ecos do realtime.
+      suppressReloadUntilRef.current = Date.now() + 5_000;
     }
   };
 
