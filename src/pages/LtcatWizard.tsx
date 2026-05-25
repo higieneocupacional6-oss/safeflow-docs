@@ -989,6 +989,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   useEffect(() => {
     if (!isEditMode) return;
     if (docLoaded && reloadTick === 0) return;
+    // 🛡️ Não re-hidratar enquanto um save está em andamento — evita zerar `riscos`
+    // no meio do delete-then-insert e provocar perda de dados/loop.
+    if (isPersistingRef.current) return;
+    if (Date.now() < suppressReloadUntilRef.current) return;
     const isReload = docLoaded && reloadTick > 0;
     const loadDocument = async () => {
       try {
