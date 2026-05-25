@@ -5865,7 +5865,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
                       <Select value={tempVibAmostra.aren_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, aren_unidade_id: v })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                        <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                        <SelectContent className="z-[120]">{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
