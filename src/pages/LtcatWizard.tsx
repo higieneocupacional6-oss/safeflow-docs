@@ -3118,6 +3118,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
     isPersistingRef.current = true;
+    // Suprime re-hidratações realtime/foco até ~5s após o save terminar,
+    // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
+    suppressReloadUntilRef.current = Date.now() + 60_000;
     setSavingDraft(true);
     try {
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
