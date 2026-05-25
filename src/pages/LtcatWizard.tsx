@@ -2842,6 +2842,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
+      // 🛡️ Guarda adicional contra truncamento: se o banco tem MUITO mais avaliações
+      // que o estado local (>3 e <50% do total), significa que o estado foi resetado
+      // por uma re-hidratação parcial/concorrente. Aborta para não perder dados.
+      if (totalExistentes > 3 && totalARecriar > 0 && totalARecriar < Math.floor(totalExistentes / 2)) {
+        console.warn(
+          `🛡️ [persistAvaliacoes] ABORTADO por proteção anti-truncamento: banco=${totalExistentes}, estado=${totalARecriar}.`,
+        );
+        toast.error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
+        // Força re-hidratação para recuperar o estado correto
+        setReloadTick(t => t + 1);
+        return;
+      }
+
       if (existentes && existentes.length > 0) {
         await supabase.from("ltcat_avaliacoes")
           .delete().in("id", existentes.map(e => e.id));
