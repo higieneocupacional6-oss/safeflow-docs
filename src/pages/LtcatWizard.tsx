@@ -1790,9 +1790,56 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     setComponentesModalOpen(true);
   };
 
-  const openResultadosModal = () => {
-    const initial = riskForm.resultados_detalhados?.length
-      ? riskForm.resultados_detalhados.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]))
+  const openResultadosModal = async () => {
+    let source: any[] = riskForm.resultados_detalhados || [];
+
+    // DEFESA: ao editar um risco existente, recarrega do banco para garantir
+    // que TODOS os resultados anteriores apareçam (mesmo se o estado em memória
+    // tenha perdido dados por race/merge/refresh).
+    if (editingRiskId && documentoId && currentRiskSetor?.id) {
+      try {
+        const { data: avs } = await supabase
+          .from("ltcat_avaliacoes")
+          .select("id")
+          .eq("documento_id", documentoId)
+          .eq("setor_id", currentRiskSetor.id)
+          .eq("agente_id", riskForm.agente_id || "")
+          .eq("tipo_avaliacao", riskForm.tipo_avaliacao || "")
+          .eq("tipo_agente", riskForm.tipo_agente || "");
+        const avIds = (avs || []).map((a: any) => a.id);
+        if (avIds.length) {
+          const { data: rows } = await supabase
+            .from("ltcat_av_resultados")
+            .select("*")
+            .in("avaliacao_id", avIds)
+            .order("ordem", { ascending: true });
+          if (rows && rows.length) {
+            // hidrata nomes de função
+            const funcIds = Array.from(new Set(rows.map((r: any) => r.funcao_id).filter(Boolean))) as string[];
+            const funcMap = new Map<string, string>();
+            if (funcIds.length) {
+              const { data: fns } = await supabase
+                .from("funcoes").select("id, nome_funcao").in("id", funcIds);
+              (fns || []).forEach((f: any) => funcMap.set(f.id, f.nome_funcao));
+            }
+            source = rows.map((r: any) => hydrateResultadoEquipamento({
+              ...r,
+              resultado: r.resultado != null ? String(r.resultado) : "",
+              limite_tolerancia: r.limite_tolerancia != null ? String(r.limite_tolerancia) : "",
+              dose_percentual: r.dose_percentual != null ? String(r.dose_percentual) : "",
+              funcao_nome: funcMap.get(r.funcao_id) || "",
+            }, equipamentos as any[]));
+            // sincroniza estado do risco para que listagem/persistência usem os mesmos dados
+            setRiskForm((prev: any) => ({ ...prev, resultados_detalhados: source }));
+          }
+        }
+      } catch (err) {
+        console.warn("[openResultadosModal] re-fetch falhou:", err);
+      }
+    }
+
+    const initial = source.length
+      ? source.map((row: any) => hydrateResultadoEquipamento(row, equipamentos as any[]))
       : [{ id: crypto.randomUUID(), data_avaliacao: "", colaborador: "", funcao_id: "", funcao_nome: "", componente_avaliado: "", dose_percentual: "", resultado: "", unidade_resultado_id: "", limite_tolerancia: "", unidade_limite_id: "", cod_gfip: "" }];
 
     setTempResultados(initial);
@@ -5865,7 +5912,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
                       <Select value={tempVibAmostra.aren_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, aren_unidade_id: v })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                        <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                        <SelectContent className="z-[120]">{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                     <div>
@@ -5876,7 +5923,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                       <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
                       <Select value={tempVibAmostra.aren_limite_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, aren_limite_unidade_id: v })}>
                         <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                        <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                        <SelectContent className="z-[120]">{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
                       </Select>
                     </div>
                   </div>
@@ -5895,7 +5942,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unidade</Label>
                         <Select value={tempVibAmostra.vdvr_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, vdvr_unidade_id: v })}>
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                          <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                          <SelectContent className="z-[120]">{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                       <div>
@@ -5906,7 +5953,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Unid. LT</Label>
                         <Select value={tempVibAmostra.vdvr_limite_unidade_id || ""} onValueChange={v => setTempVibAmostra({ ...tempVibAmostra, vdvr_limite_unidade_id: v })}>
                           <SelectTrigger className="mt-1"><SelectValue placeholder="Unid." /></SelectTrigger>
-                          <SelectContent>{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
+                          <SelectContent className="z-[120]">{unidades.map((u: any) => <SelectItem key={u.id} value={u.id}>{u.simbolo}</SelectItem>)}</SelectContent>
                         </Select>
                       </div>
                     </div>
