@@ -1311,7 +1311,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   useEffect(() => {
     if (!isEditMode || !documentoId || !empresaId) return;
     if (savingDraft || hasUnsavedChanges) return;
-    const trigger = () => setReloadTick(t => t + 1);
+    const trigger = () => {
+      // Ignora gatilhos disparados pelo próprio save (realtime ecoa nossas escritas).
+      if (isPersistingRef.current) return;
+      if (Date.now() < suppressReloadUntilRef.current) return;
+      setReloadTick(t => t + 1);
+    };
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
     if (step === 2 || step === 3) trigger();
