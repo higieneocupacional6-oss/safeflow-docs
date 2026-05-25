@@ -904,6 +904,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
   // e demais subdados, pois o delete-then-insert não é atômico entre processos.
   const isPersistingRef = useRef(false);
+  // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
+  // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
+  const suppressReloadUntilRef = useRef(0);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
@@ -986,6 +989,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   useEffect(() => {
     if (!isEditMode) return;
     if (docLoaded && reloadTick === 0) return;
+    // 🛡️ Não re-hidratar enquanto um save está em andamento — evita zerar `riscos`
+    // no meio do delete-then-insert e provocar perda de dados/loop.
+    if (isPersistingRef.current) return;
+    if (Date.now() < suppressReloadUntilRef.current) return;
     const isReload = docLoaded && reloadTick > 0;
     const loadDocument = async () => {
       try {
@@ -1304,7 +1311,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   useEffect(() => {
     if (!isEditMode || !documentoId || !empresaId) return;
     if (savingDraft || hasUnsavedChanges) return;
-    const trigger = () => setReloadTick(t => t + 1);
+    const trigger = () => {
+      // Ignora gatilhos disparados pelo próprio save (realtime ecoa nossas escritas).
+      if (isPersistingRef.current) return;
+      if (Date.now() < suppressReloadUntilRef.current) return;
+      setReloadTick(t => t + 1);
+    };
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
     if (step === 2 || step === 3) trigger();
@@ -2830,6 +2842,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
+      // 🛡️ Guarda adicional contra truncamento: se o banco tem MUITO mais avaliações
+      // que o estado local (>3 e <50% do total), significa que o estado foi resetado
+      // por uma re-hidratação parcial/concorrente. Aborta para não perder dados.
+      if (totalExistentes > 3 && totalARecriar > 0 && totalARecriar < Math.floor(totalExistentes / 2)) {
+        console.warn(
+          `🛡️ [persistAvaliacoes] ABORTADO por proteção anti-truncamento: banco=${totalExistentes}, estado=${totalARecriar}.`,
+        );
+        toast.error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
+        // Força re-hidratação para recuperar o estado correto
+        setReloadTick(t => t + 1);
+        return;
+      }
+
       if (existentes && existentes.length > 0) {
         await supabase.from("ltcat_avaliacoes")
           .delete().in("id", existentes.map(e => e.id));
@@ -3093,6 +3118,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
     isPersistingRef.current = true;
+    // Suprime re-hidratações realtime/foco até ~5s após o save terminar,
+    // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
+    suppressReloadUntilRef.current = Date.now() + 60_000;
     setSavingDraft(true);
     try {
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
@@ -3148,6 +3176,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     } finally {
       setSavingDraft(false);
       isPersistingRef.current = false;
+      // Mantém a supressão por 5s após o término para absorver ecos do realtime.
+      suppressReloadUntilRef.current = Date.now() + 5_000;
     }
   };
 
