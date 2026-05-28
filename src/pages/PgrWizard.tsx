@@ -88,6 +88,27 @@ const tipoAvaliacaoFromTipo = (tipo: string) => {
   return "Qualitativa";
 };
 
+// Ordem padrão dos tipos de agente: Físico, Químico, Biológico, Acidentes, Ergonômico, Psicossociais
+const tipoAgenteOrdem = (tipo: string): number => {
+  const t = (tipo || "").toLowerCase().trim();
+  if (t.startsWith("físic") || t.startsWith("fisic")) return 1;
+  if (t.startsWith("químic") || t.startsWith("quimic")) return 2;
+  if (t.startsWith("biológic") || t.startsWith("biologic")) return 3;
+  if (t.startsWith("acidente")) return 4;
+  if (t.startsWith("ergon")) return 5;
+  if (t.startsWith("psicoss")) return 6;
+  return 99;
+};
+function sortRiscosByTipo<T extends { tipo_agente?: string; agente_nome?: string }>(arr: T[]): T[] {
+  return [...(arr || [])].sort((a, b) => {
+    const da = tipoAgenteOrdem(a.tipo_agente || "");
+    const db = tipoAgenteOrdem(b.tipo_agente || "");
+    if (da !== db) return da - db;
+    return (a.agente_nome || "").localeCompare(b.agente_nome || "", "pt-BR");
+  });
+}
+
+
 export default function PgrWizard() {
   const { documentoId } = useParams<{ documentoId?: string }>();
   const navigate = useNavigate();
