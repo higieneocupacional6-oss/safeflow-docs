@@ -83,31 +83,40 @@ const groups = [
     title: "Riscos (legado — equivalente a riscos_ghe)",
     vars: [
       "{{#riscos}}", "{{agente}}", "{{agente_nome}}", "{{tipo_agente}}", "{{tipo_avaliacao}}",
-      "{{codigo_esocial}}", "{{descricao_esocial}}", "{{propagacao}}", "{{tipo_exposicao}}",
-      "{{fonte_geradora}}", "{{danos_saude}}", "{{medidas_controle}}", "{{/riscos}}",
-    ],
-  },
   {
-    title: "Matriz de Risco 3x3",
-    vars: [
-      "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}",
-      "{{classificacao_risco}}", "{{resultado_matriz_risco}}",
-    ],
-  },
-  {
-    title: "EPIs (loop — agrupado por função, 1 linha por função)",
+    title: "EPIs — agrupado por função (1 linha por função, lista concatenada)",
     vars: [
       "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
     ],
   },
+  {
+    title: "EPIs — tabela com rowspan (1 linha por EPI, função só na 1ª)",
+    vars: [
+      "{{#epis_tabela}}",
+      "{{funcao_label}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
+      "{{nome_epi}}", "{{ca}}", "{{uso}}",
+      "{{/epis_tabela}}",
+    ],
+  },
 
   {
-    title: "Treinamentos (loop — agrupado por função)",
+    title: "Treinamentos — agrupado por função (1 linha por função)",
     vars: [
       "{{#treinamentos}}", "{{funcao}}", "{{nome_funcao}}",
       "{{treinamentos_funcao}}", "{{/treinamentos}}",
     ],
   },
+  {
+    title: "Treinamentos — tabela com rowspan (1 linha por treinamento)",
+    vars: [
+      "{{#treinamentos_tabela}}",
+      "{{funcao_label}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
+      "{{nome_treinamento}}",
+      "{{/treinamentos_tabela}}",
+    ],
+  },
+
+
   {
     title: "Cronograma do PGR (loop)",
     vars: [
