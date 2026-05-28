@@ -1471,8 +1471,33 @@ export default function PgrWizard() {
         nome_epi: g.itens.map(i => i.nome_epi).join("; "),
         ca: g.itens.map(i => i.ca).filter(Boolean).join("; "),
         uso: g.itens.map(i => i.uso).filter(Boolean).join("; "),
-        itens_epi: g.itens,
+        itens_epi: g.itens.map((it, idx) => ({
+          ...it,
+          is_first: idx === 0,
+          is_rest: idx > 0,
+          index: idx + 1,
+        })),
+        total_itens: g.itens.length,
       }));
+
+      // Tabela "flat" com rowspan — uma linha por EPI, função aparece só na 1ª linha
+      const epis_tabela: any[] = [];
+      Array.from(epiPorFuncao.values()).forEach(g => {
+        const total = g.itens.length || 1;
+        (g.itens.length ? g.itens : [{ nome_epi: "", ca: "", uso: "" }]).forEach((it, idx) => {
+          epis_tabela.push({
+            funcao: g.nome_funcao,
+            nome_funcao: g.nome_funcao,
+            funcao_label: idx === 0 ? g.nome_funcao : "",
+            rowspan: total,
+            is_first: idx === 0,
+            is_rest: idx > 0,
+            nome_epi: it.nome_epi,
+            ca: it.ca,
+            uso: it.uso,
+          });
+        });
+      });
 
       // Treinamentos — agrupar por função em UMA linha
       const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
@@ -1493,7 +1518,32 @@ export default function PgrWizard() {
         nome_funcao: g.nome_funcao,
         treinamentos_funcao: g.itens.join(", "),
         nome_treinamento: g.itens.join(", "),
+        itens_treinamento: g.itens.map((nome, idx) => ({
+          nome_treinamento: nome,
+          is_first: idx === 0,
+          is_rest: idx > 0,
+          index: idx + 1,
+        })),
+        total_itens: g.itens.length,
       }));
+
+      // Tabela "flat" de treinamentos com rowspan
+      const treinamentos_tabela: any[] = [];
+      Array.from(treinPorFuncao.values()).forEach(g => {
+        const total = g.itens.length || 1;
+        (g.itens.length ? g.itens : [""]).forEach((nome, idx) => {
+          treinamentos_tabela.push({
+            funcao: g.nome_funcao,
+            nome_funcao: g.nome_funcao,
+            funcao_label: idx === 0 ? g.nome_funcao : "",
+            rowspan: total,
+            is_first: idx === 0,
+            is_rest: idx > 0,
+            nome_treinamento: nome,
+          });
+        });
+      });
+
       const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
         const mesNum = parseInt(c.prazo_mes || "0", 10);
