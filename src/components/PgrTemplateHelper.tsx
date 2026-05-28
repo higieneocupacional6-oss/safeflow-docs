@@ -70,11 +70,13 @@ const groups = [
       "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}",
       "{{classificacao_risco}}", "{{resultado_matriz_risco}}",
       "{{/riscos_ghe}}",
+  {
+    title: "EPIs (loop — agrupado por função, 1 linha por função)",
+    vars: [
+      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
     ],
   },
-  {
-    title: "Setores (legado — equivalente a ghe_setores)",
-    vars: [
+
       "{{#setores}}", "{{nome_setor}}", "{{ghe_ges}}", "{{descricao_ambiente}}", "{{/setores}}",
     ],
   },
