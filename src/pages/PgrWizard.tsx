@@ -1607,7 +1607,9 @@ export default function PgrWizard() {
         // legado
         setores: setoresArr,
         epis,
+        epis_tabela,
         treinamentos,
+        treinamentos_tabela,
         cronograma_pgr,
       };
     };
