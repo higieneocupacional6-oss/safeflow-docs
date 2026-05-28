@@ -83,7 +83,13 @@ const groups = [
     title: "Riscos (legado — equivalente a riscos_ghe)",
     vars: [
       "{{#riscos}}", "{{agente}}", "{{agente_nome}}", "{{tipo_agente}}", "{{tipo_avaliacao}}",
+      "{{tipo_exposicao}}", "{{fonte_geradora}}", "{{propagacao}}",
+      "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}",
+      "{{classificacao_risco}}", "{{resultado_matriz_risco}}", "{{/riscos}}",
+    ],
+  },
   {
+
     title: "EPIs — agrupado por função (1 linha por função, lista concatenada)",
     vars: [
       "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
