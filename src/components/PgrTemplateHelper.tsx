@@ -95,11 +95,12 @@ const groups = [
     ],
   },
   {
-    title: "EPIs (loop)",
+    title: "EPIs (loop — agrupado por função, 1 linha por função)",
     vars: [
-      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{nome_epi}}", "{{ca}}", "{{uso}}", "{{/epis}}",
+      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
     ],
   },
+
   {
     title: "Treinamentos (loop — agrupado por função)",
     vars: [
