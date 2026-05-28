@@ -1407,9 +1407,9 @@ export default function PgrWizard() {
             cbo_descricao: f.cbo_descricao || "",
             descricao_atividades: f.descricao_atividades || "",
             expostos: f.expostos || "",
+          }));
         const riscos_ghe = sortRiscosByTipo(data.riscos || []).map(r => {
 
-        const riscos_ghe = (data.riscos || []).map(r => {
           const m = r.probabilidade && r.severidade
             ? calcularMatriz(r.probabilidade as Nivel, r.severidade as Nivel)
             : null;
