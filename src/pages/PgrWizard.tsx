@@ -125,7 +125,6 @@ export default function PgrWizard() {
   const [vigenciaFim, setVigenciaFim] = useState("");
   const [revisoes, setRevisoes] = useState<Revisao[]>([]);
   const [snapshot, setSnapshot] = useState<PgrSnapshot>({ setores: {} });
-  const [activeSetor, setActiveSetor] = useState<{ id: string; nome_setor: string } | null>(null);
   const [sectorView, setSectorView] = useState<"riscos" | "matriz">("riscos");
 
   const [loading, setLoading] = useState(!!documentoId);
