@@ -1442,18 +1442,38 @@ export default function PgrWizard() {
           riscos: riscos_ghe,
         };
       });
-      // EPIs — incluir nome_funcao em cada item
-      const epis: any[] = [];
+      // EPIs — agrupar por função: UMA linha por função com todos os EPIs vinculados
+      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string }[] }>();
       (snapshot.epi_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
-        funcs.forEach(f => b.epis.forEach(e => epis.push({
-          funcao: f.nome_funcao || "",
-          nome_funcao: f.nome_funcao || "",
-          nome_epi: e.nome_epi || "",
-          ca: e.ca || "",
-          uso: e.uso || "",
-        })));
+        funcs.forEach(f => {
+          const key = f.id;
+          if (!epiPorFuncao.has(key)) epiPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
+          const bucket = epiPorFuncao.get(key)!;
+          b.epis.forEach(e => {
+            const nome = (e.nome_epi || "").trim();
+            if (!nome) return;
+            const dup = bucket.itens.some(i => i.nome_epi === nome && i.ca === (e.ca || ""));
+            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "" });
+          });
+        });
       });
+      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string }) => {
+        const ca = i.ca ? ` CA ${i.ca}` : "";
+        const uso = i.uso ? ` – ${i.uso}` : "";
+        return `${i.nome_epi}${ca}${uso}`;
+      };
+      const epis = Array.from(epiPorFuncao.values()).map(g => ({
+        funcao: g.nome_funcao,
+        nome_funcao: g.nome_funcao,
+        epis_funcao: g.itens.map(formatEpiLinha).join("; "),
+        // legado / compat (alguns templates usam {{nome_epi}}, {{ca}}, {{uso}} agregados)
+        nome_epi: g.itens.map(i => i.nome_epi).join("; "),
+        ca: g.itens.map(i => i.ca).filter(Boolean).join("; "),
+        uso: g.itens.map(i => i.uso).filter(Boolean).join("; "),
+        itens_epi: g.itens,
+      }));
+
       // Treinamentos — agrupar por função em UMA linha
       const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
       (snapshot.treinamento_blocos || []).forEach(b => {
