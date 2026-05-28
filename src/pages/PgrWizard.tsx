@@ -88,6 +88,27 @@ const tipoAvaliacaoFromTipo = (tipo: string) => {
   return "Qualitativa";
 };
 
+// Ordem padrão dos tipos de agente: Físico, Químico, Biológico, Acidentes, Ergonômico, Psicossociais
+const tipoAgenteOrdem = (tipo: string): number => {
+  const t = (tipo || "").toLowerCase().trim();
+  if (t.startsWith("físic") || t.startsWith("fisic")) return 1;
+  if (t.startsWith("químic") || t.startsWith("quimic")) return 2;
+  if (t.startsWith("biológic") || t.startsWith("biologic")) return 3;
+  if (t.startsWith("acidente")) return 4;
+  if (t.startsWith("ergon")) return 5;
+  if (t.startsWith("psicoss")) return 6;
+  return 99;
+};
+function sortRiscosByTipo<T extends { tipo_agente?: string; agente_nome?: string }>(arr: T[]): T[] {
+  return [...(arr || [])].sort((a, b) => {
+    const da = tipoAgenteOrdem(a.tipo_agente || "");
+    const db = tipoAgenteOrdem(b.tipo_agente || "");
+    if (da !== db) return da - db;
+    return (a.agente_nome || "").localeCompare(b.agente_nome || "", "pt-BR");
+  });
+}
+
+
 export default function PgrWizard() {
   const { documentoId } = useParams<{ documentoId?: string }>();
   const navigate = useNavigate();
@@ -106,6 +127,7 @@ export default function PgrWizard() {
   const [snapshot, setSnapshot] = useState<PgrSnapshot>({ setores: {} });
   const [activeSetor, setActiveSetor] = useState<{ id: string; nome_setor: string } | null>(null);
   const [sectorView, setSectorView] = useState<"riscos" | "matriz">("riscos");
+
 
   const [loading, setLoading] = useState(!!documentoId);
   const [saving, setSaving] = useState(false);
@@ -652,7 +674,8 @@ export default function PgrWizard() {
   // ============ STEP 1 — Reconhecimento ============
   // Subview: setor selecionado
   if (activeSetor) {
-    const riscosSetor = snapshot.setores[activeSetor.id]?.riscos || [];
+    const riscosSetor = sortRiscosByTipo(snapshot.setores[activeSetor.id]?.riscos || []);
+
 
     // === Subview: Matriz 3x3 ===
     if (sectorView === "matriz") {
@@ -1385,7 +1408,8 @@ export default function PgrWizard() {
             descricao_atividades: f.descricao_atividades || "",
             expostos: f.expostos || "",
           }));
-        const riscos_ghe = (data.riscos || []).map(r => {
+        const riscos_ghe = sortRiscosByTipo(data.riscos || []).map(r => {
+
           const m = r.probabilidade && r.severidade
             ? calcularMatriz(r.probabilidade as Nivel, r.severidade as Nivel)
             : null;
@@ -1418,18 +1442,38 @@ export default function PgrWizard() {
           riscos: riscos_ghe,
         };
       });
-      // EPIs — incluir nome_funcao em cada item
-      const epis: any[] = [];
+      // EPIs — agrupar por função: UMA linha por função com todos os EPIs vinculados
+      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string }[] }>();
       (snapshot.epi_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
-        funcs.forEach(f => b.epis.forEach(e => epis.push({
-          funcao: f.nome_funcao || "",
-          nome_funcao: f.nome_funcao || "",
-          nome_epi: e.nome_epi || "",
-          ca: e.ca || "",
-          uso: e.uso || "",
-        })));
+        funcs.forEach(f => {
+          const key = f.id;
+          if (!epiPorFuncao.has(key)) epiPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
+          const bucket = epiPorFuncao.get(key)!;
+          b.epis.forEach(e => {
+            const nome = (e.nome_epi || "").trim();
+            if (!nome) return;
+            const dup = bucket.itens.some(i => i.nome_epi === nome && i.ca === (e.ca || ""));
+            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "" });
+          });
+        });
       });
+      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string }) => {
+        const ca = i.ca ? ` CA ${i.ca}` : "";
+        const uso = i.uso ? ` – ${i.uso}` : "";
+        return `${i.nome_epi}${ca}${uso}`;
+      };
+      const epis = Array.from(epiPorFuncao.values()).map(g => ({
+        funcao: g.nome_funcao,
+        nome_funcao: g.nome_funcao,
+        epis_funcao: g.itens.map(formatEpiLinha).join("; "),
+        // legado / compat (alguns templates usam {{nome_epi}}, {{ca}}, {{uso}} agregados)
+        nome_epi: g.itens.map(i => i.nome_epi).join("; "),
+        ca: g.itens.map(i => i.ca).filter(Boolean).join("; "),
+        uso: g.itens.map(i => i.uso).filter(Boolean).join("; "),
+        itens_epi: g.itens,
+      }));
+
       // Treinamentos — agrupar por função em UMA linha
       const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
       (snapshot.treinamento_blocos || []).forEach(b => {
