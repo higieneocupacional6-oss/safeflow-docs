@@ -674,7 +674,8 @@ export default function PgrWizard() {
   // ============ STEP 1 — Reconhecimento ============
   // Subview: setor selecionado
   if (activeSetor) {
-    const riscosSetor = snapshot.setores[activeSetor.id]?.riscos || [];
+    const riscosSetor = sortRiscosByTipo(snapshot.setores[activeSetor.id]?.riscos || []);
+
 
     // === Subview: Matriz 3x3 ===
     if (sectorView === "matriz") {
