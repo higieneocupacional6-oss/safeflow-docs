@@ -116,17 +116,7 @@ const groups = [
     ],
   },
 
-      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
-    ],
-  },
 
-  {
-    title: "Treinamentos (loop — agrupado por função)",
-    vars: [
-      "{{#treinamentos}}", "{{funcao}}", "{{nome_funcao}}",
-      "{{treinamentos_funcao}}", "{{/treinamentos}}",
-    ],
-  },
   {
     title: "Cronograma do PGR (loop)",
     vars: [
