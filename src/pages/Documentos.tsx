@@ -35,7 +35,6 @@ export default function Documentos() {
   const queryClient = useQueryClient();
 
   useRealtimeSync(
-  useRealtimeSync(
     [
       { table: "documentos", queryKey: ["documentos"] },
       { table: "aet_documentos", queryKey: ["documentos"] },
