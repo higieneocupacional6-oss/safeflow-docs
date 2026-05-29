@@ -307,6 +307,13 @@ export default function PcmsoWizard() {
     setAskCopyTrein(false);
   };
 
+  // Revisões helpers
+  const addRevisao = () => setRevisoes((r) => [...r, emptyRevisao()]);
+  const updateRevisao = (i: number, k: keyof Revisao, v: string) =>
+    setRevisoes((r) => r.map((x, idx) => (idx === i ? { ...x, [k]: v } : x)));
+  const removeRevisao = (i: number) => setRevisoes((r) => r.filter((_, idx) => idx !== i));
+
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
