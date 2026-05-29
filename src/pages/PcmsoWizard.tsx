@@ -72,13 +72,13 @@ export default function PcmsoWizard() {
   const [contratoId, setContratoId] = useState<string>("");
   const [dataElab, setDataElab] = useState("");
   const [responsavel, setResponsavel] = useState("");
-  const [snap, setSnap] = useState<Snapshot>(emptySnapshot());
-  const [revisoes, setRevisoes] = useState<Revisao[]>([]);
-
+  const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
+  const [revisoes, setRevisoes] = useState<Revisao[]>([]);
 
   // Snapshot (working data)
   const [snap, setSnap] = useState<Snapshot>(emptySnapshot());
+
 
   // Modal "copiar PGR"
   const [copyPgrOpen, setCopyPgrOpen] = useState(!documentoId);
