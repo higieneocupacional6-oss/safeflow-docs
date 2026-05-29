@@ -66,8 +66,6 @@ export default function Documentos() {
       navigate("/documentos/aet/novo");
     } else if (typeId === "pgr") {
       navigate("/documentos/pgr/novo");
-    } else if (typeId === "pcmso") {
-      navigate("/documentos/pcmso/novo");
     }
   };
 
