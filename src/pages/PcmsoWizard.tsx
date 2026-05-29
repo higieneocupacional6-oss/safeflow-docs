@@ -72,7 +72,9 @@ export default function PcmsoWizard() {
   const [contratoId, setContratoId] = useState<string>("");
   const [dataElab, setDataElab] = useState("");
   const [responsavel, setResponsavel] = useState("");
-  const [crea, setCrea] = useState("");
+  const [snap, setSnap] = useState<Snapshot>(emptySnapshot());
+  const [revisoes, setRevisoes] = useState<Revisao[]>([]);
+
   const [cargo, setCargo] = useState("");
 
   // Snapshot (working data)
