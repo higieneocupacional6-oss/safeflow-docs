@@ -965,63 +965,95 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
 
     const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
 
-    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#exames}})
+    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#setor.exames}})
     const setoresArr = (setores as any[]).map((s) => {
       const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
       const funcoes_ghe = fns.map((f) => ({
-        nome_funcao: f.nome_funcao || "",
-        cbo_codigo: f.cbo_codigo || "",
-        cbo_descricao: f.cbo_descricao || "",
-        descricao_atividades: f.descricao_atividades || "",
-        expostos: f.expostos || "",
+        nome_funcao: safeText(f.nome_funcao),
+        cbo_codigo: safeText(f.cbo_codigo),
+        cbo_descricao: safeText(f.cbo_descricao),
+        descricao_atividades: safeText(f.descricao_atividades),
+        expostos: safeText(f.expostos),
       }));
 
-      // Riscos do PGR (agrupados por tipo) para este setor
       const riscosPgr = (pgrSetoresMap[s.id]?.riscos || []) as any[];
-      const groupBy = (tipo: string) =>
-        Array.from(new Set(riscosPgr.filter((r) => (r.tipo_agente || "").trim() === tipo).map((r) => r.agente_nome || r.nome || "").filter(Boolean))).join(", ");
+      const groupedRiskArrays = groupRisksByCategory(riscosPgr);
+      const groupedRiskText = Object.fromEntries(
+        RISK_BUCKETS.map((bucket) => [bucket.key, groupedRiskArrays[bucket.key].join(", ")]),
+      ) as Record<(typeof RISK_BUCKETS)[number]["key"], string>;
 
       const exames = (snap.exames as any[])
         .filter((e) => e.setor_id === s.id)
         .map((e) => ({
           exame: {
-            nome: e.exame_nome || "",
-            esocial: { codigo: e.esocial_codigo || "", descricao: e.esocial_descricao || "" },
-            admissional: e.admissional ? "Sim" : "",
-            periodico: e.periodico ? "Sim" : "",
-            periodo: e.periodo || "",
-            retorno: e.retorno_trabalho ? "Sim" : "",
-            mudanca_risco: e.mudanca_risco ? "Sim" : "",
-            demissional: e.demissional ? "Sim" : "",
-            observacao: e.observacoes || "",
+            nome: safeText(e.exame_nome),
+            esocial: { codigo: safeText(e.esocial_codigo), descricao: safeText(e.esocial_descricao) },
+            admissional: markIfTrue(e.admissional),
+            periodico: e.periodico ? safeText(e.periodo) || "X" : "",
+            periodo: safeText(e.periodo),
+            retorno: markIfTrue(e.retorno_trabalho),
+            mudanca_risco: markIfTrue(e.mudanca_risco),
+            demissional: markIfTrue(e.demissional),
+            observacao: splitObservacoes(e.observacoes),
           },
-          // legado plano
-          exame_nome: e.exame_nome || "",
-          codigo_esocial: e.esocial_codigo || "",
-          descricao_esocial: e.esocial_descricao || "",
-          admissional: e.admissional ? "Sim" : "",
-          periodico: e.periodico ? "Sim" : "",
-          periodo: e.periodo || "",
-          retorno: e.retorno_trabalho ? "Sim" : "",
-          mudanca_risco: e.mudanca_risco ? "Sim" : "",
-          demissional: e.demissional ? "Sim" : "",
-          observacao: e.observacoes || "",
+          nome: safeText(e.exame_nome),
+          exame_nome: safeText(e.exame_nome),
+          esocial: { codigo: safeText(e.esocial_codigo), descricao: safeText(e.esocial_descricao) },
+          codigo_esocial: safeText(e.esocial_codigo),
+          descricao_esocial: safeText(e.esocial_descricao),
+          admissional: markIfTrue(e.admissional),
+          periodico: e.periodico ? safeText(e.periodo) || "X" : "",
+          periodo: safeText(e.periodo),
+          retorno: markIfTrue(e.retorno_trabalho),
+          mudanca_risco: markIfTrue(e.mudanca_risco),
+          demissional: markIfTrue(e.demissional),
+          observacao: splitObservacoes(e.observacoes),
+          observacoes: splitObservacoes(e.observacoes),
         }));
 
+      const episSetor = (snap.epis as any[])
+        .filter((epi) => (epi.funcao_ids || []).some((fid: string) => fns.some((f) => f.id === fid)))
+        .map((epi) => {
+          const funcao = fns.find((f) => (epi.funcao_ids || []).includes(f.id));
+          return {
+            nome_epi: safeText(epi.nome),
+            ca: safeText(epi.ca),
+            uso: safeText(epi.uso),
+            nome_funcao: safeText(funcao?.nome_funcao),
+            funcao: { nome: safeText(funcao?.nome_funcao) },
+          };
+        });
+
+      const treinamentosSetor = (snap.treinamentos as any[])
+        .filter((trein) => (trein.funcao_ids || []).some((fid: string) => fns.some((f) => f.id === fid)))
+        .map((trein) => {
+          const funcao = fns.find((f) => (trein.funcao_ids || []).includes(f.id));
+          return {
+            nome_treinamento: safeText(trein.nome),
+            carga_horaria: safeText(trein.carga_horaria),
+            nome_funcao: safeText(funcao?.nome_funcao),
+            funcao: { nome: safeText(funcao?.nome_funcao) },
+          };
+        });
+
       const setorObj = {
-        nome_setor: s.nome_setor || "",
-        ghe_ges: s.ghe_ges || "",
-        descricao_ambiente: s.descricao_ambiente || "",
+        nome: safeText(s.nome_setor),
+        nome_setor: safeText(s.nome_setor),
+        ghe_ges: safeText(s.ghe_ges),
+        descricao_ambiente: safeText(s.descricao_ambiente),
         funcoes_ghe,
         funcoes: funcoes_ghe,
         exames,
+        epis: episSetor,
+        treinamentos: treinamentosSetor,
         riscos: {
-          fisicos: groupBy("Físico"),
-          quimicos: groupBy("Químico"),
-          biologicos: groupBy("Biológico"),
-          acidentes: groupBy("Acidentes"),
-          ergonomicos: groupBy("Ergonômico"),
-          psicossociais: groupBy("Psicossociais"),
+          fisicos: groupedRiskText.fisicos,
+          quimicos: groupedRiskText.quimicos,
+          biologicos: groupedRiskText.biologicos,
+          acidentes: groupedRiskText.acidentes,
+          ergonomicos: groupedRiskText.ergonomicos,
+          psicossociais: groupedRiskText.psicossociais,
+          listas: groupedRiskArrays,
         },
       };
       // Mustache supports both {{setor.nome}} (when item is `setor`) and direct fields
