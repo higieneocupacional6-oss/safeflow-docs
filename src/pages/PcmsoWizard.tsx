@@ -1130,7 +1130,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       if (error) throw error;
       const ab = await fileData.arrayBuffer();
       const zip = new PizZip(ab);
-      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" } });
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" }, nullGetter: () => "" });
       const data = await buildTemplateData();
       doc.render(data);
       const blob: Blob = (doc.getZip() as any).generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
