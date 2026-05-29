@@ -951,18 +951,10 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
   });
 
   const buildTemplateData = async () => {
-    const [empresaRes, contratoRes, setoresRes, pgrRes] = await Promise.all([
+    const [empresaRes, contratoRes, setoresRes] = await Promise.all([
       supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
       contratoId ? supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle() : Promise.resolve({ data: null, error: null } as any),
       supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor"),
-      supabase
-        .from("documentos")
-        .select("id, draft_snapshot")
-        .eq("tipo", "PGR")
-        .eq("empresa_id", empresaId)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     const empresa: any = empresaRes.data || {};
@@ -981,15 +973,11 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
       ? ((funcoesRes.data as any[]) || [])
       : ((funcoes as any[]) || []);
 
-    const pgrSnap: any = pgrRes.data?.draft_snapshot || {};
-    const pgrSetoresMap: Record<string, any> = pgrSnap.setores || {};
-
+    // PCMSO é INDEPENDENTE do PGR — o template não consulta mais o snapshot do PGR.
     const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
 
-    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#setor.exames}})
     const setorIds = Array.from(new Set([
       ...setoresDb.map((s) => s.id),
-      ...Object.keys(pgrSetoresMap || {}),
       ...(snap.exames || []).map((e: ExameLinha) => e.setor_id).filter(Boolean),
     ]));
 
