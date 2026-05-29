@@ -431,7 +431,8 @@ export default function PcmsoWizard() {
         <MapeamentoExames
           setores={setoresEmpresa}
           funcoes={funcoesAll}
-          catalogoExames={catalogoExames}
+          pgrRiscosPorSetor={pgrRiscosPorSetor}
+
           esocialList={esocialList}
           obsPadrao={obsPadrao}
           pgrRiscosPorTipo={pgrRiscosPorTipo}
