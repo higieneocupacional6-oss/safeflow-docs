@@ -27,18 +27,34 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
     ],
   },
   {
-    title: "Setores e Exames (loops)",
+    title: "Setores (loop)",
     vars: [
-      { tag: "{{#setores}} ... {{/setores}}", desc: "Abre o loop de setores" },
+      { tag: "{{#setores}} ... {{/setores}}", desc: "Abre o loop de setores da empresa" },
       { tag: "{{nome_setor}}", desc: "Nome do setor" },
-      { tag: "{{funcoes}}", desc: "Funções do setor" },
+      { tag: "{{descricao_ambiente}}", desc: "Descrição do ambiente (cadastro Setores e Funções)" },
+      { tag: "{{funcoes_lista}}", desc: "Lista das funções do setor em texto" },
       { tag: "{{agentes_fisicos}}", desc: "Agentes físicos" },
       { tag: "{{agentes_quimicos}}", desc: "Agentes químicos" },
       { tag: "{{agentes_biologicos}}", desc: "Agentes biológicos" },
       { tag: "{{agentes_ergonomicos}}", desc: "Agentes ergonômicos" },
       { tag: "{{agentes_acidentes}}", desc: "Agentes de acidentes" },
       { tag: "{{agentes_psicossociais}}", desc: "Agentes psicossociais" },
-      { tag: "{{#exames}} ... {{/exames}}", desc: "Loop de exames (dentro de setores)" },
+    ],
+  },
+  {
+    title: "Funções (loop dentro de setores)",
+    vars: [
+      { tag: "{{#funcoes}} ... {{/funcoes}}", desc: "Loop das funções do setor" },
+      { tag: "{{nome_funcao}}", desc: "Nome da função" },
+      { tag: "{{cbo}}", desc: "Código CBO" },
+      { tag: "{{descricao_atividades}}", desc: "Descrição das atividades" },
+      { tag: "{{expostos}}", desc: "Trabalhadores expostos" },
+    ],
+  },
+  {
+    title: "Exames (loop dentro de setores)",
+    vars: [
+      { tag: "{{#exames}} ... {{/exames}}", desc: "Loop de exames do setor" },
       { tag: "{{tipo_exame}}", desc: "Tipo de exame" },
       { tag: "{{cod_esocial}}", desc: "Código eSocial" },
       { tag: "{{descricao_esocial}}", desc: "Descrição eSocial" },
