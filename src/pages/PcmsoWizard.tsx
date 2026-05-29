@@ -35,6 +35,7 @@ type ExameLinha = {
 
 type EpiItem = { id: string; funcao_ids: string[]; nome: string; ca: string; uso: string };
 type TreinItem = { id: string; funcao_ids: string[]; nome: string; carga_horaria: string };
+type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
 
 type Snapshot = {
   exames: ExameLinha[];
@@ -44,6 +45,10 @@ type Snapshot = {
 };
 
 const emptySnapshot = (): Snapshot => ({ exames: [], epis: [], treinamentos: [], cronograma: [] });
+const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
+
+const TIPO_AGENTE_ORDEM = ["Físico", "Químico", "Biológico", "Acidentes", "Ergonômico", "Psicossociais"];
+
 
 const STEPS = [
   { id: 0, label: "Identificação", icon: Building2 },
