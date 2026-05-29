@@ -1266,7 +1266,7 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
       _debug: {
         empresa_id: empresaId,
         contrato_id: contratoId || "",
-        pgr_encontrado: Boolean(pgrRes.data?.id),
+        pcmso_independente: true,
         total_setores: setoresArr.length,
         total_funcoes: funcoesSource.length,
         total_exames: (snap.exames || []).length,
