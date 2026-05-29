@@ -31,6 +31,7 @@ import {
   emptyExame, emptyEpiBloco, emptyEpiItem,
   emptyTreinBloco, emptyTreinItem, emptyCronoItem,
   copyPgrEpiBlocos, copyPgrTreinBlocos,
+  copyPgrSnapshotIntoSetores, buildSetoresFromEmpresa,
 } from "@/lib/copyPgrToPcmso";
 
 type AgentKey =
