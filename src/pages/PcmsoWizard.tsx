@@ -421,7 +421,7 @@ export default function PcmsoWizard() {
         </Card>
       )}
 
-      )}
+
 
       {/* STEP 1 - Mapeamento de Exames */}
       {step === 1 && (
