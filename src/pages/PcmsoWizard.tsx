@@ -1007,9 +1007,14 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       (g.itens.length ? g.itens : [{ nome: "", ca: "", uso: "" }]).forEach((it: any, idx: number) => {
         epis.push({
           funcao_label: idx === 0 ? g.nome_funcao : "",
+          nome_funcao: g.nome_funcao || "",
+          funcao: { nome: g.nome_funcao || "" },
           rowspan: total,
           is_first: idx === 0,
-          epi: { nome: it.nome, ca: it.ca, uso: it.uso },
+          epi: { nome: it.nome || "", ca: it.ca || "", uso: it.uso || "" },
+          nome_epi: it.nome || "",
+          ca: it.ca || "",
+          uso: it.uso || "",
         });
       });
     });
@@ -1029,9 +1034,13 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       (g.itens.length ? g.itens : [{ nome: "", carga_horaria: "" }]).forEach((it: any, idx: number) => {
         treinamentos.push({
           funcao_label: idx === 0 ? g.nome_funcao : "",
+          nome_funcao: g.nome_funcao || "",
+          funcao: { nome: g.nome_funcao || "" },
           rowspan: total,
           is_first: idx === 0,
-          treinamento: { nome: it.nome, carga_horaria: it.carga_horaria },
+          treinamento: { nome: it.nome || "", carga_horaria: it.carga_horaria || "" },
+          nome_treinamento: it.nome || "",
+          carga_horaria: it.carga_horaria || "",
         });
       });
     });
@@ -1039,16 +1048,18 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
     const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const cronograma = (snap.cronograma || []).map((c: any) => {
       const mes = parseInt(c.prazo_mes || "0", 10);
-      return {
-        cronograma: {
-          item: c.item || "",
-          acao: c.acao || "",
-          responsavel: c.responsavel || "",
-          prazo_mes: mes >= 1 && mes <= 12 ? MESES_PT[mes] : "",
-          prazo_ano: c.prazo_ano || "",
-          situacao: c.situacao || "",
-        },
+      const mesLabel = mes >= 1 && mes <= 12 ? MESES_PT[mes] : "";
+      const prazo = [mesLabel, c.prazo_ano || ""].filter(Boolean).join("/");
+      const flat = {
+        item: c.item || "",
+        acao: c.acao || "",
+        responsavel: c.responsavel || "",
+        prazo_mes: mesLabel,
+        prazo_ano: c.prazo_ano || "",
+        prazo,
+        situacao: c.situacao || "",
       };
+      return { ...flat, cronograma: flat };
     });
 
     const revisoesArr = (revisoes as any[]).map((r) => ({
@@ -1101,6 +1112,8 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       epis,
       treinamentos,
       cronograma,
+      cronograma_pcmso: cronograma,
+      cronograma_pgr: cronograma,
       revisoes: revisoesArr,
     };
   };
@@ -1117,7 +1130,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       if (error) throw error;
       const ab = await fileData.arrayBuffer();
       const zip = new PizZip(ab);
-      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" } });
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" }, nullGetter: () => "" });
       const data = await buildTemplateData();
       doc.render(data);
       const blob: Blob = (doc.getZip() as any).generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
