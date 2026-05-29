@@ -220,6 +220,7 @@ export default function Documentos() {
 
       <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
       <PericulosidadeStartModal open={periculosidadeOpen} onOpenChange={setPericulosidadeOpen} />
+      <PcmsoStartModal open={pcmsoOpen} onOpenChange={setPcmsoOpen} />
     </div>
   );
 }
