@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Stethoscope, ShieldCheck, GraduationCap, CalendarDays, FileDown, Bookmark } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Stethoscope, ShieldCheck, GraduationCap, CalendarDays, FileDown, Bookmark, Link2, FileCheck2 } from "lucide-react";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
