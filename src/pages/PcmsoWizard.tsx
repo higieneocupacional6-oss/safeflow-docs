@@ -175,6 +175,9 @@ export default function PcmsoWizard() {
         current_step: overrideStep ?? step,
         status: "rascunho",
         draft_snapshot: snap as any,
+        revisoes: revisoes as any,
+      };
+
       };
       if (docId) {
         const { error } = await supabase.from("pcmso_documentos").update(payload).eq("id", docId);
