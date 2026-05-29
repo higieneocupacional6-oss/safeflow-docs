@@ -538,6 +538,7 @@ export default function PcmsoWizard() {
       {step === 5 && (
         <GerarStep
           empresaId={empresaId}
+          contratoId={contratoId}
           empresaNome={empresaNome}
           dataElab={dataElab}
           responsavel={responsavel}
@@ -933,7 +934,7 @@ function TreinStep({ snap, setSnap, funcoes, goToStep, saving, askOpen, onAskAns
 
 /* ------------------- STEP 5: Geração do PCMSO ------------------- */
 
-function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo, revisoes, snap, setores, funcoes, goToStep, persist, navigate }: any) {
+function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, crea, cargo, revisoes, snap, setores, funcoes, goToStep, persist, navigate }: any) {
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
   const [validating, setValidating] = useState(false);
   const [validated, setValidated] = useState(false);
@@ -950,23 +951,47 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
   });
 
   const buildTemplateData = async () => {
-    const { data: emp } = await supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle();
-    const empresa: any = emp || {};
-    const { data: pgrDoc } = await supabase
-      .from("documentos")
-      .select("draft_snapshot")
-      .eq("tipo", "PGR")
-      .eq("empresa_id", empresaId)
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    const pgrSnap: any = pgrDoc?.draft_snapshot || {};
+    const [empresaRes, contratoRes, setoresRes, funcoesRes, pgrRes] = await Promise.all([
+      supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
+      contratoId ? supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle() : Promise.resolve({ data: null, error: null } as any),
+      supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor"),
+      supabase
+        .from("funcoes")
+        .select("id, setor_id, nome_funcao, cbo_codigo, cbo_descricao, descricao_atividades, expostos")
+        .in("setor_id", (setores as any[]).map((s) => s.id).length ? (setores as any[]).map((s) => s.id) : ["00000000-0000-0000-0000-000000000000"]),
+      supabase
+        .from("documentos")
+        .select("id, draft_snapshot")
+        .eq("tipo", "PGR")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+
+    const empresa: any = empresaRes.data || {};
+    const contrato: any = contratoRes?.data || {};
+    const setoresDb: any[] = (setoresRes.data as any[]) || (setores as any[]) || [];
+    const setorIdsDb = setoresDb.map((s) => s.id).filter(Boolean);
+
+    const funcoesSource: any[] = setorIdsDb.length
+      ? ((funcoesRes.data as any[]) || [])
+      : ((funcoes as any[]) || []);
+
+    const pgrSnap: any = pgrRes.data?.draft_snapshot || {};
     const pgrSetoresMap: Record<string, any> = pgrSnap.setores || {};
 
     const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
 
     // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#setor.exames}})
-    const setoresArr = (setores as any[]).map((s) => {
+    const setorIds = Array.from(new Set([
+      ...setoresDb.map((s) => s.id),
+      ...Object.keys(pgrSetoresMap || {}),
+      ...(snap.exames || []).map((e: ExameLinha) => e.setor_id).filter(Boolean),
+    ]));
+
+    const setoresArr = setorIds.map((setorId) => {
+      const s = setoresDb.find((item) => item.id === setorId) || {};
       const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
       const funcoes_ghe = fns.map((f) => ({
         nome: safeText(f.nome_funcao),
@@ -984,14 +1009,14 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
         },
       }));
 
-      const riscosPgr = (pgrSetoresMap[s.id]?.riscos || []) as any[];
+      const riscosPgr = (pgrSetoresMap[setorId]?.riscos || []) as any[];
       const groupedRiskArrays = groupRisksByCategory(riscosPgr);
       const groupedRiskText = Object.fromEntries(
         RISK_BUCKETS.map((bucket) => [bucket.key, groupedRiskArrays[bucket.key].join(", ")]),
       ) as Record<(typeof RISK_BUCKETS)[number]["key"], string>;
 
       const exames = (snap.exames as any[])
-        .filter((e) => e.setor_id === s.id)
+        .filter((e) => e.setor_id === setorId)
         .map((e) => ({
           exame: {
             nome: safeText(e.exame_nome),
@@ -1000,6 +1025,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
             periodico: e.periodico ? safeText(e.periodo) || "X" : "",
             periodo: safeText(e.periodo),
             retorno: markIfTrue(e.retorno_trabalho),
+            retorno_trabalho: markIfTrue(e.retorno_trabalho),
             mudanca_risco: markIfTrue(e.mudanca_risco),
             demissional: markIfTrue(e.demissional),
             observacao: splitObservacoes(e.observacoes),
@@ -1013,6 +1039,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
           periodico: e.periodico ? safeText(e.periodo) || "X" : "",
           periodo: safeText(e.periodo),
           retorno: markIfTrue(e.retorno_trabalho),
+          retorno_trabalho: markIfTrue(e.retorno_trabalho),
           mudanca_risco: markIfTrue(e.mudanca_risco),
           demissional: markIfTrue(e.demissional),
           observacao: splitObservacoes(e.observacoes),
@@ -1054,9 +1081,11 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
         });
 
       const setorObj = {
+        id: setorId,
         nome: safeText(s.nome_setor),
         nome_setor: safeText(s.nome_setor),
         ghe_ges: safeText(s.ghe_ges),
+        descricao: safeText(s.descricao_ambiente),
         descricao_ambiente: safeText(s.descricao_ambiente),
         funcoes_ghe,
         funcoes: funcoes_ghe,
@@ -1065,11 +1094,17 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
         treinamentos: treinamentosSetor,
         riscos: {
           fisicos: groupedRiskText.fisicos,
+          fisicos_lista: groupedRiskArrays.fisicos.map((nome) => ({ nome })),
           quimicos: groupedRiskText.quimicos,
+          quimicos_lista: groupedRiskArrays.quimicos.map((nome) => ({ nome })),
           biologicos: groupedRiskText.biologicos,
+          biologicos_lista: groupedRiskArrays.biologicos.map((nome) => ({ nome })),
           acidentes: groupedRiskText.acidentes,
+          acidentes_lista: groupedRiskArrays.acidentes.map((nome) => ({ nome })),
           ergonomicos: groupedRiskText.ergonomicos,
+          ergonomicos_lista: groupedRiskArrays.ergonomicos.map((nome) => ({ nome })),
           psicossociais: groupedRiskText.psicossociais,
+          psicossociais_lista: groupedRiskArrays.psicossociais.map((nome) => ({ nome })),
           listas: groupedRiskArrays,
         },
       };
@@ -1155,7 +1190,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       responsavel: r.responsavel || "",
     }));
 
-    const totalExpostos = (funcoes as any[]).reduce((acc, f) => acc + (parseInt(safeText(f?.expostos), 10) || 0), 0);
+    const totalExpostos = funcoesSource.reduce((acc, f) => acc + (parseInt(safeText(f?.expostos), 10) || 0), 0);
 
     return {
       // Empresa
@@ -1173,12 +1208,13 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       jornada_trabalho: safeText(empresa.jornada_trabalho),
       local_trabalho: safeText(empresa.local_trabalho),
       // Contrato
-      numero_contrato: safeText(empresa.numero_contrato),
-      nome_contratante: safeText(empresa.nome_contratante),
-      cnpj_contratante: safeText(empresa.cnpj_contratante),
-      escopo_contrato: safeText(empresa.escopo_contrato),
-      vigencia_inicio: fmtDate(empresa.vigencia_inicio),
-      vigencia_fim: fmtDate(empresa.vigencia_fim),
+      numero_contrato: safeText(contrato.numero_contrato || empresa.numero_contrato),
+      nome_contratante: safeText(contrato.nome_contratante || empresa.nome_contratante),
+      cnpj_contratante: safeText(contrato.cnpj_contratante || empresa.cnpj_contratante),
+      escopo_contrato: safeText(contrato.escopo_contrato || empresa.escopo_contrato),
+      vigencia_inicio: fmtDate(contrato.vigencia_inicio || empresa.vigencia_inicio),
+      vigencia_fim: fmtDate(contrato.vigencia_fim || empresa.vigencia_fim),
+      local_trabalho: safeText(contrato.local_trabalho || empresa.local_trabalho),
       // Responsáveis
       responsavel: safeText(responsavel),
       responsavel_tecnico: safeText(responsavel),
@@ -1197,6 +1233,7 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       // Estrutura PGR-compatível
       ghe_setores: setoresArr,
       setores: setoresArr,
+      setor: setoresArr,
       expostos: safeText(totalExpostos),
       epis,
       treinamentos,
@@ -1204,6 +1241,17 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       cronograma_pcmso: cronograma,
       cronograma_pgr: cronograma,
       revisoes: revisoesArr,
+      _debug: {
+        empresa_id: empresaId,
+        contrato_id: contratoId || "",
+        pgr_encontrado: Boolean(pgrRes.data?.id),
+        total_setores: setoresArr.length,
+        total_funcoes: funcoesSource.length,
+        total_exames: (snap.exames || []).length,
+        total_epis: epis.length,
+        total_treinamentos: treinamentos.length,
+        total_cronograma: cronograma.length,
+      },
     };
   };
 
