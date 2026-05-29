@@ -969,11 +969,19 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
     const setoresArr = (setores as any[]).map((s) => {
       const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
       const funcoes_ghe = fns.map((f) => ({
+        nome: safeText(f.nome_funcao),
         nome_funcao: safeText(f.nome_funcao),
+        cbo: safeText(f.cbo_codigo),
         cbo_codigo: safeText(f.cbo_codigo),
         cbo_descricao: safeText(f.cbo_descricao),
+        descricao: safeText(f.descricao_atividades),
         descricao_atividades: safeText(f.descricao_atividades),
         expostos: safeText(f.expostos),
+        funcao: {
+          nome: safeText(f.nome_funcao),
+          cbo: safeText(f.cbo_codigo),
+          descricao: safeText(f.descricao_atividades),
+        },
       }));
 
       const riscosPgr = (pgrSetoresMap[s.id]?.riscos || []) as any[];
@@ -1016,6 +1024,11 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
         .map((epi) => {
           const funcao = fns.find((f) => (epi.funcao_ids || []).includes(f.id));
           return {
+            epi: {
+              nome: safeText(epi.nome),
+              ca: safeText(epi.ca),
+              uso: safeText(epi.uso),
+            },
             nome_epi: safeText(epi.nome),
             ca: safeText(epi.ca),
             uso: safeText(epi.uso),
@@ -1029,6 +1042,10 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
         .map((trein) => {
           const funcao = fns.find((f) => (trein.funcao_ids || []).includes(f.id));
           return {
+            treinamento: {
+              nome: safeText(trein.nome),
+              carga_horaria: safeText(trein.carga_horaria),
+            },
             nome_treinamento: safeText(trein.nome),
             carga_horaria: safeText(trein.carga_horaria),
             nome_funcao: safeText(funcao?.nome_funcao),
