@@ -135,9 +135,9 @@ export default function PcmsoWizard() {
     queryFn: async () => (await supabase.from("pcmso_observacoes_padrao").select("*").order("created_at", { ascending: false })).data || [],
   });
 
-  // PGR risks for the selected empresa (read-only context for Mapeamento)
-  const { data: pgrRiscosPorTipo = {} as Record<string, string[]> } = useQuery({
-    queryKey: ["pcmso-pgr-riscos", empresaId],
+  // PGR risks for the selected empresa, grouped BY SETOR (read-only context for Mapeamento)
+  const { data: pgrRiscosPorSetor = {} as Record<string, Record<string, string[]>> } = useQuery({
+    queryKey: ["pcmso-pgr-riscos-setor", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
@@ -149,9 +149,10 @@ export default function PcmsoWizard() {
         .limit(1)
         .maybeSingle();
       const setores = (data?.draft_snapshot as any)?.setores || {};
-      const acc: Record<string, Set<string>> = {};
-      TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
-      Object.values(setores).forEach((s: any) => {
+      const out: Record<string, Record<string, string[]>> = {};
+      Object.entries(setores).forEach(([setorId, s]: [string, any]) => {
+        const acc: Record<string, Set<string>> = {};
+        TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
         (s?.riscos || []).forEach((r: any) => {
           const tipo = (r.tipo_agente || "").trim();
           const nome = (r.agente_nome || r.nome || "").trim();
@@ -159,10 +160,12 @@ export default function PcmsoWizard() {
           if (!acc[tipo]) acc[tipo] = new Set();
           acc[tipo].add(nome);
         });
+        out[setorId] = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
       });
-      return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
+      return out;
     },
   });
+
 
 
   // Load existing doc
