@@ -148,7 +148,9 @@ export default function PcmsoWizard() {
       setCrea(data.crea || "");
       setCargo(data.cargo || "");
       setStep(data.current_step || 0);
+      setRevisoes(Array.isArray(data.revisoes) ? (data.revisoes as any[]) : []);
       if (data.draft_snapshot) setSnap({ ...emptySnapshot(), ...(data.draft_snapshot as any) });
+
       if (data.empresa_id) {
         const { data: e } = await supabase.from("empresas").select("razao_social, nome_fantasia").eq("id", data.empresa_id).maybeSingle();
         setEmpresaNome(e?.razao_social || e?.nome_fantasia || "");
