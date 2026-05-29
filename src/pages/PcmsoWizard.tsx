@@ -1048,16 +1048,18 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
     const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const cronograma = (snap.cronograma || []).map((c: any) => {
       const mes = parseInt(c.prazo_mes || "0", 10);
-      return {
-        cronograma: {
-          item: c.item || "",
-          acao: c.acao || "",
-          responsavel: c.responsavel || "",
-          prazo_mes: mes >= 1 && mes <= 12 ? MESES_PT[mes] : "",
-          prazo_ano: c.prazo_ano || "",
-          situacao: c.situacao || "",
-        },
+      const mesLabel = mes >= 1 && mes <= 12 ? MESES_PT[mes] : "";
+      const prazo = [mesLabel, c.prazo_ano || ""].filter(Boolean).join("/");
+      const flat = {
+        item: c.item || "",
+        acao: c.acao || "",
+        responsavel: c.responsavel || "",
+        prazo_mes: mesLabel,
+        prazo_ano: c.prazo_ano || "",
+        prazo,
+        situacao: c.situacao || "",
       };
+      return { ...flat, cronograma: flat };
     });
 
     const revisoesArr = (revisoes as any[]).map((r) => ({
