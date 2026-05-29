@@ -664,6 +664,7 @@ export default function PcmsoWizard() {
             vigenciaInicio, vigenciaFim, revisoes,
             setores, epiBlocos, treinBlocos, cronograma,
             funcoesEmpresa: funcoesEmpresa as any[],
+            setoresEmpresa: setoresEmpresa as any[],
           })}
           onSave={save}
           onBack={() => goToStep(4)}
