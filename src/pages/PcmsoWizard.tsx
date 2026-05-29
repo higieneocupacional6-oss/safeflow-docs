@@ -50,7 +50,53 @@ type Snapshot = {
 const emptySnapshot = (): Snapshot => ({ exames: [], epis: [], treinamentos: [], cronograma: [] });
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
 
-const TIPO_AGENTE_ORDEM = ["Físico", "Químico", "Biológico", "Acidentes", "Ergonômico", "Psicossociais"];
+const RISK_BUCKETS = [
+  { key: "fisicos", label: "Físico", aliases: ["físico", "fisico", "físicos", "fisicos"] },
+  { key: "quimicos", label: "Químico", aliases: ["químico", "quimico", "químicos", "quimicos"] },
+  { key: "biologicos", label: "Biológico", aliases: ["biológico", "biologico", "biológicos", "biologicos"] },
+  { key: "acidentes", label: "Acidentes", aliases: ["acidente", "acidentes"] },
+  { key: "ergonomicos", label: "Ergonômico", aliases: ["ergonômico", "ergonomico", "ergonômicos", "ergonomicos"] },
+  { key: "psicossociais", label: "Psicossociais", aliases: ["psicossocial", "psicossociais"] },
+] as const;
+
+const safeText = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const markIfTrue = (value: unknown, mark = "X") => value ? mark : "";
+
+const splitObservacoes = (value: unknown) =>
+  safeText(value)
+    .split(/\r?\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const getRiskBucketKey = (tipo: unknown) => {
+  const normalized = safeText(tipo)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return RISK_BUCKETS.find((bucket) => bucket.aliases.some((alias) => normalized.startsWith(alias)))?.key || null;
+};
+
+const groupRisksByCategory = (riscos: any[]) => {
+  const grouped = Object.fromEntries(
+    RISK_BUCKETS.map((bucket) => [bucket.key, new Set<string>()]),
+  ) as Record<(typeof RISK_BUCKETS)[number]["key"], Set<string>>;
+
+  (riscos || []).forEach((risco: any) => {
+    const bucketKey = getRiskBucketKey(risco?.tipo_agente || risco?.tipo);
+    const nome = safeText(risco?.agente_nome || risco?.nome);
+    if (!bucketKey || !nome) return;
+    grouped[bucketKey].add(nome);
+  });
+
+  return Object.fromEntries(
+    RISK_BUCKETS.map((bucket) => [bucket.key, Array.from(grouped[bucket.key]).sort((a, b) => a.localeCompare(b, "pt-BR"))]),
+  ) as Record<(typeof RISK_BUCKETS)[number]["key"], string[]>;
+};
 
 
 const STEPS = [
@@ -154,16 +200,7 @@ export default function PcmsoWizard() {
       const setores = (data?.draft_snapshot as any)?.setores || {};
       const out: Record<string, Record<string, string[]>> = {};
       Object.entries(setores).forEach(([setorId, s]: [string, any]) => {
-        const acc: Record<string, Set<string>> = {};
-        TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
-        (s?.riscos || []).forEach((r: any) => {
-          const tipo = (r.tipo_agente || "").trim();
-          const nome = (r.agente_nome || r.nome || "").trim();
-          if (!nome) return;
-          if (!acc[tipo]) acc[tipo] = new Set();
-          acc[tipo].add(nome);
-        });
-        out[setorId] = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
+        out[setorId] = groupRisksByCategory((s?.riscos || []) as any[]);
       });
       return out;
     },
@@ -614,11 +651,11 @@ function MapeamentoExames({
             {!setorAtual && (
               <div className="text-xs text-muted-foreground italic">Selecione um setor abaixo para visualizar os riscos.</div>
             )}
-            {setorAtual && TIPO_AGENTE_ORDEM.map((tipo) => {
-              const lista: string[] = riscosSetor?.[tipo] || [];
+            {setorAtual && RISK_BUCKETS.map((bucket) => {
+              const lista: string[] = riscosSetor?.[bucket.key] || [];
               return (
-                <div key={tipo} className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
+                <div key={bucket.key} className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold w-32 shrink-0">Riscos {bucket.label}:</span>
                   {lista.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
                   ) : (
