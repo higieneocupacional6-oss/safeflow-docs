@@ -95,14 +95,28 @@ export default function PcmsoWizard() {
     },
   });
 
-  const { data: funcoesEmpresa = [] } = useQuery({
-    queryKey: ["funcoes-pcmso", empresaId],
+  const { data: setoresEmpresa = [] } = useQuery({
+    queryKey: ["setores-empresa-pcmso", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data: setoresEmpresa } = await supabase.from("setores").select("id").eq("empresa_id", empresaId);
-      const ids = (setoresEmpresa || []).map((s: any) => s.id);
+      const { data } = await supabase.from("setores")
+        .select("id,nome_setor,descricao_ambiente")
+        .eq("empresa_id", empresaId)
+        .order("nome_setor");
+      return data || [];
+    },
+  });
+
+  const { data: funcoesEmpresa = [] } = useQuery({
+    queryKey: ["funcoes-pcmso", empresaId, (setoresEmpresa as any[]).map((s) => s.id).join(",")],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const ids = (setoresEmpresa as any[]).map((s: any) => s.id);
       if (ids.length === 0) return [];
-      const { data } = await supabase.from("funcoes").select("id,nome_funcao,setor_id").in("setor_id", ids).order("nome_funcao");
+      const { data } = await supabase.from("funcoes")
+        .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades,expostos")
+        .in("setor_id", ids)
+        .order("nome_funcao");
       return data || [];
     },
   });
@@ -650,6 +664,7 @@ export default function PcmsoWizard() {
             vigenciaInicio, vigenciaFim, revisoes,
             setores, epiBlocos, treinBlocos, cronograma,
             funcoesEmpresa: funcoesEmpresa as any[],
+            setoresEmpresa: setoresEmpresa as any[],
           })}
           onSave={save}
           onBack={() => goToStep(4)}
@@ -780,23 +795,43 @@ function buildTemplateData(args: {
   empresaNome: string; responsavelTecnico: string; crea: string; cargo: string;
   vigenciaInicio: string; vigenciaFim: string; revisoes: PcmsoRevisao[];
   setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
-  cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[];
+  cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[]; setoresEmpresa: any[];
 }) {
   const {
     empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
-    revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa,
+    revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa, setoresEmpresa,
   } = args;
 
-  const setoresArr = (setores || []).map((s) => ({
-    nome_setor: s.nome_setor || "",
-    funcoes: s.funcoes || "",
-    agentes_fisicos: (s.agentes_fisicos || []).join(", "),
-    agentes_quimicos: (s.agentes_quimicos || []).join(", "),
-    agentes_biologicos: (s.agentes_biologicos || []).join(", "),
-    agentes_ergonomicos: (s.agentes_ergonomicos || []).join(", "),
-    agentes_acidentes: (s.agentes_acidentes || []).join(", "),
-    agentes_psicossociais: (s.agentes_psicossociais || []).join(", "),
-    exames: (s.exames || []).map((e) => ({
+  // Build lookup from setor_id -> {descricao_ambiente, funcoes[]}
+  const setorDbMap: Record<string, any> = {};
+  (setoresEmpresa || []).forEach((s: any) => { setorDbMap[s.id] = s; });
+
+  const funcoesPorSetor: Record<string, any[]> = {};
+  (funcoesEmpresa || []).forEach((f: any) => {
+    if (!f.setor_id) return;
+    (funcoesPorSetor[f.setor_id] ||= []).push({
+      nome_funcao: f.nome_funcao || "",
+      cbo: f.cbo_codigo || f.cbo_descricao || "",
+      descricao_atividades: f.descricao_atividades || "",
+      expostos: f.expostos || "",
+    });
+  });
+
+  const setoresArr = (setores || []).map((s) => {
+    const db = (s.setor_id && setorDbMap[s.setor_id]) || {};
+    const funcoesArr = (s.setor_id && funcoesPorSetor[s.setor_id]) || [];
+    return {
+      nome_setor: s.nome_setor || "",
+      descricao_ambiente: db.descricao_ambiente || "",
+      funcoes: funcoesArr,
+      funcoes_lista: funcoesArr.map((f) => f.nome_funcao).join(", ") || (s.funcoes || ""),
+      agentes_fisicos: (s.agentes_fisicos || []).join(", "),
+      agentes_quimicos: (s.agentes_quimicos || []).join(", "),
+      agentes_biologicos: (s.agentes_biologicos || []).join(", "),
+      agentes_ergonomicos: (s.agentes_ergonomicos || []).join(", "),
+      agentes_acidentes: (s.agentes_acidentes || []).join(", "),
+      agentes_psicossociais: (s.agentes_psicossociais || []).join(", "),
+      exames: (s.exames || []).map((e) => ({
       tipo_exame: e.tipo_exame || "",
       cod_esocial: e.cod_esocial || "",
       descricao_esocial: e.descricao_esocial || "",
@@ -808,7 +843,8 @@ function buildTemplateData(args: {
       demissional: bool(e.demissional),
       observacao: e.observacao || "",
     })),
-  }));
+    };
+  });
 
   // EPIs — uma linha por EPI (com função agrupada lógica via funcao.nome)
   const epis: any[] = [];
