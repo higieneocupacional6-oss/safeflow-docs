@@ -951,14 +951,10 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
   });
 
   const buildTemplateData = async () => {
-    const [empresaRes, contratoRes, setoresRes, funcoesRes, pgrRes] = await Promise.all([
+    const [empresaRes, contratoRes, setoresRes, pgrRes] = await Promise.all([
       supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle(),
       contratoId ? supabase.from("contratos").select("*").eq("id", contratoId).maybeSingle() : Promise.resolve({ data: null, error: null } as any),
       supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor"),
-      supabase
-        .from("funcoes")
-        .select("id, setor_id, nome_funcao, cbo_codigo, cbo_descricao, descricao_atividades, expostos")
-        .in("setor_id", (setores as any[]).map((s) => s.id).length ? (setores as any[]).map((s) => s.id) : ["00000000-0000-0000-0000-000000000000"]),
       supabase
         .from("documentos")
         .select("id, draft_snapshot")
@@ -973,6 +969,13 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
     const contrato: any = contratoRes?.data || {};
     const setoresDb: any[] = (setoresRes.data as any[]) || (setores as any[]) || [];
     const setorIdsDb = setoresDb.map((s) => s.id).filter(Boolean);
+
+    const funcoesRes = setorIdsDb.length
+      ? await supabase
+          .from("funcoes")
+          .select("id, setor_id, nome_funcao, cbo_codigo, cbo_descricao, descricao_atividades, expostos")
+          .in("setor_id", setorIdsDb)
+      : { data: [] as any[], error: null };
 
     const funcoesSource: any[] = setorIdsDb.length
       ? ((funcoesRes.data as any[]) || [])
