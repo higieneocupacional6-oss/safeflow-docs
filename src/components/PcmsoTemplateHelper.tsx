@@ -105,7 +105,13 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
 
 const EXAMPLE = `{{#setores}}
 SETOR: {{nome_setor}}
-FUNÇÕES: {{funcoes}}
+AMBIENTE: {{descricao_ambiente}}
+{{#funcoes}}
+FUNÇÃO: {{nome_funcao}}
+CBO: {{cbo}}
+ATIVIDADES: {{descricao_atividades}}
+EXPOSTOS: {{expostos}}
+{{/funcoes}}
 {{#exames}}
 - {{tipo_exame}} ({{cod_esocial}}) — Admissional: {{admissional}} | Periódico: {{periodico}} {{periodo}}
 {{/exames}}
