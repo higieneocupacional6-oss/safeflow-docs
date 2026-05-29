@@ -31,6 +31,7 @@ import {
   emptyExame, emptyEpiBloco, emptyEpiItem,
   emptyTreinBloco, emptyTreinItem, emptyCronoItem,
   copyPgrEpiBlocos, copyPgrTreinBlocos,
+  copyPgrSnapshotIntoSetores, buildSetoresFromEmpresa,
 } from "@/lib/copyPgrToPcmso";
 
 type AgentKey =
@@ -133,6 +134,24 @@ export default function PcmsoWizard() {
       setLoading(false);
     })();
   }, [documentoId, navigate]);
+
+  // ============ Auto-sync agentes do PGR ao entrar na Etapa 2 (Exames) ============
+  const [pgrSynced, setPgrSynced] = useState<string>(""); // marca empresa já sincronizada nesta sessão
+  useEffect(() => {
+    if (loading) return;
+    if (step !== 1) return;
+    if (!empresaId) return;
+    if (pgrSynced === empresaId) return;
+    (async () => {
+      let base = setores;
+      if (base.length === 0) {
+        base = await buildSetoresFromEmpresa(empresaId);
+      }
+      const merged = await copyPgrSnapshotIntoSetores(empresaId, base);
+      setSetores(merged);
+      setPgrSynced(empresaId);
+    })();
+  }, [step, empresaId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (opts?: { silent?: boolean; newStep?: number; extra?: any }) => {
     if (!documentoId) return;
