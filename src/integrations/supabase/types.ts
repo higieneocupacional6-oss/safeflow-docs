@@ -1371,6 +1371,66 @@ export type Database = {
         }
         Relationships: []
       }
+      pcmso_documentos: {
+        Row: {
+          cargo: string | null
+          contrato_id: string | null
+          crea: string | null
+          created_at: string
+          created_by: string | null
+          current_step: number
+          documento_id: string | null
+          empresa_id: string | null
+          file_path: string | null
+          id: string
+          responsavel_tecnico: string | null
+          revisoes: Json
+          setores_snapshot: Json
+          status: string
+          updated_at: string
+          vigencia_fim: string | null
+          vigencia_inicio: string | null
+        }
+        Insert: {
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          documento_id?: string | null
+          empresa_id?: string | null
+          file_path?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          setores_snapshot?: Json
+          status?: string
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Update: {
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          documento_id?: string | null
+          empresa_id?: string | null
+          file_path?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          setores_snapshot?: Json
+          status?: string
+          updated_at?: string
+          vigencia_fim?: string | null
+          vigencia_inicio?: string | null
+        }
+        Relationships: []
+      }
       pcmso_observacoes_padrao: {
         Row: {
           created_at: string
