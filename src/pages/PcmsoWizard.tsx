@@ -547,6 +547,7 @@ export default function PcmsoWizard() {
     </div>
   );
 }
+  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorSetor, snap, setSnap, goToStep, saving,
 
 /* ------------------- STEP 1: Mapeamento de Exames ------------------- */
 
