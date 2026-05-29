@@ -547,12 +547,12 @@ export default function PcmsoWizard() {
     </div>
   );
 }
-  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorSetor, snap, setSnap, goToStep, saving,
 
 /* ------------------- STEP 1: Mapeamento de Exames ------------------- */
 
 function MapeamentoExames({
-  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorTipo, snap, setSnap, goToStep, saving,
+  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorSetor, snap, setSnap, goToStep, saving,
+
 
 }: any) {
   const [setorAtual, setSetorAtual] = useState<string>(setores[0]?.id || "");
