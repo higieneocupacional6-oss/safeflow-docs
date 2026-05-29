@@ -50,7 +50,53 @@ type Snapshot = {
 const emptySnapshot = (): Snapshot => ({ exames: [], epis: [], treinamentos: [], cronograma: [] });
 const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
 
-const TIPO_AGENTE_ORDEM = ["Físico", "Químico", "Biológico", "Acidentes", "Ergonômico", "Psicossociais"];
+const RISK_BUCKETS = [
+  { key: "fisicos", label: "Físico", aliases: ["físico", "fisico", "físicos", "fisicos"] },
+  { key: "quimicos", label: "Químico", aliases: ["químico", "quimico", "químicos", "quimicos"] },
+  { key: "biologicos", label: "Biológico", aliases: ["biológico", "biologico", "biológicos", "biologicos"] },
+  { key: "acidentes", label: "Acidentes", aliases: ["acidente", "acidentes"] },
+  { key: "ergonomicos", label: "Ergonômico", aliases: ["ergonômico", "ergonomico", "ergonômicos", "ergonomicos"] },
+  { key: "psicossociais", label: "Psicossociais", aliases: ["psicossocial", "psicossociais"] },
+] as const;
+
+const safeText = (value: unknown) => {
+  if (value === null || value === undefined) return "";
+  return String(value).trim();
+};
+
+const markIfTrue = (value: unknown, mark = "X") => value ? mark : "";
+
+const splitObservacoes = (value: unknown) =>
+  safeText(value)
+    .split(/\r?\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+const getRiskBucketKey = (tipo: unknown) => {
+  const normalized = safeText(tipo)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
+  return RISK_BUCKETS.find((bucket) => bucket.aliases.some((alias) => normalized.startsWith(alias)))?.key || null;
+};
+
+const groupRisksByCategory = (riscos: any[]) => {
+  const grouped = Object.fromEntries(
+    RISK_BUCKETS.map((bucket) => [bucket.key, new Set<string>()]),
+  ) as Record<(typeof RISK_BUCKETS)[number]["key"], Set<string>>;
+
+  (riscos || []).forEach((risco: any) => {
+    const bucketKey = getRiskBucketKey(risco?.tipo_agente || risco?.tipo);
+    const nome = safeText(risco?.agente_nome || risco?.nome);
+    if (!bucketKey || !nome) return;
+    grouped[bucketKey].add(nome);
+  });
+
+  return Object.fromEntries(
+    RISK_BUCKETS.map((bucket) => [bucket.key, Array.from(grouped[bucket.key]).sort((a, b) => a.localeCompare(b, "pt-BR"))]),
+  ) as Record<(typeof RISK_BUCKETS)[number]["key"], string[]>;
+};
 
 
 const STEPS = [
@@ -154,16 +200,7 @@ export default function PcmsoWizard() {
       const setores = (data?.draft_snapshot as any)?.setores || {};
       const out: Record<string, Record<string, string[]>> = {};
       Object.entries(setores).forEach(([setorId, s]: [string, any]) => {
-        const acc: Record<string, Set<string>> = {};
-        TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
-        (s?.riscos || []).forEach((r: any) => {
-          const tipo = (r.tipo_agente || "").trim();
-          const nome = (r.agente_nome || r.nome || "").trim();
-          if (!nome) return;
-          if (!acc[tipo]) acc[tipo] = new Set();
-          acc[tipo].add(nome);
-        });
-        out[setorId] = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
+        out[setorId] = groupRisksByCategory((s?.riscos || []) as any[]);
       });
       return out;
     },
@@ -614,11 +651,11 @@ function MapeamentoExames({
             {!setorAtual && (
               <div className="text-xs text-muted-foreground italic">Selecione um setor abaixo para visualizar os riscos.</div>
             )}
-            {setorAtual && TIPO_AGENTE_ORDEM.map((tipo) => {
-              const lista: string[] = riscosSetor?.[tipo] || [];
+            {setorAtual && RISK_BUCKETS.map((bucket) => {
+              const lista: string[] = riscosSetor?.[bucket.key] || [];
               return (
-                <div key={tipo} className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
+                <div key={bucket.key} className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold w-32 shrink-0">Riscos {bucket.label}:</span>
                   {lista.length === 0 ? (
                     <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
                   ) : (
@@ -928,63 +965,112 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
 
     const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
 
-    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#exames}})
+    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#setor.exames}})
     const setoresArr = (setores as any[]).map((s) => {
       const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
       const funcoes_ghe = fns.map((f) => ({
-        nome_funcao: f.nome_funcao || "",
-        cbo_codigo: f.cbo_codigo || "",
-        cbo_descricao: f.cbo_descricao || "",
-        descricao_atividades: f.descricao_atividades || "",
-        expostos: f.expostos || "",
+        nome: safeText(f.nome_funcao),
+        nome_funcao: safeText(f.nome_funcao),
+        cbo: safeText(f.cbo_codigo),
+        cbo_codigo: safeText(f.cbo_codigo),
+        cbo_descricao: safeText(f.cbo_descricao),
+        descricao: safeText(f.descricao_atividades),
+        descricao_atividades: safeText(f.descricao_atividades),
+        expostos: safeText(f.expostos),
+        funcao: {
+          nome: safeText(f.nome_funcao),
+          cbo: safeText(f.cbo_codigo),
+          descricao: safeText(f.descricao_atividades),
+        },
       }));
 
-      // Riscos do PGR (agrupados por tipo) para este setor
       const riscosPgr = (pgrSetoresMap[s.id]?.riscos || []) as any[];
-      const groupBy = (tipo: string) =>
-        Array.from(new Set(riscosPgr.filter((r) => (r.tipo_agente || "").trim() === tipo).map((r) => r.agente_nome || r.nome || "").filter(Boolean))).join(", ");
+      const groupedRiskArrays = groupRisksByCategory(riscosPgr);
+      const groupedRiskText = Object.fromEntries(
+        RISK_BUCKETS.map((bucket) => [bucket.key, groupedRiskArrays[bucket.key].join(", ")]),
+      ) as Record<(typeof RISK_BUCKETS)[number]["key"], string>;
 
       const exames = (snap.exames as any[])
         .filter((e) => e.setor_id === s.id)
         .map((e) => ({
           exame: {
-            nome: e.exame_nome || "",
-            esocial: { codigo: e.esocial_codigo || "", descricao: e.esocial_descricao || "" },
-            admissional: e.admissional ? "Sim" : "",
-            periodico: e.periodico ? "Sim" : "",
-            periodo: e.periodo || "",
-            retorno: e.retorno_trabalho ? "Sim" : "",
-            mudanca_risco: e.mudanca_risco ? "Sim" : "",
-            demissional: e.demissional ? "Sim" : "",
-            observacao: e.observacoes || "",
+            nome: safeText(e.exame_nome),
+            esocial: { codigo: safeText(e.esocial_codigo), descricao: safeText(e.esocial_descricao) },
+            admissional: markIfTrue(e.admissional),
+            periodico: e.periodico ? safeText(e.periodo) || "X" : "",
+            periodo: safeText(e.periodo),
+            retorno: markIfTrue(e.retorno_trabalho),
+            mudanca_risco: markIfTrue(e.mudanca_risco),
+            demissional: markIfTrue(e.demissional),
+            observacao: splitObservacoes(e.observacoes),
           },
-          // legado plano
-          exame_nome: e.exame_nome || "",
-          codigo_esocial: e.esocial_codigo || "",
-          descricao_esocial: e.esocial_descricao || "",
-          admissional: e.admissional ? "Sim" : "",
-          periodico: e.periodico ? "Sim" : "",
-          periodo: e.periodo || "",
-          retorno: e.retorno_trabalho ? "Sim" : "",
-          mudanca_risco: e.mudanca_risco ? "Sim" : "",
-          demissional: e.demissional ? "Sim" : "",
-          observacao: e.observacoes || "",
+          nome: safeText(e.exame_nome),
+          exame_nome: safeText(e.exame_nome),
+          esocial: { codigo: safeText(e.esocial_codigo), descricao: safeText(e.esocial_descricao) },
+          codigo_esocial: safeText(e.esocial_codigo),
+          descricao_esocial: safeText(e.esocial_descricao),
+          admissional: markIfTrue(e.admissional),
+          periodico: e.periodico ? safeText(e.periodo) || "X" : "",
+          periodo: safeText(e.periodo),
+          retorno: markIfTrue(e.retorno_trabalho),
+          mudanca_risco: markIfTrue(e.mudanca_risco),
+          demissional: markIfTrue(e.demissional),
+          observacao: splitObservacoes(e.observacoes),
+          observacoes: splitObservacoes(e.observacoes),
         }));
 
+      const episSetor = (snap.epis as any[])
+        .filter((epi) => (epi.funcao_ids || []).some((fid: string) => fns.some((f) => f.id === fid)))
+        .map((epi) => {
+          const funcao = fns.find((f) => (epi.funcao_ids || []).includes(f.id));
+          return {
+            epi: {
+              nome: safeText(epi.nome),
+              ca: safeText(epi.ca),
+              uso: safeText(epi.uso),
+            },
+            nome_epi: safeText(epi.nome),
+            ca: safeText(epi.ca),
+            uso: safeText(epi.uso),
+            nome_funcao: safeText(funcao?.nome_funcao),
+            funcao: { nome: safeText(funcao?.nome_funcao) },
+          };
+        });
+
+      const treinamentosSetor = (snap.treinamentos as any[])
+        .filter((trein) => (trein.funcao_ids || []).some((fid: string) => fns.some((f) => f.id === fid)))
+        .map((trein) => {
+          const funcao = fns.find((f) => (trein.funcao_ids || []).includes(f.id));
+          return {
+            treinamento: {
+              nome: safeText(trein.nome),
+              carga_horaria: safeText(trein.carga_horaria),
+            },
+            nome_treinamento: safeText(trein.nome),
+            carga_horaria: safeText(trein.carga_horaria),
+            nome_funcao: safeText(funcao?.nome_funcao),
+            funcao: { nome: safeText(funcao?.nome_funcao) },
+          };
+        });
+
       const setorObj = {
-        nome_setor: s.nome_setor || "",
-        ghe_ges: s.ghe_ges || "",
-        descricao_ambiente: s.descricao_ambiente || "",
+        nome: safeText(s.nome_setor),
+        nome_setor: safeText(s.nome_setor),
+        ghe_ges: safeText(s.ghe_ges),
+        descricao_ambiente: safeText(s.descricao_ambiente),
         funcoes_ghe,
         funcoes: funcoes_ghe,
         exames,
+        epis: episSetor,
+        treinamentos: treinamentosSetor,
         riscos: {
-          fisicos: groupBy("Físico"),
-          quimicos: groupBy("Químico"),
-          biologicos: groupBy("Biológico"),
-          acidentes: groupBy("Acidentes"),
-          ergonomicos: groupBy("Ergonômico"),
-          psicossociais: groupBy("Psicossociais"),
+          fisicos: groupedRiskText.fisicos,
+          quimicos: groupedRiskText.quimicos,
+          biologicos: groupedRiskText.biologicos,
+          acidentes: groupedRiskText.acidentes,
+          ergonomicos: groupedRiskText.ergonomicos,
+          psicossociais: groupedRiskText.psicossociais,
+          listas: groupedRiskArrays,
         },
       };
       // Mustache supports both {{setor.nome}} (when item is `setor`) and direct fields
@@ -1069,46 +1155,49 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       responsavel: r.responsavel || "",
     }));
 
+    const totalExpostos = (funcoes as any[]).reduce((acc, f) => acc + (parseInt(safeText(f?.expostos), 10) || 0), 0);
+
     return {
       // Empresa
-      empresa_nome: empresaNome || empresa.razao_social || "",
-      empresa: empresaNome || empresa.razao_social || "",
-      razao_social: empresa.razao_social || "",
-      nome_fantasia: empresa.nome_fantasia || "",
-      cnpj: empresa.cnpj || "",
-      cnae_principal: empresa.cnae_principal || "",
-      grau_risco: empresa.grau_risco || "",
-      endereco: empresa.endereco || "",
-      total_funcionarios: String(empresa.total_funcionarios ?? ""),
-      numero_funcionarios_masc: String(empresa.numero_funcionarios_masc ?? ""),
-      numero_funcionarios_fem: String(empresa.numero_funcionarios_fem ?? ""),
-      jornada_trabalho: empresa.jornada_trabalho || "",
-      local_trabalho: empresa.local_trabalho || "",
+      empresa_nome: safeText(empresaNome || empresa.razao_social),
+      empresa: safeText(empresaNome || empresa.razao_social),
+      razao_social: safeText(empresa.razao_social),
+      nome_fantasia: safeText(empresa.nome_fantasia),
+      cnpj: safeText(empresa.cnpj),
+      cnae_principal: safeText(empresa.cnae_principal),
+      grau_risco: safeText(empresa.grau_risco),
+      endereco: safeText(empresa.endereco),
+      total_funcionarios: safeText(empresa.total_funcionarios),
+      numero_funcionarios_masc: safeText(empresa.numero_funcionarios_masc),
+      numero_funcionarios_fem: safeText(empresa.numero_funcionarios_fem),
+      jornada_trabalho: safeText(empresa.jornada_trabalho),
+      local_trabalho: safeText(empresa.local_trabalho),
       // Contrato
-      numero_contrato: empresa.numero_contrato || "",
-      nome_contratante: empresa.nome_contratante || "",
-      cnpj_contratante: empresa.cnpj_contratante || "",
-      escopo_contrato: empresa.escopo_contrato || "",
+      numero_contrato: safeText(empresa.numero_contrato),
+      nome_contratante: safeText(empresa.nome_contratante),
+      cnpj_contratante: safeText(empresa.cnpj_contratante),
+      escopo_contrato: safeText(empresa.escopo_contrato),
       vigencia_inicio: fmtDate(empresa.vigencia_inicio),
       vigencia_fim: fmtDate(empresa.vigencia_fim),
       // Responsáveis
-      responsavel: responsavel || "",
-      responsavel_tecnico: responsavel || "",
-      crea: crea || "",
-      cargo: cargo || "",
+      responsavel: safeText(responsavel),
+      responsavel_tecnico: safeText(responsavel),
+      crea: safeText(crea),
+      cargo: safeText(cargo),
       data_elaboracao: fmtDate(dataElab),
-      gestor_nome: empresa.gestor_nome || "",
-      gestor_email: empresa.gestor_email || "",
-      gestor_telefone: empresa.gestor_telefone || "",
-      fiscal_nome: empresa.fiscal_nome || "",
-      fiscal_email: empresa.fiscal_email || "",
-      fiscal_telefone: empresa.fiscal_telefone || "",
-      preposto_nome: empresa.preposto_nome || "",
-      preposto_email: empresa.preposto_email || "",
-      preposto_telefone: empresa.preposto_telefone || "",
+      gestor_nome: safeText(empresa.gestor_nome),
+      gestor_email: safeText(empresa.gestor_email),
+      gestor_telefone: safeText(empresa.gestor_telefone),
+      fiscal_nome: safeText(empresa.fiscal_nome),
+      fiscal_email: safeText(empresa.fiscal_email),
+      fiscal_telefone: safeText(empresa.fiscal_telefone),
+      preposto_nome: safeText(empresa.preposto_nome),
+      preposto_email: safeText(empresa.preposto_email),
+      preposto_telefone: safeText(empresa.preposto_telefone),
       // Estrutura PGR-compatível
       ghe_setores: setoresArr,
       setores: setoresArr,
+      expostos: safeText(totalExpostos),
       epis,
       treinamentos,
       cronograma,
