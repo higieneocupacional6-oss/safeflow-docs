@@ -23,7 +23,7 @@ const menuItems = [
   { title: "Notificações", url: "/notificacoes", icon: Bell, badgeKey: "notif" as const },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },
-  { title: "Cadastros PCMSO", url: "/cadastros/pcmso", icon: Stethoscope },
+  
 ];
 
 export function AppSidebar() {
