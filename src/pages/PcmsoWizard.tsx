@@ -1007,9 +1007,14 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       (g.itens.length ? g.itens : [{ nome: "", ca: "", uso: "" }]).forEach((it: any, idx: number) => {
         epis.push({
           funcao_label: idx === 0 ? g.nome_funcao : "",
+          nome_funcao: g.nome_funcao || "",
+          funcao: { nome: g.nome_funcao || "" },
           rowspan: total,
           is_first: idx === 0,
-          epi: { nome: it.nome, ca: it.ca, uso: it.uso },
+          epi: { nome: it.nome || "", ca: it.ca || "", uso: it.uso || "" },
+          nome_epi: it.nome || "",
+          ca: it.ca || "",
+          uso: it.uso || "",
         });
       });
     });
