@@ -222,7 +222,9 @@ export default function PcmsoWizard() {
       setResponsavel(pgr.responsavel_tecnico || "");
       setCrea(pgr.crea || "");
       setCargo(pgr.cargo || "");
+      if (Array.isArray(pgr.revisoes)) setRevisoes(pgr.revisoes as any);
     }
+
     setPgrSelectOpen(false);
     setCopyPgrOpen(false);
     toast.success("Dados copiados do PGR");
