@@ -135,9 +135,9 @@ export default function PcmsoWizard() {
     queryFn: async () => (await supabase.from("pcmso_observacoes_padrao").select("*").order("created_at", { ascending: false })).data || [],
   });
 
-  // PGR risks for the selected empresa (read-only context for Mapeamento)
-  const { data: pgrRiscosPorTipo = {} as Record<string, string[]> } = useQuery({
-    queryKey: ["pcmso-pgr-riscos", empresaId],
+  // PGR risks for the selected empresa, grouped BY SETOR (read-only context for Mapeamento)
+  const { data: pgrRiscosPorSetor = {} as Record<string, Record<string, string[]>> } = useQuery({
+    queryKey: ["pcmso-pgr-riscos-setor", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase
@@ -149,9 +149,10 @@ export default function PcmsoWizard() {
         .limit(1)
         .maybeSingle();
       const setores = (data?.draft_snapshot as any)?.setores || {};
-      const acc: Record<string, Set<string>> = {};
-      TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
-      Object.values(setores).forEach((s: any) => {
+      const out: Record<string, Record<string, string[]>> = {};
+      Object.entries(setores).forEach(([setorId, s]: [string, any]) => {
+        const acc: Record<string, Set<string>> = {};
+        TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
         (s?.riscos || []).forEach((r: any) => {
           const tipo = (r.tipo_agente || "").trim();
           const nome = (r.agente_nome || r.nome || "").trim();
@@ -159,10 +160,12 @@ export default function PcmsoWizard() {
           if (!acc[tipo]) acc[tipo] = new Set();
           acc[tipo].add(nome);
         });
+        out[setorId] = Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
       });
-      return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
+      return out;
     },
   });
+
 
 
   // Load existing doc
@@ -431,7 +434,8 @@ export default function PcmsoWizard() {
           catalogoExames={catalogoExames}
           esocialList={esocialList}
           obsPadrao={obsPadrao}
-          pgrRiscosPorTipo={pgrRiscosPorTipo}
+          pgrRiscosPorSetor={pgrRiscosPorSetor}
+
           snap={snap}
           setSnap={setSnap}
           goToStep={goToStep}
@@ -547,7 +551,8 @@ export default function PcmsoWizard() {
 /* ------------------- STEP 1: Mapeamento de Exames ------------------- */
 
 function MapeamentoExames({
-  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorTipo, snap, setSnap, goToStep, saving,
+  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorSetor, snap, setSnap, goToStep, saving,
+
 
 }: any) {
   const [setorAtual, setSetorAtual] = useState<string>(setores[0]?.id || "");
@@ -592,26 +597,38 @@ function MapeamentoExames({
   const removeExame = (id: string) => setSnap((s: Snapshot) => ({ ...s, exames: s.exames.filter((x) => x.id !== id) }));
   return (
     <Card className="p-6 space-y-4">
-      {/* Riscos do PGR (visualização) */}
-      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-heading font-semibold">Riscos Ocupacionais (do PGR)</h3>
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">somente visualização</span>
-        </div>
-        {TIPO_AGENTE_ORDEM.map((tipo) => {
-          const lista: string[] = pgrRiscosPorTipo?.[tipo] || [];
-          return (
-            <div key={tipo} className="flex flex-wrap items-center gap-2">
-              <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
-              {lista.length === 0 ? (
-                <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
-              ) : (
-                lista.map((n) => <Badge key={n} variant="outline" className="text-[11px]">{n}</Badge>)
-              )}
+      {/* Riscos do PGR — vinculados ao setor selecionado */}
+      {(() => {
+        const setorNome = setores.find((s: any) => s.id === setorAtual)?.nome_setor || "";
+        const riscosSetor: Record<string, string[]> = pgrRiscosPorSetor?.[setorAtual] || {};
+        return (
+          <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-heading font-semibold">
+                Riscos Ocupacionais (do PGR){setorNome ? ` — ${setorNome}` : ""}
+              </h3>
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wider">somente visualização</span>
             </div>
-          );
-        })}
-      </div>
+            {!setorAtual && (
+              <div className="text-xs text-muted-foreground italic">Selecione um setor abaixo para visualizar os riscos.</div>
+            )}
+            {setorAtual && TIPO_AGENTE_ORDEM.map((tipo) => {
+              const lista: string[] = riscosSetor?.[tipo] || [];
+              return (
+                <div key={tipo} className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
+                  {lista.length === 0 ? (
+                    <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
+                  ) : (
+                    lista.map((n) => <Badge key={n} variant="outline" className="text-[11px]">{n}</Badge>)
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
+
 
       <div className="flex items-center justify-between">
 

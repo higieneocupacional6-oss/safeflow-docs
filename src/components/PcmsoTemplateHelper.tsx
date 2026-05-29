@@ -41,16 +41,18 @@ const groups = [
     ],
   },
   {
-    title: "Riscos Ocupacionais (do PGR — listas concatenadas)",
+    title: "Riscos Ocupacionais por Setor (dinâmico — do PGR)",
     vars: [
-      "{{riscos.fisicos}}", "{{riscos.quimicos}}", "{{riscos.biologicos}}",
-      "{{riscos.acidentes}}", "{{riscos.ergonomicos}}", "{{riscos.psicossociais}}",
+      "{{setor.riscos.fisicos}}", "{{setor.riscos.quimicos}}", "{{setor.riscos.biologicos}}",
+      "{{setor.riscos.acidentes}}", "{{setor.riscos.ergonomicos}}", "{{setor.riscos.psicossociais}}",
     ],
   },
   {
     title: "Setores / Funções / Exames (loop)",
     vars: [
       "{{#setores}}", "{{setor.nome}}", "{{setor.descricao_ambiente}}",
+      "{{setor.riscos.fisicos}}", "{{setor.riscos.quimicos}}", "{{setor.riscos.biologicos}}",
+      "{{setor.riscos.acidentes}}", "{{setor.riscos.ergonomicos}}", "{{setor.riscos.psicossociais}}",
       "{{#funcoes}}", "{{funcao.nome}}", "{{funcao.cbo}}", "{{funcao.descricao}}", "{{/funcoes}}",
       "{{#exames}}", "{{exame.nome}}", "{{exame.esocial.codigo}}", "{{exame.esocial.descricao}}",
       "{{exame.admissional}}", "{{exame.periodico}}", "{{exame.periodo}}",
@@ -58,6 +60,7 @@ const groups = [
       "{{exame.observacao}}", "{{/exames}}",
       "{{/setores}}",
     ],
+
   },
   {
     title: "EPI (loop)",
