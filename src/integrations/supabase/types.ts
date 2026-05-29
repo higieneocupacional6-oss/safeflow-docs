@@ -585,6 +585,63 @@ export type Database = {
           },
         ]
       }
+      esocial_exames: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          descricao: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          descricao: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          descricao?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      exames_catalogo: {
+        Row: {
+          ativo: boolean
+          categoria: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          categoria?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
@@ -1368,6 +1425,129 @@ export type Database = {
           risco_id?: string | null
           situacao?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      pcmso_documentos: {
+        Row: {
+          alteracoes_documento: string | null
+          cargo: string | null
+          contrato_id: string | null
+          crea: string | null
+          created_at: string
+          created_by: string | null
+          current_step: number
+          data_elaboracao: string | null
+          documento_id: string | null
+          draft_snapshot: Json | null
+          empresa_id: string | null
+          id: string
+          responsavel_tecnico: string | null
+          revisoes: Json
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          data_elaboracao?: string | null
+          documento_id?: string | null
+          draft_snapshot?: Json | null
+          empresa_id?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          alteracoes_documento?: string | null
+          cargo?: string | null
+          contrato_id?: string | null
+          crea?: string | null
+          created_at?: string
+          created_by?: string | null
+          current_step?: number
+          data_elaboracao?: string | null
+          documento_id?: string | null
+          draft_snapshot?: Json | null
+          empresa_id?: string | null
+          id?: string
+          responsavel_tecnico?: string | null
+          revisoes?: Json
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      pcmso_observacoes_padrao: {
+        Row: {
+          created_at: string
+          id: string
+          texto: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          texto: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          texto?: string
+        }
+        Relationships: []
+      }
+      pcmso_setor_exames: {
+        Row: {
+          admissional: boolean
+          created_at: string
+          demissional: boolean
+          esocial_id: string | null
+          exame_id: string | null
+          id: string
+          mudanca_risco: boolean
+          observacoes: string | null
+          pcmso_id: string
+          periodico: boolean
+          periodo: string | null
+          retorno_trabalho: boolean
+          setor_id: string
+        }
+        Insert: {
+          admissional?: boolean
+          created_at?: string
+          demissional?: boolean
+          esocial_id?: string | null
+          exame_id?: string | null
+          id?: string
+          mudanca_risco?: boolean
+          observacoes?: string | null
+          pcmso_id: string
+          periodico?: boolean
+          periodo?: string | null
+          retorno_trabalho?: boolean
+          setor_id: string
+        }
+        Update: {
+          admissional?: boolean
+          created_at?: string
+          demissional?: boolean
+          esocial_id?: string | null
+          exame_id?: string | null
+          id?: string
+          mudanca_risco?: boolean
+          observacoes?: string | null
+          pcmso_id?: string
+          periodico?: boolean
+          periodo?: string | null
+          retorno_trabalho?: boolean
+          setor_id?: string
         }
         Relationships: []
       }

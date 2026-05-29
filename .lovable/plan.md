@@ -1,71 +1,75 @@
-# Plano: Controle de Documentos + Notificações
+# PCMSO — Fluxo Completo + Variáveis de Template
 
-## 1. Banco de dados (migração)
+Escopo grande (≈ 6–8 arquivos novos, 4 migrações, 1 wizard novo). Abaixo o plano por etapas.
 
-**Nova coluna em `documentos`:**
-- `data_validade` (date) — calculada automaticamente
-- `upload_file_path` (text) — arquivo enviado pelo usuário (separado do `file_path` original gerado pelo sistema)
-- `nome_documento` (text) — nome customizável
+## 1. Banco de dados (migrações)
 
-**Nova tabela `notificacoes`:**
-- `documento_id` (uuid), `empresa_id` (uuid), `contrato_id` (uuid)
-- `tipo` (text: '30_dias' | '15_dias' | 'vencimento')
-- `data_vencimento` (date)
-- `lida` (boolean, default false)
-- `created_at`
-- Unique constraint em (documento_id, tipo) para evitar duplicidade
-- RLS: authenticated full access
+Novas tabelas:
 
-**Bucket `documentos-upload`** (privado) + policies para upload/download autenticados.
+- `exames_catalogo` — `id, nome, categoria, descricao, ativo`
+- `esocial_exames` — `id, codigo, descricao, ativo`
+- `pcmso_observacoes_padrao` — `id, texto`
+- `pcmso_documentos` — espelho do PGR: `empresa_id, contrato_id, current_step, status, data_elaboracao, responsavel_tecnico, crea, cargo, revisoes, draft_snapshot`
+- `pcmso_setor_exames` — `pcmso_id, setor_id, exame_id, esocial_id, admissional, periodico, retorno, mudanca_risco, demissional, periodo, observacoes`
+- `pcmso_epis` / `pcmso_treinamentos` / `pcmso_cronograma` (mesma estrutura usada no PGR)
 
-**Trigger**: ao inserir/atualizar `documentos.data_elaboracao`, recalcular `data_validade = data_elaboracao + 12 meses`.
+RLS: `authenticated` full access (padrão do projeto). GRANTs explícitos.
 
-## 2. Página `/documentos/controle` — Controle de Documentos
+Seeds: lista inicial de exames (Audiometria, Acuidade Visual, ECG, EEG, Espirometria, Hemograma) e códigos eSocial comuns (0295, 0281, 0290, …).
 
-Hierarquia em árvore (accordion expansível):
-```
-📁 Empresa A
-   └ 📁 Contrato 001
-        └ 📁 Documentos
-             └ [Tabela: Tipo | Nome | Empresa | Contrato | Data elaboração | Validade | Status | Upload | Download]
-   └ 📁 Contrato 002
-📁 Empresa B
-```
+## 2. Módulos de Cadastro
 
-**Status calculado** no frontend:
-- "No prazo" (verde) — `data_validade > hoje`
-- "Próximo do vencimento" (amarelo) — ≤30 dias
-- "Vencido" (vermelho) — `data_validade < hoje`
+Adicionar em `src/pages/Cadastros.tsx` (ou nova rota):
 
-**Filtros no topo**: busca por nome, select empresa, select contrato, select tipo, select status.
+- **Cadastro > Exames** — CRUD `exames_catalogo`
+- **Cadastro > eSocial Exames** — CRUD `esocial_exames`
+- **Cadastro > Observações PCMSO** — CRUD `pcmso_observacoes_padrao`
 
-**Ícone upload**: abre input file → salva no bucket → atualiza `upload_file_path`.
+## 3. Wizard PCMSO — `src/pages/PcmsoWizard.tsx`
 
-**Ícone download**: abre modal com 2 opções:
-- "Baixar documento original emitido pelo sistema" → usa `file_path`
-- "Baixar arquivo enviado via upload" → usa `upload_file_path`
+Rota: `/documentos/pcmso/novo` e `/documentos/pcmso/editar/:id`.
 
-## 3. Página `/notificacoes` — Notificações
+**Etapas:**
 
-- Lista cards/tabela com: empresa, contrato, documento, data vencimento, status (30/15/vencido), badge.
-- Geração automática: ao carregar a página, varre `documentos` e cria registros em `notificacoes` quando aplicável (idempotente via unique).
-- Ícone "marcar como lida".
-- Badge no sidebar com contador de não lidas.
+1. **Identificação** — reaproveita componente do PGR. Modal inicial: "Copiar de PGR existente?" → lista empresas com PGR → copia campos (editáveis).
+2. **Mapeamento de Exames** — seletor de setor (filtra por empresa), mostra funções (read-only), botão "+ Adicionar Exame" → modal:
+   - Select exame (catálogo)
+   - Select código eSocial
+   - Checkboxes: Admissional / Periódico / Retorno / Mudança Riscos / Demissional
+   - Se Periódico → campo Período (texto livre)
+   - Textarea Observações + botão "Cadastrar Texto" abrindo modal de observações padrão
+3. **EPI** — modal "Copiar do PGR?" → se sim, copia; se não, mesma UI do PGR
+4. **Treinamentos** — idem etapa EPI
+5. **Cronograma** — reaproveita `PgrCronogramaStep` mas salva em `pcmso_cronograma`
+6. **Listagem/Geração** — gera DOCX via template com payload PCMSO
 
-## 4. Sidebar (`AppSidebar.tsx`)
+## 4. Helper de variáveis — `src/components/PcmsoTemplateHelper.tsx`
 
-Adicionar dois novos itens de menu:
-- "Controle de Documentos" → `/documentos/controle`
-- "Notificações" → `/notificacoes` (com badge de count)
+Modal estilo `PgrTemplateHelper` com categorias: Identificação, Empresa, Responsáveis, Setores, Funções, Exames, eSocial, EPI, Treinamentos, Cronograma, Assinaturas. Cada variável com botão "Copiar" e "Ver Exemplo".
 
-## 5. Rotas (`App.tsx`)
+Suporta loops Mustache: `{{#setores}}{{#exames}}…{{/exames}}{{/setores}}`.
 
-Adicionar `<Route path="/documentos/controle" />` e `<Route path="/notificacoes" />`.
+## 5. Integração / Navegação
+
+- Adicionar item PCMSO em `src/pages/Documentos.tsx` (novo documento)
+- Adicionar rota no `src/App.tsx`
+- Sidebar: link para novos cadastros
 
 ## Detalhes técnicos
 
-- Geração de notificações: função client-side executada ao montar a página de Notificações (e também na página Controle), com `upsert` ignorando conflitos.
-- Cálculo de validade também feito no frontend como fallback caso `data_elaboracao` exista mas trigger não tenha rodado em registros antigos.
-- Reutilizar `useRealtimeSync` para sincronizar mudanças.
+- Reaproveitar componentes do PGR (`EmpresaModal`, `SetorFuncaoModal`, cronograma) — extrair lógica comum se necessário
+- Persistência por etapa via `draft_snapshot` jsonb (mesmo padrão LTCAT/PGR) para evitar perda de dados
+- Geração DOCX: payload com `empresa`, `responsaveis`, `setores[].funcoes[]`, `setores[].exames[]`, `epis[]`, `treinamentos[]`, `cronograma[]`
+- Modal "copiar PGR" usa `draft_snapshot` do PGR mais recente da empresa
 
-Confirma para eu implementar?
+## Riscos / pontos de atenção
+
+- Volume grande de UI nova → entregar em sub-etapas se preferir
+- "Copiar do PGR" depende da estrutura atual do `draft_snapshot` do PGR — vou inspecionar antes de implementar
+- Templates DOCX existentes não terão variáveis PCMSO; usuário precisará criar template novo
+
+## Pergunta antes de iniciar
+
+Confirma que devo:
+1. Criar as 3 migrações (catálogos + PCMSO completo) numa só leva?
+2. Construir tudo de uma vez ou entregar por etapas (ex.: 1ª PR = cadastros + identificação + mapeamento de exames; 2ª PR = EPI/Treinamentos/Cronograma; 3ª PR = variáveis de template)?
