@@ -431,6 +431,7 @@ export default function PcmsoWizard() {
           catalogoExames={catalogoExames}
           esocialList={esocialList}
           obsPadrao={obsPadrao}
+          pgrRiscosPorTipo={pgrRiscosPorTipo}
           snap={snap}
           setSnap={setSnap}
           goToStep={goToStep}
