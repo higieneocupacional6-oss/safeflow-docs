@@ -1,6 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Stethoscope, ShieldCheck, GraduationCap, CalendarDays, FileDown, Bookmark } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Stethoscope, ShieldCheck, GraduationCap, CalendarDays, FileDown, Bookmark, Link2, FileCheck2 } from "lucide-react";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -496,22 +499,21 @@ export default function PcmsoWizard() {
 
       {/* STEP 5 - Geração */}
       {step === 5 && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-heading text-lg font-bold">Geração do PCMSO</h2>
-          <p className="text-sm text-muted-foreground">
-            A geração do documento utiliza um template (.docx) cadastrado em <strong>Templates</strong> com as variáveis do PCMSO.
-            Consulte o botão <strong>Variáveis PCMSO</strong> no topo desta tela para a lista completa.
-          </p>
-          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            Em breve: seleção de template e geração automática do PDF/DOCX do PCMSO.
-          </div>
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => goToStep(4)}>Voltar</Button>
-            <Button onClick={async () => { await persist(); toast.success("PCMSO salvo como rascunho"); navigate("/documentos"); }}>
-              Concluir
-            </Button>
-          </div>
-        </Card>
+        <GerarStep
+          empresaId={empresaId}
+          empresaNome={empresaNome}
+          dataElab={dataElab}
+          responsavel={responsavel}
+          crea={crea}
+          cargo={cargo}
+          revisoes={revisoes}
+          snap={snap}
+          setores={setoresEmpresa}
+          funcoes={funcoesAll}
+          goToStep={goToStep}
+          persist={persist}
+          navigate={navigate}
+        />
       )}
 
       {/* Modal Copy from PGR */}
@@ -888,6 +890,310 @@ function TreinStep({ snap, setSnap, funcoes, goToStep, saving, askOpen, onAskAns
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </Card>
+  );
+}
+
+/* ------------------- STEP 5: Geração do PCMSO ------------------- */
+
+function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo, revisoes, snap, setores, funcoes, goToStep, persist, navigate }: any) {
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null);
+  const [generatedFileName, setGeneratedFileName] = useState<string>("");
+  const [finishing, setFinishing] = useState(false);
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-pcmso"],
+    queryFn: async () => {
+      const { data } = await supabase.from("templates").select("id,title,file_path").order("title");
+      return data || [];
+    },
+  });
+
+  const buildTemplateData = async () => {
+    const { data: emp } = await supabase.from("empresas").select("*").eq("id", empresaId).maybeSingle();
+    const empresa: any = emp || {};
+    const { data: pgrDoc } = await supabase
+      .from("documentos")
+      .select("draft_snapshot")
+      .eq("tipo", "PGR")
+      .eq("empresa_id", empresaId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const pgrSnap: any = pgrDoc?.draft_snapshot || {};
+    const pgrSetoresMap: Record<string, any> = pgrSnap.setores || {};
+
+    const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+
+    // Build setores grouped (compatible with PGR's {{#ghe_setores}}{{#setores}}{{#funcoes_ghe}} and PCMSO {{#setores}}{{#exames}})
+    const setoresArr = (setores as any[]).map((s) => {
+      const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
+      const funcoes_ghe = fns.map((f) => ({
+        nome_funcao: f.nome_funcao || "",
+        cbo_codigo: f.cbo_codigo || "",
+        cbo_descricao: f.cbo_descricao || "",
+        descricao_atividades: f.descricao_atividades || "",
+        expostos: f.expostos || "",
+      }));
+
+      // Riscos do PGR (agrupados por tipo) para este setor
+      const riscosPgr = (pgrSetoresMap[s.id]?.riscos || []) as any[];
+      const groupBy = (tipo: string) =>
+        Array.from(new Set(riscosPgr.filter((r) => (r.tipo_agente || "").trim() === tipo).map((r) => r.agente_nome || r.nome || "").filter(Boolean))).join(", ");
+
+      const exames = (snap.exames as any[])
+        .filter((e) => e.setor_id === s.id)
+        .map((e) => ({
+          exame: {
+            nome: e.exame_nome || "",
+            esocial: { codigo: e.esocial_codigo || "", descricao: e.esocial_descricao || "" },
+            admissional: e.admissional ? "Sim" : "",
+            periodico: e.periodico ? "Sim" : "",
+            periodo: e.periodo || "",
+            retorno: e.retorno_trabalho ? "Sim" : "",
+            mudanca_risco: e.mudanca_risco ? "Sim" : "",
+            demissional: e.demissional ? "Sim" : "",
+            observacao: e.observacoes || "",
+          },
+          // legado plano
+          exame_nome: e.exame_nome || "",
+          codigo_esocial: e.esocial_codigo || "",
+          descricao_esocial: e.esocial_descricao || "",
+          admissional: e.admissional ? "Sim" : "",
+          periodico: e.periodico ? "Sim" : "",
+          periodo: e.periodo || "",
+          retorno: e.retorno_trabalho ? "Sim" : "",
+          mudanca_risco: e.mudanca_risco ? "Sim" : "",
+          demissional: e.demissional ? "Sim" : "",
+          observacao: e.observacoes || "",
+        }));
+
+      const setorObj = {
+        nome_setor: s.nome_setor || "",
+        ghe_ges: s.ghe_ges || "",
+        descricao_ambiente: s.descricao_ambiente || "",
+        funcoes_ghe,
+        funcoes: funcoes_ghe,
+        exames,
+        riscos: {
+          fisicos: groupBy("Físico"),
+          quimicos: groupBy("Químico"),
+          biologicos: groupBy("Biológico"),
+          acidentes: groupBy("Acidentes"),
+          ergonomicos: groupBy("Ergonômico"),
+          psicossociais: groupBy("Psicossociais"),
+        },
+      };
+      // Mustache supports both {{setor.nome}} (when item is `setor`) and direct fields
+      return { ...setorObj, setor: setorObj };
+    });
+
+    // EPIs (agrupado por função, igual ao PGR)
+    const funcMap = new Map<string, any>((funcoes as any[]).map((f) => [f.id, f]));
+    const epiPorFuncao = new Map<string, { nome_funcao: string; itens: any[] }>();
+    (snap.epis as any[]).forEach((e) => {
+      (e.funcao_ids || []).forEach((fid: string) => {
+        const f = funcMap.get(fid); if (!f) return;
+        if (!epiPorFuncao.has(fid)) epiPorFuncao.set(fid, { nome_funcao: f.nome_funcao || "", itens: [] });
+        epiPorFuncao.get(fid)!.itens.push({ nome: e.nome, ca: e.ca, uso: e.uso });
+      });
+    });
+    const epis: any[] = [];
+    epiPorFuncao.forEach((g) => {
+      const total = g.itens.length || 1;
+      (g.itens.length ? g.itens : [{ nome: "", ca: "", uso: "" }]).forEach((it: any, idx: number) => {
+        epis.push({
+          funcao_label: idx === 0 ? g.nome_funcao : "",
+          rowspan: total,
+          is_first: idx === 0,
+          epi: { nome: it.nome, ca: it.ca, uso: it.uso },
+        });
+      });
+    });
+
+    // Treinamentos (agrupado por função)
+    const treinPorFuncao = new Map<string, { nome_funcao: string; itens: any[] }>();
+    (snap.treinamentos as any[]).forEach((t) => {
+      (t.funcao_ids || []).forEach((fid: string) => {
+        const f = funcMap.get(fid); if (!f) return;
+        if (!treinPorFuncao.has(fid)) treinPorFuncao.set(fid, { nome_funcao: f.nome_funcao || "", itens: [] });
+        treinPorFuncao.get(fid)!.itens.push({ nome: t.nome, carga_horaria: t.carga_horaria });
+      });
+    });
+    const treinamentos: any[] = [];
+    treinPorFuncao.forEach((g) => {
+      const total = g.itens.length || 1;
+      (g.itens.length ? g.itens : [{ nome: "", carga_horaria: "" }]).forEach((it: any, idx: number) => {
+        treinamentos.push({
+          funcao_label: idx === 0 ? g.nome_funcao : "",
+          rowspan: total,
+          is_first: idx === 0,
+          treinamento: { nome: it.nome, carga_horaria: it.carga_horaria },
+        });
+      });
+    });
+
+    const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const cronograma = (snap.cronograma || []).map((c: any) => {
+      const mes = parseInt(c.prazo_mes || "0", 10);
+      return {
+        cronograma: {
+          item: c.item || "",
+          acao: c.acao || "",
+          responsavel: c.responsavel || "",
+          prazo_mes: mes >= 1 && mes <= 12 ? MESES_PT[mes] : "",
+          prazo_ano: c.prazo_ano || "",
+          situacao: c.situacao || "",
+        },
+      };
+    });
+
+    const revisoesArr = (revisoes as any[]).map((r) => ({
+      revisao: r.revisao || "",
+      data: fmtDate(r.data),
+      motivo: r.motivo || "",
+      responsavel: r.responsavel || "",
+    }));
+
+    return {
+      // Empresa
+      empresa_nome: empresaNome || empresa.razao_social || "",
+      empresa: empresaNome || empresa.razao_social || "",
+      razao_social: empresa.razao_social || "",
+      nome_fantasia: empresa.nome_fantasia || "",
+      cnpj: empresa.cnpj || "",
+      cnae_principal: empresa.cnae_principal || "",
+      grau_risco: empresa.grau_risco || "",
+      endereco: empresa.endereco || "",
+      total_funcionarios: String(empresa.total_funcionarios ?? ""),
+      numero_funcionarios_masc: String(empresa.numero_funcionarios_masc ?? ""),
+      numero_funcionarios_fem: String(empresa.numero_funcionarios_fem ?? ""),
+      jornada_trabalho: empresa.jornada_trabalho || "",
+      local_trabalho: empresa.local_trabalho || "",
+      // Contrato
+      numero_contrato: empresa.numero_contrato || "",
+      nome_contratante: empresa.nome_contratante || "",
+      cnpj_contratante: empresa.cnpj_contratante || "",
+      escopo_contrato: empresa.escopo_contrato || "",
+      vigencia_inicio: fmtDate(empresa.vigencia_inicio),
+      vigencia_fim: fmtDate(empresa.vigencia_fim),
+      // Responsáveis
+      responsavel: responsavel || "",
+      responsavel_tecnico: responsavel || "",
+      crea: crea || "",
+      cargo: cargo || "",
+      data_elaboracao: fmtDate(dataElab),
+      gestor_nome: empresa.gestor_nome || "",
+      gestor_email: empresa.gestor_email || "",
+      gestor_telefone: empresa.gestor_telefone || "",
+      fiscal_nome: empresa.fiscal_nome || "",
+      fiscal_email: empresa.fiscal_email || "",
+      fiscal_telefone: empresa.fiscal_telefone || "",
+      preposto_nome: empresa.preposto_nome || "",
+      preposto_email: empresa.preposto_email || "",
+      preposto_telefone: empresa.preposto_telefone || "",
+      // Estrutura PGR-compatível
+      ghe_setores: setoresArr,
+      setores: setoresArr,
+      epis,
+      treinamentos,
+      cronograma,
+      revisoes: revisoesArr,
+    };
+  };
+
+  const handleVincular = async () => {
+    if (!selectedTemplate) { toast.error("Selecione um template"); return; }
+    setValidating(true);
+    setValidated(false);
+    setGeneratedBlob(null);
+    try {
+      const tpl: any = (templates as any[]).find((t) => t.id === selectedTemplate);
+      if (!tpl) throw new Error("Template não encontrado");
+      const { data: fileData, error } = await supabase.storage.from("templates").download(tpl.file_path);
+      if (error) throw error;
+      const ab = await fileData.arrayBuffer();
+      const zip = new PizZip(ab);
+      const doc = new Docxtemplater(zip, { paragraphLoop: true, linebreaks: true, delimiters: { start: "{{", end: "}}" } });
+      const data = await buildTemplateData();
+      doc.render(data);
+      const blob: Blob = (doc.getZip() as any).generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const fileName = `PCMSO_${(empresaNome || "documento").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().getFullYear()}.docx`;
+      setGeneratedBlob(blob);
+      setGeneratedFileName(fileName);
+      setValidated(true);
+      toast.success("✅ Documento vinculado com sucesso");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Erro ao vincular: " + (e?.message || ""));
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleBaixar = () => {
+    if (!generatedBlob) return;
+    saveAs(generatedBlob, generatedFileName);
+  };
+
+  const handleConcluir = async () => {
+    setFinishing(true);
+    try {
+      await persist();
+      toast.success("PCMSO salvo");
+      navigate("/documentos");
+    } finally {
+      setFinishing(false);
+    }
+  };
+
+  return (
+    <Card className="p-8 space-y-6">
+      <div className="text-center">
+        <FileDown className="w-12 h-12 mx-auto text-accent mb-3" />
+        <h2 className="font-heading text-xl font-bold mb-1">Geração do PCMSO</h2>
+        <p className="text-sm text-muted-foreground">
+          Selecione um template (.docx). O sistema preenche dados do PCMSO e integra automaticamente as variáveis do PGR vinculado à empresa.
+        </p>
+      </div>
+
+      <div>
+        <Label className="text-xs font-bold uppercase">Template *</Label>
+        <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setValidated(false); setGeneratedBlob(null); }}>
+          <SelectTrigger className="mt-1"><SelectValue placeholder="Escolher template PCMSO" /></SelectTrigger>
+          <SelectContent>
+            {(templates as any[]).length === 0 && <div className="p-2 text-sm text-muted-foreground">Nenhum template cadastrado</div>}
+            {(templates as any[]).map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="flex flex-wrap justify-center gap-2">
+        <Button variant="outline" onClick={handleVincular} disabled={validating || !selectedTemplate}>
+          {validating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+          Vincular e gerar
+        </Button>
+        <Button onClick={handleBaixar} disabled={!validated || !generatedBlob} className="bg-accent text-accent-foreground hover:bg-accent/90">
+          <FileDown className="w-4 h-4" /> Baixar Documento
+        </Button>
+      </div>
+
+      {validated && (
+        <p className="text-center text-xs text-success">
+          <FileCheck2 className="w-3 h-3 inline mr-1" /> Variáveis preenchidas — pronto para baixar
+        </p>
+      )}
+
+      <div className="flex justify-between pt-2">
+        <Button variant="outline" onClick={() => goToStep(4)}>Voltar</Button>
+        <Button onClick={handleConcluir} disabled={finishing}>
+          {finishing ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+          Concluir
+        </Button>
+      </div>
     </Card>
   );
 }
