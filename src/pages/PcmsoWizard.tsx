@@ -1000,8 +1000,9 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
         },
       }));
 
-      const riscosPgr = (pgrSetoresMap[setorId]?.riscos || []) as any[];
-      const groupedRiskArrays = groupRisksByCategory(riscosPgr);
+      // PCMSO independente: riscos vêm somente do próprio PCMSO (atualmente sem captura → vazios).
+      const riscosPcmso: any[] = [];
+      const groupedRiskArrays = groupRisksByCategory(riscosPcmso);
       const groupedRiskText = Object.fromEntries(
         RISK_BUCKETS.map((bucket) => [bucket.key, groupedRiskArrays[bucket.key].join(", ")]),
       ) as Record<(typeof RISK_BUCKETS)[number]["key"], string>;
