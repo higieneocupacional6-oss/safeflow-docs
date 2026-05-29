@@ -77,10 +77,10 @@ const groups = [
     ],
   },
   {
-    title: "Cronograma (loop)",
+    title: "Cronograma PCMSO (loop)",
     vars: [
-      "{{#cronograma}}", "{{cronograma.acao}}", "{{cronograma.responsavel}}",
-      "{{cronograma.prazo_mes}}", "{{cronograma.prazo_ano}}", "{{cronograma.situacao}}", "{{/cronograma}}",
+      "{{#cronograma_pcmso}}", "{{item}}", "{{acao}}", "{{responsavel}}",
+      "{{prazo}}", "{{prazo_mes}}", "{{prazo_ano}}", "{{situacao}}", "{{/cronograma_pcmso}}",
     ],
   },
 ];
