@@ -384,12 +384,43 @@ export default function PcmsoWizard() {
               <Input value={cargo} onChange={(e) => setCargo(e.target.value)} />
             </div>
           </div>
+
+          {/* Revisões */}
+          <div className="border-t pt-4 mt-2">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-heading font-semibold">Revisões</h3>
+                <p className="text-xs text-muted-foreground">Histórico de revisões deste PCMSO</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={addRevisao} className="gap-1"><Plus className="w-4 h-4" />Adicionar revisão</Button>
+            </div>
+            {revisoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma revisão cadastrada</p>
+            ) : (
+              <div className="space-y-2">
+                {revisoes.map((r, i) => (
+                  <div key={i} className="border rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div><Label className="text-xs">Revisão</Label><Input className="mt-1" value={r.revisao} onChange={(e) => updateRevisao(i, "revisao", e.target.value)} /></div>
+                    <div><Label className="text-xs">Data</Label><Input className="mt-1" type="date" value={r.data} onChange={(e) => updateRevisao(i, "data", e.target.value)} /></div>
+                    <div><Label className="text-xs">Motivo</Label><Input className="mt-1" value={r.motivo} onChange={(e) => updateRevisao(i, "motivo", e.target.value)} /></div>
+                    <div className="flex gap-2">
+                      <div className="flex-1"><Label className="text-xs">Responsável</Label><Input className="mt-1" value={r.responsavel} onChange={(e) => updateRevisao(i, "responsavel", e.target.value)} /></div>
+                      <Button variant="ghost" size="icon" className="self-end text-destructive" onClick={() => removeRevisao(i)}><Trash2 className="w-4 h-4" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end">
             <Button onClick={() => goToStep(1)} disabled={!empresaId || saving} className="gap-2">
               Próximo: Mapeamento de Exames<ChevronRight className="w-4 h-4" />
             </Button>
           </div>
         </Card>
+      )}
+
       )}
 
       {/* STEP 1 - Mapeamento de Exames */}
