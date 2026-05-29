@@ -32,6 +32,7 @@ export default function Documentos() {
   const [open, setOpen] = useState(false);
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
+  const [pcmsoOpen, setPcmsoOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -67,6 +68,8 @@ export default function Documentos() {
       navigate("/documentos/aet/novo");
     } else if (typeId === "pgr") {
       navigate("/documentos/pgr/novo");
+    } else if (typeId === "pcmso") {
+      setTimeout(() => setPcmsoOpen(true), 100);
     }
   };
 
@@ -108,6 +111,8 @@ export default function Documentos() {
       navigate(`/documentos/aet/editar/${doc.id}`);
     } else if (tipo === "PGR") {
       navigate(`/documentos/pgr/editar/${doc.id}`);
+    } else if (tipo === "PCMSO") {
+      navigate(`/documentos/pcmso/editar/${doc.id}`);
     }
   };
 
