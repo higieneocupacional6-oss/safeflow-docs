@@ -15,7 +15,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
   { id: "pgr", label: "PGR", desc: "Programa de Gerenciamento de Riscos" },
-  { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
+  
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
