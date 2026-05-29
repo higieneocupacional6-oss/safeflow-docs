@@ -590,8 +590,31 @@ function MapeamentoExames({
   };
 
   const removeExame = (id: string) => setSnap((s: Snapshot) => ({ ...s, exames: s.exames.filter((x) => x.id !== id) }));
-
   return (
+    <Card className="p-6 space-y-4">
+      {/* Riscos do PGR (visualização) */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-heading font-semibold">Riscos Ocupacionais (do PGR)</h3>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">somente visualização</span>
+        </div>
+        {TIPO_AGENTE_ORDEM.map((tipo) => {
+          const lista: string[] = pgrRiscosPorTipo?.[tipo] || [];
+          return (
+            <div key={tipo} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
+              {lista.length === 0 ? (
+                <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
+              ) : (
+                lista.map((n) => <Badge key={n} variant="outline" className="text-[11px]">{n}</Badge>)
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      <div className="flex items-center justify-between">
+
     <Card className="p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex-1 max-w-sm">
