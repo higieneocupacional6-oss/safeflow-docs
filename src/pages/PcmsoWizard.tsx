@@ -499,22 +499,21 @@ export default function PcmsoWizard() {
 
       {/* STEP 5 - Geração */}
       {step === 5 && (
-        <Card className="p-6 space-y-4">
-          <h2 className="font-heading text-lg font-bold">Geração do PCMSO</h2>
-          <p className="text-sm text-muted-foreground">
-            A geração do documento utiliza um template (.docx) cadastrado em <strong>Templates</strong> com as variáveis do PCMSO.
-            Consulte o botão <strong>Variáveis PCMSO</strong> no topo desta tela para a lista completa.
-          </p>
-          <div className="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">
-            Em breve: seleção de template e geração automática do PDF/DOCX do PCMSO.
-          </div>
-          <div className="flex justify-between">
-            <Button variant="outline" onClick={() => goToStep(4)}>Voltar</Button>
-            <Button onClick={async () => { await persist(); toast.success("PCMSO salvo como rascunho"); navigate("/documentos"); }}>
-              Concluir
-            </Button>
-          </div>
-        </Card>
+        <GerarStep
+          empresaId={empresaId}
+          empresaNome={empresaNome}
+          dataElab={dataElab}
+          responsavel={responsavel}
+          crea={crea}
+          cargo={cargo}
+          revisoes={revisoes}
+          snap={snap}
+          setores={setoresEmpresa}
+          funcoes={funcoesAll}
+          goToStep={goToStep}
+          persist={persist}
+          navigate={navigate}
+        />
       )}
 
       {/* Modal Copy from PGR */}
