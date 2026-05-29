@@ -54,10 +54,10 @@ const groups = [
       "{{setor.riscos.fisicos}}", "{{setor.riscos.quimicos}}", "{{setor.riscos.biologicos}}",
       "{{setor.riscos.acidentes}}", "{{setor.riscos.ergonomicos}}", "{{setor.riscos.psicossociais}}",
       "{{#funcoes}}", "{{funcao.nome}}", "{{funcao.cbo}}", "{{funcao.descricao}}", "{{/funcoes}}",
-      "{{#exames}}", "{{exame.nome}}", "{{exame.esocial.codigo}}", "{{exame.esocial.descricao}}",
+      "{{#setor.exames}}", "{{exame.nome}}", "{{exame.esocial.codigo}}", "{{exame.esocial.descricao}}",
       "{{exame.admissional}}", "{{exame.periodico}}", "{{exame.periodo}}",
       "{{exame.retorno}}", "{{exame.mudanca_risco}}", "{{exame.demissional}}",
-      "{{exame.observacao}}", "{{/exames}}",
+      "{{#exame.observacao}}", "{{.}}", "{{/exame.observacao}}", "{{/setor.exames}}",
       "{{/setores}}",
     ],
 
