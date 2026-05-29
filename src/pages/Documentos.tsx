@@ -10,12 +10,13 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
 import { PericulosidadeStartModal } from "@/components/PericulosidadeStartModal";
+import { PcmsoStartModal } from "@/components/PcmsoStartModal";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
   { id: "pgr", label: "PGR", desc: "Programa de Gerenciamento de Riscos" },
-  
+  { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
@@ -31,6 +32,7 @@ export default function Documentos() {
   const [open, setOpen] = useState(false);
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
+  const [pcmsoOpen, setPcmsoOpen] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -66,6 +68,8 @@ export default function Documentos() {
       navigate("/documentos/aet/novo");
     } else if (typeId === "pgr") {
       navigate("/documentos/pgr/novo");
+    } else if (typeId === "pcmso") {
+      setTimeout(() => setPcmsoOpen(true), 100);
     }
   };
 
@@ -107,6 +111,8 @@ export default function Documentos() {
       navigate(`/documentos/aet/editar/${doc.id}`);
     } else if (tipo === "PGR") {
       navigate(`/documentos/pgr/editar/${doc.id}`);
+    } else if (tipo === "PCMSO") {
+      navigate(`/documentos/pcmso/editar/${doc.id}`);
     }
   };
 
@@ -214,6 +220,7 @@ export default function Documentos() {
 
       <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
       <PericulosidadeStartModal open={periculosidadeOpen} onOpenChange={setPericulosidadeOpen} />
+      <PcmsoStartModal open={pcmsoOpen} onOpenChange={setPcmsoOpen} />
     </div>
   );
 }

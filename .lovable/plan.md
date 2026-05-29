@@ -1,75 +1,84 @@
-# PCMSO — Fluxo Completo + Variáveis de Template
+## Visão geral
 
-Escopo grande (≈ 6–8 arquivos novos, 4 migrações, 1 wizard novo). Abaixo o plano por etapas.
+Criar módulo PCMSO completo, isolado do PGR (cópia opcional como inicialização), com:
+- Card "PCMSO" em `Documentos → Novo Documento`
+- Modal de entrada: "Deseja copiar informações do PGR? SIM / NÃO"
+- Wizard com 2 etapas: Identificação e Dimensionamento de Exames
+- Sistema de textos padrão de observações
+- Helper de variáveis para template DOCX
 
-## 1. Banco de dados (migrações)
+## Backend (Lovable Cloud)
 
-Novas tabelas:
+**Tabelas novas:**
+- `pcmso_documentos` — id, empresa_id, contrato_id, responsavel_tecnico, crea, cargo, vigencia_inicio, vigencia_fim, revisoes (jsonb), setores_snapshot (jsonb), status, file_path, created_at/by, updated_at
+- `pcmso_observacoes_padrao` (já existe — reaproveitar) — titulo, texto, created_by
 
-- `exames_catalogo` — `id, nome, categoria, descricao, ativo`
-- `esocial_exames` — `id, codigo, descricao, ativo`
-- `pcmso_observacoes_padrao` — `id, texto`
-- `pcmso_documentos` — espelho do PGR: `empresa_id, contrato_id, current_step, status, data_elaboracao, responsavel_tecnico, crea, cargo, revisoes, draft_snapshot`
-- `pcmso_setor_exames` — `pcmso_id, setor_id, exame_id, esocial_id, admissional, periodico, retorno, mudanca_risco, demissional, periodo, observacoes`
-- `pcmso_epis` / `pcmso_treinamentos` / `pcmso_cronograma` (mesma estrutura usada no PGR)
+Tudo via RLS `authenticated` + GRANTs padrão.
 
-RLS: `authenticated` full access (padrão do projeto). GRANTs explícitos.
+O documento aparecerá em `documentos` (tabela mestre) via inserção paralela com tipo `PCMSO` para listagem unificada, mas o estado real fica em `pcmso_documentos`.
 
-Seeds: lista inicial de exames (Audiometria, Acuidade Visual, ECG, EEG, Espirometria, Hemograma) e códigos eSocial comuns (0295, 0281, 0290, …).
+## Frontend
 
-## 2. Módulos de Cadastro
+**Arquivos novos:**
+- `src/components/PcmsoStartModal.tsx` — modal SIM/NÃO + seletor de empresa (quando SIM) e seletor de PGR existente
+- `src/lib/copyPgrToPcmso.ts` — função que lê `documentos` tipo PGR + `draft_snapshot`, monta payload inicial PCMSO e cria registro
+- `src/pages/PcmsoWizard.tsx` — wizard com Step 1 (Identificação + Revisões dinâmicas) e Step 2 (lista de setores → detalhe do setor com funções, 6 grupos de agentes, exames dinâmicos, observações)
+- `src/components/PcmsoSetorDetail.tsx` — tela do setor (funções, agentes editáveis em 6 categorias, exames CRUD)
+- `src/components/PcmsoExameForm.tsx` — formulário dinâmico de exame com switches Admissional/Periódico (+ período condicional)/Retorno/Mudança/Demissional, observação + integração com textos padrão
+- `src/components/PcmsoObservacoesPadraoModal.tsx` — selecionar múltiplos textos padrão, criar novo, marcar observação atual como padrão
+- `src/components/PcmsoTemplateHelper.tsx` — popover/modal listando todas variáveis e exemplo de loop Mustache
 
-Adicionar em `src/pages/Cadastros.tsx` (ou nova rota):
+**Edições:**
+- `src/pages/Documentos.tsx` — adicionar `{ id: "pcmso", label: "PCMSO", desc: "..." }` abaixo de PGR; abrir `PcmsoStartModal`; suportar download/edit/delete
+- `src/App.tsx` — rotas `/documentos/pcmso/novo` e `/documentos/pcmso/editar/:documentoId`
 
-- **Cadastro > Exames** — CRUD `exames_catalogo`
-- **Cadastro > eSocial Exames** — CRUD `esocial_exames`
-- **Cadastro > Observações PCMSO** — CRUD `pcmso_observacoes_padrao`
+## Estrutura de dados (snapshot do setor)
 
-## 3. Wizard PCMSO — `src/pages/PcmsoWizard.tsx`
+```json
+{
+  "identificacao": {
+    "empresa": "", "responsavel_tecnico": "", "crea": "", "cargo": "",
+    "vigencia_inicio": "", "vigencia_fim": "",
+    "revisoes": [{ "revisao": "", "data": "", "motivo": "", "responsavel": "" }]
+  },
+  "setores": [{
+    "nome_setor": "", "funcoes": "",
+    "agentes_fisicos": [], "agentes_quimicos": [], "agentes_biologicos": [],
+    "agentes_ergonomicos": [], "agentes_acidentes": [], "agentes_psicossociais": [],
+    "exames": [{
+      "tipo_exame": "", "cod_esocial": "", "descricao_esocial": "",
+      "admissional": false, "periodico": false, "periodo": "",
+      "retorno_trabalho": false, "mudanca_funcao": false,
+      "demissional": false, "observacao": ""
+    }]
+  }]
+}
+```
 
-Rota: `/documentos/pcmso/novo` e `/documentos/pcmso/editar/:id`.
+## Cópia do PGR (quando usuário escolhe SIM)
 
-**Etapas:**
+1. Buscar último `documentos` tipo `PGR` da empresa selecionada
+2. Ler `draft_snapshot.setores[setorId].riscos[]`
+3. Agrupar riscos por `tipo` → preencher `agentes_fisicos`, `agentes_quimicos`, etc. (apenas nome/descrição, mantendo editável)
+4. Carregar setores+funções do cadastro para preencher `funcoes` automaticamente
+5. PCMSO continua independente — depois da cópia, nenhuma leitura do PGR ocorre
 
-1. **Identificação** — reaproveita componente do PGR. Modal inicial: "Copiar de PGR existente?" → lista empresas com PGR → copia campos (editáveis).
-2. **Mapeamento de Exames** — seletor de setor (filtra por empresa), mostra funções (read-only), botão "+ Adicionar Exame" → modal:
-   - Select exame (catálogo)
-   - Select código eSocial
-   - Checkboxes: Admissional / Periódico / Retorno / Mudança Riscos / Demissional
-   - Se Periódico → campo Período (texto livre)
-   - Textarea Observações + botão "Cadastrar Texto" abrindo modal de observações padrão
-3. **EPI** — modal "Copiar do PGR?" → se sim, copia; se não, mesma UI do PGR
-4. **Treinamentos** — idem etapa EPI
-5. **Cronograma** — reaproveita `PgrCronogramaStep` mas salva em `pcmso_cronograma`
-6. **Listagem/Geração** — gera DOCX via template com payload PCMSO
+## Template / Variáveis
 
-## 4. Helper de variáveis — `src/components/PcmsoTemplateHelper.tsx`
+`PcmsoTemplateHelper` lista:
+- Identificação: `{{empresa}}`, `{{responsavel_tecnico}}`, `{{crea}}`, `{{cargo}}`, `{{vigencia_inicio}}`, `{{vigencia_fim}}`
+- Loop revisões: `{{#revisoes}}{{revisao}} {{data}} {{motivo}} {{responsavel}}{{/revisoes}}`
+- Loop setores: `{{#setores}} {{nome_setor}} {{funcoes}} {{agentes_fisicos}} ... {{#exames}} {{tipo_exame}} {{cod_esocial}} ... {{/exames}} {{/setores}}`
 
-Modal estilo `PgrTemplateHelper` com categorias: Identificação, Empresa, Responsáveis, Setores, Funções, Exames, eSocial, EPI, Treinamentos, Cronograma, Assinaturas. Cada variável com botão "Copiar" e "Ver Exemplo".
+Geração DOCX em si fica para fase futura (estrutura JSON já preparada para docxtemplater).
 
-Suporta loops Mustache: `{{#setores}}{{#exames}}…{{/exames}}{{/setores}}`.
+## Etapas de entrega
 
-## 5. Integração / Navegação
+1. Migration: criar `pcmso_documentos` com GRANTs e RLS
+2. Aprovação do usuário na migration
+3. Modal + lib de cópia + rota + card em Documentos
+4. Wizard Step 1 (Identificação + Revisões)
+5. Wizard Step 2 (Setores → Detalhe → Exames + Observações)
+6. Template helper + integração textos padrão
 
-- Adicionar item PCMSO em `src/pages/Documentos.tsx` (novo documento)
-- Adicionar rota no `src/App.tsx`
-- Sidebar: link para novos cadastros
-
-## Detalhes técnicos
-
-- Reaproveitar componentes do PGR (`EmpresaModal`, `SetorFuncaoModal`, cronograma) — extrair lógica comum se necessário
-- Persistência por etapa via `draft_snapshot` jsonb (mesmo padrão LTCAT/PGR) para evitar perda de dados
-- Geração DOCX: payload com `empresa`, `responsaveis`, `setores[].funcoes[]`, `setores[].exames[]`, `epis[]`, `treinamentos[]`, `cronograma[]`
-- Modal "copiar PGR" usa `draft_snapshot` do PGR mais recente da empresa
-
-## Riscos / pontos de atenção
-
-- Volume grande de UI nova → entregar em sub-etapas se preferir
-- "Copiar do PGR" depende da estrutura atual do `draft_snapshot` do PGR — vou inspecionar antes de implementar
-- Templates DOCX existentes não terão variáveis PCMSO; usuário precisará criar template novo
-
-## Pergunta antes de iniciar
-
-Confirma que devo:
-1. Criar as 3 migrações (catálogos + PCMSO completo) numa só leva?
-2. Construir tudo de uma vez ou entregar por etapas (ex.: 1ª PR = cadastros + identificação + mapeamento de exames; 2ª PR = EPI/Treinamentos/Cronograma; 3ª PR = variáveis de template)?
+Confirma para eu prosseguir?
