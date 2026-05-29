@@ -843,7 +843,8 @@ function buildTemplateData(args: {
       demissional: bool(e.demissional),
       observacao: e.observacao || "",
     })),
-  }));
+    };
+  });
 
   // EPIs — uma linha por EPI (com função agrupada lógica via funcao.nome)
   const epis: any[] = [];
