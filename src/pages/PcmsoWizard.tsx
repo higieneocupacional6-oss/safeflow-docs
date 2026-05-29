@@ -615,8 +615,6 @@ function MapeamentoExames({
 
       <div className="flex items-center justify-between">
 
-    <Card className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
         <div className="flex-1 max-w-sm">
           <Label>Selecionar setor</Label>
           <Select value={setorAtual} onValueChange={setSetorAtual}>
