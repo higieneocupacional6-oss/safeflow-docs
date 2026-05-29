@@ -178,7 +178,7 @@ export default function PcmsoWizard() {
         revisoes: revisoes as any,
       };
 
-      };
+
       if (docId) {
         const { error } = await supabase.from("pcmso_documentos").update(payload).eq("id", docId);
         if (error) throw error;
