@@ -1112,6 +1112,8 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       epis,
       treinamentos,
       cronograma,
+      cronograma_pcmso: cronograma,
+      cronograma_pgr: cronograma,
       revisoes: revisoesArr,
     };
   };
