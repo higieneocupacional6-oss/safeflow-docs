@@ -431,11 +431,11 @@ export default function PcmsoWizard() {
         <MapeamentoExames
           setores={setoresEmpresa}
           funcoes={funcoesAll}
-          pgrRiscosPorSetor={pgrRiscosPorSetor}
-
+          catalogoExames={catalogoExames}
           esocialList={esocialList}
           obsPadrao={obsPadrao}
-          pgrRiscosPorTipo={pgrRiscosPorTipo}
+          pgrRiscosPorSetor={pgrRiscosPorSetor}
+
           snap={snap}
           setSnap={setSnap}
           goToStep={goToStep}
