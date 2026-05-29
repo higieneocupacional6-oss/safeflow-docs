@@ -27,7 +27,7 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
     ],
   },
   {
-    title: "Setores (loop)",
+    title: "Setores e Exames (loops)",
     vars: [
       { tag: "{{#setores}} ... {{/setores}}", desc: "Abre o loop de setores" },
       { tag: "{{nome_setor}}", desc: "Nome do setor" },
@@ -38,12 +38,7 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
       { tag: "{{agentes_ergonomicos}}", desc: "Agentes ergonômicos" },
       { tag: "{{agentes_acidentes}}", desc: "Agentes de acidentes" },
       { tag: "{{agentes_psicossociais}}", desc: "Agentes psicossociais" },
-    ],
-  },
-  {
-    title: "Exames (loop dentro do setor)",
-    vars: [
-      { tag: "{{#exames}} ... {{/exames}}", desc: "Abre o loop de exames" },
+      { tag: "{{#exames}} ... {{/exames}}", desc: "Loop de exames (dentro de setores)" },
       { tag: "{{tipo_exame}}", desc: "Tipo de exame" },
       { tag: "{{cod_esocial}}", desc: "Código eSocial" },
       { tag: "{{descricao_esocial}}", desc: "Descrição eSocial" },
@@ -56,21 +51,64 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
       { tag: "{{observacao}}", desc: "Observações do exame" },
     ],
   },
+  {
+    title: "EPI (loop)",
+    vars: [
+      { tag: "{{#epis}} ... {{/epis}}", desc: "Loop de EPIs (uma linha por EPI)" },
+      { tag: "{{funcao.nome}}", desc: "Nome da função" },
+      { tag: "{{epi.nome}}", desc: "Nome do EPI" },
+      { tag: "{{epi.ca}}", desc: "Número CA" },
+      { tag: "{{epi.uso}}", desc: "Classificação do uso" },
+      { tag: "{{epi.observacao}}", desc: "Observações do EPI" },
+    ],
+  },
+  {
+    title: "Treinamentos (loop)",
+    vars: [
+      { tag: "{{#treinamentos}} ... {{/treinamentos}}", desc: "Loop de treinamentos" },
+      { tag: "{{funcao.nome}}", desc: "Nome da função" },
+      { tag: "{{treinamento.nome}}", desc: "Nome do treinamento" },
+      { tag: "{{treinamento.carga_horaria}}", desc: "Carga horária" },
+      { tag: "{{treinamento.periodicidade}}", desc: "Periodicidade" },
+      { tag: "{{treinamento.observacao}}", desc: "Observações" },
+    ],
+  },
+  {
+    title: "Cronograma PCMSO (loop)",
+    vars: [
+      { tag: "{{#cronograma_pcmso}} ... {{/cronograma_pcmso}}", desc: "Loop do cronograma" },
+      { tag: "{{item}}", desc: "Item" },
+      { tag: "{{acao}}", desc: "Ação" },
+      { tag: "{{responsavel}}", desc: "Responsável" },
+      { tag: "{{prazo}}", desc: "Prazo" },
+      { tag: "{{situacao}}", desc: "Situação" },
+      { tag: "{{observacao}}", desc: "Observações" },
+    ],
+  },
 ];
 
 const EXAMPLE = `{{#setores}}
 SETOR: {{nome_setor}}
 FUNÇÕES: {{funcoes}}
-AGENTES FÍSICOS: {{agentes_fisicos}}
-AGENTES QUÍMICOS: {{agentes_quimicos}}
-
 {{#exames}}
-- EXAME: {{tipo_exame}} ({{cod_esocial}} - {{descricao_esocial}})
-  Admissional: {{admissional}} | Periódico: {{periodico}} {{periodo}}
-  Retorno: {{retorno_trabalho}} | Mudança: {{mudanca_funcao}} | Demissional: {{demissional}}
-  Obs: {{observacao}}
+- {{tipo_exame}} ({{cod_esocial}}) — Admissional: {{admissional}} | Periódico: {{periodico}} {{periodo}}
 {{/exames}}
-{{/setores}}`;
+{{/setores}}
+
+EPIs:
+{{#epis}}
+- {{funcao.nome}} | {{epi.nome}} | CA {{epi.ca}} | {{epi.uso}} | {{epi.observacao}}
+{{/epis}}
+
+Treinamentos:
+{{#treinamentos}}
+- {{funcao.nome}} | {{treinamento.nome}} | {{treinamento.carga_horaria}} | {{treinamento.periodicidade}}
+{{/treinamentos}}
+
+Cronograma:
+{{#cronograma_pcmso}}
+- {{item}} | {{acao}} | {{responsavel}} | {{prazo}} | {{situacao}}
+{{/cronograma_pcmso}}`;
 
 export function PcmsoTemplateHelper() {
   const [open, setOpen] = useState(false);

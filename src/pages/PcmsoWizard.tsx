@@ -1,6 +1,13 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Loader2, Plus, Save, Trash2, ChevronRight } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
+import {
+  ArrowLeft, ArrowRight, Loader2, Plus, Save, Trash2, ChevronRight,
+  ShieldCheck, GraduationCap, Users, Calendar as CalendarIcon, FileDown, Link2, FileCheck2,
+} from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,24 +16,26 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { PcmsoTemplateHelper } from "@/components/PcmsoTemplateHelper";
 import { PcmsoObservacoesPadraoModal } from "@/components/PcmsoObservacoesPadraoModal";
+import { PcmsoCopyConfirmModal } from "@/components/PcmsoCopyConfirmModal";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import {
-  PcmsoSetor,
-  PcmsoExame,
-  PcmsoRevisao,
-  emptyExame,
+  PcmsoSetor, PcmsoExame, PcmsoRevisao,
+  PcmsoEpiBloco, PcmsoTreinBloco, PcmsoCronoItem,
+  emptyExame, emptyEpiBloco, emptyEpiItem,
+  emptyTreinBloco, emptyTreinItem, emptyCronoItem,
+  copyPgrEpiBlocos, copyPgrTreinBlocos,
 } from "@/lib/copyPgrToPcmso";
 
 type AgentKey =
-  | "agentes_fisicos"
-  | "agentes_quimicos"
-  | "agentes_biologicos"
-  | "agentes_ergonomicos"
-  | "agentes_acidentes"
-  | "agentes_psicossociais";
+  | "agentes_fisicos" | "agentes_quimicos" | "agentes_biologicos"
+  | "agentes_ergonomicos" | "agentes_acidentes" | "agentes_psicossociais";
 
 const AGENT_FIELDS: { key: AgentKey; label: string }[] = [
   { key: "agentes_fisicos", label: "Agentes Físicos" },
@@ -35,6 +44,10 @@ const AGENT_FIELDS: { key: AgentKey; label: string }[] = [
   { key: "agentes_ergonomicos", label: "Agentes Ergonômicos" },
   { key: "agentes_acidentes", label: "Agentes de Acidentes" },
   { key: "agentes_psicossociais", label: "Agentes Psicossociais" },
+];
+
+const STEP_LABELS = [
+  "Identificação", "Exames", "EPI", "Treinamentos", "Cronograma", "Gerar Documento",
 ];
 
 export default function PcmsoWizard() {
@@ -46,6 +59,7 @@ export default function PcmsoWizard() {
   const [activeSetorIdx, setActiveSetorIdx] = useState<number | null>(null);
 
   // Identification
+  const [empresaId, setEmpresaId] = useState<string>("");
   const [empresaNome, setEmpresaNome] = useState("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
@@ -54,6 +68,43 @@ export default function PcmsoWizard() {
   const [vigenciaFim, setVigenciaFim] = useState("");
   const [revisoes, setRevisoes] = useState<PcmsoRevisao[]>([]);
   const [setores, setSetores] = useState<PcmsoSetor[]>([]);
+  const [epiBlocos, setEpiBlocos] = useState<PcmsoEpiBloco[]>([]);
+  const [treinBlocos, setTreinBlocos] = useState<PcmsoTreinBloco[]>([]);
+  const [cronograma, setCronograma] = useState<PcmsoCronoItem[]>([]);
+
+  // Modals
+  const [askEpi, setAskEpi] = useState(false);
+  const [askTrein, setAskTrein] = useState(false);
+
+  // Gerar Documento
+  const [selectedTemplate, setSelectedTemplate] = useState<string>("");
+  const [validating, setValidating] = useState(false);
+  const [validated, setValidated] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [generatedBlob, setGeneratedBlob] = useState<Blob | null>(null);
+  const [generatedFileName, setGeneratedFileName] = useState<string>("");
+  const [savedFilePath, setSavedFilePath] = useState<string>("");
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-pcmso"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("templates").select("id,title,file_path").order("title");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: funcoesEmpresa = [] } = useQuery({
+    queryKey: ["funcoes-pcmso", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data: setoresEmpresa } = await supabase.from("setores").select("id").eq("empresa_id", empresaId);
+      const ids = (setoresEmpresa || []).map((s: any) => s.id);
+      if (ids.length === 0) return [];
+      const { data } = await supabase.from("funcoes").select("id,nome_funcao,setor_id").in("setor_id", ids).order("nome_funcao");
+      return data || [];
+    },
+  });
 
   useEffect(() => {
     (async () => {
@@ -61,6 +112,7 @@ export default function PcmsoWizard() {
       const { data, error } = await supabase
         .from("pcmso_documentos").select("*").eq("id", documentoId).maybeSingle();
       if (error || !data) { toast.error("PCMSO não encontrado"); navigate("/documentos"); return; }
+      setEmpresaId(data.empresa_id || "");
       setResponsavelTecnico(data.responsavel_tecnico || "");
       setCrea(data.crea || "");
       setCargo(data.cargo || "");
@@ -68,6 +120,11 @@ export default function PcmsoWizard() {
       setVigenciaFim(data.vigencia_fim || "");
       setRevisoes((data.revisoes as any) || []);
       setSetores((data.setores_snapshot as any) || []);
+      setEpiBlocos((data.epi_blocos as any) || []);
+      setTreinBlocos((data.treinamento_blocos as any) || []);
+      setCronograma((data.cronograma as any) || []);
+      setSelectedTemplate(data.template_id || "");
+      setSavedFilePath(data.file_path || "");
       setStep(data.current_step || 0);
       if (data.empresa_id) {
         const { data: emp } = await supabase.from("empresas").select("razao_social,nome_fantasia").eq("id", data.empresa_id).maybeSingle();
@@ -77,7 +134,7 @@ export default function PcmsoWizard() {
     })();
   }, [documentoId, navigate]);
 
-  const save = async (opts?: { silent?: boolean; newStep?: number }) => {
+  const save = async (opts?: { silent?: boolean; newStep?: number; extra?: any }) => {
     if (!documentoId) return;
     setSaving(true);
     const payload: any = {
@@ -87,7 +144,11 @@ export default function PcmsoWizard() {
       vigencia_fim: vigenciaFim || null,
       revisoes: revisoes as any,
       setores_snapshot: setores as any,
+      epi_blocos: epiBlocos as any,
+      treinamento_blocos: treinBlocos as any,
+      cronograma: cronograma as any,
       current_step: opts?.newStep ?? step,
+      ...(opts?.extra || {}),
     };
     const { error } = await supabase.from("pcmso_documentos").update(payload).eq("id", documentoId);
     setSaving(false);
@@ -95,30 +156,94 @@ export default function PcmsoWizard() {
     if (!opts?.silent) toast.success("Salvo");
   };
 
-  const finalize = async () => {
-    await save({ silent: true });
-    await supabase.from("documentos").update({ status: "concluido" }).eq("id", documentoId);
-    toast.success("PCMSO finalizado");
-    navigate("/documentos");
+  const goToStep = async (n: number) => {
+    await save({ silent: true, newStep: n });
+    setStep(n);
+    setActiveSetorIdx(null);
   };
 
-  // Revisoes handlers
+  // ============ Step transitions with copy modals ============
+  const tryGoToEpi = async () => {
+    if (epiBlocos.length === 0) { setAskEpi(true); return; }
+    await goToStep(2);
+  };
+  const tryGoToTrein = async () => {
+    if (treinBlocos.length === 0) { setAskTrein(true); return; }
+    await goToStep(3);
+  };
+
+  const confirmEpiCopy = async (yes: boolean) => {
+    setAskEpi(false);
+    if (yes && empresaId) {
+      const copied = await copyPgrEpiBlocos(empresaId);
+      setEpiBlocos(copied.length ? copied : [emptyEpiBloco()]);
+    } else {
+      setEpiBlocos([emptyEpiBloco()]);
+    }
+    await goToStep(2);
+  };
+  const confirmTreinCopy = async (yes: boolean) => {
+    setAskTrein(false);
+    if (yes && empresaId) {
+      const copied = await copyPgrTreinBlocos(empresaId);
+      setTreinBlocos(copied.length ? copied : [emptyTreinBloco()]);
+    } else {
+      setTreinBlocos([emptyTreinBloco()]);
+    }
+    await goToStep(3);
+  };
+
+  // ============ Revisões ============
   const addRevisao = () => setRevisoes((r) => [...r, { revisao: String(r.length + 1), data: "", motivo: "", responsavel: "" }]);
   const updateRevisao = (i: number, patch: Partial<PcmsoRevisao>) =>
     setRevisoes((r) => r.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
   const removeRevisao = (i: number) => setRevisoes((r) => r.filter((_, idx) => idx !== i));
 
-  // Setor handlers
+  // ============ Setor ============
   const updateSetor = (i: number, patch: Partial<PcmsoSetor>) =>
     setSetores((s) => s.map((x, idx) => (idx === i ? { ...x, ...patch } : x)));
 
-  const activeSetor = activeSetorIdx !== null ? setores[activeSetorIdx] : null;
+  // ============ Funções multi-select ============
+  const FuncoesMultiSelect = ({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) => {
+    const todas = funcoesEmpresa as any[];
+    const sel = todas.filter(f => value.includes(f.id));
+    const label = sel.length === 0 ? "Selecionar funções" : `${sel.length} função(ões) selecionada(s)`;
+    return (
+      <Popover>
+        <PopoverTrigger asChild>
+          <Button variant="outline" className="w-full justify-between">
+            <span className="truncate">{label}</span>
+            <Users className="w-4 h-4 ml-2 opacity-60" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-80 max-h-72 overflow-y-auto p-2">
+          {todas.length === 0 ? (
+            <p className="text-sm text-muted-foreground p-2">Nenhuma função cadastrada</p>
+          ) : todas.map(f => {
+            const checked = value.includes(f.id);
+            return (
+              <label key={f.id} className="flex items-center gap-2 p-2 rounded hover:bg-muted cursor-pointer">
+                <Checkbox checked={checked} onCheckedChange={(c) => {
+                  onChange(c ? [...value, f.id] : value.filter(id => id !== f.id));
+                }} />
+                <span className="text-sm">{f.nome_funcao}</span>
+              </label>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+    );
+  };
+  const funcoesNomes = (ids: string[]) =>
+    (funcoesEmpresa as any[]).filter(f => ids.includes(f.id)).map(f => f.nome_funcao).join(", ");
 
   if (loading) return (
     <div className="flex items-center justify-center py-20"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
   );
 
-  // ============ STEP 2 — Detalhe do setor ============
+  const activeSetor = activeSetorIdx !== null ? setores[activeSetorIdx] : null;
+
+  // ============ STEP 1.5 — Detalhe do setor ============
   if (step === 1 && activeSetor && activeSetorIdx !== null) {
     return (
       <SetorDetail
@@ -132,7 +257,7 @@ export default function PcmsoWizard() {
   return (
     <div>
       <PageHeader
-        title="Novo PCMSO"
+        title="PCMSO"
         description={empresaNome}
         actions={
           <div className="flex items-center gap-2">
@@ -144,17 +269,16 @@ export default function PcmsoWizard() {
         }
       />
 
-      {/* Stepper */}
-      <div className="flex items-center gap-2 mb-6">
-        {["Identificação", "Dimensionamento de Exames"].map((label, i) => (
-          <button key={i} onClick={() => setStep(i)}
+      <div className="flex items-center gap-2 mb-6 flex-wrap">
+        {STEP_LABELS.map((label, i) => (
+          <button key={i} onClick={() => goToStep(i)}
             className={`px-3 py-1.5 rounded-full text-xs font-medium border ${step === i ? "bg-accent text-accent-foreground border-accent" : "bg-card border-border text-muted-foreground"}`}>
-            Etapa {i + 1} — {label}
+            {i + 1}. {label}
           </button>
         ))}
       </div>
 
-      {/* ============ STEP 1 — Identificação ============ */}
+      {/* ====== STEP 0 — Identificação ====== */}
       {step === 0 && (
         <div className="space-y-6">
           <Card><CardContent className="pt-6 space-y-4">
@@ -193,19 +317,17 @@ export default function PcmsoWizard() {
 
           <div className="flex justify-between">
             <Button variant="ghost" onClick={() => navigate("/documentos")}><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
-            <Button onClick={async () => { await save({ silent: true, newStep: 1 }); setStep(1); }}>
-              Próxima etapa<ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+            <Button onClick={() => goToStep(1)}>Próxima etapa<ArrowRight className="w-4 h-4 ml-1" /></Button>
           </div>
         </div>
       )}
 
-      {/* ============ STEP 2 — Lista de setores ============ */}
+      {/* ====== STEP 1 — Exames (lista de setores) ====== */}
       {step === 1 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-heading font-semibold">Setores da empresa</h3>
-            <p className="text-xs text-muted-foreground">Clique em um setor para dimensionar funções, agentes e exames</p>
+            <p className="text-xs text-muted-foreground">Clique em um setor para dimensionar agentes e exames</p>
           </div>
           {setores.length === 0 ? (
             <div className="glass-card rounded-xl p-12 text-center">
@@ -221,11 +343,9 @@ export default function PcmsoWizard() {
                       <div className="font-heading font-semibold text-foreground">{s.nome_setor}</div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <Badge variant="outline" className="text-xs">{s.exames.length} exames</Badge>
-                        {AGENT_FIELDS.some((a) => (s[a.key] as string[]).length > 0) && (
-                          <Badge variant="outline" className="text-xs">
-                            {AGENT_FIELDS.reduce((sum, a) => sum + (s[a.key] as string[]).length, 0)} agentes
-                          </Badge>
-                        )}
+                        <Badge variant="outline" className="text-xs">
+                          {AGENT_FIELDS.reduce((sum, a) => sum + (s[a.key] as string[]).length, 0)} agentes
+                        </Badge>
                       </div>
                     </div>
                     <ChevronRight className="w-5 h-5 text-muted-foreground" />
@@ -235,42 +355,317 @@ export default function PcmsoWizard() {
             </div>
           )}
           <div className="flex justify-between pt-4">
-            <Button variant="ghost" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Etapa anterior</Button>
-            <Button onClick={finalize}>Finalizar PCMSO</Button>
+            <Button variant="ghost" onClick={() => goToStep(0)}><ArrowLeft className="w-4 h-4 mr-1" />Etapa anterior</Button>
+            <Button onClick={tryGoToEpi}>Próxima etapa<ArrowRight className="w-4 h-4 ml-1" /></Button>
           </div>
         </div>
       )}
+
+      {/* ====== STEP 2 — EPI ====== */}
+      {step === 2 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="font-heading font-semibold flex items-center gap-2"><ShieldCheck className="w-5 h-5 text-accent" /> EPI</h3>
+            <p className="text-xs text-muted-foreground">Vincule EPIs às funções da empresa</p>
+          </div>
+
+          {epiBlocos.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
+              <Button className="mt-4" onClick={() => setEpiBlocos([emptyEpiBloco()])}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco</Button>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {epiBlocos.map((b, bi) => (
+                <Card key={b.id} className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <Label className="text-xs font-bold uppercase">Funções *</Label>
+                      <div className="mt-1">
+                        <FuncoesMultiSelect
+                          value={b.funcao_ids}
+                          onChange={(v) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))}
+                        />
+                      </div>
+                      {b.funcao_ids.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive"
+                      onClick={() => setEpiBlocos((arr) => arr.filter((_, i) => i !== bi))}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold">EPIs vinculados</h4>
+                      <Button variant="outline" size="sm"
+                        onClick={() => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: [...x.epis, emptyEpiItem()] } : x))}>
+                        <Plus className="w-4 h-4 mr-1" /> EPI
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {b.epis.map((it, ii) => (
+                        <div key={it.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_160px_auto] gap-2 items-end border rounded-lg p-3">
+                          <div>
+                            <Label className="text-xs">Nome do EPI</Label>
+                            <Input className="mt-1" value={it.nome_epi}
+                              onChange={(e) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, nome_epi: e.target.value } : y) } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Número CA</Label>
+                            <Input className="mt-1" value={it.ca}
+                              onChange={(e) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, ca: e.target.value } : y) } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Classificação do uso</Label>
+                            <Select value={it.uso}
+                              onValueChange={(v) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, uso: v } : y) } : x))}>
+                              <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione" /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Contínuo">Contínuo</SelectItem>
+                                <SelectItem value="Eventual">Eventual</SelectItem>
+                                <SelectItem value="Não aplicado">Não aplicado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-destructive"
+                            onClick={() => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.filter((_, j) => j !== ii) } : x))}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                          <div className="md:col-span-4">
+                            <Label className="text-xs">Observações</Label>
+                            <Textarea rows={2} className="mt-1" value={it.observacao}
+                              onChange={(e) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              <Button variant="outline" onClick={() => setEpiBlocos((arr) => [...arr, emptyEpiBloco()])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar bloco
+              </Button>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-4">
+            <Button variant="ghost" onClick={() => goToStep(1)}><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
+            <Button onClick={tryGoToTrein}>Próxima etapa<ArrowRight className="w-4 h-4 ml-1" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* ====== STEP 3 — Treinamentos ====== */}
+      {step === 3 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="font-heading font-semibold flex items-center gap-2"><GraduationCap className="w-5 h-5 text-accent" /> Treinamentos</h3>
+            <p className="text-xs text-muted-foreground">Vincule treinamentos às funções</p>
+          </div>
+
+          {treinBlocos.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
+              <Button className="mt-4" onClick={() => setTreinBlocos([emptyTreinBloco()])}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco</Button>
+            </Card>
+          ) : (
+            <div className="space-y-4">
+              {treinBlocos.map((b, bi) => (
+                <Card key={b.id} className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <Label className="text-xs font-bold uppercase">Funções *</Label>
+                      <div className="mt-1">
+                        <FuncoesMultiSelect
+                          value={b.funcao_ids}
+                          onChange={(v) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))}
+                        />
+                      </div>
+                      {b.funcao_ids.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                      )}
+                    </div>
+                    <Button variant="ghost" size="icon" className="text-destructive"
+                      onClick={() => setTreinBlocos((arr) => arr.filter((_, i) => i !== bi))}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+
+                  <div className="border-t pt-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-semibold">Treinamentos</h4>
+                      <Button variant="outline" size="sm"
+                        onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: [...x.treinamentos, emptyTreinItem()] } : x))}>
+                        <Plus className="w-4 h-4 mr-1" /> Treinamento
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {b.treinamentos.map((it, ii) => (
+                        <div key={it.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-2 items-end border rounded-lg p-3">
+                          <div>
+                            <Label className="text-xs">Nome do treinamento</Label>
+                            <Input className="mt-1" value={it.nome_treinamento}
+                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, nome_treinamento: e.target.value } : y) } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Carga horária</Label>
+                            <Input className="mt-1" value={it.carga_horaria} placeholder="Ex: 8h"
+                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, carga_horaria: e.target.value } : y) } : x))} />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Periodicidade</Label>
+                            <Input className="mt-1" value={it.periodicidade} placeholder="Ex: Anual"
+                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, periodicidade: e.target.value } : y) } : x))} />
+                          </div>
+                          <Button variant="ghost" size="icon" className="text-destructive"
+                            onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.filter((_, j) => j !== ii) } : x))}>
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                          <div className="md:col-span-4">
+                            <Label className="text-xs">Observações</Label>
+                            <Textarea rows={2} className="mt-1" value={it.observacao}
+                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </Card>
+              ))}
+              <Button variant="outline" onClick={() => setTreinBlocos((arr) => [...arr, emptyTreinBloco()])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar bloco
+              </Button>
+            </div>
+          )}
+
+          <div className="flex justify-between pt-4">
+            <Button variant="ghost" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
+            <Button onClick={() => goToStep(4)}>Próxima etapa<ArrowRight className="w-4 h-4 ml-1" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* ====== STEP 4 — Cronograma PCMSO ====== */}
+      {step === 4 && (
+        <div className="space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <h3 className="font-heading font-semibold flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-accent" /> Cronograma PCMSO</h3>
+            <p className="text-xs text-muted-foreground">Ações, responsáveis e prazos do PCMSO (independente do PGR)</p>
+          </div>
+
+          <Card className="p-4">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b text-left text-xs uppercase text-muted-foreground">
+                    <th className="p-2 w-[10%]">Item</th>
+                    <th className="p-2">Ação</th>
+                    <th className="p-2 w-[16%]">Responsável</th>
+                    <th className="p-2 w-[14%]">Prazo</th>
+                    <th className="p-2 w-[12%]">Situação</th>
+                    <th className="p-2">Observações</th>
+                    <th className="p-2 w-[50px]"></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {cronograma.length === 0 && (
+                    <tr><td colSpan={7} className="text-center py-8 text-muted-foreground">Nenhuma ação. Clique em "Adicionar ação" abaixo.</td></tr>
+                  )}
+                  {cronograma.map((c, ci) => (
+                    <tr key={c.id} className="border-b align-top">
+                      <td className="p-2"><Input value={c.item} onChange={(e) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, item: e.target.value } : x))} placeholder="01" /></td>
+                      <td className="p-2"><Textarea rows={2} value={c.acao} onChange={(e) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, acao: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input value={c.responsavel} onChange={(e) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, responsavel: e.target.value } : x))} /></td>
+                      <td className="p-2"><Input value={c.prazo} placeholder="Ex: Mar/2026" onChange={(e) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, prazo: e.target.value } : x))} /></td>
+                      <td className="p-2">
+                        <Select value={c.situacao} onValueChange={(v) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, situacao: v } : x))}>
+                          <SelectTrigger className="h-9"><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="Previsto">Previsto</SelectItem>
+                            <SelectItem value="Realizado">Realizado</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2"><Textarea rows={2} value={c.observacao} onChange={(e) => setCronograma(arr => arr.map((x, i) => i === ci ? { ...x, observacao: e.target.value } : x))} /></td>
+                      <td className="p-2 text-center">
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setCronograma(arr => arr.filter((_, i) => i !== ci))}><Trash2 className="w-4 h-4" /></Button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3">
+              <Button variant="outline" size="sm" onClick={() => setCronograma(arr => [...arr, emptyCronoItem()])}>
+                <Plus className="w-4 h-4 mr-1" /> Adicionar ação
+              </Button>
+            </div>
+          </Card>
+
+          <div className="flex justify-between pt-4">
+            <Button variant="ghost" onClick={() => goToStep(3)}><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
+            <Button onClick={() => goToStep(5)}>Próxima etapa<ArrowRight className="w-4 h-4 ml-1" /></Button>
+          </div>
+        </div>
+      )}
+
+      {/* ====== STEP 5 — Gerar Documento ====== */}
+      {step === 5 && (
+        <GerarDocumentoStep
+          docId={documentoId!}
+          empresaNome={empresaNome}
+          templates={templates as any[]}
+          selectedTemplate={selectedTemplate}
+          setSelectedTemplate={setSelectedTemplate}
+          validating={validating} setValidating={setValidating}
+          validated={validated} setValidated={setValidated}
+          generating={generating} setGenerating={setGenerating}
+          generatedBlob={generatedBlob} setGeneratedBlob={setGeneratedBlob}
+          generatedFileName={generatedFileName} setGeneratedFileName={setGeneratedFileName}
+          savedFilePath={savedFilePath} setSavedFilePath={setSavedFilePath}
+          buildData={() => buildTemplateData({
+            empresaNome, responsavelTecnico, crea, cargo,
+            vigenciaInicio, vigenciaFim, revisoes,
+            setores, epiBlocos, treinBlocos, cronograma,
+            funcoesEmpresa: funcoesEmpresa as any[],
+          })}
+          onSave={save}
+          onBack={() => goToStep(4)}
+        />
+      )}
+
+      <PcmsoCopyConfirmModal open={askEpi} onOpenChange={setAskEpi}
+        title="Deseja copiar os EPIs cadastrados no PGR?"
+        onYes={() => confirmEpiCopy(true)} onNo={() => confirmEpiCopy(false)} />
+      <PcmsoCopyConfirmModal open={askTrein} onOpenChange={setAskTrein}
+        title="Deseja copiar os treinamentos cadastrados no PGR?"
+        onYes={() => confirmTreinCopy(true)} onNo={() => confirmTreinCopy(false)} />
     </div>
   );
 }
 
-// ============ Subcomponente: Detalhe do setor ============
+// =================================================================================
+// ============ Sub: Detalhe do Setor (exames) ============
+// =================================================================================
 function SetorDetail({
   setor, onBack, onChange,
-}: {
-  setor: PcmsoSetor;
-  onBack: () => void;
-  onChange: (patch: Partial<PcmsoSetor>) => void;
-}) {
+}: { setor: PcmsoSetor; onBack: () => void; onChange: (patch: Partial<PcmsoSetor>) => void; }) {
   const updateAgents = (key: AgentKey, value: string) => {
     const arr = value.split("\n").map((x) => x.trim()).filter(Boolean);
     onChange({ [key]: arr } as any);
   };
-
-  const updateExame = (i: number, patch: Partial<PcmsoExame>) => {
-    const exames = setor.exames.map((e, idx) => (idx === i ? { ...e, ...patch } : e));
-    onChange({ exames });
-  };
+  const updateExame = (i: number, patch: Partial<PcmsoExame>) =>
+    onChange({ exames: setor.exames.map((e, idx) => (idx === i ? { ...e, ...patch } : e)) });
   const removeExame = (i: number) => onChange({ exames: setor.exames.filter((_, idx) => idx !== i) });
   const addExame = () => onChange({ exames: [...setor.exames, emptyExame()] });
 
   return (
     <div>
-      <PageHeader
-        title={setor.nome_setor}
-        description="Dimensionamento de exames do setor"
-        actions={<Button variant="outline" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" />Voltar aos setores</Button>}
-      />
+      <PageHeader title={setor.nome_setor} description="Dimensionamento de exames do setor"
+        actions={<Button variant="outline" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-1" />Voltar aos setores</Button>} />
 
       <Card className="mb-4"><CardContent className="pt-6 space-y-4">
         <h3 className="font-heading font-semibold">Funções</h3>
@@ -279,14 +674,12 @@ function SetorDetail({
       </CardContent></Card>
 
       <Card className="mb-4"><CardContent className="pt-6 space-y-4">
-        <h3 className="font-heading font-semibold">Agentes (puxados do PGR — editáveis)</h3>
+        <h3 className="font-heading font-semibold">Agentes</h3>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {AGENT_FIELDS.map((af) => (
             <div key={af.key}>
               <Label className="text-xs font-bold uppercase">{af.label}</Label>
-              <Textarea
-                value={(setor[af.key] as string[]).join("\n")}
-                onChange={(e) => updateAgents(af.key, e.target.value)}
+              <Textarea value={(setor[af.key] as string[]).join("\n")} onChange={(e) => updateAgents(af.key, e.target.value)}
                 rows={4} placeholder="Um agente por linha" className="mt-1 font-mono text-sm" />
             </div>
           ))}
@@ -303,7 +696,9 @@ function SetorDetail({
         ) : (
           <div className="space-y-4">
             {setor.exames.map((ex, i) => (
-              <ExameCard key={i} exame={ex} onChange={(p) => updateExame(i, p)} onRemove={() => removeExame(i)} index={i} />
+              <ExameCard key={i} exame={ex} index={i}
+                onChange={(p) => updateExame(i, p)}
+                onRemove={() => removeExame(i)} />
             ))}
           </div>
         )}
@@ -314,10 +709,7 @@ function SetorDetail({
 
 function ExameCard({
   exame, index, onChange, onRemove,
-}: {
-  exame: PcmsoExame; index: number;
-  onChange: (p: Partial<PcmsoExame>) => void; onRemove: () => void;
-}) {
+}: { exame: PcmsoExame; index: number; onChange: (p: Partial<PcmsoExame>) => void; onRemove: () => void; }) {
   return (
     <div className="p-4 rounded-lg border border-border space-y-3 bg-card">
       <div className="flex items-center justify-between">
@@ -329,7 +721,6 @@ function ExameCard({
         <div><Label className="text-xs">Código eSocial</Label><Input value={exame.cod_esocial} onChange={(e) => onChange({ cod_esocial: e.target.value })} /></div>
         <div><Label className="text-xs">Descrição eSocial</Label><Input value={exame.descricao_esocial} onChange={(e) => onChange({ descricao_esocial: e.target.value })} /></div>
       </div>
-
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
         <SwitchField label="Admissional" checked={exame.admissional} onChange={(v) => onChange({ admissional: v })} />
         <SwitchField label="Periódico" checked={exame.periodico} onChange={(v) => onChange({ periodico: v })} />
@@ -337,11 +728,9 @@ function ExameCard({
         <SwitchField label="Mudança de Função" checked={exame.mudanca_funcao} onChange={(v) => onChange({ mudanca_funcao: v })} />
         <SwitchField label="Demissional" checked={exame.demissional} onChange={(v) => onChange({ demissional: v })} />
       </div>
-
       {exame.periodico && (
         <div><Label className="text-xs">Período</Label><Input value={exame.periodo} onChange={(e) => onChange({ periodo: e.target.value })} placeholder="Ex.: 12 meses" /></div>
       )}
-
       <div>
         <div className="flex items-center justify-between mb-1">
           <Label className="text-xs">Observações</Label>
@@ -358,6 +747,271 @@ function SwitchField({ label, checked, onChange }: { label: string; checked: boo
     <div className="flex items-center justify-between gap-2 p-2 rounded-md border border-border">
       <span className="text-xs">{label}</span>
       <Switch checked={checked} onCheckedChange={onChange} />
+    </div>
+  );
+}
+
+// =================================================================================
+// ============ Build template data ============
+// =================================================================================
+function fmtDate(d?: string | null) { return d ? new Date(d).toLocaleDateString("pt-BR") : ""; }
+function bool(b: boolean) { return b ? "Sim" : "Não"; }
+
+function buildTemplateData(args: {
+  empresaNome: string; responsavelTecnico: string; crea: string; cargo: string;
+  vigenciaInicio: string; vigenciaFim: string; revisoes: PcmsoRevisao[];
+  setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
+  cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[];
+}) {
+  const {
+    empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
+    revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa,
+  } = args;
+
+  const setoresArr = (setores || []).map((s) => ({
+    nome_setor: s.nome_setor || "",
+    funcoes: s.funcoes || "",
+    agentes_fisicos: (s.agentes_fisicos || []).join(", "),
+    agentes_quimicos: (s.agentes_quimicos || []).join(", "),
+    agentes_biologicos: (s.agentes_biologicos || []).join(", "),
+    agentes_ergonomicos: (s.agentes_ergonomicos || []).join(", "),
+    agentes_acidentes: (s.agentes_acidentes || []).join(", "),
+    agentes_psicossociais: (s.agentes_psicossociais || []).join(", "),
+    exames: (s.exames || []).map((e) => ({
+      tipo_exame: e.tipo_exame || "",
+      cod_esocial: e.cod_esocial || "",
+      descricao_esocial: e.descricao_esocial || "",
+      admissional: bool(e.admissional),
+      periodico: bool(e.periodico),
+      periodo: e.periodo || "",
+      retorno_trabalho: bool(e.retorno_trabalho),
+      mudanca_funcao: bool(e.mudanca_funcao),
+      demissional: bool(e.demissional),
+      observacao: e.observacao || "",
+    })),
+  }));
+
+  // EPIs — uma linha por EPI (com função agrupada lógica via funcao.nome)
+  const epis: any[] = [];
+  (epiBlocos || []).forEach((b) => {
+    const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
+    funcs.forEach((f) => {
+      (b.epis || []).forEach((e) => {
+        epis.push({
+          funcao: { nome: f.nome_funcao || "" },
+          epi: {
+            nome: e.nome_epi || "",
+            ca: e.ca || "",
+            uso: e.uso || "",
+            observacao: e.observacao || "",
+          },
+        });
+      });
+    });
+  });
+
+  // Treinamentos
+  const treinamentos: any[] = [];
+  (treinBlocos || []).forEach((b) => {
+    const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
+    funcs.forEach((f) => {
+      (b.treinamentos || []).forEach((t) => {
+        treinamentos.push({
+          funcao: { nome: f.nome_funcao || "" },
+          treinamento: {
+            nome: t.nome_treinamento || "",
+            carga_horaria: t.carga_horaria || "",
+            periodicidade: t.periodicidade || "",
+            observacao: t.observacao || "",
+          },
+        });
+      });
+    });
+  });
+
+  const cronograma_pcmso = (cronograma || []).map((c) => ({
+    item: c.item || "",
+    acao: c.acao || "",
+    responsavel: c.responsavel || "",
+    prazo: c.prazo || "",
+    situacao: c.situacao || "",
+    observacao: c.observacao || "",
+  }));
+
+  return {
+    empresa: empresaNome || "",
+    responsavel_tecnico: responsavelTecnico || "",
+    crea: crea || "",
+    cargo: cargo || "",
+    vigencia_inicio: fmtDate(vigenciaInicio),
+    vigencia_fim: fmtDate(vigenciaFim),
+    revisoes: (revisoes || []).map((r) => ({
+      revisao: r.revisao || "",
+      data: fmtDate(r.data),
+      motivo: r.motivo || "",
+      responsavel: r.responsavel || "",
+    })),
+    setores: setoresArr,
+    epis,
+    treinamentos,
+    cronograma_pcmso,
+  };
+}
+
+// =================================================================================
+// ============ Step 5: Gerar Documento ============
+// =================================================================================
+function GerarDocumentoStep(props: {
+  docId: string; empresaNome: string; templates: any[];
+  selectedTemplate: string; setSelectedTemplate: (v: string) => void;
+  validating: boolean; setValidating: (v: boolean) => void;
+  validated: boolean; setValidated: (v: boolean) => void;
+  generating: boolean; setGenerating: (v: boolean) => void;
+  generatedBlob: Blob | null; setGeneratedBlob: (b: Blob | null) => void;
+  generatedFileName: string; setGeneratedFileName: (s: string) => void;
+  savedFilePath: string; setSavedFilePath: (s: string) => void;
+  buildData: () => any;
+  onSave: (opts?: { silent?: boolean; newStep?: number; extra?: any }) => Promise<void>;
+  onBack: () => void;
+}) {
+  const {
+    docId, empresaNome, templates,
+    selectedTemplate, setSelectedTemplate,
+    validating, setValidating, validated, setValidated,
+    generating, setGenerating,
+    generatedBlob, setGeneratedBlob,
+    generatedFileName, setGeneratedFileName,
+    savedFilePath, setSavedFilePath,
+    buildData, onSave, onBack,
+  } = props;
+
+  const [salvando, setSalvando] = useState(false);
+
+  const handleSalvarDocumento = async () => {
+    setSalvando(true);
+    try {
+      await onSave({ silent: true, extra: { template_id: selectedTemplate || null } });
+      toast.success("Documento salvo");
+    } finally {
+      setSalvando(false);
+    }
+  };
+
+  const loadTemplateDoc = async () => {
+    const tpl: any = templates.find((t) => t.id === selectedTemplate);
+    if (!tpl) throw new Error("Template não encontrado");
+    const { data: fileData, error } = await supabase.storage.from("templates").download(tpl.file_path);
+    if (error) throw error;
+    const path = String(tpl.file_path || "").toLowerCase();
+    if (path.endsWith(".html") || path.endsWith(".htm")) {
+      const htmlSource = await fileData.text();
+      let lastData: any = null;
+      return {
+        kind: "html",
+        render(data: any) { lastData = data; },
+        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+      } as any;
+    }
+    const ab = await fileData.arrayBuffer();
+    const zip = new PizZip(ab);
+    return new Docxtemplater(zip, {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{{", end: "}}" },
+      nullGetter: () => "",
+    });
+  };
+
+  const handleVincular = async () => {
+    if (!selectedTemplate) { toast.error("Selecione um template"); return; }
+    setValidating(true); setValidated(false); setGeneratedBlob(null);
+    try {
+      const doc = await loadTemplateDoc();
+      const data = buildData();
+      doc.render(data);
+      const output: Blob = (doc as any).kind === "html"
+        ? await (doc as any).toBlob()
+        : (doc as any).getZip().generate({ type: "blob", mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" });
+      const fileName = `PCMSO_${(empresaNome || "documento").replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().getFullYear()}.docx`;
+      setGeneratedBlob(output);
+      setGeneratedFileName(fileName);
+      setValidated(true);
+      toast.success("✅ Documento vinculado com sucesso");
+    } catch (e: any) {
+      toast.error("Erro ao vincular: " + (e.message || ""));
+    } finally {
+      setValidating(false);
+    }
+  };
+
+  const handleGerar = async () => {
+    if (!generatedBlob) { toast.error("Vincule o documento antes"); return; }
+    setGenerating(true);
+    try {
+      const storagePath = `documentos/${Date.now()}_${generatedFileName}`;
+      const { error: upErr } = await supabase.storage.from("templates").upload(storagePath, generatedBlob);
+      if (upErr) throw upErr;
+      setSavedFilePath(storagePath);
+      await onSave({
+        silent: true,
+        extra: { template_id: selectedTemplate || null, file_path: storagePath, status: "concluido" },
+      });
+      // marca documentos como concluido
+      await supabase.from("documentos").update({
+        status: "concluido", file_path: storagePath, template_id: selectedTemplate || null,
+      }).eq("id", docId);
+      saveAs(generatedBlob, generatedFileName);
+      toast.success("Documento gerado e baixado");
+    } catch (e: any) {
+      toast.error("Erro ao gerar: " + (e.message || ""));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto pb-12">
+      <Card className="p-8">
+        <div className="text-center mb-6">
+          <FileDown className="w-12 h-12 mx-auto text-accent mb-3" />
+          <h2 className="font-heading text-xl font-bold mb-2">Selecione o template PCMSO</h2>
+          <p className="text-muted-foreground text-sm">Salve, vincule os dados e gere o documento Word</p>
+        </div>
+
+        <Label className="text-xs font-bold uppercase">Template *</Label>
+        <Select value={selectedTemplate} onValueChange={(v) => { setSelectedTemplate(v); setValidated(false); setGeneratedBlob(null); }}>
+          <SelectTrigger className="mt-1"><SelectValue placeholder="Escolher template" /></SelectTrigger>
+          <SelectContent>
+            {templates.length === 0 && <div className="p-2 text-sm text-muted-foreground">Nenhum template cadastrado</div>}
+            {templates.map((t) => <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}
+          </SelectContent>
+        </Select>
+
+        <div className="flex flex-wrap justify-center gap-2 mt-6">
+          <Button variant="outline" onClick={handleSalvarDocumento} disabled={salvando}>
+            {salvando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+            Salvar Documento
+          </Button>
+          <Button variant="outline" onClick={handleVincular} disabled={validating || !selectedTemplate}>
+            {validating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+            Vincular Documento
+          </Button>
+          <Button onClick={handleGerar} disabled={!validated || !generatedBlob || generating} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+            Gerar Documento
+          </Button>
+        </div>
+
+        {validated && (
+          <p className="text-center text-xs text-success mt-4">
+            <FileCheck2 className="w-3 h-3 inline mr-1" /> Variáveis preenchidas — pronto para gerar
+          </p>
+        )}
+      </Card>
+
+      <div className="flex justify-between mt-6">
+        <Button variant="outline" onClick={onBack}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
+      </div>
     </div>
   );
 }
