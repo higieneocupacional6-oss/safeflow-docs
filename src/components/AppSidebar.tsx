@@ -1,4 +1,4 @@
-import { Building2, FileText, LayoutTemplate, Database, Shield, Users, FolderTree, Bell, Stethoscope } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Shield, Users, FolderTree, Bell } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,7 +23,7 @@ const menuItems = [
   { title: "Notificações", url: "/notificacoes", icon: Bell, badgeKey: "notif" as const },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },
-  { title: "Cadastros PCMSO", url: "/cadastros/pcmso", icon: Stethoscope },
+  
 ];
 
 export function AppSidebar() {

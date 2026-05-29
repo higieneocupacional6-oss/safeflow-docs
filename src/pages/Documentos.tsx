@@ -15,7 +15,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 const docTypes = [
   { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
   { id: "pgr", label: "PGR", desc: "Programa de Gerenciamento de Riscos" },
-  { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
+  
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
@@ -38,7 +38,6 @@ export default function Documentos() {
     [
       { table: "documentos", queryKey: ["documentos"] },
       { table: "aet_documentos", queryKey: ["documentos"] },
-      { table: "pcmso_documentos", queryKey: ["documentos"] },
     ],
     "documentos-list-sync"
   );
@@ -67,8 +66,6 @@ export default function Documentos() {
       navigate("/documentos/aet/novo");
     } else if (typeId === "pgr") {
       navigate("/documentos/pgr/novo");
-    } else if (typeId === "pcmso") {
-      navigate("/documentos/pcmso/novo");
     }
   };
 
@@ -110,8 +107,6 @@ export default function Documentos() {
       navigate(`/documentos/aet/editar/${doc.id}`);
     } else if (tipo === "PGR") {
       navigate(`/documentos/pgr/editar/${doc.id}`);
-    } else if (tipo === "PCMSO") {
-      navigate(`/documentos/pcmso/editar/${doc.id}`);
     }
   };
 
