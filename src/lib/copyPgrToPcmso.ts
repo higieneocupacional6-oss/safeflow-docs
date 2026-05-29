@@ -33,66 +33,6 @@ export type PcmsoRevisao = {
   responsavel: string;
 };
 
-export type PcmsoEpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string };
-export type PcmsoEpiBloco = { id: string; funcao_ids: string[]; epis: PcmsoEpiItem[] };
-export type PcmsoTreinItem = { id: string; nome_treinamento: string };
-export type PcmsoTreinBloco = { id: string; funcao_ids: string[]; treinamentos: PcmsoTreinItem[] };
-export type PcmsoCronoItem = {
-  id: string;
-  item: string;
-  acao: string;
-  responsavel: string;
-  prazo_mes: string;
-  prazo_ano: string;
-  situacao: "Previsto" | "Realizado" | "";
-};
-
-export const emptyCronoItem = (): PcmsoCronoItem => ({
-  id: crypto.randomUUID(),
-  item: "", acao: "", responsavel: "", prazo_mes: "", prazo_ano: "", situacao: "",
-});
-
-export async function fetchLatestPgrSnapshot(empresaId: string): Promise<any | null> {
-  const { data } = await supabase
-    .from("documentos")
-    .select("id,draft_snapshot")
-    .eq("empresa_id", empresaId)
-    .eq("tipo", "PGR")
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  return (data as any)?.draft_snapshot || null;
-}
-
-export async function copyEpiBlocosFromPgr(empresaId: string): Promise<PcmsoEpiBloco[]> {
-  const snap = await fetchLatestPgrSnapshot(empresaId);
-  const blocos = (snap?.epi_blocos || []) as any[];
-  return blocos.map((b) => ({
-    id: crypto.randomUUID(),
-    funcao_ids: Array.isArray(b.funcao_ids) ? b.funcao_ids : [],
-    epis: (b.epis || []).map((e: any) => ({
-      id: crypto.randomUUID(),
-      epi_id: e.epi_id || "",
-      nome_epi: e.nome_epi || "",
-      ca: e.ca || "",
-      uso: e.uso || "Contínuo",
-    })),
-  }));
-}
-
-export async function copyTreinBlocosFromPgr(empresaId: string): Promise<PcmsoTreinBloco[]> {
-  const snap = await fetchLatestPgrSnapshot(empresaId);
-  const blocos = (snap?.treinamento_blocos || []) as any[];
-  return blocos.map((b) => ({
-    id: crypto.randomUUID(),
-    funcao_ids: Array.isArray(b.funcao_ids) ? b.funcao_ids : [],
-    treinamentos: (b.treinamentos || []).map((t: any) => ({
-      id: crypto.randomUUID(),
-      nome_treinamento: t.nome_treinamento || "",
-    })),
-  }));
-}
-
 export const emptyExame = (): PcmsoExame => ({
   tipo_exame: "",
   cod_esocial: "",

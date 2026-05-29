@@ -1378,20 +1378,15 @@ export type Database = {
           crea: string | null
           created_at: string
           created_by: string | null
-          cronograma: Json
           current_step: number
-          data_elaboracao: string | null
           documento_id: string | null
           empresa_id: string | null
-          epi_blocos: Json
           file_path: string | null
           id: string
           responsavel_tecnico: string | null
           revisoes: Json
           setores_snapshot: Json
           status: string
-          template_id: string | null
-          treinamento_blocos: Json
           updated_at: string
           vigencia_fim: string | null
           vigencia_inicio: string | null
@@ -1402,20 +1397,15 @@ export type Database = {
           crea?: string | null
           created_at?: string
           created_by?: string | null
-          cronograma?: Json
           current_step?: number
-          data_elaboracao?: string | null
           documento_id?: string | null
           empresa_id?: string | null
-          epi_blocos?: Json
           file_path?: string | null
           id?: string
           responsavel_tecnico?: string | null
           revisoes?: Json
           setores_snapshot?: Json
           status?: string
-          template_id?: string | null
-          treinamento_blocos?: Json
           updated_at?: string
           vigencia_fim?: string | null
           vigencia_inicio?: string | null
@@ -1426,20 +1416,15 @@ export type Database = {
           crea?: string | null
           created_at?: string
           created_by?: string | null
-          cronograma?: Json
           current_step?: number
-          data_elaboracao?: string | null
           documento_id?: string | null
           empresa_id?: string | null
-          epi_blocos?: Json
           file_path?: string | null
           id?: string
           responsavel_tecnico?: string | null
           revisoes?: Json
           setores_snapshot?: Json
           status?: string
-          template_id?: string | null
-          treinamento_blocos?: Json
           updated_at?: string
           vigencia_fim?: string | null
           vigencia_inicio?: string | null
