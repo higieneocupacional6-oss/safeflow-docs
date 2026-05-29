@@ -107,8 +107,6 @@ export default function Documentos() {
       navigate(`/documentos/aet/editar/${doc.id}`);
     } else if (tipo === "PGR") {
       navigate(`/documentos/pgr/editar/${doc.id}`);
-    } else if (tipo === "PCMSO") {
-      navigate(`/documentos/pcmso/editar/${doc.id}`);
     }
   };
 
