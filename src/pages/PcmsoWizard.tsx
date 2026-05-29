@@ -1034,9 +1034,13 @@ function GerarStep({ empresaId, empresaNome, dataElab, responsavel, crea, cargo,
       (g.itens.length ? g.itens : [{ nome: "", carga_horaria: "" }]).forEach((it: any, idx: number) => {
         treinamentos.push({
           funcao_label: idx === 0 ? g.nome_funcao : "",
+          nome_funcao: g.nome_funcao || "",
+          funcao: { nome: g.nome_funcao || "" },
           rowspan: total,
           is_first: idx === 0,
-          treinamento: { nome: it.nome, carga_horaria: it.carga_horaria },
+          treinamento: { nome: it.nome || "", carga_horaria: it.carga_horaria || "" },
+          nome_treinamento: it.nome || "",
+          carga_horaria: it.carga_horaria || "",
         });
       });
     });
