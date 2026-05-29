@@ -95,14 +95,28 @@ export default function PcmsoWizard() {
     },
   });
 
-  const { data: funcoesEmpresa = [] } = useQuery({
-    queryKey: ["funcoes-pcmso", empresaId],
+  const { data: setoresEmpresa = [] } = useQuery({
+    queryKey: ["setores-empresa-pcmso", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data: setoresEmpresa } = await supabase.from("setores").select("id").eq("empresa_id", empresaId);
-      const ids = (setoresEmpresa || []).map((s: any) => s.id);
+      const { data } = await supabase.from("setores")
+        .select("id,nome_setor,descricao_ambiente")
+        .eq("empresa_id", empresaId)
+        .order("nome_setor");
+      return data || [];
+    },
+  });
+
+  const { data: funcoesEmpresa = [] } = useQuery({
+    queryKey: ["funcoes-pcmso", empresaId, (setoresEmpresa as any[]).map((s) => s.id).join(",")],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const ids = (setoresEmpresa as any[]).map((s: any) => s.id);
       if (ids.length === 0) return [];
-      const { data } = await supabase.from("funcoes").select("id,nome_funcao,setor_id").in("setor_id", ids).order("nome_funcao");
+      const { data } = await supabase.from("funcoes")
+        .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades,expostos")
+        .in("setor_id", ids)
+        .order("nome_funcao");
       return data || [];
     },
   });
