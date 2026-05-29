@@ -35,6 +35,7 @@ type ExameLinha = {
 
 type EpiItem = { id: string; funcao_ids: string[]; nome: string; ca: string; uso: string };
 type TreinItem = { id: string; funcao_ids: string[]; nome: string; carga_horaria: string };
+type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
 
 type Snapshot = {
   exames: ExameLinha[];
@@ -44,6 +45,10 @@ type Snapshot = {
 };
 
 const emptySnapshot = (): Snapshot => ({ exames: [], epis: [], treinamentos: [], cronograma: [] });
+const emptyRevisao = (): Revisao => ({ revisao: "", data: "", motivo: "", responsavel: "" });
+
+const TIPO_AGENTE_ORDEM = ["Físico", "Químico", "Biológico", "Acidentes", "Ergonômico", "Psicossociais"];
+
 
 const STEPS = [
   { id: 0, label: "Identificação", icon: Building2 },
@@ -69,9 +74,11 @@ export default function PcmsoWizard() {
   const [responsavel, setResponsavel] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
+  const [revisoes, setRevisoes] = useState<Revisao[]>([]);
 
   // Snapshot (working data)
   const [snap, setSnap] = useState<Snapshot>(emptySnapshot());
+
 
   // Modal "copiar PGR"
   const [copyPgrOpen, setCopyPgrOpen] = useState(!documentoId);
@@ -128,6 +135,36 @@ export default function PcmsoWizard() {
     queryFn: async () => (await supabase.from("pcmso_observacoes_padrao").select("*").order("created_at", { ascending: false })).data || [],
   });
 
+  // PGR risks for the selected empresa (read-only context for Mapeamento)
+  const { data: pgrRiscosPorTipo = {} as Record<string, string[]> } = useQuery({
+    queryKey: ["pcmso-pgr-riscos", empresaId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("documentos")
+        .select("draft_snapshot")
+        .eq("tipo", "PGR")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      const setores = (data?.draft_snapshot as any)?.setores || {};
+      const acc: Record<string, Set<string>> = {};
+      TIPO_AGENTE_ORDEM.forEach((t) => (acc[t] = new Set()));
+      Object.values(setores).forEach((s: any) => {
+        (s?.riscos || []).forEach((r: any) => {
+          const tipo = (r.tipo_agente || "").trim();
+          const nome = (r.agente_nome || r.nome || "").trim();
+          if (!nome) return;
+          if (!acc[tipo]) acc[tipo] = new Set();
+          acc[tipo].add(nome);
+        });
+      });
+      return Object.fromEntries(Object.entries(acc).map(([k, v]) => [k, Array.from(v).sort()]));
+    },
+  });
+
+
   // Load existing doc
   useEffect(() => {
     if (!docId) return;
@@ -141,7 +178,9 @@ export default function PcmsoWizard() {
       setCrea(data.crea || "");
       setCargo(data.cargo || "");
       setStep(data.current_step || 0);
+      setRevisoes(Array.isArray(data.revisoes) ? (data.revisoes as any[]) : []);
       if (data.draft_snapshot) setSnap({ ...emptySnapshot(), ...(data.draft_snapshot as any) });
+
       if (data.empresa_id) {
         const { data: e } = await supabase.from("empresas").select("razao_social, nome_fantasia").eq("id", data.empresa_id).maybeSingle();
         setEmpresaNome(e?.razao_social || e?.nome_fantasia || "");
@@ -166,7 +205,10 @@ export default function PcmsoWizard() {
         current_step: overrideStep ?? step,
         status: "rascunho",
         draft_snapshot: snap as any,
+        revisoes: revisoes as any,
       };
+
+
       if (docId) {
         const { error } = await supabase.from("pcmso_documentos").update(payload).eq("id", docId);
         if (error) throw error;
@@ -210,7 +252,9 @@ export default function PcmsoWizard() {
       setResponsavel(pgr.responsavel_tecnico || "");
       setCrea(pgr.crea || "");
       setCargo(pgr.cargo || "");
+      if (Array.isArray(pgr.revisoes)) setRevisoes(pgr.revisoes as any);
     }
+
     setPgrSelectOpen(false);
     setCopyPgrOpen(false);
     toast.success("Dados copiados do PGR");
@@ -262,6 +306,13 @@ export default function PcmsoWizard() {
     toast.success(`${novos.length} treinamentos importados do PGR`);
     setAskCopyTrein(false);
   };
+
+  // Revisões helpers
+  const addRevisao = () => setRevisoes((r) => [...r, emptyRevisao()]);
+  const updateRevisao = (i: number, k: keyof Revisao, v: string) =>
+    setRevisoes((r) => r.map((x, idx) => (idx === i ? { ...x, [k]: v } : x)));
+  const removeRevisao = (i: number) => setRevisoes((r) => r.filter((_, idx) => idx !== i));
+
 
   return (
     <div>
@@ -333,6 +384,35 @@ export default function PcmsoWizard() {
               <Input value={cargo} onChange={(e) => setCargo(e.target.value)} />
             </div>
           </div>
+
+          {/* Revisões */}
+          <div className="border-t pt-4 mt-2">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="font-heading font-semibold">Revisões</h3>
+                <p className="text-xs text-muted-foreground">Histórico de revisões deste PCMSO</p>
+              </div>
+              <Button variant="outline" size="sm" onClick={addRevisao} className="gap-1"><Plus className="w-4 h-4" />Adicionar revisão</Button>
+            </div>
+            {revisoes.length === 0 ? (
+              <p className="text-sm text-muted-foreground text-center py-4">Nenhuma revisão cadastrada</p>
+            ) : (
+              <div className="space-y-2">
+                {revisoes.map((r, i) => (
+                  <div key={i} className="border rounded-lg p-3 grid grid-cols-1 md:grid-cols-4 gap-3">
+                    <div><Label className="text-xs">Revisão</Label><Input className="mt-1" value={r.revisao} onChange={(e) => updateRevisao(i, "revisao", e.target.value)} /></div>
+                    <div><Label className="text-xs">Data</Label><Input className="mt-1" type="date" value={r.data} onChange={(e) => updateRevisao(i, "data", e.target.value)} /></div>
+                    <div><Label className="text-xs">Motivo</Label><Input className="mt-1" value={r.motivo} onChange={(e) => updateRevisao(i, "motivo", e.target.value)} /></div>
+                    <div className="flex gap-2">
+                      <div className="flex-1"><Label className="text-xs">Responsável</Label><Input className="mt-1" value={r.responsavel} onChange={(e) => updateRevisao(i, "responsavel", e.target.value)} /></div>
+                      <Button variant="ghost" size="icon" className="self-end text-destructive" onClick={() => removeRevisao(i)}><Trash2 className="w-4 h-4" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className="flex justify-end">
             <Button onClick={() => goToStep(1)} disabled={!empresaId || saving} className="gap-2">
               Próximo: Mapeamento de Exames<ChevronRight className="w-4 h-4" />
@@ -340,6 +420,8 @@ export default function PcmsoWizard() {
           </div>
         </Card>
       )}
+
+
 
       {/* STEP 1 - Mapeamento de Exames */}
       {step === 1 && (
@@ -349,6 +431,7 @@ export default function PcmsoWizard() {
           catalogoExames={catalogoExames}
           esocialList={esocialList}
           obsPadrao={obsPadrao}
+          pgrRiscosPorTipo={pgrRiscosPorTipo}
           snap={snap}
           setSnap={setSnap}
           goToStep={goToStep}
@@ -464,7 +547,8 @@ export default function PcmsoWizard() {
 /* ------------------- STEP 1: Mapeamento de Exames ------------------- */
 
 function MapeamentoExames({
-  setores, funcoes, catalogoExames, esocialList, obsPadrao, snap, setSnap, goToStep, saving,
+  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorTipo, snap, setSnap, goToStep, saving,
+
 }: any) {
   const [setorAtual, setSetorAtual] = useState<string>(setores[0]?.id || "");
   useEffect(() => { if (!setorAtual && setores[0]) setSetorAtual(setores[0].id); }, [setores, setorAtual]);
@@ -506,10 +590,31 @@ function MapeamentoExames({
   };
 
   const removeExame = (id: string) => setSnap((s: Snapshot) => ({ ...s, exames: s.exames.filter((x) => x.id !== id) }));
-
   return (
     <Card className="p-6 space-y-4">
+      {/* Riscos do PGR (visualização) */}
+      <div className="rounded-lg border border-border bg-muted/30 p-3 space-y-2">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-heading font-semibold">Riscos Ocupacionais (do PGR)</h3>
+          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">somente visualização</span>
+        </div>
+        {TIPO_AGENTE_ORDEM.map((tipo) => {
+          const lista: string[] = pgrRiscosPorTipo?.[tipo] || [];
+          return (
+            <div key={tipo} className="flex flex-wrap items-center gap-2">
+              <span className="text-xs font-semibold w-32 shrink-0">Riscos {tipo}:</span>
+              {lista.length === 0 ? (
+                <span className="text-xs text-muted-foreground italic">nenhum cadastrado</span>
+              ) : (
+                lista.map((n) => <Badge key={n} variant="outline" className="text-[11px]">{n}</Badge>)
+              )}
+            </div>
+          );
+        })}
+      </div>
+
       <div className="flex items-center justify-between">
+
         <div className="flex-1 max-w-sm">
           <Label>Selecionar setor</Label>
           <Select value={setorAtual} onValueChange={setSetorAtual}>

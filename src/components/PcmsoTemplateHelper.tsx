@@ -9,20 +9,46 @@ const groups = [
   {
     title: "Identificação / Empresa",
     vars: [
-      "{{empresa_nome}}", "{{empresa.cnpj}}", "{{empresa.endereco}}",
-      "{{empresa.grau_risco}}", "{{empresa.cnae}}", "{{empresa.total_funcionarios}}",
+      "{{empresa_nome}}", "{{empresa}}", "{{razao_social}}", "{{nome_fantasia}}",
+      "{{cnpj}}", "{{cnae_principal}}", "{{grau_risco}}", "{{endereco}}",
+      "{{total_funcionarios}}", "{{numero_funcionarios_masc}}", "{{numero_funcionarios_fem}}",
+      "{{jornada_trabalho}}", "{{expostos}}",
       "{{data_elaboracao}}", "{{data_validade}}",
     ],
   },
   {
-    title: "Responsáveis",
+    title: "Contrato / Contratante",
     vars: [
-      "{{responsavel.nome}}", "{{responsavel.registro}}", "{{responsavel.profissao}}",
-      "{{responsavel.crea}}", "{{responsavel.cargo}}",
+      "{{numero_contrato}}", "{{nome_contratante}}", "{{cnpj_contratante}}",
+      "{{escopo_contrato}}", "{{local_trabalho}}",
+      "{{vigencia_inicio}}", "{{vigencia_fim}}",
     ],
   },
   {
-    title: "Setores (loop)",
+    title: "Responsáveis (Preposto / Gestor / Fiscal / Técnico)",
+    vars: [
+      "{{responsavel}}", "{{responsavel_tecnico}}", "{{crea}}", "{{cargo}}",
+      "{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}",
+      "{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}",
+      "{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}",
+    ],
+  },
+  {
+    title: "Revisões (loop)",
+    vars: [
+      "{{#revisoes}}", "{{revisao}}", "{{revisao.data}}", "{{revisao.motivo}}",
+      "{{revisao.responsavel}}", "{{/revisoes}}",
+    ],
+  },
+  {
+    title: "Riscos Ocupacionais (do PGR — listas concatenadas)",
+    vars: [
+      "{{riscos.fisicos}}", "{{riscos.quimicos}}", "{{riscos.biologicos}}",
+      "{{riscos.acidentes}}", "{{riscos.ergonomicos}}", "{{riscos.psicossociais}}",
+    ],
+  },
+  {
+    title: "Setores / Funções / Exames (loop)",
     vars: [
       "{{#setores}}", "{{setor.nome}}", "{{setor.descricao_ambiente}}",
       "{{#funcoes}}", "{{funcao.nome}}", "{{funcao.cbo}}", "{{funcao.descricao}}", "{{/funcoes}}",
