@@ -38,7 +38,6 @@ export default function Documentos() {
     [
       { table: "documentos", queryKey: ["documentos"] },
       { table: "aet_documentos", queryKey: ["documentos"] },
-      { table: "pcmso_documentos", queryKey: ["documentos"] },
     ],
     "documentos-list-sync"
   );
