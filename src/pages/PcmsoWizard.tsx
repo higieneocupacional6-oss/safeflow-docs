@@ -992,7 +992,7 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
 
     const setoresArr = setorIds.map((setorId) => {
       const s = setoresDb.find((item) => item.id === setorId) || {};
-      const fns = (funcoes as any[]).filter((f) => f.setor_id === s.id);
+      const fns = funcoesSource.filter((f) => f.setor_id === setorId);
       const funcoes_ghe = fns.map((f) => ({
         nome: safeText(f.nome_funcao),
         nome_funcao: safeText(f.nome_funcao),
@@ -1113,7 +1113,7 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
     });
 
     // EPIs (agrupado por função, igual ao PGR)
-    const funcMap = new Map<string, any>((funcoes as any[]).map((f) => [f.id, f]));
+    const funcMap = new Map<string, any>(funcoesSource.map((f) => [f.id, f]));
     const epiPorFuncao = new Map<string, { nome_funcao: string; itens: any[] }>();
     (snap.epis as any[]).forEach((e) => {
       (e.funcao_ids || []).forEach((fid: string) => {
@@ -1192,6 +1192,37 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
 
     const totalExpostos = funcoesSource.reduce((acc, f) => acc + (parseInt(safeText(f?.expostos), 10) || 0), 0);
 
+    const emptySetor = {
+      id: "",
+      nome: "",
+      nome_setor: "",
+      ghe_ges: "",
+      descricao: "",
+      descricao_ambiente: "",
+      funcoes_ghe: [],
+      funcoes: [],
+      exames: [],
+      epis: [],
+      treinamentos: [],
+      riscos: {
+        fisicos: "",
+        fisicos_lista: [],
+        quimicos: "",
+        quimicos_lista: [],
+        biologicos: "",
+        biologicos_lista: [],
+        acidentes: "",
+        acidentes_lista: [],
+        ergonomicos: "",
+        ergonomicos_lista: [],
+        psicossociais: "",
+        psicossociais_lista: [],
+        listas: groupRisksByCategory([]),
+      },
+    };
+
+    const setoresPayload = setoresArr.length ? setoresArr : [{ ...emptySetor, setor: emptySetor }];
+
     return {
       // Empresa
       empresa_nome: safeText(empresaNome || empresa.razao_social),
@@ -1206,7 +1237,7 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
       numero_funcionarios_masc: safeText(empresa.numero_funcionarios_masc),
       numero_funcionarios_fem: safeText(empresa.numero_funcionarios_fem),
       jornada_trabalho: safeText(empresa.jornada_trabalho),
-      local_trabalho: safeText(empresa.local_trabalho),
+      local_trabalho: safeText(contrato.local_trabalho || empresa.local_trabalho),
       // Contrato
       numero_contrato: safeText(contrato.numero_contrato || empresa.numero_contrato),
       nome_contratante: safeText(contrato.nome_contratante || empresa.nome_contratante),
@@ -1214,26 +1245,25 @@ function GerarStep({ empresaId, contratoId, empresaNome, dataElab, responsavel, 
       escopo_contrato: safeText(contrato.escopo_contrato || empresa.escopo_contrato),
       vigencia_inicio: fmtDate(contrato.vigencia_inicio || empresa.vigencia_inicio),
       vigencia_fim: fmtDate(contrato.vigencia_fim || empresa.vigencia_fim),
-      local_trabalho: safeText(contrato.local_trabalho || empresa.local_trabalho),
       // Responsáveis
       responsavel: safeText(responsavel),
       responsavel_tecnico: safeText(responsavel),
       crea: safeText(crea),
       cargo: safeText(cargo),
       data_elaboracao: fmtDate(dataElab),
-      gestor_nome: safeText(empresa.gestor_nome),
-      gestor_email: safeText(empresa.gestor_email),
-      gestor_telefone: safeText(empresa.gestor_telefone),
-      fiscal_nome: safeText(empresa.fiscal_nome),
-      fiscal_email: safeText(empresa.fiscal_email),
-      fiscal_telefone: safeText(empresa.fiscal_telefone),
-      preposto_nome: safeText(empresa.preposto_nome),
-      preposto_email: safeText(empresa.preposto_email),
-      preposto_telefone: safeText(empresa.preposto_telefone),
+      gestor_nome: safeText(contrato.gestor_nome || empresa.gestor_nome),
+      gestor_email: safeText(contrato.gestor_email || empresa.gestor_email),
+      gestor_telefone: safeText(contrato.gestor_telefone || empresa.gestor_telefone),
+      fiscal_nome: safeText(contrato.fiscal_nome || empresa.fiscal_nome),
+      fiscal_email: safeText(contrato.fiscal_email || empresa.fiscal_email),
+      fiscal_telefone: safeText(contrato.fiscal_telefone || empresa.fiscal_telefone),
+      preposto_nome: safeText(contrato.preposto_nome || empresa.preposto_nome),
+      preposto_email: safeText(contrato.preposto_email || empresa.preposto_email),
+      preposto_telefone: safeText(contrato.preposto_telefone || empresa.preposto_telefone),
       // Estrutura PGR-compatível
-      ghe_setores: setoresArr,
-      setores: setoresArr,
-      setor: setoresArr,
+      ghe_setores: setoresPayload,
+      setores: setoresPayload,
+      setor: setoresPayload,
       expostos: safeText(totalExpostos),
       epis,
       treinamentos,
