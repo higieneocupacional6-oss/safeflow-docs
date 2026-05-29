@@ -547,7 +547,8 @@ export default function PcmsoWizard() {
 /* ------------------- STEP 1: Mapeamento de Exames ------------------- */
 
 function MapeamentoExames({
-  setores, funcoes, catalogoExames, esocialList, obsPadrao, snap, setSnap, goToStep, saving,
+  setores, funcoes, catalogoExames, esocialList, obsPadrao, pgrRiscosPorTipo, snap, setSnap, goToStep, saving,
+
 }: any) {
   const [setorAtual, setSetorAtual] = useState<string>(setores[0]?.id || "");
   useEffect(() => { if (!setorAtual && setores[0]) setSetorAtual(setores[0].id); }, [setores, setorAtual]);
