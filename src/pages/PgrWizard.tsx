@@ -1466,36 +1466,49 @@ export default function PgrWizard() {
         };
       });
       // EPIs — agrupar por função: UMA linha por função com todos os EPIs vinculados
-      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string }[] }>();
+      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string; situacao: string }[] }>();
+      // Conjunto global de funções selecionadas na etapa EPI (para {{funcoes_epi}} de topo)
+      const funcoesEpiSet = new Set<string>();
+      const situacaoEpiSet = new Set<string>();
       (snapshot.epi_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
         funcs.forEach(f => {
+          if (f.nome_funcao) funcoesEpiSet.add(f.nome_funcao);
           const key = f.id;
           if (!epiPorFuncao.has(key)) epiPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
           const bucket = epiPorFuncao.get(key)!;
           b.epis.forEach(e => {
             const nome = (e.nome_epi || "").trim();
             if (!nome) return;
+            const sit = (e.situacao || "Existente").trim();
+            if (sit) situacaoEpiSet.add(sit);
             const dup = bucket.itens.some(i => i.nome_epi === nome && i.ca === (e.ca || ""));
-            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "" });
+            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "", situacao: sit });
           });
         });
       });
-      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string }) => {
+      const funcoesEpiTop = Array.from(funcoesEpiSet).join(", ");
+      const situacaoEpiTop = Array.from(situacaoEpiSet).join(", ");
+      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string; situacao: string }) => {
         const ca = i.ca ? ` CA ${i.ca}` : "";
         const uso = i.uso ? ` – ${i.uso}` : "";
-        return `${i.nome_epi}${ca}${uso}`;
+        const sit = i.situacao ? ` [${i.situacao}]` : "";
+        return `${i.nome_epi}${ca}${uso}${sit}`;
       };
       const epis = Array.from(epiPorFuncao.values()).map(g => ({
         funcao: g.nome_funcao,
         nome_funcao: g.nome_funcao,
+        funcoes_epi: funcoesEpiTop,
+        situacao_epi: Array.from(new Set(g.itens.map(i => i.situacao).filter(Boolean))).join(", "),
         epis_funcao: g.itens.map(formatEpiLinha).join("; "),
         // legado / compat (alguns templates usam {{nome_epi}}, {{ca}}, {{uso}} agregados)
         nome_epi: g.itens.map(i => i.nome_epi).join("; "),
         ca: g.itens.map(i => i.ca).filter(Boolean).join("; "),
         uso: g.itens.map(i => i.uso).filter(Boolean).join("; "),
+        situacao: g.itens.map(i => i.situacao).filter(Boolean).join("; "),
         itens_epi: g.itens.map((it, idx) => ({
           ...it,
+          situacao_epi: it.situacao,
           is_first: idx === 0,
           is_rest: idx > 0,
           index: idx + 1,
@@ -1507,10 +1520,11 @@ export default function PgrWizard() {
       const epis_tabela: any[] = [];
       Array.from(epiPorFuncao.values()).forEach(g => {
         const total = g.itens.length || 1;
-        (g.itens.length ? g.itens : [{ nome_epi: "", ca: "", uso: "" }]).forEach((it, idx) => {
+        (g.itens.length ? g.itens : [{ nome_epi: "", ca: "", uso: "", situacao: "" }]).forEach((it, idx) => {
           epis_tabela.push({
             funcao: g.nome_funcao,
             nome_funcao: g.nome_funcao,
+            funcoes_epi: funcoesEpiTop,
             funcao_label: idx === 0 ? g.nome_funcao : "",
             rowspan: total,
             is_first: idx === 0,
@@ -1518,6 +1532,8 @@ export default function PgrWizard() {
             nome_epi: it.nome_epi,
             ca: it.ca,
             uso: it.uso,
+            situacao: it.situacao,
+            situacao_epi: it.situacao,
           });
         });
       });
