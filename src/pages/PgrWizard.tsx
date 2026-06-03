@@ -42,7 +42,7 @@ type RiscoPgr = {
 };
 
 type PgrSetorData = { riscos: RiscoPgr[]; vinculado_de?: string | null };
-type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string };
+type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string; situacao: string };
 type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
 type TreinItem = { id: string; nome_treinamento: string };
 type TreinBloco = { id: string; funcao_ids: string[]; treinamentos: TreinItem[] };
@@ -485,7 +485,7 @@ export default function PgrWizard() {
     setSnapshot(s => ({
       ...s,
       epi_blocos: (s.epi_blocos || []).map(b => b.id === blocoId
-        ? { ...b, epis: [...b.epis, { id: crypto.randomUUID(), epi_id: "", nome_epi: "", ca: "", uso: "Contínuo" }] }
+        ? { ...b, epis: [...b.epis, { id: crypto.randomUUID(), epi_id: "", nome_epi: "", ca: "", uso: "Contínuo", situacao: "Existente" }] }
         : b),
     }));
 
@@ -1081,6 +1081,7 @@ export default function PgrWizard() {
             {(setores as any[]).map(s => {
               const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
               const vinc = snapshot.setores[s.id]?.vinculado_de;
+              const funcoesSetor = (funcoesEmpresa as any[]).filter(f => f.setor_id === s.id);
               return (
                 <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
                   <div className="flex items-start justify-between">
@@ -1097,6 +1098,18 @@ export default function PgrWizard() {
                       </Button>
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Funções vinculadas</p>
+                    {funcoesSetor.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma função vinculada ao setor.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {funcoesSetor.map(f => (
+                          <Badge key={f.id} variant="secondary" className="text-[11px] font-normal">{f.nome_funcao}</Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
@@ -1243,7 +1256,7 @@ export default function PgrWizard() {
                   ) : (
                     <div className="space-y-2">
                       {b.epis.map(item => (
-                        <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_160px_auto] gap-2 items-end border rounded-lg p-3">
+                        <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_140px_140px_auto] gap-2 items-end border rounded-lg p-3">
                           <div>
                             <Label className="text-xs">Nome do EPI</Label>
                             <Select
@@ -1271,6 +1284,16 @@ export default function PgrWizard() {
                                 <SelectItem value="Contínuo">Contínuo</SelectItem>
                                 <SelectItem value="Eventual">Eventual</SelectItem>
                                 <SelectItem value="Não aplicado">Não aplicado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Situação *</Label>
+                            <Select value={item.situacao || "Existente"} onValueChange={(v) => updateEpiItem(b.id, item.id, { situacao: v })}>
+                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Existente">Existente</SelectItem>
+                                <SelectItem value="Recomendado">Recomendado</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
@@ -1443,36 +1466,49 @@ export default function PgrWizard() {
         };
       });
       // EPIs — agrupar por função: UMA linha por função com todos os EPIs vinculados
-      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string }[] }>();
+      const epiPorFuncao = new Map<string, { nome_funcao: string; itens: { nome_epi: string; ca: string; uso: string; situacao: string }[] }>();
+      // Conjunto global de funções selecionadas na etapa EPI (para {{funcoes_epi}} de topo)
+      const funcoesEpiSet = new Set<string>();
+      const situacaoEpiSet = new Set<string>();
       (snapshot.epi_blocos || []).forEach(b => {
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
         funcs.forEach(f => {
+          if (f.nome_funcao) funcoesEpiSet.add(f.nome_funcao);
           const key = f.id;
           if (!epiPorFuncao.has(key)) epiPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
           const bucket = epiPorFuncao.get(key)!;
           b.epis.forEach(e => {
             const nome = (e.nome_epi || "").trim();
             if (!nome) return;
+            const sit = (e.situacao || "Existente").trim();
+            if (sit) situacaoEpiSet.add(sit);
             const dup = bucket.itens.some(i => i.nome_epi === nome && i.ca === (e.ca || ""));
-            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "" });
+            if (!dup) bucket.itens.push({ nome_epi: nome, ca: e.ca || "", uso: e.uso || "", situacao: sit });
           });
         });
       });
-      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string }) => {
+      const funcoesEpiTop = Array.from(funcoesEpiSet).join(", ");
+      const situacaoEpiTop = Array.from(situacaoEpiSet).join(", ");
+      const formatEpiLinha = (i: { nome_epi: string; ca: string; uso: string; situacao: string }) => {
         const ca = i.ca ? ` CA ${i.ca}` : "";
         const uso = i.uso ? ` – ${i.uso}` : "";
-        return `${i.nome_epi}${ca}${uso}`;
+        const sit = i.situacao ? ` [${i.situacao}]` : "";
+        return `${i.nome_epi}${ca}${uso}${sit}`;
       };
       const epis = Array.from(epiPorFuncao.values()).map(g => ({
         funcao: g.nome_funcao,
         nome_funcao: g.nome_funcao,
+        funcoes_epi: funcoesEpiTop,
+        situacao_epi: Array.from(new Set(g.itens.map(i => i.situacao).filter(Boolean))).join(", "),
         epis_funcao: g.itens.map(formatEpiLinha).join("; "),
         // legado / compat (alguns templates usam {{nome_epi}}, {{ca}}, {{uso}} agregados)
         nome_epi: g.itens.map(i => i.nome_epi).join("; "),
         ca: g.itens.map(i => i.ca).filter(Boolean).join("; "),
         uso: g.itens.map(i => i.uso).filter(Boolean).join("; "),
+        situacao: g.itens.map(i => i.situacao).filter(Boolean).join("; "),
         itens_epi: g.itens.map((it, idx) => ({
           ...it,
+          situacao_epi: it.situacao,
           is_first: idx === 0,
           is_rest: idx > 0,
           index: idx + 1,
@@ -1484,10 +1520,11 @@ export default function PgrWizard() {
       const epis_tabela: any[] = [];
       Array.from(epiPorFuncao.values()).forEach(g => {
         const total = g.itens.length || 1;
-        (g.itens.length ? g.itens : [{ nome_epi: "", ca: "", uso: "" }]).forEach((it, idx) => {
+        (g.itens.length ? g.itens : [{ nome_epi: "", ca: "", uso: "", situacao: "" }]).forEach((it, idx) => {
           epis_tabela.push({
             funcao: g.nome_funcao,
             nome_funcao: g.nome_funcao,
+            funcoes_epi: funcoesEpiTop,
             funcao_label: idx === 0 ? g.nome_funcao : "",
             rowspan: total,
             is_first: idx === 0,
@@ -1495,6 +1532,8 @@ export default function PgrWizard() {
             nome_epi: it.nome_epi,
             ca: it.ca,
             uso: it.uso,
+            situacao: it.situacao,
+            situacao_epi: it.situacao,
           });
         });
       });
@@ -1608,6 +1647,8 @@ export default function PgrWizard() {
         setores: setoresArr,
         epis,
         epis_tabela,
+        funcoes_epi: funcoesEpiTop,
+        situacao_epi: situacaoEpiTop,
         treinamentos,
         treinamentos_tabela,
         cronograma_pgr,

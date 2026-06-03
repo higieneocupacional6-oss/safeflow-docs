@@ -92,17 +92,21 @@ const groups = [
 
     title: "EPIs — agrupado por função (1 linha por função, lista concatenada)",
     vars: [
-      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{epis_funcao}}", "{{/epis}}",
+      "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{funcoes_epi}}", "{{situacao_epi}}", "{{epis_funcao}}", "{{/epis}}",
     ],
   },
   {
     title: "EPIs — tabela com rowspan (1 linha por EPI, função só na 1ª)",
     vars: [
       "{{#epis_tabela}}",
-      "{{funcao_label}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
-      "{{nome_epi}}", "{{ca}}", "{{uso}}",
+      "{{funcao_label}}", "{{funcoes_epi}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
+      "{{nome_epi}}", "{{ca}}", "{{uso}}", "{{situacao}}", "{{situacao_epi}}",
       "{{/epis_tabela}}",
     ],
+  },
+  {
+    title: "EPI — variáveis globais (fora de loops)",
+    vars: ["{{funcoes_epi}}", "{{situacao_epi}}"],
   },
 
   {
