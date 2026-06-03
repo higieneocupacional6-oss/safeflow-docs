@@ -247,6 +247,9 @@ export default function Cadastros() {
     } else if (tab === "pareceres") {
       setParecerForm({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
       setParecerModalOpen(true);
+    } else if (tab === "treinamentos") {
+      setTreinamentoForm({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
+      setTreinamentoModalOpen(true);
     }
   };
 
