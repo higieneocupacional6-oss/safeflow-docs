@@ -287,6 +287,16 @@ export default function Cadastros() {
         risco_id: item.risco_id || "",
       });
       setParecerModalOpen(true);
+    } else if (tab === "treinamentos") {
+      setTreinamentoForm({
+        nome: item.nome || "",
+        codigo: item.codigo || "",
+        descricao: item.descricao || "",
+        carga_horaria: item.carga_horaria || "",
+        periodicidade: item.periodicidade || "",
+        observacoes: item.observacoes || "",
+      });
+      setTreinamentoModalOpen(true);
     }
   };
 
