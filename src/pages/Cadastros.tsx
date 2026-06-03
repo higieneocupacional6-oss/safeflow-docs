@@ -346,6 +346,7 @@ export default function Cadastros() {
       unidades: "unidades",
       epi_epc: "epi_epc",
       pareceres: "pareceres_tecnicos",
+      treinamentos: "treinamentos_cadastro",
     };
 
     try {
