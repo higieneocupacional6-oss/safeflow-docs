@@ -28,7 +28,7 @@ const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
