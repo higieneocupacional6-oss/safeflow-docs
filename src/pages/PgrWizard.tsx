@@ -1243,7 +1243,7 @@ export default function PgrWizard() {
                   ) : (
                     <div className="space-y-2">
                       {b.epis.map(item => (
-                        <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_160px_auto] gap-2 items-end border rounded-lg p-3">
+                        <div key={item.id} className="grid grid-cols-1 md:grid-cols-[1fr_120px_140px_140px_auto] gap-2 items-end border rounded-lg p-3">
                           <div>
                             <Label className="text-xs">Nome do EPI</Label>
                             <Select
@@ -1271,6 +1271,16 @@ export default function PgrWizard() {
                                 <SelectItem value="Contínuo">Contínuo</SelectItem>
                                 <SelectItem value="Eventual">Eventual</SelectItem>
                                 <SelectItem value="Não aplicado">Não aplicado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <div>
+                            <Label className="text-xs">Situação *</Label>
+                            <Select value={item.situacao || "Existente"} onValueChange={(v) => updateEpiItem(b.id, item.id, { situacao: v })}>
+                              <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="Existente">Existente</SelectItem>
+                                <SelectItem value="Recomendado">Recomendado</SelectItem>
                               </SelectContent>
                             </Select>
                           </div>
