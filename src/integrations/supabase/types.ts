@@ -1640,6 +1640,42 @@ export type Database = {
         }
         Relationships: []
       }
+      treinamentos_cadastro: {
+        Row: {
+          carga_horaria: string | null
+          codigo: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          observacoes: string | null
+          periodicidade: string | null
+          updated_at: string
+        }
+        Insert: {
+          carga_horaria?: string | null
+          codigo?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          observacoes?: string | null
+          periodicidade?: string | null
+          updated_at?: string
+        }
+        Update: {
+          carga_horaria?: string | null
+          codigo?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          observacoes?: string | null
+          periodicidade?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       unidades: {
         Row: {
           created_at: string | null

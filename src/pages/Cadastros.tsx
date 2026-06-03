@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2 } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap } from "lucide-react";
 import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugestoes";
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
@@ -28,7 +28,7 @@ const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
@@ -50,6 +50,9 @@ export default function Cadastros() {
   const [parecerModalOpen, setParecerModalOpen] = useState(false);
   const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
   const [parecerSaving, setParecerSaving] = useState(false);
+  const [treinamentoModalOpen, setTreinamentoModalOpen] = useState(false);
+  const [treinamentoForm, setTreinamentoForm] = useState({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
+  const [treinamentoSaving, setTreinamentoSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const [dedupRunning, setDedupRunning] = useState(false);
   const [dedupConfirm, setDedupConfirm] = useState(false);
@@ -81,6 +84,7 @@ export default function Cadastros() {
     { table: "pareceres_tecnicos", queryKey: ["pareceres_tecnicos"] },
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
+    { table: "treinamentos_cadastro", queryKey: ["treinamentos_cadastro"] },
   ]);
 
   const { data: riscos = [] } = useQuery({
@@ -143,6 +147,15 @@ export default function Cadastros() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: treinamentosCad = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -234,6 +247,9 @@ export default function Cadastros() {
     } else if (tab === "pareceres") {
       setParecerForm({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
       setParecerModalOpen(true);
+    } else if (tab === "treinamentos") {
+      setTreinamentoForm({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
+      setTreinamentoModalOpen(true);
     }
   };
 
@@ -271,6 +287,16 @@ export default function Cadastros() {
         risco_id: item.risco_id || "",
       });
       setParecerModalOpen(true);
+    } else if (tab === "treinamentos") {
+      setTreinamentoForm({
+        nome: item.nome || "",
+        codigo: item.codigo || "",
+        descricao: item.descricao || "",
+        carga_horaria: item.carga_horaria || "",
+        periodicidade: item.periodicidade || "",
+        observacoes: item.observacoes || "",
+      });
+      setTreinamentoModalOpen(true);
     }
   };
 
@@ -320,6 +346,7 @@ export default function Cadastros() {
       unidades: "unidades",
       epi_epc: "epi_epc",
       pareceres: "pareceres_tecnicos",
+      treinamentos: "treinamentos_cadastro",
     };
 
     try {
@@ -336,6 +363,7 @@ export default function Cadastros() {
         unidades: "unidades",
         epi_epc: "epi_epc",
         pareceres: "pareceres_tecnicos",
+        treinamentos: "treinamentos_cadastro",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
@@ -472,6 +500,7 @@ export default function Cadastros() {
             <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
             <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
+            <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "equipamentos" && (
@@ -801,6 +830,40 @@ export default function Cadastros() {
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(p.id)}>
                             <Trash2 className="h-4 w-4" />
                           </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="treinamentos" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Carga Horária</TableHead>
+                  <TableHead>Periodicidade</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(treinamentosCad as any[]).length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum treinamento cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  (treinamentosCad as any[]).map((t: any) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.nome}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{t.codigo || "—"}</TableCell>
+                      <TableCell className="text-sm">{t.carga_horaria || "—"}</TableCell>
+                      <TableCell className="text-sm">{t.periodicidade || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(t)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(t.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1296,6 +1359,62 @@ export default function Cadastros() {
             <Button onClick={handleDedupRiscos} disabled={dedupRunning} className="bg-accent text-accent-foreground hover:bg-accent/90">
               {dedupRunning ? "Removendo..." : "Confirmar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Treinamento */}
+      <Dialog open={treinamentoModalOpen} onOpenChange={setTreinamentoModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Treinamento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div><Label>Nome <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: NR-35 — Trabalho em Altura" value={treinamentoForm.nome} onChange={e => setTreinamentoForm({ ...treinamentoForm, nome: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Código</Label><Input className="mt-1" placeholder="Ex: NR-35" value={treinamentoForm.codigo} onChange={e => setTreinamentoForm({ ...treinamentoForm, codigo: e.target.value })} /></div>
+              <div><Label>Carga Horária</Label><Input className="mt-1" placeholder="Ex: 8h" value={treinamentoForm.carga_horaria} onChange={e => setTreinamentoForm({ ...treinamentoForm, carga_horaria: e.target.value })} /></div>
+            </div>
+            <div><Label>Periodicidade</Label><Input className="mt-1" placeholder="Ex: Anual / Bienal" value={treinamentoForm.periodicidade} onChange={e => setTreinamentoForm({ ...treinamentoForm, periodicidade: e.target.value })} /></div>
+            <div><Label>Descrição</Label><Textarea className="mt-1" placeholder="Conteúdo programático do treinamento" value={treinamentoForm.descricao} onChange={e => setTreinamentoForm({ ...treinamentoForm, descricao: e.target.value })} /></div>
+            <div><Label>Observações</Label><Textarea className="mt-1" placeholder="Observações adicionais" value={treinamentoForm.observacoes} onChange={e => setTreinamentoForm({ ...treinamentoForm, observacoes: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTreinamentoModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={treinamentoSaving}
+              onClick={async () => {
+                if (!treinamentoForm.nome.trim()) { toast.error("Informe o nome do treinamento"); return; }
+                setTreinamentoSaving(true);
+                try {
+                  const payload = {
+                    nome: treinamentoForm.nome.trim(),
+                    codigo: treinamentoForm.codigo.trim() || null,
+                    descricao: treinamentoForm.descricao.trim() || null,
+                    carga_horaria: treinamentoForm.carga_horaria.trim() || null,
+                    periodicidade: treinamentoForm.periodicidade.trim() || null,
+                    observacoes: treinamentoForm.observacoes.trim() || null,
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("treinamentos_cadastro").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Treinamento atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("treinamentos_cadastro").insert(payload);
+                    if (error) throw error;
+                    toast.success("Treinamento cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["treinamentos_cadastro"] });
+                  setTreinamentoModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setTreinamentoSaving(false);
+                }
+              }}
+            >{treinamentoSaving ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

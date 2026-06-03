@@ -45,7 +45,7 @@ type PgrSetorData = { riscos: RiscoPgr[]; vinculado_de?: string | null };
 type EpiItem = { id: string; epi_id: string; nome_epi: string; ca: string; uso: string; situacao: string };
 type EpiBloco = { id: string; funcao_ids: string[]; epis: EpiItem[] };
 type TreinItem = { id: string; nome_treinamento: string };
-type TreinBloco = { id: string; funcao_ids: string[]; treinamentos: TreinItem[] };
+type TreinBloco = { id: string; treinamento_id: string; funcao_ids: string[]; treinamentos?: TreinItem[] };
 type CronogramaItem = {
   id: string;
   item: string;
@@ -196,6 +196,14 @@ export default function PgrWizard() {
       const { data, error } = await supabase.from("epi_epc").select("id,nome,tipo").order("nome");
       if (error) throw error;
       return data;
+    },
+  });
+  const { data: catTreinamentos = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
     },
   });
   const { data: templates = [] } = useQuery({
@@ -508,7 +516,7 @@ export default function PgrWizard() {
   const addTreinBloco = () =>
     updateSnapAndPersist({
       ...snapshot,
-      treinamento_blocos: [...treinBlocos, { id: crypto.randomUUID(), funcao_ids: [], treinamentos: [] }],
+      treinamento_blocos: [...treinBlocos, { id: crypto.randomUUID(), treinamento_id: "", funcao_ids: [] }],
     }, true);
 
   const removeTreinBloco = (id: string) =>
@@ -517,29 +525,6 @@ export default function PgrWizard() {
   const updateTreinBloco = (id: string, patch: Partial<TreinBloco>) =>
     setSnapshot(s => ({ ...s, treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === id ? { ...b, ...patch } : b) }));
 
-  const addTreinItem = (blocoId: string) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: [...b.treinamentos, { id: crypto.randomUUID(), nome_treinamento: "" }] }
-        : b),
-    }));
-
-  const updateTreinItem = (blocoId: string, itemId: string, patch: Partial<TreinItem>) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: b.treinamentos.map(i => i.id === itemId ? { ...i, ...patch } : i) }
-        : b),
-    }));
-
-  const removeTreinItem = (blocoId: string, itemId: string) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: b.treinamentos.filter(i => i.id !== itemId) }
-        : b),
-    }));
 
   // ============ Cronograma do PGR helpers ============
   const cronograma: CronogramaItem[] = snapshot.cronograma_pgr || [];
@@ -1336,52 +1321,59 @@ export default function PgrWizard() {
 
         {treinBlocos.length === 0 ? (
           <Card className="p-12 text-center">
-            <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
-            <Button className="mt-4" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco de funções</Button>
+            <p className="text-muted-foreground">Nenhum treinamento adicionado.</p>
+            <Button className="mt-4" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
+            {(catTreinamentos as any[]).length === 0 && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Cadastre treinamentos em <strong>Cadastros &gt; Treinamentos</strong> para selecioná-los aqui.
+              </p>
+            )}
           </Card>
         ) : (
           <div className="space-y-4">
-            {treinBlocos.map(b => (
-              <Card key={b.id} className="p-5 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <Label className="text-xs font-bold uppercase">Funções *</Label>
-                    <div className="mt-1">
-                      <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateTreinBloco(b.id, { funcao_ids: v })} />
-                    </div>
-                    {b.funcao_ids.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
-                </div>
-
-                <div className="border-t pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold">Treinamentos</h4>
-                    <Button variant="outline" size="sm" onClick={() => addTreinItem(b.id)}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
-                  </div>
-                  {b.treinamentos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">Nenhum treinamento adicionado.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {b.treinamentos.map(item => (
-                        <div key={item.id} className="flex items-end gap-2 border rounded-lg p-3">
-                          <div className="flex-1">
-                            <Label className="text-xs">Nome do treinamento</Label>
-                            <Input className="mt-1" value={item.nome_treinamento} onChange={e => updateTreinItem(b.id, item.id, { nome_treinamento: e.target.value })} />
-                          </div>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinItem(b.id, item.id)}><Trash2 className="w-4 h-4" /></Button>
+            {treinBlocos.map(b => {
+              const tSel = (catTreinamentos as any[]).find(t => t.id === b.treinamento_id);
+              return (
+                <Card key={b.id} className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Treinamento *</Label>
+                        <Select value={b.treinamento_id || ""} onValueChange={(v) => updateTreinBloco(b.id, { treinamento_id: v })}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder={(catTreinamentos as any[]).length === 0 ? "Nenhum treinamento cadastrado" : "Selecione um treinamento"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(catTreinamentos as any[]).map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {tSel && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5">
+                            {[tSel.carga_horaria && `CH: ${tSel.carga_horaria}`, tSel.periodicidade].filter(Boolean).join(" • ")}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Funções Vinculadas *</Label>
+                        <div className="mt-1">
+                          <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateTreinBloco(b.id, { funcao_ids: v })} />
                         </div>
-                      ))}
+                        {b.funcao_ids.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </Card>
-            ))}
-            <Button variant="outline" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Funções</Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </Card>
+              );
+            })}
+            <Button variant="outline" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
           </div>
         )}
+
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
@@ -1540,50 +1532,54 @@ export default function PgrWizard() {
       });
 
 
-      // Treinamentos — agrupar por função em UMA linha
-      const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
-      (snapshot.treinamento_blocos || []).forEach(b => {
+      // Treinamentos — 1 bloco do PGR = 1 entrada no loop (nunca duplica por função)
+      const catTreinList = catTreinamentos as any[];
+      const treinamentos = (snapshot.treinamento_blocos || []).map(b => {
+        const tCad = catTreinList.find(t => t.id === (b as any).treinamento_id);
+        const nomeTrein = tCad?.nome || "";
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
-        funcs.forEach(f => {
-          const key = f.id;
-          if (!treinPorFuncao.has(key)) treinPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
-          const bucket = treinPorFuncao.get(key)!;
-          b.treinamentos.forEach(t => {
-            const nome = (t.nome_treinamento || "").trim();
-            if (nome && !bucket.itens.includes(nome)) bucket.itens.push(nome);
-          });
-        });
-      });
-      const treinamentos = Array.from(treinPorFuncao.values()).map(g => ({
-        funcao: g.nome_funcao,
-        nome_funcao: g.nome_funcao,
-        treinamentos_funcao: g.itens.join(", "),
-        nome_treinamento: g.itens.join(", "),
-        itens_treinamento: g.itens.map((nome, idx) => ({
-          nome_treinamento: nome,
+        // Mantém a ordem de seleção do usuário
+        const ordered = b.funcao_ids
+          .map(id => funcs.find(f => f.id === id))
+          .filter(Boolean) as any[];
+        const nomes = ordered.map(f => f.nome_funcao || "");
+        const lista = nomes.join("\n");
+        const itens_funcoes = nomes.map((nome, idx) => ({
+          nome_funcao: nome,
           is_first: idx === 0,
           is_rest: idx > 0,
           index: idx + 1,
-        })),
-        total_itens: g.itens.length,
+        }));
+        return {
+          // novas variáveis (preferidas)
+          treinamento_nome: nomeTrein,
+          treinamento_codigo: tCad?.codigo || "",
+          treinamento_descricao: tCad?.descricao || "",
+          treinamento_carga_horaria: tCad?.carga_horaria || "",
+          treinamento_periodicidade: tCad?.periodicidade || "",
+          treinamento_observacoes: tCad?.observacoes || "",
+          treinamento_funcoes_lista: lista,
+          treinamento_funcoes: nomes.join(", "),
+          itens_funcoes,
+          // compatibilidade (legado)
+          nome_treinamento: nomeTrein,
+          funcao: nomes.join(", "),
+          nome_funcao: nomes.join(", "),
+          treinamentos_funcao: nomeTrein,
+        };
+      });
+
+      // Tabela "flat" — 1 linha por bloco com rowspan = 1 (mantida só para retrocompat)
+      const treinamentos_tabela: any[] = treinamentos.map(t => ({
+        funcao: t.funcao,
+        nome_funcao: t.nome_funcao,
+        funcao_label: t.funcao,
+        rowspan: 1,
+        is_first: true,
+        is_rest: false,
+        nome_treinamento: t.treinamento_nome,
       }));
 
-      // Tabela "flat" de treinamentos com rowspan
-      const treinamentos_tabela: any[] = [];
-      Array.from(treinPorFuncao.values()).forEach(g => {
-        const total = g.itens.length || 1;
-        (g.itens.length ? g.itens : [""]).forEach((nome, idx) => {
-          treinamentos_tabela.push({
-            funcao: g.nome_funcao,
-            nome_funcao: g.nome_funcao,
-            funcao_label: idx === 0 ? g.nome_funcao : "",
-            rowspan: total,
-            is_first: idx === 0,
-            is_rest: idx > 0,
-            nome_treinamento: nome,
-          });
-        });
-      });
 
       const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
