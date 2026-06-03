@@ -198,6 +198,14 @@ export default function PgrWizard() {
       return data;
     },
   });
+  const { data: catTreinamentos = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
   const { data: templates = [] } = useQuery({
     queryKey: ["templates-pgr"],
     queryFn: async () => {
