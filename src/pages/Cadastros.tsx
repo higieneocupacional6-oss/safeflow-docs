@@ -838,6 +838,40 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="treinamentos" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Carga Horária</TableHead>
+                  <TableHead>Periodicidade</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(treinamentosCad as any[]).length === 0 ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-8 text-muted-foreground">Nenhum treinamento cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  (treinamentosCad as any[]).map((t: any) => (
+                    <TableRow key={t.id}>
+                      <TableCell className="font-medium">{t.nome}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{t.codigo || "—"}</TableCell>
+                      <TableCell className="text-sm">{t.carga_horaria || "—"}</TableCell>
+                      <TableCell className="text-sm">{t.periodicidade || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(t)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
 
