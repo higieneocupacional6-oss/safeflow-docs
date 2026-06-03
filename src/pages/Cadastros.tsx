@@ -1363,6 +1363,62 @@ export default function Cadastros() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal Treinamento */}
+      <Dialog open={treinamentoModalOpen} onOpenChange={setTreinamentoModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Treinamento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div><Label>Nome <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: NR-35 — Trabalho em Altura" value={treinamentoForm.nome} onChange={e => setTreinamentoForm({ ...treinamentoForm, nome: e.target.value })} /></div>
+            <div className="grid grid-cols-2 gap-3">
+              <div><Label>Código</Label><Input className="mt-1" placeholder="Ex: NR-35" value={treinamentoForm.codigo} onChange={e => setTreinamentoForm({ ...treinamentoForm, codigo: e.target.value })} /></div>
+              <div><Label>Carga Horária</Label><Input className="mt-1" placeholder="Ex: 8h" value={treinamentoForm.carga_horaria} onChange={e => setTreinamentoForm({ ...treinamentoForm, carga_horaria: e.target.value })} /></div>
+            </div>
+            <div><Label>Periodicidade</Label><Input className="mt-1" placeholder="Ex: Anual / Bienal" value={treinamentoForm.periodicidade} onChange={e => setTreinamentoForm({ ...treinamentoForm, periodicidade: e.target.value })} /></div>
+            <div><Label>Descrição</Label><Textarea className="mt-1" placeholder="Conteúdo programático do treinamento" value={treinamentoForm.descricao} onChange={e => setTreinamentoForm({ ...treinamentoForm, descricao: e.target.value })} /></div>
+            <div><Label>Observações</Label><Textarea className="mt-1" placeholder="Observações adicionais" value={treinamentoForm.observacoes} onChange={e => setTreinamentoForm({ ...treinamentoForm, observacoes: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setTreinamentoModalOpen(false)}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={treinamentoSaving}
+              onClick={async () => {
+                if (!treinamentoForm.nome.trim()) { toast.error("Informe o nome do treinamento"); return; }
+                setTreinamentoSaving(true);
+                try {
+                  const payload = {
+                    nome: treinamentoForm.nome.trim(),
+                    codigo: treinamentoForm.codigo.trim() || null,
+                    descricao: treinamentoForm.descricao.trim() || null,
+                    carga_horaria: treinamentoForm.carga_horaria.trim() || null,
+                    periodicidade: treinamentoForm.periodicidade.trim() || null,
+                    observacoes: treinamentoForm.observacoes.trim() || null,
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("treinamentos_cadastro").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Treinamento atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("treinamentos_cadastro").insert(payload);
+                    if (error) throw error;
+                    toast.success("Treinamento cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["treinamentos_cadastro"] });
+                  setTreinamentoModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setTreinamentoSaving(false);
+                }
+              }}
+            >{treinamentoSaving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ControleEquipamentosModal open={controleOpen} onOpenChange={setControleOpen} />
     </div>
   );
