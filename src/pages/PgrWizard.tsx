@@ -508,7 +508,7 @@ export default function PgrWizard() {
   const addTreinBloco = () =>
     updateSnapAndPersist({
       ...snapshot,
-      treinamento_blocos: [...treinBlocos, { id: crypto.randomUUID(), funcao_ids: [], treinamentos: [] }],
+      treinamento_blocos: [...treinBlocos, { id: crypto.randomUUID(), treinamento_id: "", funcao_ids: [] }],
     }, true);
 
   const removeTreinBloco = (id: string) =>
@@ -517,29 +517,6 @@ export default function PgrWizard() {
   const updateTreinBloco = (id: string, patch: Partial<TreinBloco>) =>
     setSnapshot(s => ({ ...s, treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === id ? { ...b, ...patch } : b) }));
 
-  const addTreinItem = (blocoId: string) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: [...b.treinamentos, { id: crypto.randomUUID(), nome_treinamento: "" }] }
-        : b),
-    }));
-
-  const updateTreinItem = (blocoId: string, itemId: string, patch: Partial<TreinItem>) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: b.treinamentos.map(i => i.id === itemId ? { ...i, ...patch } : i) }
-        : b),
-    }));
-
-  const removeTreinItem = (blocoId: string, itemId: string) =>
-    setSnapshot(s => ({
-      ...s,
-      treinamento_blocos: (s.treinamento_blocos || []).map(b => b.id === blocoId
-        ? { ...b, treinamentos: b.treinamentos.filter(i => i.id !== itemId) }
-        : b),
-    }));
 
   // ============ Cronograma do PGR helpers ============
   const cronograma: CronogramaItem[] = snapshot.cronograma_pgr || [];
