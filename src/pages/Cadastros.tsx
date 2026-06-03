@@ -50,6 +50,9 @@ export default function Cadastros() {
   const [parecerModalOpen, setParecerModalOpen] = useState(false);
   const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
   const [parecerSaving, setParecerSaving] = useState(false);
+  const [treinamentoModalOpen, setTreinamentoModalOpen] = useState(false);
+  const [treinamentoForm, setTreinamentoForm] = useState({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
+  const [treinamentoSaving, setTreinamentoSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const [dedupRunning, setDedupRunning] = useState(false);
   const [dedupConfirm, setDedupConfirm] = useState(false);
