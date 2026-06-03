@@ -150,6 +150,15 @@ export default function Cadastros() {
     },
   });
 
+  const { data: treinamentosCad = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const handleSaveEpiEpc = async () => {
     if (!epiEpcForm.nome.trim()) {
       toast.error("Informe o nome do EPI/EPC");
