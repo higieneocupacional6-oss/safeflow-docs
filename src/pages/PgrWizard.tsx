@@ -485,7 +485,7 @@ export default function PgrWizard() {
     setSnapshot(s => ({
       ...s,
       epi_blocos: (s.epi_blocos || []).map(b => b.id === blocoId
-        ? { ...b, epis: [...b.epis, { id: crypto.randomUUID(), epi_id: "", nome_epi: "", ca: "", uso: "Contínuo" }] }
+        ? { ...b, epis: [...b.epis, { id: crypto.randomUUID(), epi_id: "", nome_epi: "", ca: "", uso: "Contínuo", situacao: "Existente" }] }
         : b),
     }));
 
