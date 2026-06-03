@@ -1081,6 +1081,7 @@ export default function PgrWizard() {
             {(setores as any[]).map(s => {
               const qtd = snapshot.setores[s.id]?.riscos?.length || 0;
               const vinc = snapshot.setores[s.id]?.vinculado_de;
+              const funcoesSetor = (funcoesEmpresa as any[]).filter(f => f.setor_id === s.id);
               return (
                 <Card key={s.id} className="p-5 cursor-pointer hover:border-primary/50 transition-colors" onClick={() => setActiveSetor({ id: s.id, nome_setor: s.nome_setor })}>
                   <div className="flex items-start justify-between">
@@ -1097,6 +1098,18 @@ export default function PgrWizard() {
                       </Button>
                       <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
+                  </div>
+                  <div className="mt-3">
+                    <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wider mb-1.5">Funções vinculadas</p>
+                    {funcoesSetor.length === 0 ? (
+                      <p className="text-xs text-muted-foreground italic">Nenhuma função vinculada ao setor.</p>
+                    ) : (
+                      <div className="flex flex-wrap gap-1">
+                        {funcoesSetor.map(f => (
+                          <Badge key={f.id} variant="secondary" className="text-[11px] font-normal">{f.nome_funcao}</Badge>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     <Badge variant={qtd > 0 ? "default" : "secondary"}>{qtd} risco{qtd !== 1 ? "s" : ""}</Badge>
