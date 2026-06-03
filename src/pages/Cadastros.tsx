@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2 } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap } from "lucide-react";
 import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugestoes";
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
