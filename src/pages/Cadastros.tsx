@@ -363,6 +363,7 @@ export default function Cadastros() {
         unidades: "unidades",
         epi_epc: "epi_epc",
         pareceres: "pareceres_tecnicos",
+        treinamentos: "treinamentos_cadastro",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
