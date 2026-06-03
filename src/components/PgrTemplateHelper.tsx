@@ -89,14 +89,24 @@ const groups = [
     ],
   },
   {
-
-    title: "EPIs — agrupado por função (1 linha por função, lista concatenada)",
+    title: "EPIs por função — 1 tabela por função, 1 linha por EPI (RECOMENDADO)",
+    vars: [
+      "{{#epis}}",
+      "{{nome_funcao}}",
+      "  {{#itens_epi}}",
+      "    {{nome_epi}}", "    {{ca}}", "    {{uso}}", "    {{situacao}}",
+      "  {{/itens_epi}}",
+      "{{/epis}}",
+    ],
+  },
+  {
+    title: "EPIs — agrupado por função (1 linha por função, lista concatenada — legado)",
     vars: [
       "{{#epis}}", "{{funcao}}", "{{nome_funcao}}", "{{funcoes_epi}}", "{{situacao_epi}}", "{{epis_funcao}}", "{{/epis}}",
     ],
   },
   {
-    title: "EPIs — tabela com rowspan (1 linha por EPI, função só na 1ª)",
+    title: "EPIs — tabela única com rowspan (1 linha por EPI, função só na 1ª — legado)",
     vars: [
       "{{#epis_tabela}}",
       "{{funcao_label}}", "{{funcoes_epi}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
@@ -162,7 +172,19 @@ SOMENTE na linha de dados da tabela, nunca envolvendo a tabela inteira.
 Cronograma (use somente na LINHA da tabela):
 {{#cronograma_pgr}}
 | {{item_cronograma}} | {{acao_cronograma}} | {{responsavel_cronograma}} | {{prazo_cronograma}} | {{situacao_cronograma}} |
-{{/cronograma_pgr}}`;
+{{/cronograma_pgr}}
+
+EPIs por Função (1 tabela por função, 1 linha por EPI):
+{{#epis}}
+Função: {{nome_funcao}}
+| EPI | CA | Caracterização de Uso | Situação |
+{{#itens_epi}}
+| {{nome_epi}} | {{ca}} | {{uso}} | {{situacao}} |
+{{/itens_epi}}
+{{/epis}}
+
+Dica .docx: coloque {{#epis}} ... {{/epis}} envolvendo o título da função + a tabela;
+e coloque {{#itens_epi}} ... {{/itens_epi}} SOMENTE na linha de dados da tabela (não envolva a tabela inteira).`;
 
 export function PgrTemplateHelper() {
   const [open, setOpen] = useState(false);
