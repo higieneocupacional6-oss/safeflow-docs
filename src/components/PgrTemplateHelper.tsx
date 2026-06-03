@@ -193,7 +193,18 @@ Função: {{nome_funcao}}
 {{/epis}}
 
 Dica .docx: coloque {{#epis}} ... {{/epis}} envolvendo o título da função + a tabela;
-e coloque {{#itens_epi}} ... {{/itens_epi}} SOMENTE na linha de dados da tabela (não envolva a tabela inteira).`;
+e coloque {{#itens_epi}} ... {{/itens_epi}} SOMENTE na linha de dados da tabela (não envolva a tabela inteira).
+
+Treinamentos (1 bloco = 1 entrada no loop, sem duplicar por função):
+{{#treinamentos}}
+Treinamento: {{treinamento_nome}}
+
+Funções Vinculadas:
+{{treinamento_funcoes_lista}}
+
+Carga Horária: {{treinamento_carga_horaria}}
+Periodicidade: {{treinamento_periodicidade}}
+{{/treinamentos}}`;
 
 export function PgrTemplateHelper() {
   const [open, setOpen] = useState(false);
