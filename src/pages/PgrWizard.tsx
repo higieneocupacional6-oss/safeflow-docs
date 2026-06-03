@@ -1532,50 +1532,54 @@ export default function PgrWizard() {
       });
 
 
-      // Treinamentos — agrupar por função em UMA linha
-      const treinPorFuncao = new Map<string, { nome_funcao: string; itens: string[] }>();
-      (snapshot.treinamento_blocos || []).forEach(b => {
+      // Treinamentos — 1 bloco do PGR = 1 entrada no loop (nunca duplica por função)
+      const catTreinList = catTreinamentos as any[];
+      const treinamentos = (snapshot.treinamento_blocos || []).map(b => {
+        const tCad = catTreinList.find(t => t.id === (b as any).treinamento_id);
+        const nomeTrein = tCad?.nome || "";
         const funcs = (funcoesEmpresa as any[]).filter(f => b.funcao_ids.includes(f.id));
-        funcs.forEach(f => {
-          const key = f.id;
-          if (!treinPorFuncao.has(key)) treinPorFuncao.set(key, { nome_funcao: f.nome_funcao || "", itens: [] });
-          const bucket = treinPorFuncao.get(key)!;
-          b.treinamentos.forEach(t => {
-            const nome = (t.nome_treinamento || "").trim();
-            if (nome && !bucket.itens.includes(nome)) bucket.itens.push(nome);
-          });
-        });
-      });
-      const treinamentos = Array.from(treinPorFuncao.values()).map(g => ({
-        funcao: g.nome_funcao,
-        nome_funcao: g.nome_funcao,
-        treinamentos_funcao: g.itens.join(", "),
-        nome_treinamento: g.itens.join(", "),
-        itens_treinamento: g.itens.map((nome, idx) => ({
-          nome_treinamento: nome,
+        // Mantém a ordem de seleção do usuário
+        const ordered = b.funcao_ids
+          .map(id => funcs.find(f => f.id === id))
+          .filter(Boolean) as any[];
+        const nomes = ordered.map(f => f.nome_funcao || "");
+        const lista = nomes.join("\n");
+        const itens_funcoes = nomes.map((nome, idx) => ({
+          nome_funcao: nome,
           is_first: idx === 0,
           is_rest: idx > 0,
           index: idx + 1,
-        })),
-        total_itens: g.itens.length,
+        }));
+        return {
+          // novas variáveis (preferidas)
+          treinamento_nome: nomeTrein,
+          treinamento_codigo: tCad?.codigo || "",
+          treinamento_descricao: tCad?.descricao || "",
+          treinamento_carga_horaria: tCad?.carga_horaria || "",
+          treinamento_periodicidade: tCad?.periodicidade || "",
+          treinamento_observacoes: tCad?.observacoes || "",
+          treinamento_funcoes_lista: lista,
+          treinamento_funcoes: nomes.join(", "),
+          itens_funcoes,
+          // compatibilidade (legado)
+          nome_treinamento: nomeTrein,
+          funcao: nomes.join(", "),
+          nome_funcao: nomes.join(", "),
+          treinamentos_funcao: nomeTrein,
+        };
+      });
+
+      // Tabela "flat" — 1 linha por bloco com rowspan = 1 (mantida só para retrocompat)
+      const treinamentos_tabela: any[] = treinamentos.map(t => ({
+        funcao: t.funcao,
+        nome_funcao: t.nome_funcao,
+        funcao_label: t.funcao,
+        rowspan: 1,
+        is_first: true,
+        is_rest: false,
+        nome_treinamento: t.treinamento_nome,
       }));
 
-      // Tabela "flat" de treinamentos com rowspan
-      const treinamentos_tabela: any[] = [];
-      Array.from(treinPorFuncao.values()).forEach(g => {
-        const total = g.itens.length || 1;
-        (g.itens.length ? g.itens : [""]).forEach((nome, idx) => {
-          treinamentos_tabela.push({
-            funcao: g.nome_funcao,
-            nome_funcao: g.nome_funcao,
-            funcao_label: idx === 0 ? g.nome_funcao : "",
-            rowspan: total,
-            is_first: idx === 0,
-            is_rest: idx > 0,
-            nome_treinamento: nome,
-          });
-        });
-      });
 
       const MESES_PT = ["", "Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
       const cronograma_pgr = (snapshot.cronograma_pgr || []).map(c => {
