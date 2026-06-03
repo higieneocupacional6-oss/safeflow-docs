@@ -120,14 +120,23 @@ const groups = [
   },
 
   {
-    title: "Treinamentos — agrupado por função (1 linha por função)",
+    title: "Treinamentos (loop por bloco — RECOMENDADO)",
     vars: [
-      "{{#treinamentos}}", "{{funcao}}", "{{nome_funcao}}",
-      "{{treinamentos_funcao}}", "{{/treinamentos}}",
+      "{{#treinamentos}}",
+      "{{treinamento_nome}}",
+      "{{treinamento_codigo}}",
+      "{{treinamento_descricao}}",
+      "{{treinamento_carga_horaria}}",
+      "{{treinamento_periodicidade}}",
+      "{{treinamento_observacoes}}",
+      "{{treinamento_funcoes_lista}}",
+      "{{treinamento_funcoes}}",
+      "  {{#itens_funcoes}}{{nome_funcao}}{{/itens_funcoes}}",
+      "{{/treinamentos}}",
     ],
   },
   {
-    title: "Treinamentos — tabela com rowspan (1 linha por treinamento)",
+    title: "Treinamentos — tabela com rowspan (legado)",
     vars: [
       "{{#treinamentos_tabela}}",
       "{{funcao_label}}", "{{rowspan}}", "{{#is_first}}…{{/is_first}}", "{{#is_rest}}…{{/is_rest}}",
