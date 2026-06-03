@@ -1647,6 +1647,8 @@ export default function PgrWizard() {
         setores: setoresArr,
         epis,
         epis_tabela,
+        funcoes_epi: funcoesEpiTop,
+        situacao_epi: situacaoEpiTop,
         treinamentos,
         treinamentos_tabela,
         cronograma_pgr,
