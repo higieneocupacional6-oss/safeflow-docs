@@ -1321,52 +1321,59 @@ export default function PgrWizard() {
 
         {treinBlocos.length === 0 ? (
           <Card className="p-12 text-center">
-            <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
-            <Button className="mt-4" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco de funções</Button>
+            <p className="text-muted-foreground">Nenhum treinamento adicionado.</p>
+            <Button className="mt-4" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
+            {(catTreinamentos as any[]).length === 0 && (
+              <p className="text-xs text-muted-foreground mt-3">
+                Cadastre treinamentos em <strong>Cadastros &gt; Treinamentos</strong> para selecioná-los aqui.
+              </p>
+            )}
           </Card>
         ) : (
           <div className="space-y-4">
-            {treinBlocos.map(b => (
-              <Card key={b.id} className="p-5 space-y-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex-1">
-                    <Label className="text-xs font-bold uppercase">Funções *</Label>
-                    <div className="mt-1">
-                      <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateTreinBloco(b.id, { funcao_ids: v })} />
-                    </div>
-                    {b.funcao_ids.length > 0 && (
-                      <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
-                    )}
-                  </div>
-                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
-                </div>
-
-                <div className="border-t pt-3">
-                  <div className="flex items-center justify-between mb-2">
-                    <h4 className="text-sm font-semibold">Treinamentos</h4>
-                    <Button variant="outline" size="sm" onClick={() => addTreinItem(b.id)}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
-                  </div>
-                  {b.treinamentos.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">Nenhum treinamento adicionado.</p>
-                  ) : (
-                    <div className="space-y-2">
-                      {b.treinamentos.map(item => (
-                        <div key={item.id} className="flex items-end gap-2 border rounded-lg p-3">
-                          <div className="flex-1">
-                            <Label className="text-xs">Nome do treinamento</Label>
-                            <Input className="mt-1" value={item.nome_treinamento} onChange={e => updateTreinItem(b.id, item.id, { nome_treinamento: e.target.value })} />
-                          </div>
-                          <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinItem(b.id, item.id)}><Trash2 className="w-4 h-4" /></Button>
+            {treinBlocos.map(b => {
+              const tSel = (catTreinamentos as any[]).find(t => t.id === b.treinamento_id);
+              return (
+                <Card key={b.id} className="p-5 space-y-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Treinamento *</Label>
+                        <Select value={b.treinamento_id || ""} onValueChange={(v) => updateTreinBloco(b.id, { treinamento_id: v })}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder={(catTreinamentos as any[]).length === 0 ? "Nenhum treinamento cadastrado" : "Selecione um treinamento"} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {(catTreinamentos as any[]).map(t => (
+                              <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {tSel && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5">
+                            {[tSel.carga_horaria && `CH: ${tSel.carga_horaria}`, tSel.periodicidade].filter(Boolean).join(" • ")}
+                          </p>
+                        )}
+                      </div>
+                      <div>
+                        <Label className="text-xs font-bold uppercase">Funções Vinculadas *</Label>
+                        <div className="mt-1">
+                          <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => updateTreinBloco(b.id, { funcao_ids: v })} />
                         </div>
-                      ))}
+                        {b.funcao_ids.length > 0 && (
+                          <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                        )}
+                      </div>
                     </div>
-                  )}
-                </div>
-              </Card>
-            ))}
-            <Button variant="outline" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Funções</Button>
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() => removeTreinBloco(b.id)}><Trash2 className="w-4 h-4" /></Button>
+                  </div>
+                </Card>
+              );
+            })}
+            <Button variant="outline" onClick={addTreinBloco}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
           </div>
         )}
+
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
