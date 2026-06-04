@@ -663,6 +663,7 @@ export default function PcmsoWizard() {
             setores, epiBlocos, treinBlocos, cronograma,
             funcoesEmpresa: funcoesEmpresa as any[],
             setoresEmpresa: setoresEmpresa as any[],
+            catTreinamentos: catTreinamentos as any[],
           })}
           onSave={save}
           onBack={() => goToStep(4)}
