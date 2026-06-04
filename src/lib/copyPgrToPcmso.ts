@@ -39,7 +39,6 @@ export type PcmsoEpiItem = {
   nome_epi: string;
   ca: string;
   uso: string;
-  observacao: string;
 };
 export type PcmsoEpiBloco = {
   id: string;
@@ -56,8 +55,9 @@ export type PcmsoTreinItem = {
 };
 export type PcmsoTreinBloco = {
   id: string;
+  treinamento_id?: string;
   funcao_ids: string[];
-  treinamentos: PcmsoTreinItem[];
+  treinamentos?: PcmsoTreinItem[];
 };
 
 export type PcmsoCronoItem = {
@@ -84,7 +84,7 @@ export const emptyExame = (): PcmsoExame => ({
 });
 
 export const emptyEpiItem = (): PcmsoEpiItem => ({
-  id: crypto.randomUUID(), nome_epi: "", ca: "", uso: "", observacao: "",
+  id: crypto.randomUUID(), nome_epi: "", ca: "", uso: "",
 });
 export const emptyEpiBloco = (): PcmsoEpiBloco => ({
   id: crypto.randomUUID(), funcao_ids: [], epis: [emptyEpiItem()],
@@ -93,7 +93,7 @@ export const emptyTreinItem = (): PcmsoTreinItem => ({
   id: crypto.randomUUID(), nome_treinamento: "", carga_horaria: "", periodicidade: "", observacao: "",
 });
 export const emptyTreinBloco = (): PcmsoTreinBloco => ({
-  id: crypto.randomUUID(), funcao_ids: [], treinamentos: [emptyTreinItem()],
+  id: crypto.randomUUID(), treinamento_id: "", funcao_ids: [],
 });
 export const emptyCronoItem = (): PcmsoCronoItem => ({
   id: crypto.randomUUID(), item: "", acao: "", responsavel: "", prazo: "", situacao: "", observacao: "",
