@@ -263,6 +263,9 @@ export default function Cadastros() {
     } else if (tab === "treinamentos") {
       setTreinamentoForm({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
       setTreinamentoModalOpen(true);
+    } else if (tab === "exames") {
+      setExameForm({ nome: "", codigo_esocial: "", descricao_esocial: "" });
+      setExameModalOpen(true);
     }
   };
 
