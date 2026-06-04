@@ -744,6 +744,28 @@ function SetorDetail({
 function ExameCard({
   exame, index, onChange, onRemove,
 }: { exame: PcmsoExame; index: number; onChange: (p: Partial<PcmsoExame>) => void; onRemove: () => void; }) {
+  const { data: examesCad = [] } = useQuery({
+    queryKey: ["exames_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("exames_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const handleSelectExame = (nome: string) => {
+    const found = (examesCad as any[]).find((e) => e.nome === nome);
+    if (found) {
+      onChange({
+        tipo_exame: found.nome,
+        cod_esocial: found.codigo_esocial || "",
+        descricao_esocial: found.descricao_esocial || "",
+      });
+    } else {
+      onChange({ tipo_exame: nome });
+    }
+  };
+
   return (
     <div className="p-4 rounded-lg border border-border space-y-3 bg-card">
       <div className="flex items-center justify-between">
@@ -751,9 +773,23 @@ function ExameCard({
         <Button variant="ghost" size="icon" className="text-destructive" onClick={onRemove}><Trash2 className="w-4 h-4" /></Button>
       </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-        <div><Label className="text-xs">Tipo de Exame</Label><Input value={exame.tipo_exame} onChange={(e) => onChange({ tipo_exame: e.target.value })} /></div>
-        <div><Label className="text-xs">Código eSocial</Label><Input value={exame.cod_esocial} onChange={(e) => onChange({ cod_esocial: e.target.value })} /></div>
-        <div><Label className="text-xs">Descrição eSocial</Label><Input value={exame.descricao_esocial} onChange={(e) => onChange({ descricao_esocial: e.target.value })} /></div>
+        <div>
+          <Label className="text-xs">Tipo de Exame</Label>
+          <Select value={exame.tipo_exame || ""} onValueChange={handleSelectExame}>
+            <SelectTrigger><SelectValue placeholder="Selecione um exame" /></SelectTrigger>
+            <SelectContent>
+              {(examesCad as any[]).length === 0 ? (
+                <div className="px-2 py-3 text-xs text-muted-foreground">Nenhum exame cadastrado. Cadastre em Cadastros → Exames.</div>
+              ) : (
+                (examesCad as any[]).map((e: any) => (
+                  <SelectItem key={e.id} value={e.nome}>{e.nome}</SelectItem>
+                ))
+              )}
+            </SelectContent>
+          </Select>
+        </div>
+        <div><Label className="text-xs">Código eSocial</Label><Input value={exame.cod_esocial} readOnly className="bg-muted/40" /></div>
+        <div><Label className="text-xs">Descrição eSocial</Label><Input value={exame.descricao_esocial} readOnly className="bg-muted/40" /></div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
         <SwitchField label="Admissional" checked={exame.admissional} onChange={(v) => onChange({ admissional: v })} />

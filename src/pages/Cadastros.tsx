@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap } from "lucide-react";
+import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap, Stethoscope } from "lucide-react";
 import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugestoes";
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
@@ -28,7 +28,7 @@ const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos" | "exames";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
@@ -53,6 +53,9 @@ export default function Cadastros() {
   const [treinamentoModalOpen, setTreinamentoModalOpen] = useState(false);
   const [treinamentoForm, setTreinamentoForm] = useState({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
   const [treinamentoSaving, setTreinamentoSaving] = useState(false);
+  const [exameModalOpen, setExameModalOpen] = useState(false);
+  const [exameForm, setExameForm] = useState({ nome: "", codigo_esocial: "", descricao_esocial: "" });
+  const [exameSaving, setExameSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const [dedupRunning, setDedupRunning] = useState(false);
   const [dedupConfirm, setDedupConfirm] = useState(false);
@@ -85,6 +88,7 @@ export default function Cadastros() {
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
     { table: "treinamentos_cadastro", queryKey: ["treinamentos_cadastro"] },
+    { table: "exames_cadastro", queryKey: ["exames_cadastro"] },
   ]);
 
   const { data: riscos = [] } = useQuery({
@@ -154,6 +158,15 @@ export default function Cadastros() {
     queryKey: ["treinamentos_cadastro"],
     queryFn: async () => {
       const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: examesCad = [] } = useQuery({
+    queryKey: ["exames_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("exames_cadastro").select("*").order("nome");
       if (error) throw error;
       return data || [];
     },
@@ -250,6 +263,9 @@ export default function Cadastros() {
     } else if (tab === "treinamentos") {
       setTreinamentoForm({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
       setTreinamentoModalOpen(true);
+    } else if (tab === "exames") {
+      setExameForm({ nome: "", codigo_esocial: "", descricao_esocial: "" });
+      setExameModalOpen(true);
     }
   };
 
@@ -297,6 +313,13 @@ export default function Cadastros() {
         observacoes: item.observacoes || "",
       });
       setTreinamentoModalOpen(true);
+    } else if (tab === "exames") {
+      setExameForm({
+        nome: item.nome || "",
+        codigo_esocial: item.codigo_esocial || "",
+        descricao_esocial: item.descricao_esocial || "",
+      });
+      setExameModalOpen(true);
     }
   };
 
@@ -347,6 +370,7 @@ export default function Cadastros() {
       epi_epc: "epi_epc",
       pareceres: "pareceres_tecnicos",
       treinamentos: "treinamentos_cadastro",
+      exames: "exames_cadastro",
     };
 
     try {
@@ -364,6 +388,7 @@ export default function Cadastros() {
         epi_epc: "epi_epc",
         pareceres: "pareceres_tecnicos",
         treinamentos: "treinamentos_cadastro",
+        exames: "exames_cadastro",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
@@ -501,6 +526,7 @@ export default function Cadastros() {
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
             <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
             <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
+            <TabsTrigger value="exames" className="gap-2"><Stethoscope className="w-3.5 h-3.5" />Exames</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "equipamentos" && (
@@ -864,6 +890,38 @@ export default function Cadastros() {
                         <div className="flex justify-end gap-2">
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(t)}><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(t.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
+
+          <TabsContent value="exames" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome do Exame</TableHead>
+                  <TableHead>Código eSocial</TableHead>
+                  <TableHead>Descrição eSocial</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(examesCad as any[]).length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum exame cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  (examesCad as any[]).map((e: any) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.nome}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{e.codigo_esocial}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-md truncate" title={e.descricao_esocial}>{e.descricao_esocial}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}><Trash2 className="h-4 w-4" /></Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1415,6 +1473,56 @@ export default function Cadastros() {
                 }
               }}
             >{treinamentoSaving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal Exame */}
+      <Dialog open={exameModalOpen} onOpenChange={setExameModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Exame</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div><Label>Nome do Exame <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: Audiometria" value={exameForm.nome} onChange={e => setExameForm({ ...exameForm, nome: e.target.value })} /></div>
+            <div><Label>Código eSocial <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: 0295" value={exameForm.codigo_esocial} onChange={e => setExameForm({ ...exameForm, codigo_esocial: e.target.value })} /></div>
+            <div><Label>Descrição eSocial <span className="text-destructive">*</span></Label><Textarea className="mt-1" placeholder="Ex: Avaliação da capacidade auditiva ocupacional" value={exameForm.descricao_esocial} onChange={e => setExameForm({ ...exameForm, descricao_esocial: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setExameModalOpen(false); setEditingId(null); }}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={exameSaving}
+              onClick={async () => {
+                if (!exameForm.nome.trim()) { toast.error("Informe o nome do exame"); return; }
+                if (!exameForm.codigo_esocial.trim()) { toast.error("Informe o código eSocial"); return; }
+                if (!exameForm.descricao_esocial.trim()) { toast.error("Informe a descrição eSocial"); return; }
+                setExameSaving(true);
+                try {
+                  const payload = {
+                    nome: exameForm.nome.trim(),
+                    codigo_esocial: exameForm.codigo_esocial.trim(),
+                    descricao_esocial: exameForm.descricao_esocial.trim(),
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("exames_cadastro").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Exame atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("exames_cadastro").insert(payload);
+                    if (error) throw error;
+                    toast.success("Exame cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["exames_cadastro"] });
+                  setExameModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setExameSaving(false);
+                }
+              }}
+            >{exameSaving ? "Salvando..." : "Salvar"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
