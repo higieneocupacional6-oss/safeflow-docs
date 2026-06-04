@@ -379,9 +379,9 @@ export default function PcmsoWizard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {setores.map((s, i) => (
-                <button key={i} onClick={() => setActiveSetorIdx(i)} className="text-left p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div key={i} className="text-left p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <button onClick={() => setActiveSetorIdx(i)} className="flex-1 text-left">
                       <div className="font-heading font-semibold text-foreground">{s.nome_setor}</div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <Badge variant="outline" className="text-xs">{s.exames.length} exames</Badge>
@@ -389,10 +389,16 @@ export default function PcmsoWizard() {
                           {AGENT_FIELDS.reduce((sum, a) => sum + (s[a.key] as string[]).length, 0)} agentes
                         </Badge>
                       </div>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" title="Vincular Exames de outro setor"
+                        onClick={(e) => { e.stopPropagation(); setVincularExamesIdx(i); }}>
+                        <Link2 className="w-4 h-4 text-accent" />
+                      </Button>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
