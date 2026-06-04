@@ -585,6 +585,33 @@ export type Database = {
           },
         ]
       }
+      exames_cadastro: {
+        Row: {
+          codigo_esocial: string
+          created_at: string
+          descricao_esocial: string
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          codigo_esocial: string
+          created_at?: string
+          descricao_esocial: string
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          codigo_esocial?: string
+          created_at?: string
+          descricao_esocial?: string
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
