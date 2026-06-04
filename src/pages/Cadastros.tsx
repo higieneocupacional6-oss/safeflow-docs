@@ -88,6 +88,7 @@ export default function Cadastros() {
     { table: "epi_epc", queryKey: ["epi_epc"] },
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
     { table: "treinamentos_cadastro", queryKey: ["treinamentos_cadastro"] },
+    { table: "exames_cadastro", queryKey: ["exames_cadastro"] },
   ]);
 
   const { data: riscos = [] } = useQuery({
