@@ -18,6 +18,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -76,6 +77,8 @@ export default function PcmsoWizard() {
   // Modals
   const [askEpi, setAskEpi] = useState(false);
   const [askTrein, setAskTrein] = useState(false);
+  const [vincularExamesIdx, setVincularExamesIdx] = useState<number | null>(null);
+  const [vincularOrigemIdx, setVincularOrigemIdx] = useState<string>("");
 
   // Gerar Documento
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -117,6 +120,15 @@ export default function PcmsoWizard() {
         .select("id,nome_funcao,setor_id,cbo_codigo,cbo_descricao,descricao_atividades,expostos")
         .in("setor_id", ids)
         .order("nome_funcao");
+      return data || [];
+    },
+  });
+
+  const { data: catTreinamentos = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
       return data || [];
     },
   });
@@ -370,9 +382,9 @@ export default function PcmsoWizard() {
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {setores.map((s, i) => (
-                <button key={i} onClick={() => setActiveSetorIdx(i)} className="text-left p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors">
-                  <div className="flex items-center justify-between">
-                    <div>
+                <div key={i} className="text-left p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors">
+                  <div className="flex items-center justify-between gap-2">
+                    <button onClick={() => setActiveSetorIdx(i)} className="flex-1 text-left">
                       <div className="font-heading font-semibold text-foreground">{s.nome_setor}</div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <Badge variant="outline" className="text-xs">{s.exames.length} exames</Badge>
@@ -380,10 +392,16 @@ export default function PcmsoWizard() {
                           {AGENT_FIELDS.reduce((sum, a) => sum + (s[a.key] as string[]).length, 0)} agentes
                         </Badge>
                       </div>
+                    </button>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" title="Vincular Exames de outro setor"
+                        onClick={(e) => { e.stopPropagation(); setVincularExamesIdx(i); }}>
+                        <Link2 className="w-4 h-4 text-accent" />
+                      </Button>
+                      <ChevronRight className="w-5 h-5 text-muted-foreground" />
                     </div>
-                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
-                </button>
+                </div>
               ))}
             </div>
           )}
@@ -467,11 +485,6 @@ export default function PcmsoWizard() {
                             onClick={() => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.filter((_, j) => j !== ii) } : x))}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Observações</Label>
-                            <Textarea rows={2} className="mt-1" value={it.observacao}
-                              onChange={(e) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
-                          </div>
                         </div>
                       ))}
                     </div>
@@ -501,75 +514,60 @@ export default function PcmsoWizard() {
 
           {treinBlocos.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
-              <Button className="mt-4" onClick={() => setTreinBlocos([emptyTreinBloco()])}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco</Button>
+              <p className="text-muted-foreground">Nenhum treinamento adicionado.</p>
+              <Button className="mt-4" onClick={() => setTreinBlocos([emptyTreinBloco()])}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
+              {(catTreinamentos as any[]).length === 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Cadastre treinamentos em <strong>Cadastros &gt; Treinamentos</strong> para selecioná-los aqui.
+                </p>
+              )}
             </Card>
           ) : (
             <div className="space-y-4">
-              {treinBlocos.map((b, bi) => (
-                <Card key={b.id} className="p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <Label className="text-xs font-bold uppercase">Funções *</Label>
-                      <div className="mt-1">
-                        <FuncoesMultiSelect
-                          value={b.funcao_ids}
-                          onChange={(v) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))}
-                        />
+              {treinBlocos.map((b, bi) => {
+                const tSel = (catTreinamentos as any[]).find(t => t.id === b.treinamento_id);
+                return (
+                  <Card key={b.id} className="p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Treinamento *</Label>
+                          <Select value={b.treinamento_id || ""} onValueChange={(v) => setTreinBlocos(arr => arr.map((x, i) => i === bi ? { ...x, treinamento_id: v } : x))}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder={(catTreinamentos as any[]).length === 0 ? "Nenhum treinamento cadastrado" : "Selecione um treinamento"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(catTreinamentos as any[]).map(t => (
+                                <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {tSel && (
+                            <p className="text-[11px] text-muted-foreground mt-1.5">
+                              {[tSel.carga_horaria && `CH: ${tSel.carga_horaria}`, tSel.periodicidade].filter(Boolean).join(" • ")}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Funções Vinculadas *</Label>
+                          <div className="mt-1">
+                            <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => setTreinBlocos(arr => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))} />
+                          </div>
+                          {b.funcao_ids.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                          )}
+                        </div>
                       </div>
-                      {b.funcao_ids.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-destructive"
-                      onClick={() => setTreinBlocos((arr) => arr.filter((_, i) => i !== bi))}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold">Treinamentos</h4>
-                      <Button variant="outline" size="sm"
-                        onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: [...x.treinamentos, emptyTreinItem()] } : x))}>
-                        <Plus className="w-4 h-4 mr-1" /> Treinamento
+                      <Button variant="ghost" size="icon" className="text-destructive"
+                        onClick={() => setTreinBlocos((arr) => arr.filter((_, i) => i !== bi))}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="space-y-2">
-                      {b.treinamentos.map((it, ii) => (
-                        <div key={it.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-2 items-end border rounded-lg p-3">
-                          <div>
-                            <Label className="text-xs">Nome do treinamento</Label>
-                            <Input className="mt-1" value={it.nome_treinamento}
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, nome_treinamento: e.target.value } : y) } : x))} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Carga horária</Label>
-                            <Input className="mt-1" value={it.carga_horaria} placeholder="Ex: 8h"
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, carga_horaria: e.target.value } : y) } : x))} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Periodicidade</Label>
-                            <Input className="mt-1" value={it.periodicidade} placeholder="Ex: Anual"
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, periodicidade: e.target.value } : y) } : x))} />
-                          </div>
-                          <Button variant="ghost" size="icon" className="text-destructive"
-                            onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.filter((_, j) => j !== ii) } : x))}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Observações</Label>
-                            <Textarea rows={2} className="mt-1" value={it.observacao}
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
               <Button variant="outline" onClick={() => setTreinBlocos((arr) => [...arr, emptyTreinBloco()])}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar bloco
+                <Plus className="w-4 h-4 mr-1" /> Treinamento
               </Button>
             </div>
           )}
@@ -665,6 +663,7 @@ export default function PcmsoWizard() {
             setores, epiBlocos, treinBlocos, cronograma,
             funcoesEmpresa: funcoesEmpresa as any[],
             setoresEmpresa: setoresEmpresa as any[],
+            catTreinamentos: catTreinamentos as any[],
           })}
           onSave={save}
           onBack={() => goToStep(4)}
@@ -677,6 +676,57 @@ export default function PcmsoWizard() {
       <PcmsoCopyConfirmModal open={askTrein} onOpenChange={setAskTrein}
         title="Deseja copiar os treinamentos cadastrados no PGR?"
         onYes={() => confirmTreinCopy(true)} onNo={() => confirmTreinCopy(false)} />
+
+      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copiar exames de outro setor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Setor Destino</Label>
+              <Input value={vincularExamesIdx !== null ? (setores[vincularExamesIdx]?.nome_setor || "") : ""} disabled className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Setor Origem *</Label>
+              <Select value={vincularOrigemIdx} onValueChange={setVincularOrigemIdx}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o setor origem" /></SelectTrigger>
+                <SelectContent>
+                  {setores.map((s, i) => (
+                    i !== vincularExamesIdx && (
+                      <SelectItem key={i} value={String(i)}>{s.nome_setor} ({s.exames.length} exames)</SelectItem>
+                    )
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); }}>Cancelar</Button>
+              <Button onClick={() => {
+                if (vincularExamesIdx === null || !vincularOrigemIdx) return;
+                const origemIdx = Number(vincularOrigemIdx);
+                const destinoIdx = vincularExamesIdx;
+                const origem = setores[origemIdx];
+                const destino = setores[destinoIdx];
+                if (!origem || !destino) return;
+                const existentes = new Set((destino.exames || []).map(e => (e.tipo_exame || "").trim().toLowerCase()).filter(Boolean));
+                const novos = (origem.exames || []).filter(e => {
+                  const k = (e.tipo_exame || "").trim().toLowerCase();
+                  return k && !existentes.has(k);
+                }).map(e => ({ ...e }));
+                if (novos.length === 0) {
+                  toast.info("Nenhum exame novo para copiar (todos já existem).");
+                } else {
+                  setSetores(arr => arr.map((s, i) => i === destinoIdx ? { ...s, exames: [...s.exames, ...novos] } : s));
+                  toast.success(`Exames copiados com sucesso. (${novos.length} novo${novos.length > 1 ? "s" : ""})`);
+                }
+                setVincularExamesIdx(null);
+                setVincularOrigemIdx("");
+              }} disabled={!vincularOrigemIdx}>Copiar Exames</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -832,13 +882,14 @@ function buildTemplateData(args: {
   vigenciaInicio: string; vigenciaFim: string; revisoes: PcmsoRevisao[];
   setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
   cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[]; setoresEmpresa: any[];
+  catTreinamentos: any[];
 }) {
   const {
     empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
     revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa, setoresEmpresa,
+    catTreinamentos,
   } = args;
 
-  // Build lookup from setor_id -> {descricao_ambiente, funcoes[]}
   const setorDbMap: Record<string, any> = {};
   (setoresEmpresa || []).forEach((s: any) => { setorDbMap[s.id] = s; });
 
@@ -851,6 +902,13 @@ function buildTemplateData(args: {
       descricao_atividades: f.descricao_atividades || "",
       expostos: f.expostos || "",
     });
+  });
+
+  // Map função -> setor name
+  const funcaoSetorMap: Record<string, string> = {};
+  (funcoesEmpresa || []).forEach((f: any) => {
+    const setor = (setoresEmpresa || []).find((s: any) => s.id === f.setor_id);
+    funcaoSetorMap[f.id] = setor?.nome_setor || "";
   });
 
   const setoresArr = (setores || []).map((s) => {
@@ -868,57 +926,80 @@ function buildTemplateData(args: {
       agentes_acidentes: (s.agentes_acidentes || []).join(", "),
       agentes_psicossociais: (s.agentes_psicossociais || []).join(", "),
       exames: (s.exames || []).map((e) => ({
-      tipo_exame: e.tipo_exame || "",
-      cod_esocial: e.cod_esocial || "",
-      descricao_esocial: e.descricao_esocial || "",
-      admissional: bool(e.admissional),
-      periodico: bool(e.periodico),
-      periodo: e.periodo || "",
-      retorno_trabalho: bool(e.retorno_trabalho),
-      mudanca_funcao: bool(e.mudanca_funcao),
-      demissional: bool(e.demissional),
-      observacao: e.observacao || "",
-    })),
+        tipo_exame: e.tipo_exame || "",
+        cod_esocial: e.cod_esocial || "",
+        descricao_esocial: e.descricao_esocial || "",
+        admissional: bool(e.admissional),
+        periodico: bool(e.periodico),
+        periodo: e.periodo || "",
+        retorno_trabalho: bool(e.retorno_trabalho),
+        mudanca_funcao: bool(e.mudanca_funcao),
+        demissional: bool(e.demissional),
+        observacao: e.observacao || "",
+      })),
     };
   });
 
-  // EPIs — uma linha por EPI (com função agrupada lógica via funcao.nome)
+  // EPIs — uma linha por EPI/função, com vars nested e flat
   const epis: any[] = [];
+  const epiListaLines: string[] = [];
   (epiBlocos || []).forEach((b) => {
     const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
     funcs.forEach((f) => {
+      const setorNome = funcaoSetorMap[f.id] || "";
       (b.epis || []).forEach((e) => {
-        epis.push({
+        const row = {
           funcao: { nome: f.nome_funcao || "" },
-          epi: {
-            nome: e.nome_epi || "",
-            ca: e.ca || "",
-            uso: e.uso || "",
-            observacao: e.observacao || "",
-          },
-        });
+          epi: { nome: e.nome_epi || "", ca: e.ca || "", uso: e.uso || "" },
+          // flat aliases
+          epi_nome: e.nome_epi || "",
+          epi_ca: e.ca || "",
+          epi_descricao: "",
+          epi_setor: setorNome,
+          epi_funcao: f.nome_funcao || "",
+          epi_finalidade: e.uso || "",
+          epi_periodicidade: "",
+        };
+        epis.push(row);
+        epiListaLines.push(`${row.epi_nome}${row.epi_ca ? ` (CA ${row.epi_ca})` : ""} — ${row.epi_funcao}`);
       });
     });
   });
+  const epi_lista = epiListaLines.join("\n");
 
-  // Treinamentos
+  // Treinamentos — 1 bloco = 1 entrada (sem duplicação por função)
   const treinamentos: any[] = [];
+  const treinListaLines: string[] = [];
   (treinBlocos || []).forEach((b) => {
-    const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
-    funcs.forEach((f) => {
-      (b.treinamentos || []).forEach((t) => {
-        treinamentos.push({
-          funcao: { nome: f.nome_funcao || "" },
-          treinamento: {
-            nome: t.nome_treinamento || "",
-            carga_horaria: t.carga_horaria || "",
-            periodicidade: t.periodicidade || "",
-            observacao: t.observacao || "",
-          },
-        });
-      });
-    });
+    const tCad = (catTreinamentos || []).find((t: any) => t.id === b.treinamento_id);
+    const funcs = (funcoesEmpresa || []).filter((f) => (b.funcao_ids || []).includes(f.id));
+    const funcNomes = funcs.map(f => f.nome_funcao || "").filter(Boolean);
+    const setoresNomes = Array.from(new Set(funcs.map(f => funcaoSetorMap[f.id] || "").filter(Boolean)));
+    const nome = tCad?.nome || "";
+    const ch = tCad?.carga_horaria || "";
+    const per = tCad?.periodicidade || "";
+    const obs = tCad?.observacoes || "";
+    const row = {
+      funcao: { nome: funcNomes.join(", ") },
+      treinamento: { nome, carga_horaria: ch, periodicidade: per, observacao: obs },
+      // flat aliases
+      treinamento_nome: nome,
+      treinamento_carga_horaria: ch,
+      treinamento_periodicidade: per,
+      treinamento_validade: per,
+      treinamento_data_realizacao: "",
+      treinamento_data_vencimento: "",
+      treinamento_instrutor: "",
+      treinamento_responsavel: "",
+      treinamento_funcao: funcNomes.join(", "),
+      treinamento_setor: setoresNomes.join(", "),
+      treinamento_observacao: obs,
+      treinamento_funcoes_lista: funcNomes.join("\n"),
+    };
+    treinamentos.push(row);
+    treinListaLines.push(`${nome}${ch ? ` — ${ch}` : ""}${per ? ` — ${per}` : ""} — ${funcNomes.join(", ")}`);
   });
+  const treinamento_lista = treinListaLines.join("\n");
 
   const cronograma_pcmso = (cronograma || []).map((c) => ({
     item: c.item || "",
@@ -944,7 +1025,9 @@ function buildTemplateData(args: {
     })),
     setores: setoresArr,
     epis,
+    epi_lista,
     treinamentos,
+    treinamento_lista,
     cronograma_pcmso,
   };
 }
