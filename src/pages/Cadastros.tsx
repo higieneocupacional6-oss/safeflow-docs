@@ -53,6 +53,9 @@ export default function Cadastros() {
   const [treinamentoModalOpen, setTreinamentoModalOpen] = useState(false);
   const [treinamentoForm, setTreinamentoForm] = useState({ nome: "", codigo: "", descricao: "", carga_horaria: "", periodicidade: "", observacoes: "" });
   const [treinamentoSaving, setTreinamentoSaving] = useState(false);
+  const [exameModalOpen, setExameModalOpen] = useState(false);
+  const [exameForm, setExameForm] = useState({ nome: "", codigo_esocial: "", descricao_esocial: "" });
+  const [exameSaving, setExameSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const [dedupRunning, setDedupRunning] = useState(false);
   const [dedupConfirm, setDedupConfirm] = useState(false);
