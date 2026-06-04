@@ -76,6 +76,8 @@ export default function PcmsoWizard() {
   // Modals
   const [askEpi, setAskEpi] = useState(false);
   const [askTrein, setAskTrein] = useState(false);
+  const [vincularExamesIdx, setVincularExamesIdx] = useState<number | null>(null);
+  const [vincularOrigemIdx, setVincularOrigemIdx] = useState<string>("");
 
   // Gerar Documento
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
