@@ -467,11 +467,6 @@ export default function PcmsoWizard() {
                             onClick={() => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.filter((_, j) => j !== ii) } : x))}>
                             <Trash2 className="w-4 h-4" />
                           </Button>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Observações</Label>
-                            <Textarea rows={2} className="mt-1" value={it.observacao}
-                              onChange={(e) => setEpiBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, epis: x.epis.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
-                          </div>
                         </div>
                       ))}
                     </div>
