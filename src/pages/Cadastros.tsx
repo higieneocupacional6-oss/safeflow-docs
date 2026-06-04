@@ -163,6 +163,15 @@ export default function Cadastros() {
     },
   });
 
+  const { data: examesCad = [] } = useQuery({
+    queryKey: ["exames_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("exames_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const handleSaveEpiEpc = async () => {
     if (!epiEpcForm.nome.trim()) {
       toast.error("Informe o nome do EPI/EPC");
