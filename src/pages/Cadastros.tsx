@@ -898,6 +898,38 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="exames" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome do Exame</TableHead>
+                  <TableHead>Código eSocial</TableHead>
+                  <TableHead>Descrição eSocial</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(examesCad as any[]).length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum exame cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  (examesCad as any[]).map((e: any) => (
+                    <TableRow key={e.id}>
+                      <TableCell className="font-medium">{e.nome}</TableCell>
+                      <TableCell className="text-xs font-mono text-muted-foreground">{e.codigo_esocial}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground max-w-md truncate" title={e.descricao_esocial}>{e.descricao_esocial}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent" onClick={() => handleEdit(e)}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive" onClick={() => handleDeleteClick(e.id)}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
 
