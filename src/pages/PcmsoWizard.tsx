@@ -514,75 +514,60 @@ export default function PcmsoWizard() {
 
           {treinBlocos.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">Nenhum bloco de funções cadastrado.</p>
-              <Button className="mt-4" onClick={() => setTreinBlocos([emptyTreinBloco()])}><Plus className="w-4 h-4 mr-1" /> Adicionar bloco</Button>
+              <p className="text-muted-foreground">Nenhum treinamento adicionado.</p>
+              <Button className="mt-4" onClick={() => setTreinBlocos([emptyTreinBloco()])}><Plus className="w-4 h-4 mr-1" /> Treinamento</Button>
+              {(catTreinamentos as any[]).length === 0 && (
+                <p className="text-xs text-muted-foreground mt-3">
+                  Cadastre treinamentos em <strong>Cadastros &gt; Treinamentos</strong> para selecioná-los aqui.
+                </p>
+              )}
             </Card>
           ) : (
             <div className="space-y-4">
-              {treinBlocos.map((b, bi) => (
-                <Card key={b.id} className="p-5 space-y-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex-1">
-                      <Label className="text-xs font-bold uppercase">Funções *</Label>
-                      <div className="mt-1">
-                        <FuncoesMultiSelect
-                          value={b.funcao_ids}
-                          onChange={(v) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))}
-                        />
+              {treinBlocos.map((b, bi) => {
+                const tSel = (catTreinamentos as any[]).find(t => t.id === b.treinamento_id);
+                return (
+                  <Card key={b.id} className="p-5 space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Treinamento *</Label>
+                          <Select value={b.treinamento_id || ""} onValueChange={(v) => setTreinBlocos(arr => arr.map((x, i) => i === bi ? { ...x, treinamento_id: v } : x))}>
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder={(catTreinamentos as any[]).length === 0 ? "Nenhum treinamento cadastrado" : "Selecione um treinamento"} />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {(catTreinamentos as any[]).map(t => (
+                                <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {tSel && (
+                            <p className="text-[11px] text-muted-foreground mt-1.5">
+                              {[tSel.carga_horaria && `CH: ${tSel.carga_horaria}`, tSel.periodicidade].filter(Boolean).join(" • ")}
+                            </p>
+                          )}
+                        </div>
+                        <div>
+                          <Label className="text-xs font-bold uppercase">Funções Vinculadas *</Label>
+                          <div className="mt-1">
+                            <FuncoesMultiSelect value={b.funcao_ids} onChange={(v) => setTreinBlocos(arr => arr.map((x, i) => i === bi ? { ...x, funcao_ids: v } : x))} />
+                          </div>
+                          {b.funcao_ids.length > 0 && (
+                            <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
+                          )}
+                        </div>
                       </div>
-                      {b.funcao_ids.length > 0 && (
-                        <p className="text-xs text-muted-foreground mt-1.5">{funcoesNomes(b.funcao_ids)}</p>
-                      )}
-                    </div>
-                    <Button variant="ghost" size="icon" className="text-destructive"
-                      onClick={() => setTreinBlocos((arr) => arr.filter((_, i) => i !== bi))}>
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  </div>
-
-                  <div className="border-t pt-3">
-                    <div className="flex items-center justify-between mb-2">
-                      <h4 className="text-sm font-semibold">Treinamentos</h4>
-                      <Button variant="outline" size="sm"
-                        onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: [...x.treinamentos, emptyTreinItem()] } : x))}>
-                        <Plus className="w-4 h-4 mr-1" /> Treinamento
+                      <Button variant="ghost" size="icon" className="text-destructive"
+                        onClick={() => setTreinBlocos((arr) => arr.filter((_, i) => i !== bi))}>
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                     </div>
-                    <div className="space-y-2">
-                      {b.treinamentos.map((it, ii) => (
-                        <div key={it.id} className="grid grid-cols-1 md:grid-cols-[1fr_140px_140px_auto] gap-2 items-end border rounded-lg p-3">
-                          <div>
-                            <Label className="text-xs">Nome do treinamento</Label>
-                            <Input className="mt-1" value={it.nome_treinamento}
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, nome_treinamento: e.target.value } : y) } : x))} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Carga horária</Label>
-                            <Input className="mt-1" value={it.carga_horaria} placeholder="Ex: 8h"
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, carga_horaria: e.target.value } : y) } : x))} />
-                          </div>
-                          <div>
-                            <Label className="text-xs">Periodicidade</Label>
-                            <Input className="mt-1" value={it.periodicidade} placeholder="Ex: Anual"
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, periodicidade: e.target.value } : y) } : x))} />
-                          </div>
-                          <Button variant="ghost" size="icon" className="text-destructive"
-                            onClick={() => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.filter((_, j) => j !== ii) } : x))}>
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                          <div className="md:col-span-4">
-                            <Label className="text-xs">Observações</Label>
-                            <Textarea rows={2} className="mt-1" value={it.observacao}
-                              onChange={(e) => setTreinBlocos((arr) => arr.map((x, i) => i === bi ? { ...x, treinamentos: x.treinamentos.map((y, j) => j === ii ? { ...y, observacao: e.target.value } : y) } : x))} />
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              ))}
+                  </Card>
+                );
+              })}
               <Button variant="outline" onClick={() => setTreinBlocos((arr) => [...arr, emptyTreinBloco()])}>
-                <Plus className="w-4 h-4 mr-1" /> Adicionar bloco
+                <Plus className="w-4 h-4 mr-1" /> Treinamento
               </Button>
             </div>
           )}
