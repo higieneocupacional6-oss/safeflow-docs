@@ -1477,6 +1477,56 @@ export default function Cadastros() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal Exame */}
+      <Dialog open={exameModalOpen} onOpenChange={setExameModalOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Exame</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div><Label>Nome do Exame <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: Audiometria" value={exameForm.nome} onChange={e => setExameForm({ ...exameForm, nome: e.target.value })} /></div>
+            <div><Label>Código eSocial <span className="text-destructive">*</span></Label><Input className="mt-1" placeholder="Ex: 0295" value={exameForm.codigo_esocial} onChange={e => setExameForm({ ...exameForm, codigo_esocial: e.target.value })} /></div>
+            <div><Label>Descrição eSocial <span className="text-destructive">*</span></Label><Textarea className="mt-1" placeholder="Ex: Avaliação da capacidade auditiva ocupacional" value={exameForm.descricao_esocial} onChange={e => setExameForm({ ...exameForm, descricao_esocial: e.target.value })} /></div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setExameModalOpen(false); setEditingId(null); }}>Cancelar</Button>
+            <Button
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+              disabled={exameSaving}
+              onClick={async () => {
+                if (!exameForm.nome.trim()) { toast.error("Informe o nome do exame"); return; }
+                if (!exameForm.codigo_esocial.trim()) { toast.error("Informe o código eSocial"); return; }
+                if (!exameForm.descricao_esocial.trim()) { toast.error("Informe a descrição eSocial"); return; }
+                setExameSaving(true);
+                try {
+                  const payload = {
+                    nome: exameForm.nome.trim(),
+                    codigo_esocial: exameForm.codigo_esocial.trim(),
+                    descricao_esocial: exameForm.descricao_esocial.trim(),
+                  };
+                  if (editingId) {
+                    const { error } = await (supabase as any).from("exames_cadastro").update(payload).eq("id", editingId);
+                    if (error) throw error;
+                    toast.success("Exame atualizado!");
+                  } else {
+                    const { error } = await (supabase as any).from("exames_cadastro").insert(payload);
+                    if (error) throw error;
+                    toast.success("Exame cadastrado!");
+                  }
+                  queryClient.invalidateQueries({ queryKey: ["exames_cadastro"] });
+                  setExameModalOpen(false);
+                  setEditingId(null);
+                } catch (err: any) {
+                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                } finally {
+                  setExameSaving(false);
+                }
+              }}
+            >{exameSaving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       <ControleEquipamentosModal open={controleOpen} onOpenChange={setControleOpen} />
     </div>
   );
