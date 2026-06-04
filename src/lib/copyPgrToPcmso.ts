@@ -178,13 +178,7 @@ export async function copyPgrTreinBlocos(empresaId: string): Promise<PcmsoTreinB
   const blocos = (snap?.treinamento_blocos || []) as any[];
   return blocos.map((b) => ({
     id: crypto.randomUUID(),
+    treinamento_id: b.treinamento_id || "",
     funcao_ids: Array.isArray(b.funcao_ids) ? b.funcao_ids : [],
-    treinamentos: (b.treinamentos || []).map((t: any) => ({
-      id: crypto.randomUUID(),
-      nome_treinamento: t.nome_treinamento || "",
-      carga_horaria: "",
-      periodicidade: "",
-      observacao: "",
-    })),
   }));
 }
