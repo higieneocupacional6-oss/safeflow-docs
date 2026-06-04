@@ -121,6 +121,15 @@ export default function PcmsoWizard() {
     },
   });
 
+  const { data: catTreinamentos = [] } = useQuery({
+    queryKey: ["treinamentos_cadastro"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from("treinamentos_cadastro").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   useEffect(() => {
     (async () => {
       if (!documentoId) { navigate("/documentos"); return; }
