@@ -388,6 +388,7 @@ export default function Cadastros() {
         epi_epc: "epi_epc",
         pareceres: "pareceres_tecnicos",
         treinamentos: "treinamentos_cadastro",
+        exames: "exames_cadastro",
       };
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
