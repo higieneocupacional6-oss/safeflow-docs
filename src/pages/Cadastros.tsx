@@ -313,6 +313,13 @@ export default function Cadastros() {
         observacoes: item.observacoes || "",
       });
       setTreinamentoModalOpen(true);
+    } else if (tab === "exames") {
+      setExameForm({
+        nome: item.nome || "",
+        codigo_esocial: item.codigo_esocial || "",
+        descricao_esocial: item.descricao_esocial || "",
+      });
+      setExameModalOpen(true);
     }
   };
 
