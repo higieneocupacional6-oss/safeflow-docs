@@ -526,6 +526,7 @@ export default function Cadastros() {
             <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
             <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
             <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
+            <TabsTrigger value="exames" className="gap-2"><Stethoscope className="w-3.5 h-3.5" />Exames</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "equipamentos" && (
