@@ -881,13 +881,14 @@ function buildTemplateData(args: {
   vigenciaInicio: string; vigenciaFim: string; revisoes: PcmsoRevisao[];
   setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
   cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[]; setoresEmpresa: any[];
+  catTreinamentos: any[];
 }) {
   const {
     empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
     revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa, setoresEmpresa,
+    catTreinamentos,
   } = args;
 
-  // Build lookup from setor_id -> {descricao_ambiente, funcoes[]}
   const setorDbMap: Record<string, any> = {};
   (setoresEmpresa || []).forEach((s: any) => { setorDbMap[s.id] = s; });
 
@@ -900,6 +901,13 @@ function buildTemplateData(args: {
       descricao_atividades: f.descricao_atividades || "",
       expostos: f.expostos || "",
     });
+  });
+
+  // Map função -> setor name
+  const funcaoSetorMap: Record<string, string> = {};
+  (funcoesEmpresa || []).forEach((f: any) => {
+    const setor = (setoresEmpresa || []).find((s: any) => s.id === f.setor_id);
+    funcaoSetorMap[f.id] = setor?.nome_setor || "";
   });
 
   const setoresArr = (setores || []).map((s) => {
@@ -917,57 +925,80 @@ function buildTemplateData(args: {
       agentes_acidentes: (s.agentes_acidentes || []).join(", "),
       agentes_psicossociais: (s.agentes_psicossociais || []).join(", "),
       exames: (s.exames || []).map((e) => ({
-      tipo_exame: e.tipo_exame || "",
-      cod_esocial: e.cod_esocial || "",
-      descricao_esocial: e.descricao_esocial || "",
-      admissional: bool(e.admissional),
-      periodico: bool(e.periodico),
-      periodo: e.periodo || "",
-      retorno_trabalho: bool(e.retorno_trabalho),
-      mudanca_funcao: bool(e.mudanca_funcao),
-      demissional: bool(e.demissional),
-      observacao: e.observacao || "",
-    })),
+        tipo_exame: e.tipo_exame || "",
+        cod_esocial: e.cod_esocial || "",
+        descricao_esocial: e.descricao_esocial || "",
+        admissional: bool(e.admissional),
+        periodico: bool(e.periodico),
+        periodo: e.periodo || "",
+        retorno_trabalho: bool(e.retorno_trabalho),
+        mudanca_funcao: bool(e.mudanca_funcao),
+        demissional: bool(e.demissional),
+        observacao: e.observacao || "",
+      })),
     };
   });
 
-  // EPIs — uma linha por EPI (com função agrupada lógica via funcao.nome)
+  // EPIs — uma linha por EPI/função, com vars nested e flat
   const epis: any[] = [];
+  const epiListaLines: string[] = [];
   (epiBlocos || []).forEach((b) => {
     const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
     funcs.forEach((f) => {
+      const setorNome = funcaoSetorMap[f.id] || "";
       (b.epis || []).forEach((e) => {
-        epis.push({
+        const row = {
           funcao: { nome: f.nome_funcao || "" },
-          epi: {
-            nome: e.nome_epi || "",
-            ca: e.ca || "",
-            uso: e.uso || "",
-            observacao: e.observacao || "",
-          },
-        });
+          epi: { nome: e.nome_epi || "", ca: e.ca || "", uso: e.uso || "" },
+          // flat aliases
+          epi_nome: e.nome_epi || "",
+          epi_ca: e.ca || "",
+          epi_descricao: "",
+          epi_setor: setorNome,
+          epi_funcao: f.nome_funcao || "",
+          epi_finalidade: e.uso || "",
+          epi_periodicidade: "",
+        };
+        epis.push(row);
+        epiListaLines.push(`${row.epi_nome}${row.epi_ca ? ` (CA ${row.epi_ca})` : ""} — ${row.epi_funcao}`);
       });
     });
   });
+  const epi_lista = epiListaLines.join("\n");
 
-  // Treinamentos
+  // Treinamentos — 1 bloco = 1 entrada (sem duplicação por função)
   const treinamentos: any[] = [];
+  const treinListaLines: string[] = [];
   (treinBlocos || []).forEach((b) => {
-    const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
-    funcs.forEach((f) => {
-      (b.treinamentos || []).forEach((t) => {
-        treinamentos.push({
-          funcao: { nome: f.nome_funcao || "" },
-          treinamento: {
-            nome: t.nome_treinamento || "",
-            carga_horaria: t.carga_horaria || "",
-            periodicidade: t.periodicidade || "",
-            observacao: t.observacao || "",
-          },
-        });
-      });
-    });
+    const tCad = (catTreinamentos || []).find((t: any) => t.id === b.treinamento_id);
+    const funcs = (funcoesEmpresa || []).filter((f) => (b.funcao_ids || []).includes(f.id));
+    const funcNomes = funcs.map(f => f.nome_funcao || "").filter(Boolean);
+    const setoresNomes = Array.from(new Set(funcs.map(f => funcaoSetorMap[f.id] || "").filter(Boolean)));
+    const nome = tCad?.nome || "";
+    const ch = tCad?.carga_horaria || "";
+    const per = tCad?.periodicidade || "";
+    const obs = tCad?.observacoes || "";
+    const row = {
+      funcao: { nome: funcNomes.join(", ") },
+      treinamento: { nome, carga_horaria: ch, periodicidade: per, observacao: obs },
+      // flat aliases
+      treinamento_nome: nome,
+      treinamento_carga_horaria: ch,
+      treinamento_periodicidade: per,
+      treinamento_validade: per,
+      treinamento_data_realizacao: "",
+      treinamento_data_vencimento: "",
+      treinamento_instrutor: "",
+      treinamento_responsavel: "",
+      treinamento_funcao: funcNomes.join(", "),
+      treinamento_setor: setoresNomes.join(", "),
+      treinamento_observacao: obs,
+      treinamento_funcoes_lista: funcNomes.join("\n"),
+    };
+    treinamentos.push(row);
+    treinListaLines.push(`${nome}${ch ? ` — ${ch}` : ""}${per ? ` — ${per}` : ""} — ${funcNomes.join(", ")}`);
   });
+  const treinamento_lista = treinListaLines.join("\n");
 
   const cronograma_pcmso = (cronograma || []).map((c) => ({
     item: c.item || "",
@@ -993,7 +1024,9 @@ function buildTemplateData(args: {
     })),
     setores: setoresArr,
     epis,
+    epi_lista,
     treinamentos,
+    treinamento_lista,
     cronograma_pcmso,
   };
 }
