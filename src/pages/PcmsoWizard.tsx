@@ -689,6 +689,57 @@ export default function PcmsoWizard() {
       <PcmsoCopyConfirmModal open={askTrein} onOpenChange={setAskTrein}
         title="Deseja copiar os treinamentos cadastrados no PGR?"
         onYes={() => confirmTreinCopy(true)} onNo={() => confirmTreinCopy(false)} />
+
+      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); } }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Copiar exames de outro setor</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div>
+              <Label className="text-xs">Setor Destino</Label>
+              <Input value={vincularExamesIdx !== null ? (setores[vincularExamesIdx]?.nome_setor || "") : ""} disabled className="mt-1" />
+            </div>
+            <div>
+              <Label className="text-xs">Setor Origem *</Label>
+              <Select value={vincularOrigemIdx} onValueChange={setVincularOrigemIdx}>
+                <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o setor origem" /></SelectTrigger>
+                <SelectContent>
+                  {setores.map((s, i) => (
+                    i !== vincularExamesIdx && (
+                      <SelectItem key={i} value={String(i)}>{s.nome_setor} ({s.exames.length} exames)</SelectItem>
+                    )
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); }}>Cancelar</Button>
+              <Button onClick={() => {
+                if (vincularExamesIdx === null || !vincularOrigemIdx) return;
+                const origemIdx = Number(vincularOrigemIdx);
+                const destinoIdx = vincularExamesIdx;
+                const origem = setores[origemIdx];
+                const destino = setores[destinoIdx];
+                if (!origem || !destino) return;
+                const existentes = new Set((destino.exames || []).map(e => (e.tipo_exame || "").trim().toLowerCase()).filter(Boolean));
+                const novos = (origem.exames || []).filter(e => {
+                  const k = (e.tipo_exame || "").trim().toLowerCase();
+                  return k && !existentes.has(k);
+                }).map(e => ({ ...e }));
+                if (novos.length === 0) {
+                  toast.info("Nenhum exame novo para copiar (todos já existem).");
+                } else {
+                  setSetores(arr => arr.map((s, i) => i === destinoIdx ? { ...s, exames: [...s.exames, ...novos] } : s));
+                  toast.success(`Exames copiados com sucesso. (${novos.length} novo${novos.length > 1 ? "s" : ""})`);
+                }
+                setVincularExamesIdx(null);
+                setVincularOrigemIdx("");
+              }} disabled={!vincularOrigemIdx}>Copiar Exames</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
