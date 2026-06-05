@@ -138,12 +138,20 @@ EXPOSTOS: {{expostos}}
 
 EPIs:
 {{#epis}}
-- {{funcao.nome}} | {{epi.nome}} | CA {{epi.ca}} | {{epi.uso}} | {{epi.observacao}}
+FUNÇÕES
+{{epi_funcoes}}
+
+| EPI | CA | Classificação de Uso | Situação |
+{{#itens_epi}}
+| {{epi_nome}} | {{epi_ca}} | {{epi_classificacao_uso}} | {{epi_situacao}} |
+{{/itens_epi}}
 {{/epis}}
 
 Treinamentos:
 {{#treinamentos}}
-- {{funcao.nome}} | {{treinamento.nome}} | {{treinamento.carga_horaria}} | {{treinamento.periodicidade}}
+{{treinamento_nome}}
+
+{{treinamento_funcoes}}
 {{/treinamentos}}
 
 Cronograma:
