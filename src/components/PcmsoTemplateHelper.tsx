@@ -68,36 +68,43 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
     ],
   },
   {
-    title: "EPI (loop)",
+    title: "EPI — por bloco/grupo (RECOMENDADO)",
     vars: [
-      { tag: "{{#epis}} ... {{/epis}}", desc: "Loop de EPIs (uma linha por EPI/função)" },
-      { tag: "{{epi_nome}}", desc: "Nome do EPI" },
-      { tag: "{{epi_ca}}", desc: "Certificado de Aprovação (CA)" },
-      { tag: "{{epi_descricao}}", desc: "Descrição do EPI" },
-      { tag: "{{epi_setor}}", desc: "Setor vinculado" },
-      { tag: "{{epi_funcao}}", desc: "Função vinculada" },
-      { tag: "{{epi_finalidade}}", desc: "Finalidade do EPI" },
-      { tag: "{{epi_periodicidade}}", desc: "Periodicidade de troca" },
-      { tag: "{{epi_lista}}", desc: "Lista completa de EPIs (texto)" },
-      { tag: "{{funcao.nome}} / {{epi.nome}} / {{epi.ca}} / {{epi.uso}}", desc: "Aliases nested (compatibilidade)" },
+      { tag: "{{#epis}} ... {{/epis}}", desc: "Loop por bloco de EPI (1 por grupo de funções cadastrado)" },
+      { tag: "{{epi_funcoes}}", desc: "Funções do bloco — uma por linha (vertical)" },
+      { tag: "{{epi_funcoes_lista}}", desc: "Alias de epi_funcoes (vertical)" },
+      { tag: "{{epi_funcoes_inline}}", desc: "Funções separadas por vírgula (horizontal)" },
+      { tag: "{{epi_setores}}", desc: "Setores das funções do bloco — um por linha" },
+      { tag: "{{#funcoes}}{{nome_funcao}}{{/funcoes}}", desc: "Loop das funções do bloco (uma por linha)" },
+      { tag: "{{#itens_epi}} ... {{/itens_epi}}", desc: "Loop dos EPIs do bloco — use SOMENTE na linha da tabela" },
+      { tag: "{{epi_nome}}", desc: "Nome do EPI (dentro de itens_epi)" },
+      { tag: "{{epi_ca}}", desc: "Número CA (dentro de itens_epi)" },
+      { tag: "{{epi_classificacao_uso}}", desc: "Classificação de uso: Contínuo, Eventual, Não aplicado" },
+      { tag: "{{epi_situacao}}", desc: "Situação do EPI (padrão: Ativo)" },
     ],
   },
   {
-    title: "Treinamentos (loop)",
+    title: "EPI — variáveis globais / aliases",
+    vars: [
+      { tag: "{{epi_lista}}", desc: "Lista completa de EPIs (texto, todos os blocos)" },
+      { tag: "{{#epis_flat}} ... {{/epis_flat}}", desc: "Loop alternativo: 1 linha por EPI×Função (legado)" },
+      { tag: "{{epi_setor}} / {{epi_funcao}}", desc: "Disponíveis dentro de epis_flat" },
+    ],
+  },
+  {
+    title: "Treinamentos (loop por bloco — RECOMENDADO)",
     vars: [
       { tag: "{{#treinamentos}} ... {{/treinamentos}}", desc: "Loop de treinamentos (1 por bloco)" },
       { tag: "{{treinamento_nome}}", desc: "Nome do treinamento" },
+      { tag: "{{treinamento_funcoes}}", desc: "Funções vinculadas — uma por linha (vertical)" },
+      { tag: "{{treinamento_funcoes_lista}}", desc: "Alias de treinamento_funcoes (vertical)" },
+      { tag: "{{treinamento_funcoes_inline}}", desc: "Funções separadas por vírgula (horizontal)" },
+      { tag: "{{#funcoes}}{{nome_funcao}}{{/funcoes}}", desc: "Loop das funções (uma por linha)" },
       { tag: "{{treinamento_carga_horaria}}", desc: "Carga horária" },
       { tag: "{{treinamento_periodicidade}}", desc: "Periodicidade" },
-      { tag: "{{treinamento_validade}}", desc: "Validade (mesma periodicidade)" },
-      { tag: "{{treinamento_data_realizacao}}", desc: "Data de realização" },
-      { tag: "{{treinamento_data_vencimento}}", desc: "Data de vencimento" },
-      { tag: "{{treinamento_instrutor}}", desc: "Instrutor" },
-      { tag: "{{treinamento_responsavel}}", desc: "Responsável" },
-      { tag: "{{treinamento_funcao}}", desc: "Função(ões) vinculada(s)" },
+      { tag: "{{treinamento_validade}}", desc: "Validade (= periodicidade)" },
       { tag: "{{treinamento_setor}}", desc: "Setor(es) vinculado(s)" },
-      { tag: "{{treinamento_observacao}}", desc: "Observação do treinamento" },
-      { tag: "{{treinamento_funcoes_lista}}", desc: "Funções uma por linha" },
+      { tag: "{{treinamento_observacao}}", desc: "Observação do cadastro" },
       { tag: "{{treinamento_lista}}", desc: "Lista completa de treinamentos (texto)" },
     ],
   },
@@ -131,12 +138,20 @@ EXPOSTOS: {{expostos}}
 
 EPIs:
 {{#epis}}
-- {{funcao.nome}} | {{epi.nome}} | CA {{epi.ca}} | {{epi.uso}} | {{epi.observacao}}
+FUNÇÕES
+{{epi_funcoes}}
+
+| EPI | CA | Classificação de Uso | Situação |
+{{#itens_epi}}
+| {{epi_nome}} | {{epi_ca}} | {{epi_classificacao_uso}} | {{epi_situacao}} |
+{{/itens_epi}}
 {{/epis}}
 
 Treinamentos:
 {{#treinamentos}}
-- {{funcao.nome}} | {{treinamento.nome}} | {{treinamento.carga_horaria}} | {{treinamento.periodicidade}}
+{{treinamento_nome}}
+
+{{treinamento_funcoes}}
 {{/treinamentos}}
 
 Cronograma:

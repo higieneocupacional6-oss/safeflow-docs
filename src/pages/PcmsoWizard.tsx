@@ -940,28 +940,52 @@ function buildTemplateData(args: {
     };
   });
 
-  // EPIs — uma linha por EPI/função, com vars nested e flat
+  // EPIs — 1 bloco = 1 grupo (funcoes em lista vertical + tabela de EPIs)
   const epis: any[] = [];
+  const episFlat: any[] = [];
   const epiListaLines: string[] = [];
   (epiBlocos || []).forEach((b) => {
-    const funcs = (funcoesEmpresa || []).filter((f) => b.funcao_ids.includes(f.id));
+    const funcs = (funcoesEmpresa || []).filter((f) => (b.funcao_ids || []).includes(f.id));
+    const funcNomes = funcs.map((f) => f.nome_funcao || "").filter(Boolean);
+    const setoresNomes = Array.from(new Set(funcs.map((f) => funcaoSetorMap[f.id] || "").filter(Boolean)));
+    const itens = (b.epis || []).map((e) => ({
+      epi_nome: e.nome_epi || "",
+      epi_ca: e.ca || "",
+      epi_classificacao_uso: e.uso || "",
+      epi_situacao: "Ativo",
+      // aliases (compat)
+      nome_epi: e.nome_epi || "",
+      ca: e.ca || "",
+      uso: e.uso || "",
+      situacao: "Ativo",
+      epi: { nome: e.nome_epi || "", ca: e.ca || "", uso: e.uso || "" },
+    }));
+    epis.push({
+      epi_funcoes: funcNomes.join("\n"),
+      epi_funcoes_lista: funcNomes.join("\n"),
+      epi_funcoes_inline: funcNomes.join(", "),
+      epi_setores: setoresNomes.join("\n"),
+      funcoes: funcNomes.map((n) => ({ nome_funcao: n })),
+      itens_epi: itens,
+      epis_itens: itens,
+    });
     funcs.forEach((f) => {
       const setorNome = funcaoSetorMap[f.id] || "";
       (b.epis || []).forEach((e) => {
-        const row = {
-          funcao: { nome: f.nome_funcao || "" },
-          epi: { nome: e.nome_epi || "", ca: e.ca || "", uso: e.uso || "" },
-          // flat aliases
+        episFlat.push({
           epi_nome: e.nome_epi || "",
           epi_ca: e.ca || "",
-          epi_descricao: "",
+          epi_classificacao_uso: e.uso || "",
+          epi_situacao: "Ativo",
           epi_setor: setorNome,
           epi_funcao: f.nome_funcao || "",
           epi_finalidade: e.uso || "",
           epi_periodicidade: "",
-        };
-        epis.push(row);
-        epiListaLines.push(`${row.epi_nome}${row.epi_ca ? ` (CA ${row.epi_ca})` : ""} — ${row.epi_funcao}`);
+          epi_descricao: "",
+          funcao: { nome: f.nome_funcao || "" },
+          epi: { nome: e.nome_epi || "", ca: e.ca || "", uso: e.uso || "" },
+        });
+        epiListaLines.push(`${e.nome_epi || ""}${e.ca ? ` (CA ${e.ca})` : ""} — ${f.nome_funcao || ""}`);
       });
     });
   });
@@ -982,7 +1006,6 @@ function buildTemplateData(args: {
     const row = {
       funcao: { nome: funcNomes.join(", ") },
       treinamento: { nome, carga_horaria: ch, periodicidade: per, observacao: obs },
-      // flat aliases
       treinamento_nome: nome,
       treinamento_carga_horaria: ch,
       treinamento_periodicidade: per,
@@ -994,7 +1017,12 @@ function buildTemplateData(args: {
       treinamento_funcao: funcNomes.join(", "),
       treinamento_setor: setoresNomes.join(", "),
       treinamento_observacao: obs,
+      // funções em lista vertical (uma por linha)
+      treinamento_funcoes: funcNomes.join("\n"),
       treinamento_funcoes_lista: funcNomes.join("\n"),
+      treinamento_funcoes_inline: funcNomes.join(", "),
+      funcoes: funcNomes.map((n) => ({ nome_funcao: n })),
+      itens_funcoes: funcNomes.map((n) => ({ nome_funcao: n })),
     };
     treinamentos.push(row);
     treinListaLines.push(`${nome}${ch ? ` — ${ch}` : ""}${per ? ` — ${per}` : ""} — ${funcNomes.join(", ")}`);
@@ -1025,6 +1053,7 @@ function buildTemplateData(args: {
     })),
     setores: setoresArr,
     epis,
+    epis_flat: episFlat,
     epi_lista,
     treinamentos,
     treinamento_lista,
