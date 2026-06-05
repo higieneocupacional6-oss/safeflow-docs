@@ -112,10 +112,46 @@ export default function Templates() {
       toast.error("Este é um template padrão do sistema e não pode ser excluído.");
       return;
     }
-    await supabase.storage.from("templates").remove([filePath]);
-    await supabase.from("templates").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ["templates"] });
-    toast.success("Template removido");
+    if (!confirm("Tem certeza que deseja excluir este template? Esta ação não pode ser desfeita.")) {
+      return;
+    }
+    try {
+      // 1) Remove o registro do banco PRIMEIRO (assim, se falhar por RLS, mostramos erro)
+      const { data: deleted, error: dbError } = await supabase
+        .from("templates")
+        .delete()
+        .eq("id", id)
+        .select("id");
+
+      if (dbError) {
+        console.error("[Templates] delete error:", dbError);
+        toast.error("Erro ao excluir: " + dbError.message);
+        return;
+      }
+
+      if (!deleted || deleted.length === 0) {
+        toast.error(
+          "Não foi possível excluir o template. Verifique se você tem permissão (apenas administradores podem excluir)."
+        );
+        return;
+      }
+
+      // 2) Remove o arquivo do storage (não bloqueia o sucesso se falhar)
+      if (filePath) {
+        const { error: storageError } = await supabase.storage
+          .from("templates")
+          .remove([filePath]);
+        if (storageError) {
+          console.warn("[Templates] storage remove warning:", storageError);
+        }
+      }
+
+      await queryClient.invalidateQueries({ queryKey: ["templates"] });
+      toast.success("Template removido");
+    } catch (err: any) {
+      console.error("[Templates] delete exception:", err);
+      toast.error("Erro inesperado ao excluir: " + (err?.message || "tente novamente"));
+    }
   };
 
   const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR");
