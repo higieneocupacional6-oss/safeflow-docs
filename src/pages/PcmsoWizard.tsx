@@ -103,7 +103,7 @@ export default function PcmsoWizard() {
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase.from("setores")
-        .select("id,nome_setor,descricao_ambiente")
+        .select("id,nome_setor,descricao_ambiente,ghe_ges")
         .eq("empresa_id", empresaId)
         .order("nome_setor");
       return data || [];
