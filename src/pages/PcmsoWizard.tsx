@@ -103,7 +103,7 @@ export default function PcmsoWizard() {
     enabled: !!empresaId,
     queryFn: async () => {
       const { data } = await supabase.from("setores")
-        .select("id,nome_setor,descricao_ambiente")
+        .select("id,nome_setor,descricao_ambiente,ghe_ges")
         .eq("empresa_id", empresaId)
         .order("nome_setor");
       return data || [];
@@ -917,6 +917,9 @@ function buildTemplateData(args: {
     return {
       nome_setor: s.nome_setor || "",
       descricao_ambiente: db.descricao_ambiente || "",
+      ghe_ges: db.ghe_ges || "",
+      ghe: db.ghe_ges || "",
+      ges: db.ghe_ges || "",
       funcoes: funcoesArr,
       funcoes_lista: funcoesArr.map((f) => f.nome_funcao).join(", ") || (s.funcoes || ""),
       agentes_fisicos: (s.agentes_fisicos || []).join(", "),

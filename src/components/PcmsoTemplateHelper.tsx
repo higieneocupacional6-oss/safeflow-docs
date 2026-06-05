@@ -31,6 +31,7 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
     vars: [
       { tag: "{{#setores}} ... {{/setores}}", desc: "Abre o loop de setores da empresa" },
       { tag: "{{nome_setor}}", desc: "Nome do setor" },
+      { tag: "{{ghe_ges}}", desc: "GHE/GES do setor (aliases: {{ghe}}, {{ges}})" },
       { tag: "{{descricao_ambiente}}", desc: "Descrição do ambiente (cadastro Setores e Funções)" },
       { tag: "{{funcoes_lista}}", desc: "Lista das funções do setor em texto" },
       { tag: "{{agentes_fisicos}}", desc: "Agentes físicos" },
