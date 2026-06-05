@@ -1053,6 +1053,7 @@ function buildTemplateData(args: {
     })),
     setores: setoresArr,
     epis,
+    epis_flat: episFlat,
     epi_lista,
     treinamentos,
     treinamento_lista,
