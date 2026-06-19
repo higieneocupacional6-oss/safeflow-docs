@@ -34,6 +34,7 @@ import {
   copyPgrEpiBlocos, copyPgrTreinBlocos,
   copyPgrSnapshotIntoSetores, buildSetoresFromEmpresa,
 } from "@/lib/copyPgrToPcmso";
+import { gesOrder } from "@/lib/sortGes";
 
 type AgentKey =
   | "agentes_fisicos" | "agentes_quimicos" | "agentes_biologicos"
@@ -392,11 +393,19 @@ export default function PcmsoWizard() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {setores.map((s, i) => (
+              {(() => {
+                const gheMap: Record<string, string> = {};
+                (setoresEmpresa as any[]).forEach((x: any) => { gheMap[x.id] = x.ghe_ges || ""; });
+                const ordered = setores
+                  .map((s, i) => ({ s, i, ghe: (s.setor_id && gheMap[s.setor_id]) || "" }))
+                  .sort((a, b) => gesOrder(a.ghe) - gesOrder(b.ghe));
+                return ordered.map(({ s, i, ghe }) => (
                 <div key={i} className="text-left p-4 rounded-xl border border-border hover:border-accent hover:bg-accent/5 transition-colors">
                   <div className="flex items-center justify-between gap-2">
                     <button onClick={() => setActiveSetorIdx(i)} className="flex-1 text-left">
-                      <div className="font-heading font-semibold text-foreground">{s.nome_setor}</div>
+                      <div className="font-heading font-semibold text-foreground">
+                        {ghe ? `${ghe} — ` : ""}{s.nome_setor}
+                      </div>
                       <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                         <Badge variant="outline" className="text-xs">{s.exames.length} exames</Badge>
                         <Badge variant="outline" className="text-xs">
@@ -413,7 +422,8 @@ export default function PcmsoWizard() {
                     </div>
                   </div>
                 </div>
-              ))}
+                ));
+              })()}
             </div>
           )}
           <div className="flex justify-between pt-4">
@@ -955,6 +965,8 @@ function buildTemplateData(args: {
       })),
     };
   });
+  // Ordenar setores por número do GHE/GES (crescente)
+  setoresArr.sort((a: any, b: any) => gesOrder(a.ghe_ges) - gesOrder(b.ghe_ges));
 
   // EPIs — 1 bloco = 1 grupo (funcoes em lista vertical + tabela de EPIs)
   const epis: any[] = [];
