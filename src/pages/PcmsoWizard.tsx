@@ -675,6 +675,7 @@ export default function PcmsoWizard() {
             funcoesEmpresa: funcoesEmpresa as any[],
             setoresEmpresa: setoresEmpresa as any[],
             catTreinamentos: catTreinamentos as any[],
+            empresaData, contratoData,
           })}
           onSave={save}
           onBack={() => goToStep(4)}
