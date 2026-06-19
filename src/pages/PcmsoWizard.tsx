@@ -895,11 +895,12 @@ function buildTemplateData(args: {
   setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
   cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[]; setoresEmpresa: any[];
   catTreinamentos: any[];
+  empresaData?: any; contratoData?: any;
 }) {
   const {
     empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
     revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa, setoresEmpresa,
-    catTreinamentos,
+    catTreinamentos, empresaData = {}, contratoData = {},
   } = args;
 
   const setorDbMap: Record<string, any> = {};
