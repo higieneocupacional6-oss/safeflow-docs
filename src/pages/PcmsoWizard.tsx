@@ -956,6 +956,8 @@ function buildTemplateData(args: {
       })),
     };
   });
+  // Ordenar setores por número do GHE/GES (crescente)
+  setoresArr.sort((a: any, b: any) => gesOrder(a.ghe_ges) - gesOrder(b.ghe_ges));
 
   // EPIs — 1 bloco = 1 grupo (funcoes em lista vertical + tabela de EPIs)
   const epis: any[] = [];
