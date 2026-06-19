@@ -63,6 +63,9 @@ export default function PcmsoWizard() {
   // Identification
   const [empresaId, setEmpresaId] = useState<string>("");
   const [empresaNome, setEmpresaNome] = useState("");
+  const [empresaData, setEmpresaData] = useState<any>({});
+  const [contratoData, setContratoData] = useState<any>({});
+  const [contratoId, setContratoId] = useState<string>("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
