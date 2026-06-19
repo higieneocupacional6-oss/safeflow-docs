@@ -156,9 +156,17 @@ export default function PcmsoWizard() {
       setSelectedTemplate(data.template_id || "");
       setSavedFilePath(data.file_path || "");
       setStep(data.current_step || 0);
+      setContratoId(data.contrato_id || "");
       if (data.empresa_id) {
-        const { data: emp } = await supabase.from("empresas").select("razao_social,nome_fantasia").eq("id", data.empresa_id).maybeSingle();
-        setEmpresaNome(emp?.razao_social || emp?.nome_fantasia || "");
+        const { data: emp } = await supabase.from("empresas").select("*").eq("id", data.empresa_id).maybeSingle();
+        if (emp) {
+          setEmpresaData(emp);
+          setEmpresaNome(emp.razao_social || emp.nome_fantasia || "");
+        }
+      }
+      if (data.contrato_id) {
+        const { data: ctr } = await (supabase as any).from("contratos").select("*").eq("id", data.contrato_id).maybeSingle();
+        if (ctr) setContratoData(ctr);
       }
       setLoading(false);
     })();
