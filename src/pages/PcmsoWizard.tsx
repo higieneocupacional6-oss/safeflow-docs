@@ -63,6 +63,9 @@ export default function PcmsoWizard() {
   // Identification
   const [empresaId, setEmpresaId] = useState<string>("");
   const [empresaNome, setEmpresaNome] = useState("");
+  const [empresaData, setEmpresaData] = useState<any>({});
+  const [contratoData, setContratoData] = useState<any>({});
+  const [contratoId, setContratoId] = useState<string>("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -153,9 +156,17 @@ export default function PcmsoWizard() {
       setSelectedTemplate(data.template_id || "");
       setSavedFilePath(data.file_path || "");
       setStep(data.current_step || 0);
+      setContratoId(data.contrato_id || "");
       if (data.empresa_id) {
-        const { data: emp } = await supabase.from("empresas").select("razao_social,nome_fantasia").eq("id", data.empresa_id).maybeSingle();
-        setEmpresaNome(emp?.razao_social || emp?.nome_fantasia || "");
+        const { data: emp } = await supabase.from("empresas").select("*").eq("id", data.empresa_id).maybeSingle();
+        if (emp) {
+          setEmpresaData(emp);
+          setEmpresaNome(emp.razao_social || emp.nome_fantasia || "");
+        }
+      }
+      if (data.contrato_id) {
+        const { data: ctr } = await (supabase as any).from("contratos").select("*").eq("id", data.contrato_id).maybeSingle();
+        if (ctr) setContratoData(ctr);
       }
       setLoading(false);
     })();
@@ -664,6 +675,7 @@ export default function PcmsoWizard() {
             funcoesEmpresa: funcoesEmpresa as any[],
             setoresEmpresa: setoresEmpresa as any[],
             catTreinamentos: catTreinamentos as any[],
+            empresaData, contratoData,
           })}
           onSave={save}
           onBack={() => goToStep(4)}
@@ -883,11 +895,12 @@ function buildTemplateData(args: {
   setores: PcmsoSetor[]; epiBlocos: PcmsoEpiBloco[]; treinBlocos: PcmsoTreinBloco[];
   cronograma: PcmsoCronoItem[]; funcoesEmpresa: any[]; setoresEmpresa: any[];
   catTreinamentos: any[];
+  empresaData?: any; contratoData?: any;
 }) {
   const {
     empresaNome, responsavelTecnico, crea, cargo, vigenciaInicio, vigenciaFim,
     revisoes, setores, epiBlocos, treinBlocos, cronograma, funcoesEmpresa, setoresEmpresa,
-    catTreinamentos,
+    catTreinamentos, empresaData = {}, contratoData = {},
   } = args;
 
   const setorDbMap: Record<string, any> = {};
@@ -1041,13 +1054,55 @@ function buildTemplateData(args: {
     observacao: c.observacao || "",
   }));
 
+  // Empresa + Contrato (preferir dados do contrato quando existirem)
+  const emp = empresaData || {};
+  const ctr = contratoData || {};
+  const pick = (a: any, b: any) => (a !== undefined && a !== null && a !== "" ? a : (b ?? ""));
+  const descricaoAmbienteAgg = (setoresArr.map((s: any) => s.descricao_ambiente).filter(Boolean).join("\n"));
+
   return {
-    empresa: empresaNome || "",
+    empresa: empresaNome || emp.razao_social || emp.nome_fantasia || "",
     responsavel_tecnico: responsavelTecnico || "",
     crea: crea || "",
     cargo: cargo || "",
-    vigencia_inicio: fmtDate(vigenciaInicio),
-    vigencia_fim: fmtDate(vigenciaFim),
+    vigencia_inicio: fmtDate(pick(ctr.vigencia_inicio, vigenciaInicio)),
+    vigencia_fim: fmtDate(pick(ctr.vigencia_fim, vigenciaFim)),
+    // Dados da Empresa
+    cnpj: emp.cnpj || "",
+    cnpj_empresa: emp.cnpj || "",
+    razao_social: emp.razao_social || empresaNome || "",
+    nome_fantasia: emp.nome_fantasia || "",
+    cnae_principal: emp.cnae_principal || "",
+    grau_risco: emp.grau_risco || "",
+    grau_risco_nr04: emp.grau_risco || "",
+    endereco: emp.endereco || "",
+    endereco_completo: emp.endereco || "",
+    numero_funcionarios_fem: String(pick(ctr.numero_funcionarios_fem, emp.numero_funcionarios_fem ?? "")),
+    numero_funcionarios_masc: String(pick(ctr.numero_funcionarios_masc, emp.numero_funcionarios_masc ?? "")),
+    funcionarios_feminino: String(pick(ctr.numero_funcionarios_fem, emp.numero_funcionarios_fem ?? "")),
+    funcionarios_masculino: String(pick(ctr.numero_funcionarios_masc, emp.numero_funcionarios_masc ?? "")),
+    total_funcionarios: String(pick(ctr.total_funcionarios, emp.total_funcionarios ?? "")),
+    jornada_trabalho: pick(ctr.jornada_trabalho, emp.jornada_trabalho),
+    // Dados do Contrato
+    numero_contrato: pick(ctr.numero_contrato, emp.numero_contrato),
+    cnpj_contratante: pick(ctr.cnpj_contratante, emp.cnpj_contratante),
+    nome_contratante: pick(ctr.nome_contratante, emp.nome_contratante),
+    local_trabalho: pick(ctr.local_trabalho, emp.local_trabalho),
+    escopo_contrato: pick(ctr.escopo_contrato, emp.escopo_contrato),
+    gestor_nome: pick(ctr.gestor_nome, emp.gestor_nome),
+    gestor_email: pick(ctr.gestor_email, emp.gestor_email),
+    gestor_telefone: pick(ctr.gestor_telefone, emp.gestor_telefone),
+    gestor_contrato: pick(ctr.gestor_nome, emp.gestor_nome),
+    fiscal_nome: pick(ctr.fiscal_nome, emp.fiscal_nome),
+    fiscal_email: pick(ctr.fiscal_email, emp.fiscal_email),
+    fiscal_telefone: pick(ctr.fiscal_telefone, emp.fiscal_telefone),
+    fiscal_contrato: pick(ctr.fiscal_nome, emp.fiscal_nome),
+    preposto_nome: pick(ctr.preposto_nome, emp.preposto_nome),
+    preposto_email: pick(ctr.preposto_email, emp.preposto_email),
+    preposto_telefone: pick(ctr.preposto_telefone, emp.preposto_telefone),
+    preposto_empresa: pick(ctr.preposto_nome, emp.preposto_nome),
+    // Ambiente (agregado de todos os setores)
+    descricao_ambiente: descricaoAmbienteAgg,
     revisoes: (revisoes || []).map((r) => ({
       revisao: r.revisao || "",
       data: fmtDate(r.data),

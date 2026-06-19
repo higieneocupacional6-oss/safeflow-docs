@@ -9,30 +9,32 @@ const groups = [
   {
     title: "Empresa",
     vars: [
-      "{{empresa}}", "{{razao_social}}", "{{nome_fantasia}}", "{{cnpj}}",
-      "{{cnae_principal}}", "{{grau_risco}}", "{{endereco}}",
+      "{{empresa}}", "{{razao_social}}", "{{nome_fantasia}}", "{{cnpj}}", "{{cnpj_empresa}}",
+      "{{cnae_principal}}", "{{grau_risco}}", "{{grau_risco_nr04}}", "{{endereco}}", "{{endereco_completo}}",
       "{{total_funcionarios}}", "{{numero_funcionarios_masc}}", "{{numero_funcionarios_fem}}",
-      "{{jornada_trabalho}}", "{{expostos}}",
+      "{{funcionarios_masculino}}", "{{funcionarios_feminino}}",
+      "{{jornada_trabalho}}", "{{descricao_ambiente}}", "{{expostos}}",
     ],
   },
   {
     title: "Contrato",
     vars: [
       "{{numero_contrato}}", "{{nome_contratante}}", "{{cnpj_contratante}}",
+      "{{vigencia_inicio}}", "{{vigencia_fim}}",
       "{{escopo_contrato}}", "{{local_trabalho}}",
     ],
   },
   {
     title: "Preposto",
-    vars: ["{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}"],
+    vars: ["{{preposto_empresa}}", "{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}"],
   },
   {
     title: "Gestor",
-    vars: ["{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}"],
+    vars: ["{{gestor_contrato}}", "{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}"],
   },
   {
     title: "Fiscal",
-    vars: ["{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}"],
+    vars: ["{{fiscal_contrato}}", "{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}"],
   },
   {
     title: "Identificação do PGR",
