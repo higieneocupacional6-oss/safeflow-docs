@@ -1651,6 +1651,18 @@ export default function PgrWizard() {
         // Estrutura agrupada
         expostos: totalExpostos.toString(),
         ghe_setores: setoresArr,
+        ghe_setores_funcoes: setoresOrdenados.map((s: any) => {
+          const funcs = (funcoesEmpresa as any[])
+            .filter(f => f.setor_id === s.id)
+            .map(f => f.nome_funcao || "")
+            .filter(Boolean);
+          return {
+            ghe_numero: s.ghe_ges || "",
+            ghe_nome: s.ghe_ges || "",
+            setor_nome: s.nome_setor || "",
+            funcoes: funcs.join(", "),
+          };
+        }),
         // legado
         setores: setoresArr,
         epis,
