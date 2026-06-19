@@ -1054,13 +1054,55 @@ function buildTemplateData(args: {
     observacao: c.observacao || "",
   }));
 
+  // Empresa + Contrato (preferir dados do contrato quando existirem)
+  const emp = empresaData || {};
+  const ctr = contratoData || {};
+  const pick = (a: any, b: any) => (a !== undefined && a !== null && a !== "" ? a : (b ?? ""));
+  const descricaoAmbienteAgg = (setoresArr.map((s: any) => s.descricao_ambiente).filter(Boolean).join("\n"));
+
   return {
-    empresa: empresaNome || "",
+    empresa: empresaNome || emp.razao_social || emp.nome_fantasia || "",
     responsavel_tecnico: responsavelTecnico || "",
     crea: crea || "",
     cargo: cargo || "",
-    vigencia_inicio: fmtDate(vigenciaInicio),
-    vigencia_fim: fmtDate(vigenciaFim),
+    vigencia_inicio: fmtDate(pick(ctr.vigencia_inicio, vigenciaInicio)),
+    vigencia_fim: fmtDate(pick(ctr.vigencia_fim, vigenciaFim)),
+    // Dados da Empresa
+    cnpj: emp.cnpj || "",
+    cnpj_empresa: emp.cnpj || "",
+    razao_social: emp.razao_social || empresaNome || "",
+    nome_fantasia: emp.nome_fantasia || "",
+    cnae_principal: emp.cnae_principal || "",
+    grau_risco: emp.grau_risco || "",
+    grau_risco_nr04: emp.grau_risco || "",
+    endereco: emp.endereco || "",
+    endereco_completo: emp.endereco || "",
+    numero_funcionarios_fem: String(pick(ctr.numero_funcionarios_fem, emp.numero_funcionarios_fem ?? "")),
+    numero_funcionarios_masc: String(pick(ctr.numero_funcionarios_masc, emp.numero_funcionarios_masc ?? "")),
+    funcionarios_feminino: String(pick(ctr.numero_funcionarios_fem, emp.numero_funcionarios_fem ?? "")),
+    funcionarios_masculino: String(pick(ctr.numero_funcionarios_masc, emp.numero_funcionarios_masc ?? "")),
+    total_funcionarios: String(pick(ctr.total_funcionarios, emp.total_funcionarios ?? "")),
+    jornada_trabalho: pick(ctr.jornada_trabalho, emp.jornada_trabalho),
+    // Dados do Contrato
+    numero_contrato: pick(ctr.numero_contrato, emp.numero_contrato),
+    cnpj_contratante: pick(ctr.cnpj_contratante, emp.cnpj_contratante),
+    nome_contratante: pick(ctr.nome_contratante, emp.nome_contratante),
+    local_trabalho: pick(ctr.local_trabalho, emp.local_trabalho),
+    escopo_contrato: pick(ctr.escopo_contrato, emp.escopo_contrato),
+    gestor_nome: pick(ctr.gestor_nome, emp.gestor_nome),
+    gestor_email: pick(ctr.gestor_email, emp.gestor_email),
+    gestor_telefone: pick(ctr.gestor_telefone, emp.gestor_telefone),
+    gestor_contrato: pick(ctr.gestor_nome, emp.gestor_nome),
+    fiscal_nome: pick(ctr.fiscal_nome, emp.fiscal_nome),
+    fiscal_email: pick(ctr.fiscal_email, emp.fiscal_email),
+    fiscal_telefone: pick(ctr.fiscal_telefone, emp.fiscal_telefone),
+    fiscal_contrato: pick(ctr.fiscal_nome, emp.fiscal_nome),
+    preposto_nome: pick(ctr.preposto_nome, emp.preposto_nome),
+    preposto_email: pick(ctr.preposto_email, emp.preposto_email),
+    preposto_telefone: pick(ctr.preposto_telefone, emp.preposto_telefone),
+    preposto_empresa: pick(ctr.preposto_nome, emp.preposto_nome),
+    // Ambiente (agregado de todos os setores)
+    descricao_ambiente: descricaoAmbienteAgg,
     revisoes: (revisoes || []).map((r) => ({
       revisao: r.revisao || "",
       data: fmtDate(r.data),
