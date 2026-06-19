@@ -51,6 +51,12 @@ const groups = [
     ],
   },
   {
+    title: "GHE × Setor × Funções (loop p/ tabela)",
+    vars: [
+      "{{#ghe_setores_funcoes}}", "{{ghe_numero}}", "{{ghe_nome}}", "{{setor_nome}}", "{{funcoes}}", "{{/ghe_setores_funcoes}}",
+    ],
+  },
+  {
     title: "GHE / Setores (loop principal)",
     vars: [
       "{{#ghe_setores}}", "{{ghe_ges}}", "{{nome_setor}}", "{{descricao_ambiente}}", "{{/ghe_setores}}",

@@ -80,6 +80,16 @@ const SECTIONS: { title: string; vars: { tag: string; desc: string }[] }[] = [
     ],
   },
   {
+    title: "GHE × Setor × Funções (loop p/ tabela)",
+    vars: [
+      { tag: "{{#ghe_setores_funcoes}} ... {{/ghe_setores_funcoes}}", desc: "Loop com 1 linha por GHE/GES da empresa (ordenado pelo número)" },
+      { tag: "{{ghe_numero}}", desc: "Número do GHE/GES (ex.: GES 01)" },
+      { tag: "{{ghe_nome}}", desc: "Mesmo valor de ghe_numero" },
+      { tag: "{{setor_nome}}", desc: "Nome do setor vinculado" },
+      { tag: "{{funcoes}}", desc: "Funções vinculadas ao GHE separadas por vírgula" },
+    ],
+  },
+  {
     title: "Funções (loop dentro de setores)",
     vars: [
       { tag: "{{#funcoes}} ... {{/funcoes}}", desc: "Loop das funções do setor" },
