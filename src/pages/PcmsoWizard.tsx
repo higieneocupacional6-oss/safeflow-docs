@@ -34,6 +34,7 @@ import {
   copyPgrEpiBlocos, copyPgrTreinBlocos,
   copyPgrSnapshotIntoSetores, buildSetoresFromEmpresa,
 } from "@/lib/copyPgrToPcmso";
+import { gesOrder } from "@/lib/sortGes";
 
 type AgentKey =
   | "agentes_fisicos" | "agentes_quimicos" | "agentes_biologicos"
