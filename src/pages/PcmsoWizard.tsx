@@ -1122,6 +1122,22 @@ function buildTemplateData(args: {
       responsavel: r.responsavel || "",
     })),
     setores: setoresArr,
+    ghe_setores_funcoes: (() => {
+      const arr = (setoresEmpresa || []).map((s: any) => {
+        const funcs = (funcoesEmpresa || [])
+          .filter((f: any) => f.setor_id === s.id)
+          .map((f: any) => f.nome_funcao || "")
+          .filter(Boolean);
+        return {
+          ghe_numero: s.ghe_ges || "",
+          ghe_nome: s.ghe_ges || "",
+          setor_nome: s.nome_setor || "",
+          funcoes: funcs.join(", "),
+        };
+      });
+      arr.sort((a: any, b: any) => gesOrder(a.ghe_numero) - gesOrder(b.ghe_numero));
+      return arr;
+    })(),
     epis,
     epis_flat: episFlat,
     epi_lista,
