@@ -824,10 +824,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const { data: setores = [], isLoading: loadingSetores } = useQuery({
-    queryKey: ["setores", empresaId],
+    queryKey: ["setores", empresaId, contratoId],
     queryFn: async () => {
       if (!empresaId) return [];
-      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId);
+      let q = (supabase as any).from("setores").select("*");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data, error } = await q;
       if (error) throw error;
       return sortByGes(data || []);
     },
