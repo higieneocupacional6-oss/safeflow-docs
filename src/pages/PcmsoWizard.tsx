@@ -103,19 +103,21 @@ export default function PcmsoWizard() {
   });
 
   const { data: setoresEmpresa = [] } = useQuery({
-    queryKey: ["setores-empresa-pcmso", empresaId],
+    queryKey: ["setores-empresa-pcmso", empresaId, contratoId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data } = await supabase.from("setores")
+      let q = (supabase as any).from("setores")
         .select("id,nome_setor,descricao_ambiente,ghe_ges")
-        .eq("empresa_id", empresaId)
         .order("nome_setor");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data } = await q;
       return data || [];
     },
   });
 
   const { data: funcoesEmpresa = [] } = useQuery({
-    queryKey: ["funcoes-pcmso", empresaId, (setoresEmpresa as any[]).map((s) => s.id).join(",")],
+    queryKey: ["funcoes-pcmso", empresaId, contratoId, (setoresEmpresa as any[]).map((s) => s.id).join(",")],
     enabled: !!empresaId,
     queryFn: async () => {
       const ids = (setoresEmpresa as any[]).map((s: any) => s.id);
@@ -183,13 +185,13 @@ export default function PcmsoWizard() {
     (async () => {
       let base = setores;
       if (base.length === 0) {
-        base = await buildSetoresFromEmpresa(empresaId);
+        base = await buildSetoresFromEmpresa(empresaId, contratoId);
       }
-      const merged = await copyPgrSnapshotIntoSetores(empresaId, base);
+      const merged = await copyPgrSnapshotIntoSetores(empresaId, base, contratoId);
       setSetores(merged);
       setPgrSynced(empresaId);
     })();
-  }, [step, empresaId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, empresaId, contratoId, loading]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async (opts?: { silent?: boolean; newStep?: number; extra?: any }) => {
     if (!documentoId) return;
@@ -232,7 +234,7 @@ export default function PcmsoWizard() {
   const confirmEpiCopy = async (yes: boolean) => {
     setAskEpi(false);
     if (yes && empresaId) {
-      const copied = await copyPgrEpiBlocos(empresaId);
+      const copied = await copyPgrEpiBlocos(empresaId, contratoId);
       setEpiBlocos(copied.length ? copied : [emptyEpiBloco()]);
     } else {
       setEpiBlocos([emptyEpiBloco()]);
@@ -242,7 +244,7 @@ export default function PcmsoWizard() {
   const confirmTreinCopy = async (yes: boolean) => {
     setAskTrein(false);
     if (yes && empresaId) {
-      const copied = await copyPgrTreinBlocos(empresaId);
+      const copied = await copyPgrTreinBlocos(empresaId, contratoId);
       setTreinBlocos(copied.length ? copied : [emptyTreinBloco()]);
     } else {
       setTreinBlocos([emptyTreinBloco()]);
