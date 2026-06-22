@@ -107,7 +107,7 @@ const TIPO_MAP: Record<string, keyof PcmsoSetor> = {
   acidente: "agentes_acidentes", acidentes: "agentes_acidentes",
   mecanico: "agentes_acidentes", mecânico: "agentes_acidentes",
   psicossocial: "agentes_psicossociais", psicossociais: "agentes_psicossociais",
-});
+};
 
 export async function buildSetoresFromEmpresa(empresaId: string, contratoId?: string): Promise<PcmsoSetor[]> {
   let setoresQ = supabase.from("setores").select("id,nome_setor").order("nome_setor");
