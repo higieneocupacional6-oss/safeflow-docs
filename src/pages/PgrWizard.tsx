@@ -117,6 +117,7 @@ export default function PgrWizard() {
   const [step, setStep] = useState(0);
   const [empresaId, setEmpresaId] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -155,13 +156,30 @@ export default function PgrWizard() {
     },
   });
 
-  const { data: setores = [] } = useQuery({
-    queryKey: ["setores-pgr", empresaId],
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-pgr", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor");
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id,numero_contrato,nome_contratante")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
+    },
+  });
+
+  const { data: setores = [] } = useQuery({
+    queryKey: ["setores-pgr", empresaId, contratoId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      let q = (supabase as any).from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").order("nome_setor");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
     },
   });
 
