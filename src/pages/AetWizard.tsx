@@ -307,15 +307,15 @@ export default function AetWizard() {
     enabled: !!empresaId,
   });
 
-  // Setores da empresa
+  // Setores do contrato (fallback empresa quando ainda não há contrato selecionado)
   const { data: setoresEmpresa = [] } = useQuery({
-    queryKey: ["setores-empresa-aet", empresaId],
+    queryKey: ["setores-empresa-aet", empresaId, contratoId],
     queryFn: async () => {
       if (!empresaId) return [];
-      const { data, error } = await supabase
-        .from("setores")
-        .select("id,nome_setor,ghe_ges,descricao_ambiente")
-        .eq("empresa_id", empresaId);
+      let q = (supabase as any).from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data, error } = await q;
       if (error) throw error;
       return sortByGes(data || []);
     },
@@ -460,6 +460,10 @@ export default function AetWizard() {
   const persist = async (status: "rascunho" | "concluido", silent = false): Promise<string | null> => {
     if (!empresaId) {
       toast.error("Selecione a empresa");
+      return null;
+    }
+    if (!contratoId && status === "concluido") {
+      toast.error("Selecione o contrato");
       return null;
     }
     if (status === "concluido") {
