@@ -16,6 +16,7 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
   const navigate = useNavigate();
   const [mode, setMode] = useState<Mode>("choose");
   const [empresaId, setEmpresaId] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [loading, setLoading] = useState(false);
 
   const { data: empresas = [] } = useQuery({
@@ -28,21 +29,36 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
     enabled: open,
   });
 
-  const reset = () => { setMode("choose"); setEmpresaId(""); setLoading(false); };
+  const { data: contratos = [] } = useQuery({
+    queryKey: ["contratos-pcmso-modal", empresaId],
+    enabled: open && !!empresaId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id, numero_contrato, nome_contratante")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const reset = () => { setMode("choose"); setEmpresaId(""); setContratoId(""); setLoading(false); };
   const handleClose = (v: boolean) => { if (!v) reset(); onOpenChange(v); };
 
   const createPcmso = async (copyFromPgr: boolean) => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
+    if (!contratoId) { toast.error("Selecione o contrato"); return; }
     setLoading(true);
     try {
       const empresa = (empresas as any[]).find((e) => e.id === empresaId);
       const empresaNome = empresa?.razao_social || empresa?.nome_fantasia || "";
-      let setores = await buildSetoresFromEmpresa(empresaId);
-      if (copyFromPgr) setores = await copyPgrSnapshotIntoSetores(empresaId, setores);
+      let setores = await buildSetoresFromEmpresa(empresaId, contratoId);
+      if (copyFromPgr) setores = await copyPgrSnapshotIntoSetores(empresaId, setores, contratoId);
 
       const { data: pcmso, error: e1 } = await supabase
         .from("pcmso_documentos")
-        .insert({ empresa_id: empresaId, setores_snapshot: setores as any, revisoes: [] })
+        .insert({ empresa_id: empresaId, contrato_id: contratoId, setores_snapshot: setores as any, revisoes: [] } as any)
         .select("id")
         .single();
       if (e1) throw e1;
@@ -51,9 +67,10 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
         id: pcmso.id,
         tipo: "PCMSO",
         empresa_id: empresaId,
+        contrato_id: contratoId,
         empresa_nome: empresaNome,
         status: "rascunho",
-      });
+      } as any);
       if (e2) throw e2;
 
       toast.success(copyFromPgr ? "PCMSO criado com dados do PGR" : "PCMSO criado");
@@ -80,7 +97,7 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
               <Copy className="w-5 h-5 text-accent mt-0.5 shrink-0" />
               <div>
                 <div className="font-heading font-semibold text-foreground">SIM, copiar dados do PGR</div>
-                <p className="text-xs text-muted-foreground mt-0.5">Preenche automaticamente setores, funções e agentes a partir do PGR mais recente da empresa. Tudo permanece editável.</p>
+                <p className="text-xs text-muted-foreground mt-0.5">Preenche automaticamente setores, funções e agentes a partir do PGR mais recente do mesmo contrato. Tudo permanece editável.</p>
               </div>
             </button>
             <button onClick={() => setMode("zero")} className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors flex items-start gap-3">
@@ -96,8 +113,8 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
         {(mode === "copiar" || mode === "zero") && (
           <div className="space-y-4 py-2">
             <div>
-              <Label className="text-xs font-bold uppercase">Empresa</Label>
-              <Select value={empresaId} onValueChange={setEmpresaId}>
+              <Label className="text-xs font-bold uppercase">Empresa *</Label>
+              <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {(empresas as any[]).map((e) => (
@@ -106,9 +123,27 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <Label className="text-xs font-bold uppercase">Contrato *</Label>
+              <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || contratos.length === 0}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={!empresaId ? "Selecione a empresa primeiro" : contratos.length ? "Selecione o contrato" : "Nenhum contrato cadastrado"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(contratos as any[]).map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {empresaId && contratos.length === 0 && (
+                <p className="text-xs text-muted-foreground mt-1">Cadastre um contrato em Empresas & Contratos.</p>
+              )}
+            </div>
             <DialogFooter>
               <Button variant="ghost" onClick={() => setMode("choose")} disabled={loading}>Voltar</Button>
-              <Button onClick={() => createPcmso(mode === "copiar")} disabled={!empresaId || loading}>
+              <Button onClick={() => createPcmso(mode === "copiar")} disabled={!empresaId || !contratoId || loading}>
                 {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</> : "Criar PCMSO"}
               </Button>
             </DialogFooter>

@@ -117,6 +117,7 @@ export default function PgrWizard() {
   const [step, setStep] = useState(0);
   const [empresaId, setEmpresaId] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [responsavelTecnico, setResponsavelTecnico] = useState("");
   const [crea, setCrea] = useState("");
   const [cargo, setCargo] = useState("");
@@ -155,13 +156,30 @@ export default function PgrWizard() {
     },
   });
 
-  const { data: setores = [] } = useQuery({
-    queryKey: ["setores-pgr", empresaId],
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-pgr", empresaId],
     enabled: !!empresaId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").eq("empresa_id", empresaId).order("nome_setor");
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id,numero_contrato,nome_contratante")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
       if (error) throw error;
-      return data;
+      return data || [];
+    },
+  });
+
+  const { data: setores = [] } = useQuery({
+    queryKey: ["setores-pgr", empresaId, contratoId],
+    enabled: !!empresaId,
+    queryFn: async () => {
+      let q = (supabase as any).from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").order("nome_setor");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -226,6 +244,7 @@ export default function PgrWizard() {
         if (error) throw error;
         if (data) {
           setEmpresaId(data.empresa_id || "");
+          setContratoId((data as any).contrato_id || "");
           setEmpresaNome(data.empresa_nome || "");
           setResponsavelTecnico(data.responsavel_tecnico || "");
           setCrea(data.crea || "");
@@ -253,6 +272,7 @@ export default function PgrWizard() {
 
   const handleEmpresaChange = (id: string) => {
     setEmpresaId(id);
+    setContratoId("");
     const emp = (empresas as any[]).find(e => e.id === id);
     setEmpresaNome(emp ? (emp.razao_social || emp.nome_fantasia || "") : "");
   };
@@ -276,6 +296,7 @@ export default function PgrWizard() {
     return {
       tipo: "PGR",
       empresa_id: empresaId || null,
+      contrato_id: contratoId || null,
       empresa_nome: empresaNome || "",
       responsavel_tecnico: responsavelTecnico || null,
       crea: crea || null,
@@ -310,6 +331,7 @@ export default function PgrWizard() {
 
   const handleSalvar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
+    if (!contratoId) { toast.error("Selecione o contrato"); return; }
     const id = await persist();
     if (id) {
       toast.success("Rascunho salvo");
@@ -319,6 +341,7 @@ export default function PgrWizard() {
 
   const handleAvancar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
+    if (!contratoId) { toast.error("Selecione o contrato"); return; }
     const id = await persist({ step: 1 });
     if (id) {
       setStep(1);
@@ -590,6 +613,24 @@ export default function PgrWizard() {
               </SelectContent>
             </Select>
           </div>
+
+          {empresaId && (
+            <div>
+              <Label className="text-xs font-bold uppercase">Contrato *</Label>
+              <Select value={contratoId} onValueChange={setContratoId} disabled={(contratosEmpresa as any[]).length === 0}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={(contratosEmpresa as any[]).length ? "Selecione o contrato" : "Cadastre um contrato em Empresas & Contratos"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(contratosEmpresa as any[]).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

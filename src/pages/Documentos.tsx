@@ -1,10 +1,11 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Plus, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Download, Trash2, Pencil } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -33,6 +34,8 @@ export default function Documentos() {
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
   const [pcmsoOpen, setPcmsoOpen] = useState(false);
+  const [filtroEmpresa, setFiltroEmpresa] = useState<string>("all");
+  const [filtroContrato, setFiltroContrato] = useState<string>("all");
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -40,6 +43,8 @@ export default function Documentos() {
     [
       { table: "documentos", queryKey: ["documentos"] },
       { table: "aet_documentos", queryKey: ["documentos"] },
+      { table: "contratos", queryKey: ["contratos-doc"] },
+      { table: "empresas", queryKey: ["empresas-doc"] },
     ],
     "documentos-list-sync"
   );
@@ -55,6 +60,43 @@ export default function Documentos() {
       return data;
     },
   });
+
+  const { data: empresas = [] } = useQuery({
+    queryKey: ["empresas-doc"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: contratos = [] } = useQuery({
+    queryKey: ["contratos-doc"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contratos").select("id,empresa_id,numero_contrato,nome_contratante");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const contratosFiltro = useMemo(() => {
+    if (filtroEmpresa === "all") return [] as any[];
+    return (contratos as any[]).filter((c) => c.empresa_id === filtroEmpresa);
+  }, [contratos, filtroEmpresa]);
+
+  const docsFiltrados = useMemo(() => {
+    return (documentos as any[]).filter((d) => {
+      if (filtroEmpresa !== "all" && d.empresa_id !== filtroEmpresa) return false;
+      if (filtroContrato !== "all" && d.contrato_id !== filtroContrato) return false;
+      return true;
+    });
+  }, [documentos, filtroEmpresa, filtroContrato]);
+
+  const contratoNomeById = (id: string | null) => {
+    if (!id) return null;
+    const c = (contratos as any[]).find((x) => x.id === id);
+    return c ? (c.numero_contrato || c.nome_contratante || "Contrato") : null;
+  };
 
   const handleSelectType = (typeId: string) => {
     setOpen(false);
@@ -130,31 +172,71 @@ export default function Documentos() {
         }
       />
 
+      {/* Filtros Empresa + Contrato */}
+      <div className="glass-card rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3">
+        <div className="flex-1">
+          <label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Empresa</label>
+          <Select value={filtroEmpresa} onValueChange={(v) => { setFiltroEmpresa(v); setFiltroContrato("all"); }}>
+            <SelectTrigger><SelectValue placeholder="Todas as empresas" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as empresas</SelectItem>
+              {(empresas as any[]).map((e) => (
+                <SelectItem key={e.id} value={e.id}>{e.razao_social || e.nome_fantasia}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="flex-1">
+          <label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Contrato</label>
+          <Select value={filtroContrato} onValueChange={setFiltroContrato} disabled={filtroEmpresa === "all"}>
+            <SelectTrigger><SelectValue placeholder={filtroEmpresa === "all" ? "Selecione uma empresa" : "Todos os contratos"} /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os contratos</SelectItem>
+              {contratosFiltro.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      ) : documentos.length === 0 ? (
+      ) : docsFiltrados.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-muted-foreground">Nenhum documento gerado ainda</p>
-          <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
-            <Plus className="w-4 h-4 mr-2" />Criar Documento
-          </Button>
+          <p className="text-muted-foreground">
+            {documentos.length === 0 ? "Nenhum documento gerado ainda" : "Nenhum documento neste filtro"}
+          </p>
+          {documentos.length === 0 && (
+            <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
+              <Plus className="w-4 h-4 mr-2" />Criar Documento
+            </Button>
+          )}
         </div>
       ) : (
         <div className="space-y-3">
-          {documentos.map((doc: any) => {
+          {docsFiltrados.map((doc: any) => {
             const st = statusConfig[doc.status] || statusConfig.rascunho;
+            const ctrNome = contratoNomeById(doc.contrato_id);
             return (
               <div key={doc.id} className="glass-card rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-shadow group">
                 <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
                   <FileText className="w-5 h-5 text-muted-foreground" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Badge variant="outline" className="font-mono text-xs">{doc.tipo}</Badge>
                     <span className="font-medium text-foreground">{doc.empresa_nome}</span>
+                    {ctrNome && (
+                      <Badge className="bg-accent/10 text-accent-foreground border-accent/20 text-[10px]">
+                        {ctrNome}
+                      </Badge>
+                    )}
                   </div>
                   <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.created_at)}</p>
                 </div>

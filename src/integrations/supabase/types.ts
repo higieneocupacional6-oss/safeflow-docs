@@ -1586,6 +1586,7 @@ export type Database = {
       }
       setores: {
         Row: {
+          contrato_id: string | null
           created_at: string
           descricao_ambiente: string | null
           empresa_id: string
@@ -1595,6 +1596,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          contrato_id?: string | null
           created_at?: string
           descricao_ambiente?: string | null
           empresa_id: string
@@ -1604,6 +1606,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          contrato_id?: string | null
           created_at?: string
           descricao_ambiente?: string | null
           empresa_id?: string
@@ -1613,6 +1616,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "setores_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "setores_empresa_id_fkey"
             columns: ["empresa_id"]
