@@ -254,6 +254,67 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
   };
 
+  const upsertContratoFromForm = async (empresaId: string) => {
+    // Considera "preenchido" se qualquer campo da seção Informações do Contrato tiver valor
+    const hasAny =
+      !!form.numero_contrato.trim() ||
+      !!form.cnpj_contratante.trim() ||
+      !!form.nome_contratante.trim() ||
+      !!form.vigencia_inicio ||
+      !!form.vigencia_fim ||
+      !!form.local_trabalho.trim() ||
+      !!form.escopo_contrato.trim() ||
+      gestores.some((g) => g.nome.trim()) ||
+      fiscais.some((f) => f.nome.trim()) ||
+      prepostos.some((p) => p.nome.trim());
+    if (!hasAny) return;
+
+    const numero = form.numero_contrato.trim() || "Contrato Principal";
+
+    const payload: any = {
+      empresa_id: empresaId,
+      numero_contrato: numero,
+      cnpj_contratante: form.cnpj_contratante || null,
+      nome_contratante: form.nome_contratante || null,
+      vigencia_inicio: form.vigencia_inicio || null,
+      vigencia_fim: form.vigencia_fim || null,
+      local_trabalho: form.local_trabalho || null,
+      escopo_contrato: form.escopo_contrato || null,
+      jornada_trabalho: form.jornada_trabalho || null,
+      numero_funcionarios_fem: form.numero_funcionarios_fem ? parseInt(form.numero_funcionarios_fem) : 0,
+      numero_funcionarios_masc: form.numero_funcionarios_masc ? parseInt(form.numero_funcionarios_masc) : 0,
+      total_funcionarios: form.total_funcionarios ? parseInt(form.total_funcionarios) : 0,
+      gestor_nome: gestores[0]?.nome || null,
+      gestor_email: gestores[0]?.email || null,
+      gestor_telefone: gestores[0]?.telefone || null,
+      fiscal_nome: fiscais[0]?.nome || null,
+      fiscal_email: fiscais[0]?.email || null,
+      fiscal_telefone: fiscais[0]?.telefone || null,
+      preposto_nome: prepostos[0]?.nome || null,
+      preposto_email: prepostos[0]?.email || null,
+      preposto_telefone: prepostos[0]?.telefone || null,
+    };
+
+    // Procura contrato existente pelo número (ou "Contrato Padrão" / "Contrato Principal")
+    const { data: existentes } = await supabase
+      .from("contratos")
+      .select("id, numero_contrato")
+      .eq("empresa_id", empresaId);
+
+    const matchExato = existentes?.find((c: any) => (c.numero_contrato || "") === numero);
+    const matchPadrao = existentes?.find(
+      (c: any) => c.numero_contrato === "Contrato Padrão" || c.numero_contrato === "Contrato Principal",
+    );
+    const alvo = matchExato || matchPadrao;
+
+    if (alvo) {
+      await supabase.from("contratos").update(payload).eq("id", alvo.id);
+    } else {
+      await supabase.from("contratos").insert(payload);
+    }
+  };
+
+
   const handleSave = async () => {
     if (!form.cnpj || form.cnpj.replace(/\D/g, "").length !== 14) {
       toast.error("Informe um CNPJ válido");
@@ -306,6 +367,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
       }
 
       await saveContatos(empresaId);
+      await upsertContratoFromForm(empresaId);
 
       toast.success(isEdit ? "Empresa atualizada!" : "Empresa cadastrada!");
       onSaved();
