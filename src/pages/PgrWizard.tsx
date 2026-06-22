@@ -244,6 +244,7 @@ export default function PgrWizard() {
         if (error) throw error;
         if (data) {
           setEmpresaId(data.empresa_id || "");
+          setContratoId((data as any).contrato_id || "");
           setEmpresaNome(data.empresa_nome || "");
           setResponsavelTecnico(data.responsavel_tecnico || "");
           setCrea(data.crea || "");
@@ -271,6 +272,7 @@ export default function PgrWizard() {
 
   const handleEmpresaChange = (id: string) => {
     setEmpresaId(id);
+    setContratoId("");
     const emp = (empresas as any[]).find(e => e.id === id);
     setEmpresaNome(emp ? (emp.razao_social || emp.nome_fantasia || "") : "");
   };
@@ -294,6 +296,7 @@ export default function PgrWizard() {
     return {
       tipo: "PGR",
       empresa_id: empresaId || null,
+      contrato_id: contratoId || null,
       empresa_nome: empresaNome || "",
       responsavel_tecnico: responsavelTecnico || null,
       crea: crea || null,
@@ -608,6 +611,24 @@ export default function PgrWizard() {
               </SelectContent>
             </Select>
           </div>
+
+          {empresaId && (
+            <div>
+              <Label className="text-xs font-bold uppercase">Contrato *</Label>
+              <Select value={contratoId} onValueChange={setContratoId} disabled={(contratosEmpresa as any[]).length === 0}>
+                <SelectTrigger className="mt-1">
+                  <SelectValue placeholder={(contratosEmpresa as any[]).length ? "Selecione o contrato" : "Cadastre um contrato em Empresas & Contratos"} />
+                </SelectTrigger>
+                <SelectContent>
+                  {(contratosEmpresa as any[]).map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
