@@ -306,6 +306,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
       }
 
       await saveContatos(empresaId);
+      await upsertContratoFromForm(empresaId);
 
       toast.success(isEdit ? "Empresa atualizada!" : "Empresa cadastrada!");
       onSaved();
