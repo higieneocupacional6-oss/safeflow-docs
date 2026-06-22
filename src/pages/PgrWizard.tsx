@@ -331,6 +331,7 @@ export default function PgrWizard() {
 
   const handleSalvar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
+    if (!contratoId) { toast.error("Selecione o contrato"); return; }
     const id = await persist();
     if (id) {
       toast.success("Rascunho salvo");
@@ -340,6 +341,7 @@ export default function PgrWizard() {
 
   const handleAvancar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
+    if (!contratoId) { toast.error("Selecione o contrato"); return; }
     const id = await persist({ step: 1 });
     if (id) {
       setStep(1);
