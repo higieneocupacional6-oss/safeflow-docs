@@ -15,10 +15,11 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   empresaId: string;
+  contratoId: string;
   onSaved: () => void;
 }
 
-export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Props) {
+export function SetorFuncaoModal({ open, onOpenChange, empresaId, contratoId, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
   const [gheGes, setGheGes] = useState("");
   const [nomeSetor, setNomeSetor] = useState("");
@@ -34,6 +35,7 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
   };
 
   const handleSave = async () => {
+    if (!contratoId) { toast.error("Selecione um contrato antes de cadastrar"); return; }
     if (!nomeSetor.trim()) { toast.error("Informe o nome do setor"); return; }
     if (!nomeFuncao.trim()) { toast.error("Informe o nome da função"); return; }
 
@@ -41,7 +43,7 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, onSaved }: Pro
     try {
       const { data: setor, error: sErr } = await supabase
         .from("setores")
-        .insert({ empresa_id: empresaId, ghe_ges: gheGes || null, nome_setor: nomeSetor.trim(), descricao_ambiente: descAmbiente || null })
+        .insert({ empresa_id: empresaId, contrato_id: contratoId, ghe_ges: gheGes || null, nome_setor: nomeSetor.trim(), descricao_ambiente: descAmbiente || null } as any)
         .select("id")
         .single();
       if (sErr) throw sErr;

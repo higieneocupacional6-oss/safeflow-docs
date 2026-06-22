@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft, Trash2 } from "lucide-react";
+import { Plus, Building2, Users, Loader2, Briefcase, Pencil, ArrowRightLeft, Trash2, FileSignature } from "lucide-react";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -14,12 +14,14 @@ import { SetorFuncaoModal } from "@/components/SetorFuncaoModal";
 import { FuncaoModal } from "@/components/FuncaoModal";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { CboAutocomplete } from "@/components/CboAutocomplete";
 import { sortByGes } from "@/lib/sortGes";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { useNavigate } from "react-router-dom";
 
 export default function SetoresFuncoes() {
+  const navigate = useNavigate();
   const [empresaId, setEmpresaId] = useState("");
+  const [contratoId, setContratoId] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [funcaoModalOpen, setFuncaoModalOpen] = useState(false);
   const [funcaoSetorId, setFuncaoSetorId] = useState("");
@@ -28,10 +30,11 @@ export default function SetoresFuncoes() {
   useRealtimeSync(
     [
       { table: "empresas", queryKey: ["empresas"] },
-      { table: "setores", queryKey: ["setores", empresaId] },
-      { table: "funcoes", queryKey: ["funcoes", empresaId] },
+      { table: "contratos", queryKey: ["contratos-sf", empresaId] },
+      { table: "setores", queryKey: ["setores", contratoId] },
+      { table: "funcoes", queryKey: ["funcoes", contratoId] },
     ],
-    `setores-funcoes-sync-${empresaId || "none"}`
+    `setores-funcoes-sync-${contratoId || "none"}`
   );
 
   // Edit setor state
@@ -76,21 +79,35 @@ export default function SetoresFuncoes() {
     },
   });
 
-  const { data: setores = [], isLoading } = useQuery({
-    queryKey: ["setores", empresaId],
+  const { data: contratos = [] } = useQuery({
+    queryKey: ["contratos-sf", empresaId],
+    enabled: !!empresaId,
     queryFn: async () => {
-      if (!empresaId) return [];
-      const { data, error } = await supabase.from("setores").select("*").eq("empresa_id", empresaId);
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id, numero_contrato, nome_contratante, vigencia_inicio, vigencia_fim")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: setores = [], isLoading } = useQuery({
+    queryKey: ["setores", contratoId],
+    queryFn: async () => {
+      if (!contratoId) return [];
+      const { data, error } = await (supabase as any).from("setores").select("*").eq("contrato_id", contratoId);
       if (error) throw error;
       return sortByGes(data || []);
     },
-    enabled: !!empresaId,
+    enabled: !!contratoId,
   });
 
   const { data: funcoes = [] } = useQuery({
-    queryKey: ["funcoes", empresaId],
+    queryKey: ["funcoes", contratoId],
     queryFn: async () => {
-      if (!empresaId || setores.length === 0) return [];
+      if (!contratoId || setores.length === 0) return [];
       const setorIds = setores.map((s: any) => s.id);
       const { data, error } = await supabase.from("funcoes").select("*").in("setor_id", setorIds).order("nome_funcao");
       if (error) throw error;
@@ -100,8 +117,8 @@ export default function SetoresFuncoes() {
   });
 
   const handleSaved = () => {
-    queryClient.invalidateQueries({ queryKey: ["setores", empresaId] });
-    queryClient.invalidateQueries({ queryKey: ["funcoes", empresaId] });
+    queryClient.invalidateQueries({ queryKey: ["setores", contratoId] });
+    queryClient.invalidateQueries({ queryKey: ["funcoes", contratoId] });
   };
 
   const openFuncaoModal = (setorId: string) => {
@@ -183,9 +200,9 @@ export default function SetoresFuncoes() {
     <div>
       <PageHeader
         title="Setores e Funções"
-        description="Gerencie setores e funções vinculados às empresas"
+        description="Gerencie setores e funções vinculados a cada contrato da empresa"
         actions={
-          empresaId ? (
+          contratoId ? (
             <Button onClick={() => setModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="w-4 h-4 mr-2" />Novo Cadastro
             </Button>
@@ -193,31 +210,64 @@ export default function SetoresFuncoes() {
         }
       />
 
-      <div className="glass-card rounded-xl p-5 mb-6">
-        <label className="text-sm font-medium text-foreground mb-2 block">Selecionar Empresa *</label>
-        <Select value={empresaId} onValueChange={setEmpresaId}>
-          <SelectTrigger className="max-w-md">
-            <SelectValue placeholder="Escolha uma empresa cadastrada" />
-          </SelectTrigger>
-          <SelectContent>
-            {empresas.map((e: any) => (
-              <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+      <div className="glass-card rounded-xl p-5 mb-6 space-y-4">
+        <div>
+          <label className="text-sm font-medium text-foreground mb-2 block">Selecionar Empresa *</label>
+          <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
+            <SelectTrigger className="max-w-md">
+              <SelectValue placeholder="Escolha uma empresa cadastrada" />
+            </SelectTrigger>
+            <SelectContent>
+              {empresas.map((e: any) => (
+                <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {empresaId && (
+          <div>
+            <label className="text-sm font-medium text-foreground mb-2 block">Selecionar Contrato *</label>
+            {contratos.length === 0 ? (
+              <div className="flex items-center gap-3 p-3 rounded-lg border border-dashed border-border bg-muted/30 max-w-md">
+                <FileSignature className="w-4 h-4 text-muted-foreground" />
+                <p className="text-xs text-muted-foreground flex-1">Nenhum contrato cadastrado para esta empresa.</p>
+                <Button size="sm" variant="outline" onClick={() => navigate("/empresas-contratos")}>Cadastrar</Button>
+              </div>
+            ) : (
+              <Select value={contratoId} onValueChange={setContratoId}>
+                <SelectTrigger className="max-w-md">
+                  <SelectValue placeholder="Escolha um contrato" />
+                </SelectTrigger>
+                <SelectContent>
+                  {contratos.map((c: any) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
+        )}
       </div>
 
       {!empresaId ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Building2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-muted-foreground">Selecione uma empresa para visualizar setores e funções</p>
+          <p className="text-muted-foreground">Selecione uma empresa para começar</p>
+        </div>
+      ) : !contratoId ? (
+        <div className="glass-card rounded-xl p-12 text-center">
+          <FileSignature className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
+          <p className="text-muted-foreground">Selecione um contrato para visualizar setores e funções</p>
         </div>
       ) : isLoading ? (
         <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
       ) : setores.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-muted-foreground">Nenhum setor cadastrado para esta empresa</p>
+          <p className="text-muted-foreground">Nenhum setor cadastrado para este contrato</p>
           <Button onClick={() => setModalOpen(true)} variant="outline" className="mt-4">
             <Plus className="w-4 h-4 mr-2" />Cadastrar Setor e Função
           </Button>
@@ -274,7 +324,7 @@ export default function SetoresFuncoes() {
         </div>
       )}
 
-      <SetorFuncaoModal open={modalOpen} onOpenChange={setModalOpen} empresaId={empresaId} onSaved={handleSaved} />
+      <SetorFuncaoModal open={modalOpen} onOpenChange={setModalOpen} empresaId={empresaId} contratoId={contratoId} onSaved={handleSaved} />
       <FuncaoModal open={funcaoModalOpen} onOpenChange={setFuncaoModalOpen} setorId={funcaoSetorId} onSaved={handleSaved} />
 
       {/* Edit Setor Modal */}
