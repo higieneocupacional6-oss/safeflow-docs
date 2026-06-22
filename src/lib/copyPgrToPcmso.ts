@@ -107,11 +107,14 @@ const TIPO_MAP: Record<string, keyof PcmsoSetor> = {
   acidente: "agentes_acidentes", acidentes: "agentes_acidentes",
   mecanico: "agentes_acidentes", mecânico: "agentes_acidentes",
   psicossocial: "agentes_psicossociais", psicossociais: "agentes_psicossociais",
-};
+});
 
-export async function buildSetoresFromEmpresa(empresaId: string): Promise<PcmsoSetor[]> {
+export async function buildSetoresFromEmpresa(empresaId: string, contratoId?: string): Promise<PcmsoSetor[]> {
+  let setoresQ = supabase.from("setores").select("id,nome_setor").order("nome_setor");
+  if (contratoId) setoresQ = setoresQ.eq("contrato_id", contratoId);
+  else setoresQ = setoresQ.eq("empresa_id", empresaId);
   const [{ data: setores = [] }, { data: funcoes = [] }] = await Promise.all([
-    supabase.from("setores").select("id,nome_setor").eq("empresa_id", empresaId).order("nome_setor"),
+    setoresQ,
     supabase.from("funcoes").select("setor_id,nome_funcao"),
   ]);
   const funcMap: Record<string, string[]> = {};
@@ -129,18 +132,21 @@ export async function buildSetoresFromEmpresa(empresaId: string): Promise<PcmsoS
   }));
 }
 
-async function getLatestPgrSnapshot(empresaId: string): Promise<any | null> {
-  const { data } = await supabase
+async function getLatestPgrSnapshot(empresaId: string, contratoId?: string): Promise<any | null> {
+  let q = supabase
     .from("documentos").select("id,draft_snapshot")
-    .eq("empresa_id", empresaId).eq("tipo", "PGR")
-    .order("created_at", { ascending: false }).limit(1).maybeSingle();
+    .eq("tipo", "PGR")
+    .order("created_at", { ascending: false }).limit(1);
+  if (contratoId) q = q.eq("contrato_id", contratoId);
+  else q = q.eq("empresa_id", empresaId);
+  const { data } = await q.maybeSingle();
   return data?.draft_snapshot || null;
 }
 
 export async function copyPgrSnapshotIntoSetores(
-  empresaId: string, base: PcmsoSetor[]
+  empresaId: string, base: PcmsoSetor[], contratoId?: string
 ): Promise<PcmsoSetor[]> {
-  const snap = await getLatestPgrSnapshot(empresaId);
+  const snap = await getLatestPgrSnapshot(empresaId, contratoId);
   if (!snap) return base;
   const pgrSetores = snap?.setores || {};
   return base.map((s) => {
@@ -157,8 +163,8 @@ export async function copyPgrSnapshotIntoSetores(
   });
 }
 
-export async function copyPgrEpiBlocos(empresaId: string): Promise<PcmsoEpiBloco[]> {
-  const snap = await getLatestPgrSnapshot(empresaId);
+export async function copyPgrEpiBlocos(empresaId: string, contratoId?: string): Promise<PcmsoEpiBloco[]> {
+  const snap = await getLatestPgrSnapshot(empresaId, contratoId);
   const blocos = (snap?.epi_blocos || []) as any[];
   return blocos.map((b) => ({
     id: crypto.randomUUID(),
@@ -173,8 +179,8 @@ export async function copyPgrEpiBlocos(empresaId: string): Promise<PcmsoEpiBloco
   }));
 }
 
-export async function copyPgrTreinBlocos(empresaId: string): Promise<PcmsoTreinBloco[]> {
-  const snap = await getLatestPgrSnapshot(empresaId);
+export async function copyPgrTreinBlocos(empresaId: string, contratoId?: string): Promise<PcmsoTreinBloco[]> {
+  const snap = await getLatestPgrSnapshot(empresaId, contratoId);
   const blocos = (snap?.treinamento_blocos || []) as any[];
   return blocos.map((b) => ({
     id: crypto.randomUUID(),
