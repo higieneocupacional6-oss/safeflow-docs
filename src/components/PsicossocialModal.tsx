@@ -540,7 +540,7 @@ export function PsicossocialModal({
         </div>
 
         <DialogFooter className="gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleRelatorio} disabled={!allAnswered}>
+          <Button variant="outline" onClick={handleRelatorio} disabled={avaliacoes.length === 0 && !allAnswered}>
             <FileDown className="w-4 h-4 mr-2" />Gerar Relatório
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
