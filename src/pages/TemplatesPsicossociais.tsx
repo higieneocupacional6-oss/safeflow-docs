@@ -25,8 +25,14 @@ import { Link } from "react-router-dom";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { calcularPsicossocial, type AvaliacaoPsicossocial } from "@/components/PsicossocialModal";
 
+const PUBLIC_BASE_URL =
+  (import.meta as any).env?.VITE_PUBLIC_APP_URL?.replace(/\/$/, "") ||
+  (typeof window !== "undefined" && /lovable\.app|safedocs/.test(window.location.hostname)
+    ? `${window.location.protocol}//safedocs.lovable.app`
+    : (typeof window !== "undefined" ? window.location.origin : ""));
+
 function publicUrl(token: string) {
-  return `${window.location.origin}/avaliacao-psicossocial/${token}`;
+  return `${PUBLIC_BASE_URL}/avaliacao-psicossocial/${token}`;
 }
 
 export default function TemplatesPsicossociais() {
