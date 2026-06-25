@@ -1446,7 +1446,12 @@ export default function AetWizard() {
             jornada_trabalho: (empresaSelecionada as any)?.jornada_trabalho,
             atividades: setor.descricao_atividade || setor.tarefas,
             supervisao: setor.analise_organizacional,
-            numero_funcionarios: setor.numero_funcionarios,
+            atividades_funcoes: (setor.funcoes_selecionadas || [])
+              .map((fs: any) => {
+                const f: any = (funcoesAll as any[]).find((x) => x.id === fs.id);
+                return f?.descricao_atividades || "";
+              })
+              .filter(Boolean),
             responsavel: responsavelTecnico,
             cargo_responsavel: cargo,
             crea,
