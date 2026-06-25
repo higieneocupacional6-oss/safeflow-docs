@@ -428,13 +428,26 @@ function section(doc: jsPDF, y: number, titulo: string): number {
   return y + 12;
 }
 
-function paragraph(doc: jsPDF, y: number, txt: string, size = 10): number {
+function paragraph(doc: jsPDF, y: number, txt: string, size = 10, justify = true): number {
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(size);
   doc.setTextColor(40);
-  const split = doc.splitTextToSize(txt, 190);
-  if (y + split.length * 4.5 > 285) { doc.addPage(); y = 32; }
-  doc.text(split, 10, y);
-  return y + split.length * 4.5 + 2;
+  const maxW = 190;
+  const lineH = size * 0.45 + 1.2;
+  const split: string[] = doc.splitTextToSize(txt, maxW);
+  let cy = y;
+  for (let i = 0; i < split.length; i++) {
+    if (cy + lineH > 285) { doc.addPage(); cy = 32; }
+    const line = split[i];
+    const isLast = i === split.length - 1 || /[\n]$/.test(line);
+    if (justify && !isLast && line.trim().split(/\s+/).length > 1) {
+      doc.text(line, 10, cy, { align: "justify", maxWidth: maxW });
+    } else {
+      doc.text(line, 10, cy);
+    }
+    cy += lineH;
+  }
+  return cy + 2;
 }
 
 export function gerarRelatorioCopsoqPDF(
@@ -482,22 +495,33 @@ export function gerarRelatorioCopsoqPDF(
   // ── 3. Metodologia (com critérios de classificação)
   y = section(doc, y, "3. Metodologia Utilizada");
   y = paragraph(
-    doc,
-    y,
-    "A presente avaliação psicossocial foi realizada por meio da aplicação do questionário COPSOQ (Copenhagen Psychosocial Questionnaire), instrumento internacionalmente validado para identificação de fatores psicossociais relacionados ao trabalho. A coleta de informações considerou os dados obtidos pelos questionários respondidos pelos colaboradores, complementados pela análise das condições organizacionais do setor avaliado, contemplando organização do trabalho, relações interpessoais, demandas emocionais, liderança, reconhecimento, segurança ocupacional e bem-estar dos trabalhadores.",
+    doc, y,
+    "A presente avaliação psicossocial foi conduzida por meio da aplicação do questionário COPSOQ (Copenhagen Psychosocial Questionnaire), instrumento internacionalmente validado para a identificação, mensuração e análise dos fatores psicossociais relacionados ao trabalho. O instrumento contempla dimensões essenciais à compreensão do ambiente laboral, tais como exigências quantitativas e emocionais, organização do trabalho, autonomia, apoio social, qualidade da liderança, reconhecimento, justiça organizacional, conflitos interpessoais e impactos na saúde mental dos trabalhadores."
   );
   y = paragraph(
-    doc,
-    y,
-    "A classificação dos riscos psicossociais foi realizada mediante análise estatística das respostas obtidas nos questionários COPSOQ, considerando a frequência, intensidade e recorrência dos fatores identificados. Os resultados foram convertidos em indicadores quantitativos (escala 0–100) e classificados em níveis de risco Baixo (≤33), Moderado (34–66), Alto (67–84) e Crítico (≥85), conforme critérios de distribuição das pontuações e impacto potencial na saúde mental e organizacional dos trabalhadores.",
+    doc, y,
+    "A consolidação das respostas foi realizada de forma estatística e anônima, agrupando-se os resultados por dimensão psicossocial. Para cada bloco do questionário, calculou-se a média ponderada das pontuações atribuídas pelos respondentes, normalizadas em uma escala contínua de 0 a 100, permitindo a comparação objetiva entre fatores e a identificação dos pontos críticos do ambiente organizacional."
+  );
+  y = paragraph(
+    doc, y,
+    "Os critérios de análise adotaram como referência os parâmetros do COPSOQ III, considerando a frequência, a intensidade e a recorrência dos fatores identificados, bem como o potencial de impacto sobre a saúde mental, o desempenho e o bem-estar dos trabalhadores. A classificação dos riscos psicossociais seguiu a divisão em tercis recomendada pela metodologia, conforme escala apresentada a seguir:"
+  );
+  y = paragraph(doc, y, "• Baixo (0 a 33): condições adequadas, com baixa probabilidade de impacto negativo.");
+  y = paragraph(doc, y, "• Moderado (34 a 66): situação de atenção, recomendando-se monitoramento e ações preventivas.");
+  y = paragraph(doc, y, "• Alto (67 a 84): risco relevante, exigindo intervenção planejada em curto prazo.");
+  y = paragraph(doc, y, "• Crítico (85 a 100): risco severo, demandando atuação imediata e medidas corretivas estruturadas.");
+  y = paragraph(
+    doc, y,
+    "A análise técnica considera ainda a inter-relação entre as dimensões avaliadas, identificando padrões coletivos, vulnerabilidades específicas e oportunidades de melhoria organizacional, em conformidade com as diretrizes da NR-01, da NR-17 e das boas práticas internacionais em saúde ocupacional, ergonomia e psicologia organizacional."
   );
   const complementos: string[] = [];
-  if (ctx.entrevistas) complementos.push("Entrevistas individuais");
-  if (ctx.observacao) complementos.push("Observação das atividades");
-  if (ctx.analise_documental) complementos.push("Análise documental (absenteísmo, afastamentos, acidentes, reclamações e registros internos)");
+  if (ctx.entrevistas) complementos.push("entrevistas individuais");
+  if (ctx.observacao) complementos.push("observação direta das atividades");
+  if (ctx.analise_documental) complementos.push("análise documental de absenteísmo, afastamentos, acidentes, reclamações e registros internos");
   if (complementos.length) {
-    y = paragraph(doc, y, "Métodos complementares utilizados: " + complementos.join("; ") + ".");
+    y = paragraph(doc, y, "Como métodos complementares à aplicação do questionário, foram utilizados: " + complementos.join("; ") + ".");
   }
+
 
   // ── 4. Caracterização do trabalho (sem "Quantidade de trabalhadores"; atividades consolidadas)
   y = section(doc, y, "4. Caracterização do Trabalho");
