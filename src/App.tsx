@@ -48,6 +48,7 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/empresas" element={<Protected><Empresas /></Protected>} />
             <Route path="/empresas-contratos" element={<Protected><EmpresasContratos /></Protected>} />
