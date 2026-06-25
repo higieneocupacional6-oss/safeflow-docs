@@ -1,17 +1,14 @@
 /**
  * Geração do Relatório Psicossocial Geral (COPSOQ) em PDF.
  *
- * Consolida todas as avaliações COPSOQ realizadas para um setor:
- *   - Cabeçalho corporativo
- *   - Resumo executivo dinâmico
- *   - Metodologia
- *   - Caracterização do trabalho
- *   - Gráficos (distribuição de risco e médias por dimensão)
- *   - Identificação dos fatores de risco
- *   - Tabela de avaliação de riscos (colorida)
- *   - Análise técnica
- *   - Conclusão
- *   - Plano de ação
+ * Ajustes desta versão:
+ *  - Limiar de risco em tercis (COPSOQ III): Baixo ≤33 • Moderado 34-66 • Alto 67-84 • Crítico ≥85.
+ *  - Gráfico de dimensões substituído por 4 gráficos horizontais (um por categoria),
+ *    com nome completo do fator, valor médio, percentual e classificação automática.
+ *  - Avaliação dos Riscos lista TODOS os fatores avaliados (independentemente do nível).
+ *  - Atividades consolidadas e desduplicadas a partir de todas as funções avaliadas.
+ *  - Removidos: "Quantidade de trabalhadores", "Data de emissão", "Tendências Identificadas".
+ *  - Metodologia complementada com critérios de classificação dos riscos.
  */
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -33,7 +30,8 @@ export type RelatorioContext = {
   escala?: string;
   supervisao?: string;
   atividades?: string;
-  numero_funcionarios?: string | number;
+  /** Atividades por função (uma string por função). Será consolidada e desduplicada. */
+  atividades_funcoes?: string[];
   responsavel?: string;
   cargo_responsavel?: string;
   crea?: string;
@@ -43,6 +41,7 @@ export type RelatorioContext = {
   analise_documental?: boolean;
 };
 
+// ─── Paleta de cores por nível de risco ───
 const COR_NIVEL: Record<string, [number, number, number]> = {
   Baixo: [34, 197, 94],     // verde
   Moderado: [234, 179, 8],  // amarelo
@@ -60,72 +59,82 @@ const TITULOS_BLOCO: Record<string, string> = {
   sintomas: "Estresse / Burnout (sintomas)",
 };
 
-const FATORES_POR_CATEGORIA: Record<string, { bloco: string; condicao: "alto" | "baixo"; rotulo: string }[]> = {
-  "Organização do Trabalho": [
-    { bloco: "exigencias", condicao: "alto", rotulo: "Sobrecarga de trabalho" },
-    { bloco: "exigencias", condicao: "alto", rotulo: "Ritmo intenso / metas excessivas" },
-    { bloco: "controle", condicao: "alto", rotulo: "Falta de autonomia" },
-    { bloco: "sintomas", condicao: "alto", rotulo: "Jornadas prolongadas / exaustão" },
-  ],
-  "Relações Interpessoais": [
-    { bloco: "conflitos", condicao: "alto", rotulo: "Conflitos entre equipes" },
-    { bloco: "conflitos", condicao: "alto", rotulo: "Indícios de assédio moral" },
-    { bloco: "apoio", condicao: "alto", rotulo: "Falta de apoio da liderança" },
-  ],
-  "Condições Organizacionais": [
-    { bloco: "seguranca", condicao: "alto", rotulo: "Insegurança quanto ao emprego" },
-    { bloco: "reconhecimento", condicao: "alto", rotulo: "Falta de reconhecimento profissional" },
-    { bloco: "seguranca", condicao: "alto", rotulo: "Comunicação deficiente / mudanças organizacionais" },
-  ],
-  "Aspectos Emocionais": [
-    { bloco: "exigencias", condicao: "alto", rotulo: "Sobrecarga emocional na função" },
-    { bloco: "sintomas", condicao: "alto", rotulo: "Alta responsabilidade por erros críticos" },
-  ],
-};
+// ─── Limiares de classificação (COPSOQ III, tercis com Crítico ≥85) ───
+function classificar(media: number): "Baixo" | "Moderado" | "Alto" | "Crítico" {
+  if (media >= 85) return "Crítico";
+  if (media >= 67) return "Alto";
+  if (media >= 34) return "Moderado";
+  return "Baixo";
+}
 
-const RECOMENDACOES: Record<string, { preventiva: string; corretiva: string }> = {
-  exigencias: {
-    preventiva: "Revisão da carga de trabalho e redistribuição de tarefas; planejamento de metas factíveis.",
-    corretiva: "Programa de gestão do estresse, pausas regulamentadas e acompanhamento psicológico.",
+// Inversão: blocos positivos têm "alta resposta = baixo risco".
+const BLOCOS_POSITIVOS = new Set(["controle", "apoio", "reconhecimento", "seguranca"]);
+function valorRisco(valor: number, blocoKey: string): number {
+  return BLOCOS_POSITIVOS.has(blocoKey) ? 100 - valor : valor;
+}
+
+// ─── Catálogo de FATORES por categoria (nome completo + perguntas associadas) ───
+type FatorDef = { nome: string; bloco: string; perguntaIdx: number[] };
+const CATEGORIAS: { categoria: string; fatores: FatorDef[] }[] = [
+  {
+    categoria: "Organização do Trabalho",
+    fatores: [
+      { nome: "Sobrecarga de trabalho", bloco: "exigencias", perguntaIdx: [0, 1] },
+      { nome: "Metas excessivas", bloco: "exigencias", perguntaIdx: [0, 2] },
+      { nome: "Ritmo intenso de trabalho", bloco: "exigencias", perguntaIdx: [2] },
+      { nome: "Falta de autonomia", bloco: "controle", perguntaIdx: [0, 1] },
+      { nome: "Jornadas prolongadas", bloco: "sintomas", perguntaIdx: [0] },
+    ],
   },
-  controle: {
-    preventiva: "Ampliar autonomia decisória e promover participação dos colaboradores no planejamento.",
-    corretiva: "Treinamento de líderes em gestão participativa e revisão de processos rígidos.",
+  {
+    categoria: "Relações Interpessoais",
+    fatores: [
+      { nome: "Conflitos entre equipes", bloco: "conflitos", perguntaIdx: [0] },
+      { nome: "Assédio moral", bloco: "conflitos", perguntaIdx: [1] },
+      { nome: "Assédio sexual", bloco: "conflitos", perguntaIdx: [1] },
+      { nome: "Falta de apoio da liderança", bloco: "apoio", perguntaIdx: [1] },
+      { nome: "Violência ocupacional", bloco: "conflitos", perguntaIdx: [0, 1] },
+    ],
   },
-  apoio: {
-    preventiva: "Fortalecer canais de comunicação e ações de integração de equipes.",
-    corretiva: "Programa de mentoria e apoio social no trabalho; capacitação de liderança humanizada.",
+  {
+    categoria: "Condições Organizacionais",
+    fatores: [
+      { nome: "Insegurança quanto ao emprego", bloco: "seguranca", perguntaIdx: [0] },
+      { nome: "Comunicação deficiente", bloco: "seguranca", perguntaIdx: [1] },
+      { nome: "Falta de reconhecimento profissional", bloco: "reconhecimento", perguntaIdx: [0, 1] },
+      { nome: "Mudanças organizacionais frequentes", bloco: "seguranca", perguntaIdx: [1, 2] },
+    ],
   },
-  reconhecimento: {
-    preventiva: "Implementar programa de reconhecimento profissional e feedback estruturado.",
-    corretiva: "Revisar política de cargos, salários e meritocracia.",
+  {
+    categoria: "Aspectos Emocionais",
+    fatores: [
+      { nome: "Exposição a sofrimento humano", bloco: "exigencias", perguntaIdx: [3] },
+      { nome: "Atendimento a clientes agressivos", bloco: "conflitos", perguntaIdx: [0] },
+      { nome: "Alta responsabilidade por erros críticos", bloco: "exigencias", perguntaIdx: [3] },
+    ],
   },
-  seguranca: {
-    preventiva: "Comunicação transparente sobre planos, mudanças e perspectivas organizacionais.",
-    corretiva: "Plano formal de comunicação interna e gestão de mudanças.",
-  },
-  conflitos: {
-    preventiva: "Programa de mediação de conflitos e canal de denúncias confidencial.",
-    corretiva: "Investigação imediata de denúncias de assédio e acompanhamento psicossocial das vítimas.",
-  },
-  sintomas: {
-    preventiva: "Programa de Promoção da Saúde Mental e qualidade de vida no trabalho.",
-    corretiva: "Encaminhamento ao serviço médico/psicológico e avaliação clínica individualizada.",
-  },
-};
+];
+
+function mediaFator(avs: AvaliacaoPsicossocial[], f: FatorDef): number {
+  const valores: number[] = [];
+  for (const a of avs) {
+    const respostas = a.respostas?.[f.bloco] || [];
+    for (const idx of f.perguntaIdx) {
+      const r = respostas[idx];
+      if (typeof r === "number" && r >= 0) {
+        valores.push(valorRisco(r, f.bloco));
+      }
+    }
+  }
+  if (!valores.length) return 0;
+  return Math.round((valores.reduce((a, b) => a + b, 0) / valores.length) * 10) / 10;
+}
 
 function mediaDimensao(avs: AvaliacaoPsicossocial[], blocoKey: string): number {
   if (!avs.length) return 0;
   const calc = avs.map((a) => calcularPsicossocial(a));
   const vals = calc.map((c) => c.blocos[blocoKey]?.media ?? 0);
   return Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10;
-}
-
-function classificar(media: number): "Baixo" | "Moderado" | "Alto" | "Crítico" {
-  if (media <= 25) return "Baixo";
-  if (media <= 50) return "Moderado";
-  if (media <= 75) return "Alto";
-  return "Crítico";
 }
 
 function nivelGeral(avs: AvaliacaoPsicossocial[]) {
@@ -135,80 +144,102 @@ function nivelGeral(avs: AvaliacaoPsicossocial[]) {
 }
 
 function distribuicaoPorNivel(avs: AvaliacaoPsicossocial[]) {
-  const dist = { Baixo: 0, Moderado: 0, Médio: 0, Alto: 0, Crítico: 0 } as Record<string, number>;
-  for (const a of avs) {
-    const c = calcularPsicossocial(a);
-    for (const b of BLOCOS_COPSOQ) {
-      const cls = c.blocos[b.key]?.classificacao || "—";
-      if (cls === "Moderado") dist["Médio"]++;
-      else if (dist[cls] !== undefined) dist[cls]++;
+  const dist: Record<string, number> = { Baixo: 0, Moderado: 0, Alto: 0, Crítico: 0 };
+  for (const cat of CATEGORIAS) {
+    for (const f of cat.fatores) {
+      dist[classificar(mediaFator(avs, f))]++;
     }
   }
   return [
-    { label: "Baixo", value: dist["Baixo"], cor: COR_NIVEL["Baixo"] },
-    { label: "Médio", value: dist["Médio"], cor: COR_NIVEL["Moderado"] },
-    { label: "Alto", value: dist["Alto"], cor: COR_NIVEL["Alto"] },
-    { label: "Crítico", value: dist["Crítico"], cor: COR_NIVEL["Crítico"] },
+    { label: "Baixo", value: dist.Baixo, cor: COR_NIVEL.Baixo },
+    { label: "Moderado", value: dist.Moderado, cor: COR_NIVEL.Moderado },
+    { label: "Alto", value: dist.Alto, cor: COR_NIVEL.Alto },
+    { label: "Crítico", value: dist.Crítico, cor: COR_NIVEL.Crítico },
   ];
 }
 
-function identificarFatores(avs: AvaliacaoPsicossocial[]) {
-  const medias: Record<string, number> = {};
-  BLOCOS_COPSOQ.forEach((b) => (medias[b.key] = mediaDimensao(avs, b.key)));
-
-  const resultado: Record<string, string[]> = {};
-  for (const [cat, lista] of Object.entries(FATORES_POR_CATEGORIA)) {
+function identificarFatoresRelevantes(avs: AvaliacaoPsicossocial[]) {
+  const out: Record<string, string[]> = {};
+  for (const cat of CATEGORIAS) {
     const itens: string[] = [];
-    for (const f of lista) {
-      const m = medias[f.bloco] || 0;
-      // Para todos os blocos, o cálculo já converte para "risco" (positivo invertido).
-      if (m > 50 && !itens.includes(f.rotulo)) itens.push(f.rotulo);
+    for (const f of cat.fatores) {
+      const m = mediaFator(avs, f);
+      if (classificar(m) !== "Baixo") itens.push(f.nome);
     }
-    if (itens.length) resultado[cat] = itens;
+    if (itens.length) out[cat.categoria] = itens;
   }
-  return resultado;
+  return out;
 }
 
-function buildResumoExecutivo(
-  avs: AvaliacaoPsicossocial[],
-  ctx: RelatorioContext,
-): string {
+// ─── Consolidação de atividades de todas as funções ───
+const ATIV_PALAVRAS_CHAVE = [
+  "atend", "clien", "públic", "publi", "gest", "equip", "process", "document",
+  "control", "operac", "administ", "supervis", "lidera", "vend", "negoc",
+  "treina", "ensin", "cuid", "saúde", "pacient", "emergên", "atend.", "respons",
+  "decis", "anális", "planejam", "report", "auditor", "monitor", "abord",
+  "comunic", "negocia",
+];
+function consolidarAtividades(ctx: RelatorioContext): string[] {
+  const fonte: string[] = [];
+  if (ctx.atividades_funcoes?.length) fonte.push(...ctx.atividades_funcoes);
+  if (ctx.atividades) fonte.push(ctx.atividades);
+  if (ctx.descricao_ambiente) fonte.push(ctx.descricao_ambiente);
+
+  const partes: string[] = [];
+  for (const txt of fonte) {
+    if (!txt) continue;
+    txt.split(/[\n;•·\-]|(?:^|\s)\d+\.\s|, /g).forEach((s) => {
+      const t = s.trim().replace(/^[-•·\d.\)\s]+/, "");
+      if (t.length >= 4 && t.length <= 140) partes.push(t);
+    });
+  }
+
+  // Dedup case-insensitive
+  const dedup = new Map<string, string>();
+  for (const p of partes) {
+    const key = p.toLowerCase().replace(/\s+/g, " ").trim();
+    if (!dedup.has(key)) dedup.set(key, p.charAt(0).toUpperCase() + p.slice(1));
+  }
+  let lista = Array.from(dedup.values());
+
+  // Filtra apenas atividades com relação lógica com fatores psicossociais
+  const filtrada = lista.filter((p) =>
+    ATIV_PALAVRAS_CHAVE.some((kw) => p.toLowerCase().includes(kw)),
+  );
+  // Se o filtro eliminar tudo, mantém as originais (evita relatório vazio).
+  return (filtrada.length ? filtrada : lista).slice(0, 12);
+}
+
+function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
   const ng = nivelGeral(avs);
-  const fatores = identificarFatores(avs);
-  const principais = Object.values(fatores).flat().slice(0, 4);
+  const fatores = identificarFatoresRelevantes(avs);
+  const principais = Object.values(fatores).flat().slice(0, 5);
   const partes: string[] = [];
   partes.push(
     `O setor ${ctx.setor_nome || ""} apresentou, na consolidação de ${avs.length} questionário(s) COPSOQ, ` +
-    `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}).`,
+    `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}/100).`,
   );
   if (principais.length) {
-    partes.push(
-      `Os principais fatores de risco identificados foram: ${principais.join(", ")}.`,
-    );
+    partes.push(`Principais fatores de risco identificados: ${principais.join(", ")}.`);
   } else {
     partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta amostra.");
   }
   if (ng.classificacao === "Crítico" || ng.classificacao === "Alto") {
-    partes.push(
-      "Recomenda-se intervenção prioritária com adoção de medidas preventivas e corretivas descritas no Plano de Ação.",
-    );
+    partes.push("Recomenda-se intervenção prioritária conforme o Plano de Ação.");
   } else if (ng.classificacao === "Moderado") {
-    partes.push(
-      "Recomenda-se monitoramento sistemático e implementação progressiva das ações sugeridas neste relatório.",
-    );
+    partes.push("Recomenda-se monitoramento sistemático e implementação gradual das ações sugeridas.");
   } else {
-    partes.push(
-      "O cenário psicossocial é favorável; recomenda-se manter as boas práticas e realizar nova avaliação periódica.",
-    );
+    partes.push("Cenário psicossocial favorável; manter boas práticas e reavaliação periódica.");
   }
   return partes.join(" ");
 }
 
-function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[]): string[] {
+function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string[] {
   const ng = nivelGeral(avs);
-  const fatores = identificarFatores(avs);
+  const fatores = identificarFatoresRelevantes(avs);
+  const totFatores = Object.values(fatores).flat().length;
   const mediasOrden = BLOCOS_COPSOQ
-    .map((b) => ({ key: b.key, titulo: TITULOS_BLOCO[b.key], media: mediaDimensao(avs, b.key) }))
+    .map((b) => ({ titulo: TITULOS_BLOCO[b.key], media: mediaDimensao(avs, b.key) }))
     .sort((a, b) => b.media - a.media);
   const top = mediasOrden.slice(0, 3);
 
@@ -217,65 +248,65 @@ function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[]): string[] {
     `Principais Achados: a análise consolidada das ${avs.length} avaliação(ões) evidenciou nível geral ${ng.classificacao} ` +
     `(média ${ng.media}/100), com maior intensidade nas dimensões ${top.map((t) => `${t.titulo} (${t.media})`).join(", ")}.`,
   );
-  const totFatores = Object.values(fatores).flat().length;
   paragrafos.push(
-    `Indicadores Observados: foram identificados ${totFatores} fator(es) de risco distribuídos em ${Object.keys(fatores).length} categoria(s) de análise psicossocial. ` +
-    `Os percentuais médios indicam que dimensões organizacionais (controle, reconhecimento, segurança) impactam diretamente na percepção de bem-estar.`,
+    `Indicadores Observados: foram identificados ${totFatores} fator(es) de risco distribuídos em ${Object.keys(fatores).length} categoria(s). ` +
+    `Dimensões organizacionais (controle, reconhecimento, segurança) impactam diretamente na percepção de bem-estar do grupo avaliado.`,
+  );
+  paragrafos.push(
+    `Setores mais vulneráveis: dentro do setor ${ctx.setor_nome || ""}, as funções ${(ctx.funcoes || []).join(", ") || "avaliadas"} concentram os maiores ` +
+    `índices nas dimensões ${top.map((t) => t.titulo).join(", ")}, devendo ser priorizadas no plano de ação.`,
   );
   if (avs.length > 1) {
     const nomes = avs.map((a) => a.colaborador_nome).filter(Boolean);
     paragrafos.push(
       `Comparação Entre Grupos: a amostra é composta por ${avs.length} colaboradores (${nomes.slice(0, 5).join(", ")}${nomes.length > 5 ? "…" : ""}). ` +
-      `A consistência das respostas reforça que os fatores identificados são percebidos coletivamente, e não como percepção isolada.`,
+      `A consistência das respostas reforça que os fatores identificados são percebidos coletivamente.`,
     );
   }
-  paragrafos.push(
-    `Tendências Identificadas: os dados indicam que as dimensões com piores resultados devem ser priorizadas no Plano de Ação, ` +
-    `pois apresentam correlação direta com sintomas de estresse ocupacional e potencial desenvolvimento de quadros de burnout.`,
-  );
   return paragrafos;
 }
 
 function buildConclusao(avs: AvaliacaoPsicossocial[]): string {
   const ng = nivelGeral(avs);
-  const fatores = identificarFatores(avs);
-  const principais = Object.values(fatores).flat();
+  const principais = Object.values(identificarFatoresRelevantes(avs)).flat();
   let txt = `Com base na análise consolidada das respostas ao questionário COPSOQ, conclui-se que o setor apresenta nível geral de risco psicossocial ${ng.classificacao} (média ${ng.media}/100). `;
-  if (principais.length) {
-    txt += `Os principais fatores que requerem atenção são: ${principais.join(", ")}. `;
-  }
-  if (ng.classificacao === "Crítico") {
-    txt += "Há necessidade de intervenção imediata, com adoção das medidas preventivas e corretivas detalhadas no Plano de Ação, e acompanhamento psicológico/médico ocupacional dos colaboradores expostos.";
-  } else if (ng.classificacao === "Alto") {
-    txt += "Recomenda-se intervenção prioritária em até 90 dias para mitigar os fatores identificados antes que se traduzam em adoecimento.";
-  } else if (ng.classificacao === "Moderado") {
-    txt += "Recomenda-se monitoramento contínuo, com implementação gradual das ações de promoção da saúde mental.";
-  } else {
-    txt += "Não há necessidade de intervenção imediata; recomenda-se manter as boas práticas atuais e reavaliar periodicamente.";
-  }
+  if (principais.length) txt += `Os principais fatores que requerem atenção são: ${principais.join(", ")}. `;
+  if (ng.classificacao === "Crítico") txt += "Há necessidade de intervenção imediata e acompanhamento psicológico/médico dos colaboradores expostos.";
+  else if (ng.classificacao === "Alto") txt += "Recomenda-se intervenção prioritária em até 90 dias para mitigar os fatores identificados.";
+  else if (ng.classificacao === "Moderado") txt += "Recomenda-se monitoramento contínuo com implementação gradual das ações.";
+  else txt += "Não há necessidade de intervenção imediata; manter boas práticas e reavaliar periodicamente.";
   return txt;
 }
 
+const RECOMENDACOES: Record<string, { preventiva: string; corretiva: string }> = {
+  exigencias: { preventiva: "Revisão da carga de trabalho e redistribuição de tarefas.", corretiva: "Programa de gestão do estresse e acompanhamento psicológico." },
+  controle: { preventiva: "Ampliar autonomia decisória e participação no planejamento.", corretiva: "Treinamento de líderes em gestão participativa." },
+  apoio: { preventiva: "Fortalecer canais de comunicação e ações de integração.", corretiva: "Programa de mentoria e liderança humanizada." },
+  reconhecimento: { preventiva: "Programa de reconhecimento profissional e feedback estruturado.", corretiva: "Revisão de cargos, salários e meritocracia." },
+  seguranca: { preventiva: "Comunicação transparente sobre mudanças organizacionais.", corretiva: "Plano formal de comunicação interna e gestão de mudanças." },
+  conflitos: { preventiva: "Programa de mediação de conflitos e canal de denúncias.", corretiva: "Investigação imediata de denúncias e acompanhamento das vítimas." },
+  sintomas: { preventiva: "Programa de Promoção da Saúde Mental e qualidade de vida.", corretiva: "Encaminhamento ao serviço médico/psicológico." },
+};
+
 function buildPlanoAcao(avs: AvaliacaoPsicossocial[]) {
-  const fatores = identificarFatores(avs);
+  const fatores = identificarFatoresRelevantes(avs);
   const linhas: { risco: string; preventiva: string; corretiva: string; responsavel: string; prazo: string; acompanhamento: string }[] = [];
   for (const [cat, lista] of Object.entries(fatores)) {
     for (const item of lista) {
-      // Identifica bloco mais provável a partir do rótulo
-      let blocoChave = "exigencias";
-      if (/autonomia/i.test(item)) blocoChave = "controle";
-      else if (/apoio|liderança/i.test(item)) blocoChave = "apoio";
-      else if (/reconhecimento/i.test(item)) blocoChave = "reconhecimento";
-      else if (/insegurança|comunicação|mudanças/i.test(item)) blocoChave = "seguranca";
-      else if (/conflito|assédio/i.test(item)) blocoChave = "conflitos";
-      else if (/exaustão|burnout|estresse|emocional|jornada/i.test(item)) blocoChave = "sintomas";
-      const rec = RECOMENDACOES[blocoChave];
+      let bloco = "exigencias";
+      if (/autonomia/i.test(item)) bloco = "controle";
+      else if (/apoio|liderança/i.test(item)) bloco = "apoio";
+      else if (/reconhecimento/i.test(item)) bloco = "reconhecimento";
+      else if (/insegurança|comunicação|mudanças/i.test(item)) bloco = "seguranca";
+      else if (/conflito|assédio|violência/i.test(item)) bloco = "conflitos";
+      else if (/jornada|exaustão|burnout|estresse|emocional|sofrimento/i.test(item)) bloco = "sintomas";
+      const rec = RECOMENDACOES[bloco];
       linhas.push({
         risco: `${cat} — ${item}`,
         preventiva: rec.preventiva,
         corretiva: rec.corretiva,
         responsavel: "RH / SESMT",
-        prazo: blocoChave === "conflitos" ? "30 dias" : blocoChave === "sintomas" ? "60 dias" : "90 dias",
+        prazo: bloco === "conflitos" ? "30 dias" : bloco === "sintomas" ? "60 dias" : "90 dias",
         acompanhamento: "Reavaliação trimestral via COPSOQ",
       });
     }
@@ -283,8 +314,8 @@ function buildPlanoAcao(avs: AvaliacaoPsicossocial[]) {
   return linhas;
 }
 
-// ─── Renderização de gráficos com primitivas do jsPDF ───
-function drawBarChart(
+// ─── Gráficos ───
+function drawBarChartVertical(
   doc: jsPDF,
   x: number,
   y: number,
@@ -292,37 +323,70 @@ function drawBarChart(
   h: number,
   data: { label: string; value: number; cor: [number, number, number] }[],
   yMax = 100,
-  unit = "",
 ) {
-  const padding = { l: 10, r: 4, t: 6, b: 22 };
+  const padding = { l: 10, r: 4, t: 6, b: 18 };
   const chartW = w - padding.l - padding.r;
   const chartH = h - padding.t - padding.b;
-  // Eixos
   doc.setDrawColor(180);
   doc.setLineWidth(0.2);
   doc.line(x + padding.l, y + padding.t, x + padding.l, y + padding.t + chartH);
   doc.line(x + padding.l, y + padding.t + chartH, x + padding.l + chartW, y + padding.t + chartH);
-
-  const bw = chartW / data.length;
+  const bw = chartW / Math.max(data.length, 1);
   doc.setFontSize(7);
-  doc.setTextColor(80);
   data.forEach((d, i) => {
     const barH = yMax > 0 ? (d.value / yMax) * chartH : 0;
-    const bx = x + padding.l + i * bw + bw * 0.15;
+    const bx = x + padding.l + i * bw + bw * 0.2;
     const by = y + padding.t + chartH - barH;
-    const bWidth = bw * 0.7;
+    const bWidth = bw * 0.6;
     doc.setFillColor(d.cor[0], d.cor[1], d.cor[2]);
     doc.rect(bx, by, bWidth, barH, "F");
-    // valor no topo
     doc.setTextColor(40);
-    doc.text(`${d.value}${unit}`, bx + bWidth / 2, by - 1.5, { align: "center" });
-    // rótulo abaixo (rotacionado se necessário)
+    doc.text(`${d.value}`, bx + bWidth / 2, by - 1.5, { align: "center" });
     doc.setTextColor(60);
-    const label = d.label.length > 14 ? d.label.slice(0, 13) + "…" : d.label;
-    doc.text(label, bx + bWidth / 2, y + padding.t + chartH + 4, { align: "center" });
+    doc.text(d.label, bx + bWidth / 2, y + padding.t + chartH + 4, { align: "center" });
   });
 }
 
+/** Gráfico horizontal com nome COMPLETO do fator + valor + % + classificação colorida. */
+function drawHorizontalBarChart(
+  doc: jsPDF,
+  x: number,
+  y: number,
+  w: number,
+  itens: { label: string; value: number }[],
+): number {
+  const labelW = 70;        // largura reservada ao nome completo do fator
+  const tagW = 22;          // espaço para valor + classificação à direita
+  const barAreaW = w - labelW - tagW - 4;
+  const rowH = 7.5;
+  doc.setFontSize(8.5);
+  itens.forEach((it, i) => {
+    const ry = y + i * rowH;
+    const cls = classificar(it.value);
+    const cor = COR_NIVEL[cls];
+    // label
+    doc.setTextColor(40);
+    doc.setFont("helvetica", "normal");
+    const lab = doc.splitTextToSize(it.label, labelW - 2)[0];
+    doc.text(lab, x, ry + 4);
+    // background da barra
+    doc.setFillColor(241, 245, 249);
+    doc.rect(x + labelW, ry + 1.2, barAreaW, 4.2, "F");
+    // barra preenchida
+    const fill = Math.max(0, Math.min(100, it.value)) / 100 * barAreaW;
+    doc.setFillColor(cor[0], cor[1], cor[2]);
+    doc.rect(x + labelW, ry + 1.2, fill, 4.2, "F");
+    // valor + % + classificação
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(cor[0], cor[1], cor[2]);
+    doc.text(`${it.value} • ${Math.round(it.value)}% • ${cls}`, x + labelW + barAreaW + 2, ry + 4);
+  });
+  doc.setTextColor(0);
+  doc.setFont("helvetica", "normal");
+  return y + itens.length * rowH + 2;
+}
+
+// ─── Cabeçalho / rodapé / utilitários ───
 function addHeader(doc: jsPDF, ctx: RelatorioContext) {
   const pw = doc.internal.pageSize.getWidth();
   doc.setFillColor(15, 23, 42);
@@ -333,18 +397,8 @@ function addHeader(doc: jsPDF, ctx: RelatorioContext) {
   doc.text("RELATÓRIO PSICOSSOCIAL GERAL — COPSOQ", pw / 2, 11, { align: "center" });
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");
-  doc.text(
-    `${ctx.empresa_nome || ""}${ctx.cnpj ? " • CNPJ " + ctx.cnpj : ""}`,
-    pw / 2,
-    18,
-    { align: "center" },
-  );
-  doc.text(
-    `Setor: ${ctx.setor_nome || "—"}${ctx.ges ? " • GHE/GES " + ctx.ges : ""}`,
-    pw / 2,
-    23,
-    { align: "center" },
-  );
+  doc.text(`${ctx.empresa_nome || ""}${ctx.cnpj ? " • CNPJ " + ctx.cnpj : ""}`, pw / 2, 18, { align: "center" });
+  doc.text(`Setor: ${ctx.setor_nome || "—"}${ctx.ges ? " • GHE/GES " + ctx.ges : ""}`, pw / 2, 23, { align: "center" });
   doc.setTextColor(0);
 }
 
@@ -362,10 +416,7 @@ function addFooter(doc: jsPDF) {
 }
 
 function section(doc: jsPDF, y: number, titulo: string): number {
-  if (y > 270) {
-    doc.addPage();
-    y = 32;
-  }
+  if (y > 270) { doc.addPage(); y = 32; }
   doc.setFillColor(15, 23, 42);
   doc.rect(10, y, 190, 7, "F");
   doc.setTextColor(255);
@@ -381,10 +432,7 @@ function paragraph(doc: jsPDF, y: number, txt: string, size = 10): number {
   doc.setFontSize(size);
   doc.setTextColor(40);
   const split = doc.splitTextToSize(txt, 190);
-  if (y + split.length * 4.5 > 285) {
-    doc.addPage();
-    y = 32;
-  }
+  if (y + split.length * 4.5 > 285) { doc.addPage(); y = 32; }
   doc.text(split, 10, y);
   return y + split.length * 4.5 + 2;
 }
@@ -402,27 +450,23 @@ export function gerarRelatorioCopsoqPDF(
 
   addHeader(doc, ctx);
 
-  // ── 1. Cabeçalho (bloco informativo)
+  // ── 1. Identificação (sem "Colaboradores avaliados" nem "Data de emissão")
   let y = 32;
   doc.setFontSize(10);
   doc.setFont("helvetica", "bold");
   doc.text("1. Identificação", 10, y);
   y += 5;
   doc.setFont("helvetica", "normal");
-  doc.setFontSize(9);
-  const datas = [
+  const datas: [string, string][] = [
     ["Empresa", ctx.empresa_nome || "—"],
     ["CNPJ", ctx.cnpj || "—"],
     ["Contrato", ctx.contrato_numero || "—"],
     ["Setor avaliado", ctx.setor_nome || "—"],
     ["Data da avaliação", ctx.data_elaboracao || "—"],
-    ["Colaboradores avaliados", String(avaliacoes.length)],
     ["Responsável pela avaliação", `${ctx.responsavel || "—"}${ctx.crea ? " (" + ctx.crea + ")" : ""}`],
-    ["Data de emissão", new Date().toLocaleDateString("pt-BR")],
   ];
   autoTable(doc, {
     startY: y,
-    head: [],
     body: datas,
     theme: "grid",
     styles: { fontSize: 9, cellPadding: 1.5 },
@@ -435,12 +479,17 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "2. Resumo Executivo");
   y = paragraph(doc, y, buildResumoExecutivo(avaliacoes, ctx));
 
-  // ── 3. Metodologia
+  // ── 3. Metodologia (com critérios de classificação)
   y = section(doc, y, "3. Metodologia Utilizada");
   y = paragraph(
     doc,
     y,
-    "A presente avaliação psicossocial foi realizada por meio da aplicação do questionário COPSOQ (Copenhagen Psychosocial Questionnaire), instrumento internacionalmente validado para identificação de fatores psicossociais relacionados ao trabalho. A coleta de informações considerou os dados obtidos através dos questionários respondidos pelos colaboradores, complementados pela análise das condições organizacionais do setor avaliado. Foram considerados aspectos relacionados à organização do trabalho, relações interpessoais, demandas emocionais, liderança, reconhecimento, segurança ocupacional e bem-estar dos trabalhadores.",
+    "A presente avaliação psicossocial foi realizada por meio da aplicação do questionário COPSOQ (Copenhagen Psychosocial Questionnaire), instrumento internacionalmente validado para identificação de fatores psicossociais relacionados ao trabalho. A coleta de informações considerou os dados obtidos pelos questionários respondidos pelos colaboradores, complementados pela análise das condições organizacionais do setor avaliado, contemplando organização do trabalho, relações interpessoais, demandas emocionais, liderança, reconhecimento, segurança ocupacional e bem-estar dos trabalhadores.",
+  );
+  y = paragraph(
+    doc,
+    y,
+    "A classificação dos riscos psicossociais foi realizada mediante análise estatística das respostas obtidas nos questionários COPSOQ, considerando a frequência, intensidade e recorrência dos fatores identificados. Os resultados foram convertidos em indicadores quantitativos (escala 0–100) e classificados em níveis de risco Baixo (≤33), Moderado (34–66), Alto (67–84) e Crítico (≥85), conforme critérios de distribuição das pontuações e impacto potencial na saúde mental e organizacional dos trabalhadores.",
   );
   const complementos: string[] = [];
   if (ctx.entrevistas) complementos.push("Entrevistas individuais");
@@ -450,23 +499,24 @@ export function gerarRelatorioCopsoqPDF(
     y = paragraph(doc, y, "Métodos complementares utilizados: " + complementos.join("; ") + ".");
   }
 
-  // ── 4. Caracterização do trabalho
+  // ── 4. Caracterização do trabalho (sem "Quantidade de trabalhadores"; atividades consolidadas)
   y = section(doc, y, "4. Caracterização do Trabalho");
+  const ativConsolidadas = consolidarAtividades(ctx);
   const carac: [string, string][] = [];
   if (ctx.setor_nome) carac.push(["Setor avaliado", ctx.setor_nome]);
   if (ctx.funcoes?.length) carac.push(["Funções avaliadas", ctx.funcoes.join(", ")]);
-  if (ctx.numero_funcionarios) carac.push(["Quantidade de trabalhadores", String(ctx.numero_funcionarios)]);
   if (ctx.jornada_trabalho) carac.push(["Jornada de trabalho", ctx.jornada_trabalho]);
   if (ctx.escala) carac.push(["Escalas aplicadas", ctx.escala]);
   if (ctx.supervisao) carac.push(["Forma de supervisão", ctx.supervisao]);
-  if (ctx.atividades || ctx.descricao_ambiente)
-    carac.push(["Principais atividades", ctx.atividades || ctx.descricao_ambiente!]);
+  if (ativConsolidadas.length) {
+    carac.push(["Principais atividades", ativConsolidadas.map((a) => `• ${a}`).join("\n")]);
+  }
   if (carac.length) {
     autoTable(doc, {
       startY: y,
       body: carac,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 1.5 },
+      styles: { fontSize: 9, cellPadding: 1.5, valign: "top" },
       columnStyles: { 0: { fontStyle: "bold", cellWidth: 55, fillColor: [241, 245, 249] } },
       margin: { left: 10, right: 10 },
     });
@@ -475,39 +525,42 @@ export function gerarRelatorioCopsoqPDF(
     y = paragraph(doc, y, "Dados de caracterização não informados.");
   }
 
-  // ── 5. Gráficos e indicadores
+  // ── 5. Gráficos por categoria
   y = section(doc, y, "5. Gráficos e Indicadores COPSOQ");
-  // Gráfico 1 — distribuição
+  // Gráfico 1 — distribuição geral
   if (y + 60 > 285) { doc.addPage(); y = 32; }
   doc.setFontSize(9);
   doc.setFont("helvetica", "bold");
-  doc.text("Gráfico 1 — Distribuição geral dos riscos psicossociais", 10, y);
+  doc.text("Gráfico 1 — Distribuição geral dos riscos psicossociais (por nível)", 10, y);
   doc.setFont("helvetica", "normal");
-  drawBarChart(doc, 10, y + 2, pw - 20, 55, distribuicaoPorNivel(avaliacoes), Math.max(...distribuicaoPorNivel(avaliacoes).map((d) => d.value), 1));
+  const distrib = distribuicaoPorNivel(avaliacoes);
+  drawBarChartVertical(doc, 10, y + 2, pw - 20, 55, distrib, Math.max(...distrib.map((d) => d.value), 1));
   y += 62;
 
-  // Gráfico 2 — média por dimensão
-  if (y + 70 > 285) { doc.addPage(); y = 32; }
-  doc.setFont("helvetica", "bold");
-  doc.text("Gráfico 2 — Pontuação média por dimensão COPSOQ (0-100)", 10, y);
-  doc.setFont("helvetica", "normal");
-  const dimData = BLOCOS_COPSOQ.map((b) => {
-    const m = mediaDimensao(avaliacoes, b.key);
-    return { label: TITULOS_BLOCO[b.key] || b.titulo, value: m, cor: COR_NIVEL[classificar(m)] };
-  });
-  drawBarChart(doc, 10, y + 2, pw - 20, 65, dimData, 100);
-  y += 72;
+  // Gráficos 2..N — um por categoria
+  let gIdx = 2;
+  for (const cat of CATEGORIAS) {
+    const itens = cat.fatores.map((f) => ({ label: f.nome, value: mediaFator(avaliacoes, f) }));
+    const altura = 10 + itens.length * 7.5 + 4;
+    if (y + altura > 285) { doc.addPage(); y = 32; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.text(`Gráfico ${gIdx} — ${cat.categoria}`, 10, y);
+    doc.setFont("helvetica", "normal");
+    y = drawHorizontalBarChart(doc, 10, y + 3, pw - 20, itens) + 4;
+    gIdx++;
+  }
 
-  // ── 6. Fatores de risco
+  // ── 6. Fatores de risco identificados
   y = section(doc, y, "6. Identificação dos Fatores de Risco Psicossocial");
-  const fatores = identificarFatores(avaliacoes);
-  if (!Object.keys(fatores).length) {
+  const relevantes = identificarFatoresRelevantes(avaliacoes);
+  if (!Object.keys(relevantes).length) {
     y = paragraph(doc, y, "Não foram identificados fatores de risco psicossocial significativos nesta amostra.");
   } else {
-    for (const [cat, itens] of Object.entries(fatores)) {
+    for (const [cat, itens] of Object.entries(relevantes)) {
+      if (y > 280) { doc.addPage(); y = 32; }
       doc.setFont("helvetica", "bold");
       doc.setFontSize(10);
-      if (y > 280) { doc.addPage(); y = 32; }
       doc.text(cat, 10, y);
       y += 4;
       doc.setFont("helvetica", "normal");
@@ -521,45 +574,48 @@ export function gerarRelatorioCopsoqPDF(
     }
   }
 
-  // ── 7. Avaliação dos riscos
+  // ── 7. Avaliação dos riscos (TODOS os fatores)
   y = section(doc, y, "7. Avaliação dos Riscos");
   const tabela: any[] = [];
-  for (const b of BLOCOS_COPSOQ) {
-    const m = mediaDimensao(avaliacoes, b.key);
-    if (m <= 25) continue;
-    const cls = classificar(m);
-    const prob = m > 75 ? "Muito Alta" : m > 50 ? "Alta" : m > 25 ? "Média" : "Baixa";
-    const grav = cls === "Crítico" ? "Muito Alta" : cls === "Alto" ? "Alta" : cls === "Moderado" ? "Média" : "Baixa";
-    tabela.push([TITULOS_BLOCO[b.key] || b.titulo, `${ctx.setor_nome || "—"} / ${(ctx.funcoes || []).join(", ") || "—"}`, prob, grav, cls]);
+  for (const cat of CATEGORIAS) {
+    for (const f of cat.fatores) {
+      const m = mediaFator(avaliacoes, f);
+      const cls = classificar(m);
+      const prob = m >= 85 ? "Muito Alta" : m >= 67 ? "Alta" : m >= 34 ? "Média" : "Baixa";
+      const grav = cls === "Crítico" ? "Muito Alta" : cls === "Alto" ? "Alta" : cls === "Moderado" ? "Média" : "Baixa";
+      tabela.push([
+        `${cat.categoria} — ${f.nome}`,
+        `${ctx.setor_nome || "—"} / ${(ctx.funcoes || []).join(", ") || "—"}`,
+        prob,
+        grav,
+        cls,
+      ]);
+    }
   }
-  if (!tabela.length) {
-    y = paragraph(doc, y, "Nenhum risco psicossocial classificado acima de Baixo.");
-  } else {
-    autoTable(doc, {
-      startY: y,
-      head: [["Fator de Risco", "Setor / Função Exposta", "Probabilidade", "Gravidade", "Nível de Risco"]],
-      body: tabela,
-      theme: "grid",
-      styles: { fontSize: 9, cellPadding: 1.8 },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-      didParseCell: (data) => {
-        if (data.section === "body" && data.column.index === 4) {
-          const cor = COR_NIVEL[String(data.cell.raw)];
-          if (cor) {
-            data.cell.styles.fillColor = cor;
-            data.cell.styles.textColor = [255, 255, 255];
-            data.cell.styles.fontStyle = "bold";
-          }
+  autoTable(doc, {
+    startY: y,
+    head: [["Fator de Risco", "Setor / Função Exposta", "Probabilidade", "Gravidade", "Nível de Risco"]],
+    body: tabela,
+    theme: "grid",
+    styles: { fontSize: 8.5, cellPadding: 1.6, valign: "top" },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+    didParseCell: (data) => {
+      if (data.section === "body" && data.column.index === 4) {
+        const cor = COR_NIVEL[String(data.cell.raw)];
+        if (cor) {
+          data.cell.styles.fillColor = cor;
+          data.cell.styles.textColor = [255, 255, 255];
+          data.cell.styles.fontStyle = "bold";
         }
-      },
-      margin: { left: 10, right: 10 },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+      }
+    },
+    margin: { left: 10, right: 10 },
+  });
+  y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 8. Análise técnica
+  // ── 8. Análise técnica (sem "Tendências Identificadas")
   y = section(doc, y, "8. Resultados e Análise");
-  for (const p of buildAnaliseTecnica(avaliacoes)) {
+  for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
     y = paragraph(doc, y, p);
   }
 
@@ -571,7 +627,7 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "10. Plano de Ação");
   const plano = buildPlanoAcao(avaliacoes);
   if (!plano.length) {
-    y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se a manutenção das boas práticas vigentes e a reavaliação periódica.");
+    y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se manutenção das boas práticas e reavaliação periódica.");
   } else {
     autoTable(doc, {
       startY: y,
@@ -595,12 +651,7 @@ export function gerarRelatorioCopsoqPDF(
   if (ctx.cargo_responsavel || ctx.crea) {
     doc.setFontSize(8);
     doc.setTextColor(80);
-    doc.text(
-      `${ctx.cargo_responsavel || ""}${ctx.crea ? "  •  " + ctx.crea : ""}`,
-      105,
-      y + 8,
-      { align: "center" },
-    );
+    doc.text(`${ctx.cargo_responsavel || ""}${ctx.crea ? "  •  " + ctx.crea : ""}`, 105, y + 8, { align: "center" });
   }
 
   addFooter(doc);

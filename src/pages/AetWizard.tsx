@@ -328,7 +328,7 @@ export default function AetWizard() {
     queryFn: async () => {
       const ids = setoresAet.map((s) => s.setor_id);
       if (ids.length === 0) return [];
-      const { data, error } = await supabase.from("funcoes").select("id,nome_funcao,setor_id").in("setor_id", ids);
+      const { data, error } = await supabase.from("funcoes").select("id,nome_funcao,setor_id,descricao_atividades").in("setor_id", ids);
       if (error) throw error;
       return data;
     },
@@ -1446,7 +1446,12 @@ export default function AetWizard() {
             jornada_trabalho: (empresaSelecionada as any)?.jornada_trabalho,
             atividades: setor.descricao_atividade || setor.tarefas,
             supervisao: setor.analise_organizacional,
-            numero_funcionarios: setor.numero_funcionarios,
+            atividades_funcoes: (setor.funcoes_selecionadas || [])
+              .map((fs: any) => {
+                const f: any = (funcoesAll as any[]).find((x) => x.id === fs.id);
+                return f?.descricao_atividades || "";
+              })
+              .filter(Boolean),
             responsavel: responsavelTecnico,
             cargo_responsavel: cargo,
             crea,
