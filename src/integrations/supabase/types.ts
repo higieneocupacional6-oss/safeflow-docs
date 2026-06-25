@@ -1530,6 +1530,139 @@ export type Database = {
         }
         Relationships: []
       }
+      psico_links: {
+        Row: {
+          ativo: boolean
+          created_at: string
+          created_by: string | null
+          empresa_id: string
+          id: string
+          token: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          empresa_id: string
+          id?: string
+          token?: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          created_at?: string
+          created_by?: string | null
+          empresa_id?: string
+          id?: string
+          token?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psico_links_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psico_respostas: {
+        Row: {
+          alertas: Json
+          blocos: Json
+          colaborador_nome: string | null
+          contrato_id: string | null
+          contrato_nome: string | null
+          copsoq_resultado_resumido: string | null
+          copsoq_riscos_identificados: string | null
+          created_at: string
+          data_avaliacao: string
+          empresa_id: string
+          funcao_id: string | null
+          funcao_nome: string
+          id: string
+          link_id: string
+          respostas: Json
+          resultado_psicossocial: string | null
+          riscos_psicossociais: string | null
+          total_negativas: number | null
+          total_positivas: number | null
+        }
+        Insert: {
+          alertas?: Json
+          blocos?: Json
+          colaborador_nome?: string | null
+          contrato_id?: string | null
+          contrato_nome?: string | null
+          copsoq_resultado_resumido?: string | null
+          copsoq_riscos_identificados?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          empresa_id: string
+          funcao_id?: string | null
+          funcao_nome: string
+          id?: string
+          link_id: string
+          respostas?: Json
+          resultado_psicossocial?: string | null
+          riscos_psicossociais?: string | null
+          total_negativas?: number | null
+          total_positivas?: number | null
+        }
+        Update: {
+          alertas?: Json
+          blocos?: Json
+          colaborador_nome?: string | null
+          contrato_id?: string | null
+          contrato_nome?: string | null
+          copsoq_resultado_resumido?: string | null
+          copsoq_riscos_identificados?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          empresa_id?: string
+          funcao_id?: string | null
+          funcao_nome?: string
+          id?: string
+          link_id?: string
+          respostas?: Json
+          resultado_psicossocial?: string | null
+          riscos_psicossociais?: string | null
+          total_negativas?: number | null
+          total_positivas?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psico_respostas_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psico_respostas_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psico_respostas_funcao_id_fkey"
+            columns: ["funcao_id"]
+            isOneToOne: false
+            referencedRelation: "funcoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psico_respostas_link_id_fkey"
+            columns: ["link_id"]
+            isOneToOne: false
+            referencedRelation: "psico_links"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       riscos: {
         Row: {
           codigo_esocial: string | null
@@ -1766,6 +1899,11 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      psico_get_public_link: { Args: { _token: string }; Returns: Json }
+      psico_submit_resposta: {
+        Args: { _payload: Json; _token: string }
+        Returns: Json
       }
     }
     Enums: {
