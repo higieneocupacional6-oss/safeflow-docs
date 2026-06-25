@@ -162,9 +162,14 @@ export default function Templates() {
         title="Templates"
         description="Gerencie templates de documentos com variáveis dinâmicas"
         actions={
-          <Button onClick={() => setOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Novo Template
-          </Button>
+          <div className="flex gap-2">
+            <a href="/templates/avaliacoes-psicossociais">
+              <Button variant="outline">Avaliações Psicossociais</Button>
+            </a>
+            <Button onClick={() => setOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
+              <Plus className="w-4 h-4 mr-2" />Novo Template
+            </Button>
+          </div>
         }
       />
 
