@@ -391,9 +391,9 @@ export default function AetWizard() {
           }));
           // Merge automático de respostas psicossociais vinculadas (módulo Templates público)
           try {
-            const funcaoIds = Array.from(new Set(
+            const funcaoIds: string[] = Array.from(new Set(
               loadedSetores.flatMap((s: any) =>
-                (s.funcoes_selecionadas || []).map((f: any) => f.id).filter(Boolean)
+                (s.funcoes_selecionadas || []).map((f: any) => f.id).filter(Boolean) as string[]
               )
             ));
             if (funcaoIds.length > 0) {
