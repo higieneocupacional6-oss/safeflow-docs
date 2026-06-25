@@ -313,11 +313,14 @@ export function PsicossocialModal({
   onOpenChange,
   avaliacoes,
   onChange,
+  relatorioContext,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   avaliacoes: AvaliacaoPsicossocial[];
   onChange: (a: AvaliacaoPsicossocial[]) => void;
+  /** Contexto opcional para geração do Relatório Psicossocial Geral em PDF. */
+  relatorioContext?: import("@/lib/copsoqRelatorio").RelatorioContext;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
