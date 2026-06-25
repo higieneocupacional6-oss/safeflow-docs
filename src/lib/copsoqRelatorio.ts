@@ -428,13 +428,26 @@ function section(doc: jsPDF, y: number, titulo: string): number {
   return y + 12;
 }
 
-function paragraph(doc: jsPDF, y: number, txt: string, size = 10): number {
+function paragraph(doc: jsPDF, y: number, txt: string, size = 10, justify = true): number {
+  doc.setFont("helvetica", "normal");
   doc.setFontSize(size);
   doc.setTextColor(40);
-  const split = doc.splitTextToSize(txt, 190);
-  if (y + split.length * 4.5 > 285) { doc.addPage(); y = 32; }
-  doc.text(split, 10, y);
-  return y + split.length * 4.5 + 2;
+  const maxW = 190;
+  const lineH = size * 0.45 + 1.2;
+  const split: string[] = doc.splitTextToSize(txt, maxW);
+  let cy = y;
+  for (let i = 0; i < split.length; i++) {
+    if (cy + lineH > 285) { doc.addPage(); cy = 32; }
+    const line = split[i];
+    const isLast = i === split.length - 1 || /[\n]$/.test(line);
+    if (justify && !isLast && line.trim().split(/\s+/).length > 1) {
+      doc.text(line, 10, cy, { align: "justify", maxWidth: maxW });
+    } else {
+      doc.text(line, 10, cy);
+    }
+    cy += lineH;
+  }
+  return cy + 2;
 }
 
 export function gerarRelatorioCopsoqPDF(
