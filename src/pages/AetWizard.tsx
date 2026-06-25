@@ -328,7 +328,7 @@ export default function AetWizard() {
     queryFn: async () => {
       const ids = setoresAet.map((s) => s.setor_id);
       if (ids.length === 0) return [];
-      const { data, error } = await supabase.from("funcoes").select("id,nome_funcao,setor_id").in("setor_id", ids);
+      const { data, error } = await supabase.from("funcoes").select("id,nome_funcao,setor_id,descricao_atividades").in("setor_id", ids);
       if (error) throw error;
       return data;
     },
