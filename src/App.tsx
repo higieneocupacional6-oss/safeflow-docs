@@ -22,6 +22,8 @@ import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
 import ControleDocumentos from "./pages/ControleDocumentos";
 import Notificacoes from "./pages/Notificacoes";
+import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
+import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -46,11 +48,13 @@ const App = () => (
         <AuthProvider>
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/empresas" element={<Protected><Empresas /></Protected>} />
             <Route path="/empresas-contratos" element={<Protected><EmpresasContratos /></Protected>} />
             <Route path="/cadastros" element={<Protected><Cadastros /></Protected>} />
             <Route path="/templates" element={<Protected><Templates /></Protected>} />
+            <Route path="/templates/avaliacoes-psicossociais" element={<Protected><TemplatesPsicossociais /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
             <Route path="/documentos/controle" element={<Protected><ControleDocumentos /></Protected>} />

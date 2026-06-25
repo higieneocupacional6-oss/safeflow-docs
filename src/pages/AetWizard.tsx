@@ -389,6 +389,46 @@ export default function AetWizard() {
             plano_acao: s.plano_acao || [],
             avaliacoes_psicossociais: s.avaliacoes_psicossociais || [],
           }));
+          // Merge automático de respostas psicossociais vinculadas (módulo Templates público)
+          try {
+            const funcaoIds: string[] = Array.from(new Set(
+              loadedSetores.flatMap((s: any) =>
+                (s.funcoes_selecionadas || []).map((f: any) => f.id).filter(Boolean) as string[]
+              )
+            ));
+            if (funcaoIds.length > 0) {
+              const { data: vinc } = await supabase
+                .from("psico_respostas")
+                .select("*")
+                .in("funcao_id", funcaoIds);
+              if (vinc && vinc.length > 0) {
+                loadedSetores.forEach((s: any) => {
+                  const fids = (s.funcoes_selecionadas || []).map((f: any) => f.id);
+                  const novas = (vinc as any[])
+                    .filter((r) => fids.includes(r.funcao_id))
+                    .map((r) => ({
+                      colaborador_nome: r.colaborador_nome || "Anônimo",
+                      data_avaliacao: r.data_avaliacao || "",
+                      respostas: r.respostas || {},
+                      blocos: r.blocos || {},
+                      alertas: r.alertas || { alerta_amarelo: false, alerta_vermelho: false, recomendacao_imediata: false },
+                      resultado_psicossocial: r.resultado_psicossocial || "",
+                      riscos_psicossociais: r.riscos_psicossociais || "",
+                      total_positivas: r.total_positivas || 0,
+                      total_negativas: r.total_negativas || 0,
+                      copsoq_resultado_resumido: r.copsoq_resultado_resumido || "",
+                      copsoq_riscos_identificados: r.copsoq_riscos_identificados || "",
+                    }));
+                  const existentes = s.avaliacoes_psicossociais || [];
+                  const chaves = new Set(existentes.map((a: any) => `${a.colaborador_nome}|${a.data_avaliacao}`));
+                  const adicionar = novas.filter((n: any) => !chaves.has(`${n.colaborador_nome}|${n.data_avaliacao}`));
+                  s.avaliacoes_psicossociais = [...existentes, ...adicionar];
+                });
+              }
+            }
+          } catch (mergeErr) {
+            console.warn("[AET] merge psico vinculadas:", mergeErr);
+          }
           setSetoresAet(loadedSetores);
         }
       } catch (e: any) {
