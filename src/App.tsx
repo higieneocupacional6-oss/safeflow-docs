@@ -22,6 +22,8 @@ import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
 import ControleDocumentos from "./pages/ControleDocumentos";
 import Notificacoes from "./pages/Notificacoes";
+import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
+import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
 
 const queryClient = new QueryClient({
   defaultOptions: {
