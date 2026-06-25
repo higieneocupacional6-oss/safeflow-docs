@@ -313,11 +313,14 @@ export function PsicossocialModal({
   onOpenChange,
   avaliacoes,
   onChange,
+  relatorioContext,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   avaliacoes: AvaliacaoPsicossocial[];
   onChange: (a: AvaliacaoPsicossocial[]) => void;
+  /** Contexto opcional para geração do Relatório Psicossocial Geral em PDF. */
+  relatorioContext?: import("@/lib/copsoqRelatorio").RelatorioContext;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
@@ -376,35 +379,22 @@ export function PsicossocialModal({
     setEditingIdx(idx);
   };
 
-  const handleRelatorio = () => {
-    const txt = [
-      `RELATÓRIO PSICOSSOCIAL — ${computed.colaborador_nome || "Colaborador"}`,
-      `Data: ${computed.data_avaliacao || "—"}`,
-      ``,
-      `RESULTADO:`,
-      computed.resultado_psicossocial,
-      ``,
-      `RISCOS IDENTIFICADOS:`,
-      computed.riscos_psicossociais,
-      ``,
-      `BLOCOS:`,
-      ...BLOCOS_COPSOQ.map((b) => {
-        const r = computed.blocos[b.key];
-        return `- ${b.titulo}: média ${r?.media ?? 0} (${r?.classificacao ?? "—"})`;
-      }),
-      ``,
-      `ALERTAS:`,
-      `- Alerta amarelo: ${computed.alertas.alerta_amarelo ? "SIM" : "Não"}`,
-      `- Alerta vermelho: ${computed.alertas.alerta_vermelho ? "SIM" : "Não"}`,
-      `- Recomendação imediata: ${computed.alertas.recomendacao_imediata ? "SIM" : "Não"}`,
-    ].join("\n");
-    const blob = new Blob([txt], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `psicossocial_${(computed.colaborador_nome || "colab").replace(/\s+/g, "_")}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+  const handleRelatorio = async () => {
+    try {
+      const lista = avaliacoes.length > 0
+        ? avaliacoes.map((a) => calcularPsicossocial(a))
+        : [calcularPsicossocial(draft)];
+      if (lista.length === 0) {
+        toast.error("Não há avaliações para gerar o relatório.");
+        return;
+      }
+      const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
+      gerarRelatorioCopsoqPDF(lista, relatorioContext || {});
+      toast.success("Relatório Psicossocial Geral gerado em PDF");
+    } catch (e: any) {
+      console.error(e);
+      toast.error("Erro ao gerar relatório: " + (e?.message || ""));
+    }
   };
 
   return (
@@ -550,7 +540,7 @@ export function PsicossocialModal({
         </div>
 
         <DialogFooter className="gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleRelatorio} disabled={!allAnswered}>
+          <Button variant="outline" onClick={handleRelatorio} disabled={avaliacoes.length === 0 && !allAnswered}>
             <FileDown className="w-4 h-4 mr-2" />Gerar Relatório
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">

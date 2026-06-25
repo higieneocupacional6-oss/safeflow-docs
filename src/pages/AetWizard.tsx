@@ -1435,6 +1435,25 @@ export default function AetWizard() {
           onOpenChange={setPsicoOpen}
           avaliacoes={setor.avaliacoes_psicossociais}
           onChange={(a) => updateSetor(editingSetorIdx, { avaliacoes_psicossociais: a })}
+          relatorioContext={{
+            empresa_nome: empresaSelecionada?.razao_social || empresaNome,
+            cnpj: empresaSelecionada?.cnpj,
+            contrato_numero: (contratosEmpresa.find((c: any) => c.id === contratoId) as any)?.numero_contrato,
+            setor_nome: setor.setor_nome,
+            ges: setor.ges,
+            descricao_ambiente: setor.descricao_ambiente,
+            funcoes: (setor.funcoes_selecionadas || []).map((f) => f.nome).filter(Boolean),
+            jornada_trabalho: (empresaSelecionada as any)?.jornada_trabalho,
+            atividades: setor.descricao_atividade || setor.tarefas,
+            supervisao: setor.analise_organizacional,
+            numero_funcionarios: setor.numero_funcionarios,
+            responsavel: responsavelTecnico,
+            cargo_responsavel: cargo,
+            crea,
+            data_elaboracao: dataElaboracao
+              ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
+              : "",
+          }}
         />
       </div>
     );
