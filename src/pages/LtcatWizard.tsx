@@ -1973,20 +1973,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           "";
 
         // Equipamentos da avaliação (mapeados uma vez por risco/agente)
-        const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
-          agente_nome: eq.agente_nome || r.agente_nome || "",
-          nome: eq.nome_equipamento || "",
-          nome_equipamento: eq.nome_equipamento || "",
-          numero_serie: eq.serie_equipamento || "",
-          serie_equipamento: eq.serie_equipamento || "",
-          marca_modelo: eq.modelo_equipamento || "",
-          modelo_equipamento: eq.modelo_equipamento || "",
-          data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
-          data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
-        })))(first);
+        // 🛡️ DEDUP: mesmo equipamento (nome+série) só aparece UMA vez por risco/setor,
+        // mesmo que esteja vinculado a múltiplas avaliações/itens. Evita repetições no DOCX.
+        const equipamentosAvaliacaoLoop = (() => {
+          const seenEq = new Set<string>();
+          const all: any[] = [];
+          agentEntries.forEach((r: any) => {
+            (r.equipamentos_avaliacao || []).forEach((eq: any) => {
+              const nome = eq.nome_equipamento || "";
+              const serie = eq.serie_equipamento || "";
+              const key = `${nome}|${serie}`;
+              if (!nome && !serie) return;
+              if (seenEq.has(key)) return;
+              seenEq.add(key);
+              all.push({
+                agente_nome: eq.agente_nome || r.agente_nome || "",
+                nome,
+                nome_equipamento: nome,
+                numero_serie: serie,
+                serie_equipamento: serie,
+                marca_modelo: eq.modelo_equipamento || "",
+                modelo_equipamento: eq.modelo_equipamento || "",
+                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
+                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+              });
+            });
+          });
+          return all;
+        })();
         if (equipamentosAvaliacaoLoop.length > 0) {
           console.log(`🔧 [LTCAT] EQUIPAMENTOS (${first.agente_nome}):`, equipamentosAvaliacaoLoop);
         }
+
 
         // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
         const enrichWithFuncao = (av: any, funcaoId: string) => {
