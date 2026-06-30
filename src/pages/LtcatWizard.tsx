@@ -730,6 +730,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     enabled: !!empresaId,
   });
 
+  // Detalhe COMPLETO do contrato selecionado — usado para popular variáveis do template
+  // (campos de contrato vivem em `contratos`, não mais em `empresas`).
+  const { data: contratoSelecionado = null } = useQuery({
+    queryKey: ["contrato-detalhe", contratoId],
+    queryFn: async () => {
+      if (!contratoId) return null;
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("*")
+        .eq("id", contratoId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!contratoId,
+  });
+
+
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = usePersistedState<any>(PK("currentRiskSetor"), null);
 
