@@ -1920,6 +1920,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const activeSectors = sortByGes(setores.filter((s: any) => activeSectorIds.has(s.id)))
       .map((s: any) => s.id);
     const empresa = empresas.find((e: any) => e.id === empresaId);
+    const contrato: any = contratoSelecionado || {};
+    // Helper: prioriza contrato; cai para empresa quando contrato não tiver o valor (legado).
+    const cf = (key: string) => (contrato as any)?.[key] ?? (empresa as any)?.[key] ?? "";
+    const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
       return cachedPareceres.find(p =>
