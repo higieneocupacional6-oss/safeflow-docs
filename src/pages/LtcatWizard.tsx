@@ -2472,8 +2472,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nome_setor: sector?.nome_setor || "Setor",
         ghe_ges: sector?.ghe_ges || "",
         descricao_ambiente: sector?.descricao_ambiente || "",
-        local_trabalho: empresa?.local_trabalho || "",
-        jornada_trabalho: empresa?.jornada_trabalho || "",
+        local_trabalho: cf("local_trabalho"),
+        jornada_trabalho: cf("jornada_trabalho"),
+
         funcoes_ges: funcoesGesSetor,
         funcoes: sectorFuncoes,
         riscos: riscosLoop
