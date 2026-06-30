@@ -730,6 +730,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     enabled: !!empresaId,
   });
 
+  // Detalhe COMPLETO do contrato selecionado — usado para popular variáveis do template
+  // (campos de contrato vivem em `contratos`, não mais em `empresas`).
+  const { data: contratoSelecionado = null } = useQuery({
+    queryKey: ["contrato-detalhe", contratoId],
+    queryFn: async () => {
+      if (!contratoId) return null;
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("*")
+        .eq("id", contratoId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!contratoId,
+  });
+
+
   // Step 2
   const [currentRiskSetor, setCurrentRiskSetor] = usePersistedState<any>(PK("currentRiskSetor"), null);
 
@@ -1902,6 +1920,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const activeSectors = sortByGes(setores.filter((s: any) => activeSectorIds.has(s.id)))
       .map((s: any) => s.id);
     const empresa = empresas.find((e: any) => e.id === empresaId);
+    const contrato: any = contratoSelecionado || {};
+    // Helper: prioriza contrato; cai para empresa quando contrato não tiver o valor (legado).
+    const cf = (key: string) => (contrato as any)?.[key] ?? (empresa as any)?.[key] ?? "";
+    const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
       return cachedPareceres.find(p =>
@@ -1950,20 +1973,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           "";
 
         // Equipamentos da avaliação (mapeados uma vez por risco/agente)
-        const equipamentosAvaliacaoLoop = (r => (r.equipamentos_avaliacao || []).map((eq: any) => ({
-          agente_nome: eq.agente_nome || r.agente_nome || "",
-          nome: eq.nome_equipamento || "",
-          nome_equipamento: eq.nome_equipamento || "",
-          numero_serie: eq.serie_equipamento || "",
-          serie_equipamento: eq.serie_equipamento || "",
-          marca_modelo: eq.modelo_equipamento || "",
-          modelo_equipamento: eq.modelo_equipamento || "",
-          data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
-          data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
-        })))(first);
+        // 🛡️ DEDUP: mesmo equipamento (nome+série) só aparece UMA vez por risco/setor,
+        // mesmo que esteja vinculado a múltiplas avaliações/itens. Evita repetições no DOCX.
+        const equipamentosAvaliacaoLoop = (() => {
+          const seenEq = new Set<string>();
+          const all: any[] = [];
+          agentEntries.forEach((r: any) => {
+            (r.equipamentos_avaliacao || []).forEach((eq: any) => {
+              const nome = eq.nome_equipamento || "";
+              const serie = eq.serie_equipamento || "";
+              const key = `${nome}|${serie}`;
+              if (!nome && !serie) return;
+              if (seenEq.has(key)) return;
+              seenEq.add(key);
+              all.push({
+                agente_nome: eq.agente_nome || r.agente_nome || "",
+                nome,
+                nome_equipamento: nome,
+                numero_serie: serie,
+                serie_equipamento: serie,
+                marca_modelo: eq.modelo_equipamento || "",
+                modelo_equipamento: eq.modelo_equipamento || "",
+                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
+                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+              });
+            });
+          });
+          return all;
+        })();
         if (equipamentosAvaliacaoLoop.length > 0) {
           console.log(`🔧 [LTCAT] EQUIPAMENTOS (${first.agente_nome}):`, equipamentosAvaliacaoLoop);
         }
+
 
         // Helper para enriquecer avaliacao com dados da função (CBO, descrição) e equipamentos
         const enrichWithFuncao = (av: any, funcaoId: string) => {
@@ -2449,8 +2490,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nome_setor: sector?.nome_setor || "Setor",
         ghe_ges: sector?.ghe_ges || "",
         descricao_ambiente: sector?.descricao_ambiente || "",
-        local_trabalho: empresa?.local_trabalho || "",
-        jornada_trabalho: empresa?.jornada_trabalho || "",
+        local_trabalho: cf("local_trabalho"),
+        jornada_trabalho: cf("jornada_trabalho"),
+
         funcoes_ges: funcoesGesSetor,
         funcoes: sectorFuncoes,
         riscos: riscosLoop
@@ -2586,30 +2628,31 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       cnae: empresa?.cnae_principal || "",
       grau_risco: empresa?.grau_risco || "",
       endereco: empresa?.endereco || "",
-      numero_funcionarios_fem: empresa?.numero_funcionarios_fem?.toString() || "0",
-      numero_funcionarios_masc: empresa?.numero_funcionarios_masc?.toString() || "0",
-      total_funcionarios: empresa?.total_funcionarios?.toString() || "0",
-      jornada_trabalho: empresa?.jornada_trabalho || "",
-      local_trabalho: empresa?.local_trabalho || "",
+      numero_funcionarios_fem: (contrato?.numero_funcionarios_fem ?? empresa?.numero_funcionarios_fem ?? 0).toString(),
+      numero_funcionarios_masc: (contrato?.numero_funcionarios_masc ?? empresa?.numero_funcionarios_masc ?? 0).toString(),
+      total_funcionarios: (contrato?.total_funcionarios ?? empresa?.total_funcionarios ?? 0).toString(),
+      jornada_trabalho: cf("jornada_trabalho"),
+      local_trabalho: cf("local_trabalho"),
 
-      // Contrato
-      numero_contrato: empresa?.numero_contrato || "",
-      cnpj_contratante: empresa?.cnpj_contratante || "",
-      nome_contratante: empresa?.nome_contratante || "",
-      vigencia_inicio: empresa?.vigencia_inicio ? new Date(empresa.vigencia_inicio).toLocaleDateString("pt-BR") : "",
-      vigencia_fim: empresa?.vigencia_fim ? new Date(empresa.vigencia_fim).toLocaleDateString("pt-BR") : "",
-      escopo_contrato: empresa?.escopo_contrato || "",
+      // Contrato (lidos da tabela `contratos`; fallback para `empresas` por compatibilidade)
+      numero_contrato: cf("numero_contrato"),
+      cnpj_contratante: cf("cnpj_contratante"),
+      nome_contratante: cf("nome_contratante"),
+      vigencia_inicio: fmtDate(contrato?.vigencia_inicio || empresa?.vigencia_inicio),
+      vigencia_fim: fmtDate(contrato?.vigencia_fim || empresa?.vigencia_fim),
+      escopo_contrato: cf("escopo_contrato"),
 
-      // Responsáveis (campos simples da empresa)
-      gestor_nome: empresa?.gestor_nome || "",
-      gestor_email: empresa?.gestor_email || "",
-      gestor_telefone: empresa?.gestor_telefone || "",
-      fiscal_nome: empresa?.fiscal_nome || "",
-      fiscal_email: empresa?.fiscal_email || "",
-      fiscal_telefone: empresa?.fiscal_telefone || "",
-      preposto_nome: empresa?.preposto_nome || "",
-      preposto_email: empresa?.preposto_email || "",
-      preposto_telefone: empresa?.preposto_telefone || "",
+      // Responsáveis
+      gestor_nome: cf("gestor_nome"),
+      gestor_email: cf("gestor_email"),
+      gestor_telefone: cf("gestor_telefone"),
+      fiscal_nome: cf("fiscal_nome"),
+      fiscal_email: cf("fiscal_email"),
+      fiscal_telefone: cf("fiscal_telefone"),
+      preposto_nome: cf("preposto_nome"),
+      preposto_email: cf("preposto_email"),
+      preposto_telefone: cf("preposto_telefone"),
+
 
       // Documento
       responsavel,
