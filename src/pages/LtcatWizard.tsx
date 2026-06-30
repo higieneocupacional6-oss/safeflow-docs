@@ -2610,30 +2610,31 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       cnae: empresa?.cnae_principal || "",
       grau_risco: empresa?.grau_risco || "",
       endereco: empresa?.endereco || "",
-      numero_funcionarios_fem: empresa?.numero_funcionarios_fem?.toString() || "0",
-      numero_funcionarios_masc: empresa?.numero_funcionarios_masc?.toString() || "0",
-      total_funcionarios: empresa?.total_funcionarios?.toString() || "0",
-      jornada_trabalho: empresa?.jornada_trabalho || "",
-      local_trabalho: empresa?.local_trabalho || "",
+      numero_funcionarios_fem: (contrato?.numero_funcionarios_fem ?? empresa?.numero_funcionarios_fem ?? 0).toString(),
+      numero_funcionarios_masc: (contrato?.numero_funcionarios_masc ?? empresa?.numero_funcionarios_masc ?? 0).toString(),
+      total_funcionarios: (contrato?.total_funcionarios ?? empresa?.total_funcionarios ?? 0).toString(),
+      jornada_trabalho: cf("jornada_trabalho"),
+      local_trabalho: cf("local_trabalho"),
 
-      // Contrato
-      numero_contrato: empresa?.numero_contrato || "",
-      cnpj_contratante: empresa?.cnpj_contratante || "",
-      nome_contratante: empresa?.nome_contratante || "",
-      vigencia_inicio: empresa?.vigencia_inicio ? new Date(empresa.vigencia_inicio).toLocaleDateString("pt-BR") : "",
-      vigencia_fim: empresa?.vigencia_fim ? new Date(empresa.vigencia_fim).toLocaleDateString("pt-BR") : "",
-      escopo_contrato: empresa?.escopo_contrato || "",
+      // Contrato (lidos da tabela `contratos`; fallback para `empresas` por compatibilidade)
+      numero_contrato: cf("numero_contrato"),
+      cnpj_contratante: cf("cnpj_contratante"),
+      nome_contratante: cf("nome_contratante"),
+      vigencia_inicio: fmtDate(contrato?.vigencia_inicio || empresa?.vigencia_inicio),
+      vigencia_fim: fmtDate(contrato?.vigencia_fim || empresa?.vigencia_fim),
+      escopo_contrato: cf("escopo_contrato"),
 
-      // Responsáveis (campos simples da empresa)
-      gestor_nome: empresa?.gestor_nome || "",
-      gestor_email: empresa?.gestor_email || "",
-      gestor_telefone: empresa?.gestor_telefone || "",
-      fiscal_nome: empresa?.fiscal_nome || "",
-      fiscal_email: empresa?.fiscal_email || "",
-      fiscal_telefone: empresa?.fiscal_telefone || "",
-      preposto_nome: empresa?.preposto_nome || "",
-      preposto_email: empresa?.preposto_email || "",
-      preposto_telefone: empresa?.preposto_telefone || "",
+      // Responsáveis
+      gestor_nome: cf("gestor_nome"),
+      gestor_email: cf("gestor_email"),
+      gestor_telefone: cf("gestor_telefone"),
+      fiscal_nome: cf("fiscal_nome"),
+      fiscal_email: cf("fiscal_email"),
+      fiscal_telefone: cf("fiscal_telefone"),
+      preposto_nome: cf("preposto_nome"),
+      preposto_email: cf("preposto_email"),
+      preposto_telefone: cf("preposto_telefone"),
+
 
       // Documento
       responsavel,
