@@ -18,6 +18,7 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
