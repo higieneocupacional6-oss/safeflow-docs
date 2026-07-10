@@ -651,6 +651,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [riskToDeleteItems, setRiskToDeleteItems] = useState<RiscoEntry | null>(null);
   const [selectedItemsToDelete, setSelectedItemsToDelete] = useState<string[]>([]);
 
+  // Copiar riscos de outro setor → setor atual (cópia independente).
+  const [copyRiscosTarget, setCopyRiscosTarget] = useState<any | null>(null);
+  const [copyRiscosSources, setCopyRiscosSources] = useState<string[]>([]);
+
   // (Parecer Técnico agora é preenchido exclusivamente na Seção 7 do modal de risco)
 
   // Step 1
