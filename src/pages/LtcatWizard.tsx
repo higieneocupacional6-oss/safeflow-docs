@@ -6951,8 +6951,120 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   </>
                 );
               })()}
-            </DialogContent>
-          </Dialog>
-        </div>
-      );
-    }
+          </DialogContent>
+        </Dialog>
+
+        {/* Modal: Copiar riscos de outro setor para o setor atual */}
+        <Dialog open={!!copyRiscosTarget} onOpenChange={(o) => { if (!o) setCopyRiscosTarget(null); }}>
+          <DialogContent className="sm:max-w-lg">
+            <DialogHeader>
+              <DialogTitle>
+                Copiar riscos para: {copyRiscosTarget?.nome_setor}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="py-2 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Selecione os setores de origem. Todos os riscos, agentes, avaliações,
+                equipamentos, EPI/EPC, medições e pareceres serão copiados como
+                registros novos e independentes.
+              </p>
+              {(() => {
+                const setoresComRiscos = (setores as any[]).filter((s) =>
+                  s.id !== copyRiscosTarget?.id &&
+                  riscos.some((r) => r.setor_id === s.id)
+                );
+                if (setoresComRiscos.length === 0) {
+                  return (
+                    <div className="text-sm text-muted-foreground italic p-4 border border-dashed rounded-lg text-center">
+                      Nenhum outro setor com riscos cadastrados.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="max-h-80 overflow-auto border rounded-lg divide-y">
+                    {setoresComRiscos.map((s) => {
+                      const checked = copyRiscosSources.includes(s.id);
+                      const qtd = riscos.filter((r) => r.setor_id === s.id).length;
+                      return (
+                        <label
+                          key={s.id}
+                          className="flex items-center gap-3 p-3 cursor-pointer hover:bg-muted/40"
+                        >
+                          <input
+                            type="checkbox"
+                            checked={checked}
+                            onChange={(e) => {
+                              setCopyRiscosSources((prev) =>
+                                e.target.checked
+                                  ? [...prev, s.id]
+                                  : prev.filter((x) => x !== s.id)
+                              );
+                            }}
+                            className="h-4 w-4 accent-primary"
+                          />
+                          <div className="flex-1">
+                            <div className="font-medium text-sm uppercase">{s.nome_setor}</div>
+                            {s.ghe_ges && (
+                              <div className="text-[11px] text-muted-foreground">GHE/GES: {s.ghe_ges}</div>
+                            )}
+                          </div>
+                          <Badge variant="outline" className="text-[10px]">{qtd} risco(s)</Badge>
+                        </label>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCopyRiscosTarget(null)}>
+                Cancelar
+              </Button>
+              <Button
+                disabled={copyRiscosSources.length === 0 || !copyRiscosTarget}
+                onClick={() => {
+                  const target = copyRiscosTarget;
+                  if (!target) return;
+                  const source = riscos.filter((r) => copyRiscosSources.includes(r.setor_id));
+                  if (source.length === 0) {
+                    toast.info("Nenhum risco encontrado nos setores selecionados");
+                    return;
+                  }
+                  const clones: RiscoEntry[] = source.map((r) => {
+                    // Deep clone independente + novos IDs em toda subestrutura.
+                    const cloned = JSON.parse(JSON.stringify(r)) as RiscoEntry;
+                    cloned.id = crypto.randomUUID();
+                    cloned.setor_id = target.id;
+                    cloned.setor_nome = target.nome_setor;
+                    cloned.items = (cloned.items || []).map((it) => ({
+                      ...it,
+                      id: crypto.randomUUID(),
+                    }));
+                    const reid = (arr?: any[]) =>
+                      Array.isArray(arr)
+                        ? arr.map((x) => ({ ...x, id: crypto.randomUUID() }))
+                        : arr;
+                    cloned.resultados_detalhados = reid(cloned.resultados_detalhados);
+                    cloned.resultados_componentes = reid(cloned.resultados_componentes);
+                    cloned.resultados_vibracao = reid(cloned.resultados_vibracao);
+                    cloned.resultados_calor = reid(cloned.resultados_calor);
+                    cloned.equipamentos_avaliacao = reid(cloned.equipamentos_avaliacao);
+                    return cloned;
+                  });
+                  setRiscos((prev) => [...prev, ...clones]);
+                  toast.success(
+                    `${clones.length} risco(s) copiado(s) para ${target.nome_setor}. Salve para persistir.`
+                  );
+                  setCopyRiscosTarget(null);
+                  setCopyRiscosSources([]);
+                }}
+              >
+                Copiar {copyRiscosSources.length > 0 ? `(${copyRiscosSources.length})` : ""}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
