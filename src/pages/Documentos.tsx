@@ -1,11 +1,20 @@
 import { useMemo, useState } from "react";
-import { Plus, FileText, Clock, CheckCircle2, AlertCircle, Loader2, Download, Trash2, Pencil } from "lucide-react";
+import {
+  Plus, FileText, Loader2, Download, Trash2, Pencil,
+  ChevronDown, ChevronRight, Building2, FileSignature, Folder,
+} from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -23,10 +32,15 @@ const docTypes = [
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
 ];
 
-const statusConfig: Record<string, { label: string; icon: any; className: string }> = {
-  concluido: { label: "Concluído", icon: CheckCircle2, className: "bg-emerald-100 text-emerald-700" },
-  rascunho: { label: "Rascunho", icon: Clock, className: "bg-amber-100 text-amber-700 border border-amber-300" },
-  erro: { label: "Erro", icon: AlertCircle, className: "bg-red-100 text-red-700" },
+// Ordem canônica exibida na árvore.
+const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET"];
+
+const tipoLabel = (t: string) => {
+  const up = (t || "").toUpperCase();
+  if (up === "INSALUBRIDADE") return "Laudo de Insalubridade";
+  if (up === "PERICULOSIDADE") return "Laudo de Periculosidade";
+  if (up === "AET") return "AET";
+  return up;
 };
 
 export default function Documentos() {
@@ -34,8 +48,11 @@ export default function Documentos() {
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
   const [pcmsoOpen, setPcmsoOpen] = useState(false);
-  const [filtroEmpresa, setFiltroEmpresa] = useState<string>("all");
-  const [filtroContrato, setFiltroContrato] = useState<string>("all");
+  const [busca, setBusca] = useState("");
+  const [expTipo, setExpTipo] = useState<Record<string, boolean>>({});
+  const [expEmp, setExpEmp] = useState<Record<string, boolean>>({});
+  const [expCtr, setExpCtr] = useState<Record<string, boolean>>({});
+  const [toDelete, setToDelete] = useState<any | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -79,52 +96,74 @@ export default function Documentos() {
     },
   });
 
-  const contratosFiltro = useMemo(() => {
-    if (filtroEmpresa === "all") return [] as any[];
-    return (contratos as any[]).filter((c) => c.empresa_id === filtroEmpresa);
-  }, [contratos, filtroEmpresa]);
-
-  const docsFiltrados = useMemo(() => {
-    return (documentos as any[]).filter((d) => {
-      if (filtroEmpresa !== "all" && d.empresa_id !== filtroEmpresa) return false;
-      if (filtroContrato !== "all" && d.contrato_id !== filtroContrato) return false;
-      return true;
-    });
-  }, [documentos, filtroEmpresa, filtroContrato]);
-
-  const contratoNomeById = (id: string | null) => {
-    if (!id) return null;
-    const c = (contratos as any[]).find((x) => x.id === id);
-    return c ? (c.numero_contrato || c.nome_contratante || "Contrato") : null;
+  const empresaNome = (id: string | null) => {
+    const e = (empresas as any[]).find((x) => x.id === id);
+    return e?.razao_social || e?.nome_fantasia || "(Sem empresa)";
   };
+  const contratoNome = (id: string | null) => {
+    const c = (contratos as any[]).find((x) => x.id === id);
+    if (!c) return "Sem contrato";
+    return c.numero_contrato || c.nome_contratante || "Contrato";
+  };
+
+  // Filtro por busca (nome, empresa, contrato, tipo).
+  const docsFiltrados = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return documentos as any[];
+    return (documentos as any[]).filter((d) => {
+      const emp = (d.empresa_nome || empresaNome(d.empresa_id)).toLowerCase();
+      const ctr = contratoNome(d.contrato_id).toLowerCase();
+      const tipo = (d.tipo || "").toLowerCase();
+      const nome = (d.nome_documento || "").toLowerCase();
+      return emp.includes(q) || ctr.includes(q) || tipo.includes(q) || nome.includes(q);
+    });
+  }, [documentos, busca, empresas, contratos]);
+
+  // Agrupa Tipo → Empresa → Contrato → [Docs].
+  const arvore = useMemo(() => {
+    const map = new Map<string, Map<string, Map<string, any[]>>>();
+    for (const d of docsFiltrados as any[]) {
+      const t = (d.tipo || "").toUpperCase() || "OUTROS";
+      const eKey = d.empresa_id || "__sem__";
+      const cKey = d.contrato_id || "__sem__";
+      if (!map.has(t)) map.set(t, new Map());
+      const emps = map.get(t)!;
+      if (!emps.has(eKey)) emps.set(eKey, new Map());
+      const ctrs = emps.get(eKey)!;
+      if (!ctrs.has(cKey)) ctrs.set(cKey, []);
+      ctrs.get(cKey)!.push(d);
+    }
+    const tipos = Array.from(map.keys()).sort((a, b) => {
+      const ia = TIPO_ORDER.indexOf(a); const ib = TIPO_ORDER.indexOf(b);
+      if (ia === -1 && ib === -1) return a.localeCompare(b);
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    });
+    return { map, tipos };
+  }, [docsFiltrados]);
 
   const handleSelectType = (typeId: string) => {
     setOpen(false);
-    if (typeId === "ltcat") {
-      navigate("/documentos/ltcat/novo");
-    } else if (typeId === "insalubridade") {
-      setTimeout(() => setInsalubridadeOpen(true), 100);
-    } else if (typeId === "periculosidade") {
-      setTimeout(() => setPericulosidadeOpen(true), 100);
-    } else if (typeId === "aet") {
-      navigate("/documentos/aet/novo");
-    } else if (typeId === "pgr") {
-      navigate("/documentos/pgr/novo");
-    } else if (typeId === "pcmso") {
-      setTimeout(() => setPcmsoOpen(true), 100);
-    }
+    if (typeId === "ltcat") navigate("/documentos/ltcat/novo");
+    else if (typeId === "insalubridade") setTimeout(() => setInsalubridadeOpen(true), 100);
+    else if (typeId === "periculosidade") setTimeout(() => setPericulosidadeOpen(true), 100);
+    else if (typeId === "aet") navigate("/documentos/aet/novo");
+    else if (typeId === "pgr") navigate("/documentos/pgr/novo");
+    else if (typeId === "pcmso") setTimeout(() => setPcmsoOpen(true), 100);
   };
 
-  const handleDownload = async (filePath: string, tipo: string) => {
+  const handleDownload = async (doc: any) => {
+    const path = doc.file_path || doc.upload_file_path;
+    if (!path) { toast.error("Documento ainda não gerado"); return; }
+    const bucket = doc.upload_file_path === path ? "documentos-upload" : "templates";
     try {
-      const { data, error } = await supabase.storage
-        .from("templates")
-        .download(filePath);
+      const { data, error } = await supabase.storage.from(bucket).download(path);
       if (error) throw error;
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${tipo}_${Date.now()}.docx`;
+      a.download = `${doc.tipo}_${Date.now()}.docx`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -132,39 +171,47 @@ export default function Documentos() {
     }
   };
 
-  const handleDelete = async (id: string, filePath: string | null) => {
-    if (filePath) {
-      await supabase.storage.from("templates").remove([filePath]);
+  const handleDelete = async (doc: any) => {
+    try {
+      if (doc.file_path) {
+        await supabase.storage.from("templates").remove([doc.file_path]);
+      }
+      if (doc.upload_file_path) {
+        await supabase.storage.from("documentos-upload").remove([doc.upload_file_path]);
+      }
+      await supabase.from("documentos").delete().eq("id", doc.id);
+      queryClient.invalidateQueries({ queryKey: ["documentos"] });
+      toast.success("Documento removido");
+    } catch {
+      toast.error("Erro ao remover documento");
+    } finally {
+      setToDelete(null);
     }
-    await supabase.from("documentos").delete().eq("id", id);
-    queryClient.invalidateQueries({ queryKey: ["documentos"] });
-    toast.success("Documento removido");
   };
 
   const handleEdit = (doc: any) => {
     const tipo = (doc.tipo || "").toUpperCase();
-    if (tipo === "LTCAT") {
-      navigate(`/documentos/ltcat/editar/${doc.id}`);
-    } else if (tipo === "INSALUBRIDADE") {
-      navigate(`/documentos/insalubridade/editar/${doc.id}`);
-    } else if (tipo === "PERICULOSIDADE") {
-      navigate(`/documentos/periculosidade/editar/${doc.id}`);
-    } else if (tipo === "AET") {
-      navigate(`/documentos/aet/editar/${doc.id}`);
-    } else if (tipo === "PGR") {
-      navigate(`/documentos/pgr/editar/${doc.id}`);
-    } else if (tipo === "PCMSO") {
-      navigate(`/documentos/pcmso/editar/${doc.id}`);
-    }
+    const map: Record<string, string> = {
+      LTCAT: "ltcat", INSALUBRIDADE: "insalubridade", PERICULOSIDADE: "periculosidade",
+      AET: "aet", PGR: "pgr", PCMSO: "pcmso",
+    };
+    const slug = map[tipo];
+    if (slug) navigate(`/documentos/${slug}/editar/${doc.id}`);
   };
 
-  const formatDate = (dateStr: string) => new Date(dateStr).toLocaleDateString("pt-BR");
+  const totalPorTipo = (t: string) => {
+    let n = 0;
+    for (const emps of arvore.map.get(t)?.values() || []) {
+      for (const arr of emps.values()) n += arr.length;
+    }
+    return n;
+  };
 
   return (
     <div>
       <PageHeader
         title="Documentos SST"
-        description="Crie e gerencie documentos técnicos de segurança do trabalho"
+        description="Estrutura por Tipo › Empresa › Contrato › Arquivos"
         actions={
           <Button onClick={() => setOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Plus className="w-4 h-4 mr-2" />Novo Documento
@@ -172,108 +219,159 @@ export default function Documentos() {
         }
       />
 
-      {/* Filtros Empresa + Contrato */}
-      <div className="glass-card rounded-xl p-4 mb-4 flex flex-col sm:flex-row gap-3">
-        <div className="flex-1">
-          <label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Empresa</label>
-          <Select value={filtroEmpresa} onValueChange={(v) => { setFiltroEmpresa(v); setFiltroContrato("all"); }}>
-            <SelectTrigger><SelectValue placeholder="Todas as empresas" /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todas as empresas</SelectItem>
-              {(empresas as any[]).map((e) => (
-                <SelectItem key={e.id} value={e.id}>{e.razao_social || e.nome_fantasia}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-        <div className="flex-1">
-          <label className="text-[10px] font-bold uppercase text-muted-foreground mb-1 block">Contrato</label>
-          <Select value={filtroContrato} onValueChange={setFiltroContrato} disabled={filtroEmpresa === "all"}>
-            <SelectTrigger><SelectValue placeholder={filtroEmpresa === "all" ? "Selecione uma empresa" : "Todos os contratos"} /></SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Todos os contratos</SelectItem>
-              {contratosFiltro.map((c) => (
-                <SelectItem key={c.id} value={c.id}>
-                  {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <div className="glass-card rounded-xl p-3 mb-4">
+        <Input
+          placeholder="Buscar por tipo, empresa, contrato ou nome do documento..."
+          value={busca}
+          onChange={(e) => setBusca(e.target.value)}
+        />
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
         </div>
-      ) : docsFiltrados.length === 0 ? (
+      ) : arvore.tipos.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
           <p className="text-muted-foreground">
-            {documentos.length === 0 ? "Nenhum documento gerado ainda" : "Nenhum documento neste filtro"}
+            {(documentos as any[]).length === 0
+              ? "Nenhum documento gerado ainda"
+              : "Nenhum documento encontrado para essa busca"}
           </p>
-          {documentos.length === 0 && (
+          {(documentos as any[]).length === 0 && (
             <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
               <Plus className="w-4 h-4 mr-2" />Criar Documento
             </Button>
           )}
         </div>
       ) : (
-        <div className="space-y-3">
-          {docsFiltrados.map((doc: any) => {
-            const st = statusConfig[doc.status] || statusConfig.rascunho;
-            const ctrNome = contratoNomeById(doc.contrato_id);
+        <div className="space-y-2">
+          {arvore.tipos.map((t) => {
+            const emps = arvore.map.get(t)!;
+            const isOpen = expTipo[t] ?? true;
             return (
-              <div key={doc.id} className="glass-card rounded-xl p-4 flex items-center gap-4 hover:shadow-md transition-shadow group">
-                <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
-                  <FileText className="w-5 h-5 text-muted-foreground" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Badge variant="outline" className="font-mono text-xs">{doc.tipo}</Badge>
-                    <span className="font-medium text-foreground">{doc.empresa_nome}</span>
-                    {ctrNome && (
-                      <Badge className="bg-accent/10 text-accent-foreground border-accent/20 text-[10px]">
-                        {ctrNome}
-                      </Badge>
-                    )}
-                  </div>
-                  <p className="text-xs text-muted-foreground mt-0.5">{formatDate(doc.created_at)}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Badge className={`${st.className} gap-1`}>
-                    <st.icon className="w-3 h-3" />
-                    {st.label}
+              <div key={t} className="glass-card rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setExpTipo((p) => ({ ...p, [t]: !isOpen }))}
+                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors"
+                >
+                  {isOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
+                  <FileText className="w-5 h-5 text-accent" />
+                  <span className="font-heading font-semibold text-foreground flex-1 text-left">
+                    {tipoLabel(t)}
+                  </span>
+                  <Badge className="bg-accent/10 text-accent-foreground border-accent/20">
+                    {totalPorTipo(t)} docs
                   </Badge>
-                  <Button
-                    variant={doc.status === "rascunho" ? "outline" : "ghost"}
-                    size={doc.status === "rascunho" ? "sm" : "icon"}
-                    className={doc.status === "rascunho" ? "h-8 gap-1.5" : "h-8 w-8"}
-                    onClick={() => handleEdit(doc)}
-                    title={doc.status === "rascunho" ? "Continuar edição" : "Editar documento"}
-                  >
-                    <Pencil className="w-4 h-4" />
-                    {doc.status === "rascunho" && <span className="text-xs">Continuar</span>}
-                  </Button>
-                  {doc.file_path && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => handleDownload(doc.file_path, doc.tipo)}
-                    >
-                      <Download className="w-4 h-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => handleDelete(doc.id, doc.file_path)}
-                  >
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+                </button>
+
+                {isOpen && (
+                  <div className="border-t border-border bg-muted/10 p-3 space-y-2">
+                    {Array.from(emps.entries())
+                      .sort(([, a], [, b]) => {
+                        const ea = Array.from(a.values())[0]?.[0];
+                        const eb = Array.from(b.values())[0]?.[0];
+                        return (ea?.empresa_nome || "").localeCompare(eb?.empresa_nome || "");
+                      })
+                      .map(([empId, ctrs]) => {
+                        const empKey = `${t}_${empId}`;
+                        const empOpen = expEmp[empKey] ?? false;
+                        const firstDoc = Array.from(ctrs.values())[0]?.[0];
+                        const empNome = firstDoc?.empresa_nome || empresaNome(empId);
+                        const totalEmp = Array.from(ctrs.values()).reduce((s, arr) => s + arr.length, 0);
+                        return (
+                          <div key={empId} className="bg-card rounded-lg border border-border overflow-hidden">
+                            <button
+                              onClick={() => setExpEmp((p) => ({ ...p, [empKey]: !empOpen }))}
+                              className="w-full flex items-center gap-3 p-3 hover:bg-muted/30"
+                            >
+                              {empOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                              <Building2 className="w-4 h-4 text-muted-foreground" />
+                              <span className="font-medium text-sm flex-1 text-left">{empNome}</span>
+                              <Badge variant="outline" className="text-[10px]">{totalEmp} docs</Badge>
+                            </button>
+
+                            {empOpen && (
+                              <div className="border-t border-border p-2 space-y-2">
+                                {Array.from(ctrs.entries())
+                                  .sort(([a], [b]) => contratoNome(a).localeCompare(contratoNome(b)))
+                                  .map(([ctrId, docs]) => {
+                                    const ctrKey = `${empKey}_${ctrId}`;
+                                    const ctrOpen = expCtr[ctrKey] ?? false;
+                                    const cNome = ctrId === "__sem__" ? "Sem contrato vinculado" : contratoNome(ctrId);
+                                    return (
+                                      <div key={ctrId} className="bg-background/60 rounded-md border border-border/70">
+                                        <button
+                                          onClick={() => setExpCtr((p) => ({ ...p, [ctrKey]: !ctrOpen }))}
+                                          className="w-full flex items-center gap-3 p-2.5 hover:bg-muted/30"
+                                        >
+                                          {ctrOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
+                                          <FileSignature className="w-3.5 h-3.5 text-muted-foreground" />
+                                          <span className="text-sm flex-1 text-left">Contrato {cNome}</span>
+                                          <Badge variant="outline" className="text-[10px]">{docs.length}</Badge>
+                                        </button>
+
+                                        {ctrOpen && (
+                                          <div className="border-t border-border/70 p-2 space-y-1">
+                                            {docs.map((d: any) => (
+                                              <div
+                                                key={d.id}
+                                                className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/40 group"
+                                              >
+                                                <Folder className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                  <div className="text-sm font-medium truncate">
+                                                    {d.nome_documento || `${d.tipo} — ${d.empresa_nome || ""}`}
+                                                  </div>
+                                                  <div className="text-[11px] text-muted-foreground">
+                                                    {new Date(d.created_at).toLocaleDateString("pt-BR")}
+                                                    {d.status === "rascunho" && (
+                                                      <Badge className="ml-2 bg-amber-100 text-amber-700 border border-amber-300 text-[9px] py-0 px-1.5">
+                                                        Rascunho
+                                                      </Badge>
+                                                    )}
+                                                  </div>
+                                                </div>
+                                                <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
+                                                  <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8"
+                                                    title="Download"
+                                                    disabled={!d.file_path && !d.upload_file_path}
+                                                    onClick={() => handleDownload(d)}
+                                                  >
+                                                    <Download className="w-4 h-4" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost" size="icon" className="h-8 w-8"
+                                                    title="Editar"
+                                                    onClick={() => handleEdit(d)}
+                                                  >
+                                                    <Pencil className="w-4 h-4" />
+                                                  </Button>
+                                                  <Button
+                                                    variant="ghost" size="icon"
+                                                    className="h-8 w-8 text-destructive hover:text-destructive"
+                                                    title="Excluir"
+                                                    onClick={() => setToDelete(d)}
+                                                  >
+                                                    <Trash2 className="w-4 h-4" />
+                                                  </Button>
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
               </div>
             );
           })}
@@ -299,6 +397,28 @@ export default function Documentos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={!!toDelete} onOpenChange={(o) => !o && setToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir documento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O documento
+              {toDelete?.nome_documento ? ` "${toDelete.nome_documento}"` : ""} e
+              seus arquivos serão removidos definitivamente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => toDelete && handleDelete(toDelete)}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
       <PericulosidadeStartModal open={periculosidadeOpen} onOpenChange={setPericulosidadeOpen} />
