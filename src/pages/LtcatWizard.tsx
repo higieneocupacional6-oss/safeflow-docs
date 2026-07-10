@@ -3777,13 +3777,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   <div className="text-center py-12 text-muted-foreground">Nenhum setor cadastrado para esta empresa.</div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {setores.map((setor: any) => (
+                    {setores.map((setor: any) => {
+                      const setorRiscos = riscos.filter(r => r.setor_id === setor.id).length;
+                      return (
                       <div
                         key={setor.id}
-                        className="glass-card rounded-xl p-5 border border-border hover:border-accent hover:shadow-md transition-all cursor-pointer group"
+                        className="glass-card rounded-xl p-5 border border-border hover:border-accent hover:shadow-md transition-all cursor-pointer group relative"
                         onClick={() => openRiskModal(setor)}
                       >
-                        <div className="flex items-start justify-between mb-3">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setCopyRiscosSources([]);
+                            setCopyRiscosTarget(setor);
+                          }}
+                          title="Copiar riscos de outro setor"
+                          className="absolute top-3 right-3 h-8 w-8 rounded-md flex items-center justify-center text-muted-foreground hover:text-accent hover:bg-accent/10 transition-colors"
+                        >
+                          <Copy className="w-4 h-4" />
+                        </button>
+
+                        <div className="flex items-start justify-between mb-3 pr-9">
                           <div>
                             <h3 className="font-heading text-lg font-bold text-foreground group-hover:text-accent transition-colors uppercase leading-tight">
                               {setor.nome_setor}
@@ -3811,12 +3826,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                           )}
                         </div>
 
-                        <div className="mt-5 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity">
-                          <span>Clique para avaliar rescos</span>
-                          <ArrowRight className="w-3 h-3 text-accent" />
+                        <div className="mt-5 pt-3 border-t border-border/50 flex justify-between items-center text-xs text-muted-foreground">
+                          <span className="opacity-70">{setorRiscos} risco(s)</span>
+                          <span className="flex items-center gap-1 text-accent opacity-0 group-hover:opacity-100 transition-opacity">
+                            Avaliar <ArrowRight className="w-3 h-3" />
+                          </span>
                         </div>
                       </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </div>
