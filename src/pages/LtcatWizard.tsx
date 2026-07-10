@@ -18,6 +18,7 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
@@ -3546,12 +3547,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
-      const output: Blob = doc.kind === "html"
+      const rawOutput: Blob = doc.kind === "html"
         ? await doc.toBlob()
         : doc.getZip().generate({
             type: "blob",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           });
+
+      // Blocos condicionais: remove seções de riscos não cadastrados
+      // (#inicio_texto_risco_ruido ... #fim_texto_risco_ruido, etc.)
+      const presentBlocks = computePresentBlocks(templateData);
+      console.log("🧩 [LTCAT] Blocos condicionais presentes:", Array.from(presentBlocks));
+      const output: Blob = await stripConditionalBlocksDocx(rawOutput, presentBlocks);
 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
