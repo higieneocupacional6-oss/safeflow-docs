@@ -461,23 +461,21 @@ export async function gerarAetDeterministica(input: AetGenInput): Promise<AetGen
   const concl = gerarConclusao(contexto, kb, quantTxt);
   const plano = gerarPlanoAcao(kb, contexto);
 
-  // Diretrizes personalizadas do usuário: aplicadas como preâmbulo metodológico
-  // nos campos discursivos, sem sobrepor evidências objetivas.
+  // IMPORTANTE: as instruções personalizadas do usuário NÃO podem ser copiadas
+  // literalmente nos campos gerados. Elas são apenas um prompt interno usado
+  // pelo modo IA. No modo determinístico local, elas são registradas apenas
+  // no _debug e ignoradas na saída visível.
   const instr = (instrucoes_usuario || "").trim();
-  const preambulo = instr
-    ? `Diretrizes metodológicas adotadas pelo responsável técnico:\n${instr}\n\n`
-    : "";
-  const withInstr = (t: string) => (preambulo && t ? preambulo + t : t);
 
   return {
     posto_trabalho: posto,
     descricao_atividade: atividade,
-    analise_organizacional: withInstr(organizacional),
+    analise_organizacional: organizacional,
     ritmo_complexidade: ritmo,
     jornada_aspectos: jornada,
-    caracterizacao_biomecanica: withInstr(biom),
-    diagnostico_ergonomico: withInstr(diag),
-    conclusao: withInstr(concl),
+    caracterizacao_biomecanica: biom,
+    diagnostico_ergonomico: diag,
+    conclusao: concl,
     cronoanalise: crono,
     avaliacoes_dimensionais: dims,
     avaliacoes_quantitativas_analise: quantTxt,
@@ -487,7 +485,8 @@ export async function gerarAetDeterministica(input: AetGenInput): Promise<AetGen
       imagens_analisadas: imagens.quantidade,
       pdfs_analisados: pdfs.length,
       pdf_chars: pdfTexto.length,
-      instrucoes_usuario_aplicadas: !!instr,
+      instrucoes_usuario_recebidas: instr.length,
+      modo: "deterministico",
     },
   };
 }
