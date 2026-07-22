@@ -310,20 +310,45 @@ export default function AetWizard() {
   const [instrucoesUsuario, setInstrucoesUsuario] = useState("");
   const [instrucoesDraft, setInstrucoesDraft] = useState("");
   const [instrucoesSaving, setInstrucoesSaving] = useState(false);
+  const [iaAtivada, setIaAtivada] = useState(false);
+  const [iaToggleSaving, setIaToggleSaving] = useState(false);
 
-  // Carrega as instruções personalizadas do usuário (uma vez)
+  // Carrega as instruções personalizadas e o modo IA do usuário (uma vez)
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase
         .from("aet_instrucoes_usuario")
-        .select("instrucoes")
+        .select("instrucoes, ia_ativada")
         .eq("user_id", user.id)
         .maybeSingle();
       if (data?.instrucoes) setInstrucoesUsuario(data.instrucoes);
+      if (typeof (data as any)?.ia_ativada === "boolean") setIaAtivada((data as any).ia_ativada);
     })();
   }, []);
+
+  const persistIaAtivada = async (next: boolean) => {
+    setIaAtivada(next);
+    setIaToggleSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sessão expirada");
+      const { error } = await supabase
+        .from("aet_instrucoes_usuario")
+        .upsert(
+          { user_id: user.id, instrucoes: instrucoesUsuario, ia_ativada: next },
+          { onConflict: "user_id" },
+        );
+      if (error) throw error;
+      toast.success(next ? "IA ativada para a geração da AET" : "IA desativada — usando geração determinística");
+    } catch (e: any) {
+      setIaAtivada(!next);
+      toast.error(e?.message || "Erro ao atualizar preferência de IA");
+    } finally {
+      setIaToggleSaving(false);
+    }
+  };
 
   const salvarInstrucoes = async () => {
     setInstrucoesSaving(true);
@@ -332,7 +357,10 @@ export default function AetWizard() {
       if (!user) throw new Error("Sessão expirada");
       const { error } = await supabase
         .from("aet_instrucoes_usuario")
-        .upsert({ user_id: user.id, instrucoes: instrucoesDraft }, { onConflict: "user_id" });
+        .upsert(
+          { user_id: user.id, instrucoes: instrucoesDraft, ia_ativada: iaAtivada },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
       setInstrucoesUsuario(instrucoesDraft);
       setInstrucoesOpen(false);
