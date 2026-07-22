@@ -14,11 +14,14 @@ import { toast } from "sonner";
 import { calcularRula, type RulaInput } from "@/lib/ergonomia/rula";
 import { calcularReba, type RebaInput } from "@/lib/ergonomia/reba";
 import { calcularNiosh, type NioshInput } from "@/lib/ergonomia/niosh";
+import { calcularOwas, OWAS_LABELS, type OwasInput } from "@/lib/ergonomia/owas";
 import { salvarAvaliacaoEGerarPdf } from "@/lib/ergonomia/persist";
 import type { AvaliacaoErgonomica, CabecalhoAvaliacao, ResultadoErgonomico } from "@/lib/ergonomia/types";
 
+type ToolTipo = "RULA" | "REBA" | "NIOSH" | "OWAS";
+
 export type ToolAssessmentResult = {
-  tipo: "RULA" | "REBA" | "NIOSH";
+  tipo: ToolTipo;
   colaborador_nome: string;
   data_avaliacao: string;
   escore_final: number;
@@ -33,7 +36,7 @@ export type ToolAssessmentResult = {
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  tool: "RULA" | "REBA" | "NIOSH";
+  tool: ToolTipo;
   cabecalho: Omit<CabecalhoAvaliacao, "colaborador_nome" | "data_avaliacao"> & {
     colaborador_nome?: string; data_avaliacao?: string;
   };
@@ -77,14 +80,19 @@ export function ToolAssessmentModal({
     F_por_min: 1, duracao: "curta", acoplamento: "bom",
   });
 
+  const [owas, setOwas] = useState<OwasInput>({
+    costas: 1, bracos: 1, pernas: 2, carga: 1,
+  });
+
   const resultado = useMemo<ResultadoErgonomico | null>(() => {
     try {
       if (tool === "RULA") return calcularRula(rula);
       if (tool === "REBA") return calcularReba(reba);
       if (tool === "NIOSH") return calcularNiosh(niosh);
+      if (tool === "OWAS") return calcularOwas(owas);
     } catch { /* ignore */ }
     return null;
-  }, [tool, rula, reba, niosh]);
+  }, [tool, rula, reba, niosh, owas]);
 
   const handleSubmit = async () => {
     if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
@@ -94,6 +102,7 @@ export function ToolAssessmentModal({
       const respostas: Record<string, unknown> =
         tool === "RULA" ? (rula as unknown as Record<string, unknown>) :
         tool === "REBA" ? (reba as unknown as Record<string, unknown>) :
+        tool === "OWAS" ? (owas as unknown as Record<string, unknown>) :
         (niosh as unknown as Record<string, unknown>);
       const av: AvaliacaoErgonomica = {
         ferramenta: tool,
@@ -368,6 +377,66 @@ export function ToolAssessmentModal({
               </R>
             </div>
           )}
+
+          {tool === "OWAS" && (
+            <div className="border rounded-lg p-3 space-y-3">
+              <p className="text-sm font-semibold">Análise postural OWAS</p>
+              <p className="text-xs text-muted-foreground">
+                Selecione a postura predominante observada durante a execução da tarefa. O código OWAS e a
+                categoria de ação são calculados automaticamente conforme a metodologia de Karhu et al. (1977).
+              </p>
+              <R>
+                <div>
+                  <Label className="text-xs">Costas</Label>
+                  <Select value={String(owas.costas)} onValueChange={(v) => setOwas({ ...owas, costas: Number(v) as OwasInput["costas"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.costas as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Braços</Label>
+                  <Select value={String(owas.bracos)} onValueChange={(v) => setOwas({ ...owas, bracos: Number(v) as OwasInput["bracos"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.bracos as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Pernas</Label>
+                  <Select value={String(owas.pernas)} onValueChange={(v) => setOwas({ ...owas, pernas: Number(v) as OwasInput["pernas"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4,5,6,7].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.pernas as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Carga manipulada</Label>
+                  <Select value={String(owas.carga)} onValueChange={(v) => setOwas({ ...owas, carga: Number(v) as OwasInput["carga"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{(OWAS_LABELS.carga as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </R>
+              <div className="text-xs text-muted-foreground">
+                Código OWAS calculado: <span className="font-mono font-bold">{owas.costas}{owas.bracos}{owas.pernas}{owas.carga}</span>
+              </div>
+            </div>
+          )}
+
 
           {resultado && (
             <div className="rounded-lg border-2 border-accent bg-accent/5 p-3 space-y-1">
