@@ -1601,14 +1601,89 @@ export default function AetWizard() {
             </Button>
           </div>
           {setor.ferramentas.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-1.5">
               {setor.ferramentas.map((f, i) => (
-                <Badge key={i} variant="secondary" className="font-mono text-xs">
-                  {f.tipo}: {f.resultado || "—"}
-                </Badge>
+                <div key={i} className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="font-mono text-xs">{f.tipo}</Badge>
+                    <span className="text-xs">
+                      {f.escore_final != null ? `Escore ${f.escore_final} — ` : ""}
+                      {f.classificacao || f.resultado || "—"}
+                    </span>
+                    {f.colaborador_nome && (
+                      <span className="text-[10px] text-muted-foreground">• {f.colaborador_nome}</span>
+                    )}
+                  </div>
+                  {f.pdf_path && (
+                    <Button
+                      variant="ghost" size="icon" className="h-7 w-7"
+                      title="Baixar PDF do relatório"
+                      onClick={() => baixarPdfAvaliacao(f.pdf_path!).catch(() => toast.error("Erro ao baixar PDF"))}
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}
+
+          {/* Justificativa da escolha das ferramentas */}
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Label className="text-xs font-semibold">Justificativa da escolha das ferramentas</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm" variant="outline"
+                  disabled={setor.ferramentas.length === 0}
+                  onClick={() => {
+                    const tipos = Array.from(new Set(setor.ferramentas.map((f) => f.tipo))) as FerramentaTipo[];
+                    const funcao = (setor.funcoes_selecionadas || []).map((x) => x.nome).join(", ") || setor.funcao_nome;
+                    const texto = gerarJustificativaDeterministica({
+                      funcao,
+                      descricao_atividade: setor.descricao_atividade,
+                      ferramentas: tipos,
+                    });
+                    updateSetor(editingSetorIdx, { justificativa_ferramentas: texto });
+                    toast.success("Justificativa gerada automaticamente");
+                  }}
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1" />Gerar automaticamente
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  disabled={setor.ferramentas.length === 0 || !setor.justificativa_ferramentas?.trim() || justificativaLoadingIdx === editingSetorIdx}
+                  onClick={async () => {
+                    setJustificativaLoadingIdx(editingSetorIdx);
+                    try {
+                      const tipos = Array.from(new Set(setor.ferramentas.map((f) => f.tipo))) as FerramentaTipo[];
+                      const funcao = (setor.funcoes_selecionadas || []).map((x) => x.nome).join(", ") || setor.funcao_nome;
+                      const refinado = await refinarJustificativaIA({
+                        funcao,
+                        descricao_atividade: setor.descricao_atividade,
+                        ferramentas: tipos,
+                        texto_base: setor.justificativa_ferramentas || "",
+                      });
+                      updateSetor(editingSetorIdx, { justificativa_ferramentas: refinado });
+                      toast.success("Justificativa refinada com IA");
+                    } catch { toast.error("Não foi possível refinar com IA"); }
+                    finally { setJustificativaLoadingIdx(null); }
+                  }}
+                >
+                  {justificativaLoadingIdx === editingSetorIdx
+                    ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    : <Brain className="w-3.5 h-3.5 mr-1" />}
+                  Refinar com IA
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              rows={4}
+              value={setor.justificativa_ferramentas || ""}
+              onChange={(e) => updateSetor(editingSetorIdx, { justificativa_ferramentas: e.target.value })}
+              placeholder="Explique tecnicamente por que as ferramentas selecionadas são adequadas à função e às características da atividade."
+            />
+          </div>
         </Card>
 
         {/* Avaliações quantitativas */}
