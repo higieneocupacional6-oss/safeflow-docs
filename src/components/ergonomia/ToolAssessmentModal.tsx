@@ -36,7 +36,7 @@ export type ToolAssessmentResult = {
 type Props = {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  tool: "RULA" | "REBA" | "NIOSH";
+  tool: ToolTipo;
   cabecalho: Omit<CabecalhoAvaliacao, "colaborador_nome" | "data_avaliacao"> & {
     colaborador_nome?: string; data_avaliacao?: string;
   };
