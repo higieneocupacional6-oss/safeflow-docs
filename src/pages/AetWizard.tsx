@@ -1714,7 +1714,7 @@ export default function AetWizard() {
 
         {/* Modal — Gerar AET com IA */}
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
-          <DialogContent className="sm:max-w-2xl">
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="font-heading flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-purple-600" />
@@ -1723,22 +1723,69 @@ export default function AetWizard() {
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Descreva livremente o que foi observado in loco (posto, mobiliário, postura, ritmo, jornada, ambiente,
-                queixas dos colaboradores, imagens observadas etc). A IA irá consolidar essa descrição com o contexto
-                cadastrado (empresa, contrato, setor, funções, ferramentas ergonômicas, avaliação psicossocial,
-                avaliações quantitativas e dimensionais) e preencher automaticamente os campos técnicos da AET,
-                fundamentando-se em Ergonomia e na NR-17.
+                Descreva livremente o que foi observado in loco. A IA consolidará empresa, contrato, setor,
+                funções, ferramentas ergonômicas (RULA/REBA/OWAS/OCRA/NIOSH), avaliação psicossocial (COPSOQ),
+                antropometria/dimensionais, quantitativas e cronoanálise, produzindo textos técnicos individualizados
+                fundamentados em NR-17, ISO 11226/11228/6385, NIOSH e boas práticas da Ergonomia.
               </p>
               <Textarea
-                rows={10}
+                rows={8}
                 placeholder="Ex.: Colaborador trabalha sentado 8h/dia em cadeira sem regulagem, monitor abaixo da linha dos olhos, mesa fixa. Ritmo intenso, metas semanais, pouca pausa. Queixas de dor lombar e cervical..."
                 value={iaObs}
                 onChange={(e) => setIaObs(e.target.value)}
                 disabled={iaLoading}
               />
+
+              <div>
+                <Label className="text-xs">Anexos (fotografias e PDFs — opcional)</Label>
+                <Input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/jpg,image/png,image/webp,application/pdf"
+                  disabled={iaLoading}
+                  onChange={(e) => {
+                    const arr = Array.from(e.target.files || []);
+                    const okKinds = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
+                    const filtered = arr.filter((f) => okKinds.includes(f.type));
+                    const totalMb = filtered.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
+                    if (totalMb > 18) {
+                      toast.error("Anexos excedem 18 MB no total. Reduza a quantidade/tamanho.");
+                      return;
+                    }
+                    setIaFiles(filtered);
+                  }}
+                  className="mt-1"
+                />
+                {iaFiles.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {iaFiles.map((f, i) => (
+                      <Badge key={i} variant="secondary" className="text-[10px]">
+                        {f.type.startsWith("image/") ? "📷" : "📄"} {f.name}
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-muted-foreground mt-1">
+                  A IA analisará imagens (postura, mobiliário, layout, riscos visíveis) e PDFs (procedimentos, laudos, OS).
+                </p>
+              </div>
+
+              <div>
+                <Label className="text-xs">Ao aplicar em campos já preenchidos</Label>
+                <Select value={iaMode} onValueChange={(v: any) => setIaMode(v)} disabled={iaLoading}>
+                  <SelectTrigger className="mt-1"><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="substituir">Substituir conteúdo atual</SelectItem>
+                    <SelectItem value="complementar">Complementar (anexar ao final)</SelectItem>
+                    <SelectItem value="manter">Manter — só preencher campos vazios</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <p className="text-[11px] text-muted-foreground">
-                Campos gerados: posto de trabalho, atividade, organização, ritmo/jornada, biomecânica, cronoanálise,
-                avaliação dimensional, diagnóstico, conclusão e plano de ação.
+                Campos gerados: posto de trabalho, atividade, análise organizacional, ritmo/complexidade,
+                jornada, biomecânica, cronoanálise, avaliação dimensional, diagnóstico, conclusão e plano de ação
+                (com justificativa técnica, prioridade e resultado esperado).
               </p>
             </div>
             <DialogFooter>
@@ -1757,7 +1804,12 @@ export default function AetWizard() {
                     const contrato: any = (contratosEmpresa as any[]).find((c: any) => c.id === contratoId) || {};
                     const funcoesDetalhes = (setor.funcoes_selecionadas || []).map((fs: any) => {
                       const f: any = (funcoesAll as any[]).find((x: any) => x.id === fs.id);
-                      return { nome: fs.nome, descricao_atividades: f?.descricao_atividades || "" };
+                      return {
+                        nome: fs.nome,
+                        cbo: f?.cbo_codigo || f?.cbo || "",
+                        descricao_atividades: f?.descricao_atividades || "",
+                        expostos: f?.expostos || "",
+                      };
                     });
                     const psicoResumo = (setor.avaliacoes_psicossociais || []).map((p: any) => {
                       const calc = calcularPsicossocial(p);
@@ -1780,6 +1832,7 @@ export default function AetWizard() {
                       contrato: {
                         numero: contrato.numero_contrato,
                         contratante: contrato.nome_contratante,
+                        objeto: contrato.objeto,
                       },
                       setor: {
                         nome: setor.setor_nome,
@@ -1796,49 +1849,101 @@ export default function AetWizard() {
                       avaliacoes_quantitativas: setor.avaliacoes_quantitativas,
                       avaliacoes_dimensionais: setor.avaliacoes_dimensionais,
                       cronoanalise_previa: setor.cronoanalise,
+                      descricao_imagens_ambiente: setor.descricao_imagens_ambiente,
+                      descricao_imagens_funcao: setor.descricao_imagens_funcao,
                     };
+
+                    // Convert files to base64
+                    const anexos = await Promise.all(iaFiles.map(async (f) => {
+                      const buf = await f.arrayBuffer();
+                      let bin = "";
+                      const bytes = new Uint8Array(buf);
+                      const chunk = 0x8000;
+                      for (let i = 0; i < bytes.length; i += chunk) {
+                        bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
+                      }
+                      return {
+                        name: f.name,
+                        mime: f.type,
+                        kind: f.type.startsWith("image/") ? "image" : "pdf",
+                        data: btoa(bin),
+                      };
+                    }));
+
                     const { data, error } = await supabase.functions.invoke("aet-generate", {
-                      body: { descricao: iaObs, contexto },
+                      body: { descricao: iaObs, contexto, anexos },
                     });
                     if (error) throw error;
                     if ((data as any)?.error) throw new Error((data as any).error);
                     const out: any = (data as any)?.output || {};
+
+                    // Merge helpers respecting iaMode
+                    const mergeText = (curr: string, next: string): string => {
+                      if (!next) return curr;
+                      if (iaMode === "substituir") return next;
+                      if (iaMode === "manter") return curr && curr.trim() ? curr : next;
+                      if (!curr || !curr.trim()) return next;
+                      return `${curr}\n\n---\nComplemento IA:\n${next}`;
+                    };
+                    const mergeArr = <T,>(curr: T[], next: T[]): T[] => {
+                      if (!next || next.length === 0) return curr;
+                      if (iaMode === "substituir") return next;
+                      if (iaMode === "manter") return curr && curr.length > 0 ? curr : next;
+                      return [...(curr || []), ...next];
+                    };
+
                     const patch: Partial<SetorAet> = {};
-                    if (out.posto_trabalho) patch.posto_trabalho = out.posto_trabalho;
-                    if (out.descricao_atividade) patch.descricao_atividade = out.descricao_atividade;
-                    if (out.analise_organizacional) patch.analise_organizacional = out.analise_organizacional;
-                    if (out.ritmo_complexidade) patch.ritmo_complexidade = out.ritmo_complexidade;
-                    if (out.jornada_aspectos) patch.jornada_aspectos = out.jornada_aspectos;
-                    if (out.caracterizacao_biomecanica) patch.caracterizacao_biomecanica = out.caracterizacao_biomecanica;
-                    if (out.diagnostico_ergonomico) patch.diagnostico_ergonomico = out.diagnostico_ergonomico;
-                    if (out.conclusao) patch.conclusao = out.conclusao;
+                    if (out.posto_trabalho) patch.posto_trabalho = mergeText(setor.posto_trabalho, out.posto_trabalho);
+                    if (out.descricao_atividade) patch.descricao_atividade = mergeText(setor.descricao_atividade, out.descricao_atividade);
+                    if (out.analise_organizacional) patch.analise_organizacional = mergeText(setor.analise_organizacional, out.analise_organizacional);
+                    if (out.ritmo_complexidade) patch.ritmo_complexidade = mergeText(setor.ritmo_complexidade, out.ritmo_complexidade);
+                    if (out.jornada_aspectos) patch.jornada_aspectos = mergeText(setor.jornada_aspectos, out.jornada_aspectos);
+                    if (out.caracterizacao_biomecanica) patch.caracterizacao_biomecanica = mergeText(setor.caracterizacao_biomecanica, out.caracterizacao_biomecanica);
+                    if (out.diagnostico_ergonomico) patch.diagnostico_ergonomico = mergeText(setor.diagnostico_ergonomico, out.diagnostico_ergonomico);
+                    if (out.conclusao) patch.conclusao = mergeText(setor.conclusao, out.conclusao);
+
                     if (Array.isArray(out.cronoanalise) && out.cronoanalise.length > 0) {
-                      patch.cronoanalise = out.cronoanalise.map((c: any) => ({
+                      const next = out.cronoanalise.map((c: any) => ({
                         tarefa: String(c.tarefa || ""),
                         tempo: String(c.tempo || ""),
                         risco: String(c.risco || ""),
                       }));
+                      patch.cronoanalise = mergeArr(setor.cronoanalise, next);
                     }
                     if (Array.isArray(out.plano_acao) && out.plano_acao.length > 0) {
-                      patch.plano_acao = out.plano_acao.map((p: any) => ({
-                        o_que: String(p.o_que || ""),
-                        como: String(p.como || ""),
-                        responsavel: String(p.responsavel || ""),
-                        prazo: String(p.prazo || ""),
-                      }));
+                      const next = out.plano_acao.map((p: any) => {
+                        const extras = [
+                          p.justificativa ? `Justificativa: ${p.justificativa}` : "",
+                          p.prioridade ? `Prioridade: ${p.prioridade}` : "",
+                          p.resultado_esperado ? `Resultado esperado: ${p.resultado_esperado}` : "",
+                        ].filter(Boolean).join(" | ");
+                        return {
+                          o_que: String(p.o_que || ""),
+                          como: [String(p.como || ""), extras].filter(Boolean).join("\n"),
+                          responsavel: String(p.responsavel || ""),
+                          prazo: String(p.prazo || ""),
+                        };
+                      });
+                      patch.plano_acao = mergeArr(setor.plano_acao, next);
                     }
                     if (out.avaliacoes_dimensionais && typeof out.avaliacoes_dimensionais === "object") {
                       const dims = { ...setor.avaliacoes_dimensionais };
                       for (const k of Object.keys(dims) as (keyof AvaliacoesDimensionais)[]) {
                         const v = out.avaliacoes_dimensionais[k];
                         if (v && typeof v === "string") {
-                          dims[k] = { ...dims[k], avaliacao: v };
+                          const currAvaliacao = dims[k]?.avaliacao || "";
+                          const nextAvaliacao = iaMode === "manter" && currAvaliacao.trim()
+                            ? currAvaliacao
+                            : iaMode === "complementar" && currAvaliacao.trim()
+                            ? `${currAvaliacao}\n${v}`
+                            : v;
+                          dims[k] = { ...dims[k], avaliacao: nextAvaliacao };
                         }
                       }
                       patch.avaliacoes_dimensionais = dims;
                     }
                     updateSetor(editingSetorIdx, patch);
-                    toast.success("AET gerada automaticamente. Revise os campos antes de salvar.");
+                    toast.success("AET gerada. Revise os campos antes de salvar.");
                     setIaOpen(false);
                   } catch (e: any) {
                     console.error(e);
