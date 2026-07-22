@@ -327,6 +327,8 @@ export function PsicossocialModal({
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
+  const [importOpen, setImportOpen] = useState(false);
+
 
   useEffect(() => {
     if (editingIdx !== null && avaliacoes[editingIdx]) {
