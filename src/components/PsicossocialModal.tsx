@@ -13,8 +13,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb } from "lucide-react";
+import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
+import { PsicossocialImportModal } from "@/components/PsicossocialImportModal";
 
 // ─── Escala fixa COPSOQ ───
 export const ESCALA_COPSOQ = [
@@ -97,6 +98,8 @@ export const BLOCOS_COPSOQ: { key: string; titulo: string; perguntas: string[] }
 export type BlocoResultado = { media: number; classificacao: string };
 export type AvaliacaoPsicossocial = {
   colaborador_nome: string;
+  /** Função do respondente — usada para agrupamento em relatórios. */
+  funcao?: string;
   data_avaliacao: string;
   respostas: Record<string, number[]>; // bloco_key → array de respostas
   blocos: Record<string, BlocoResultado>;
@@ -324,6 +327,8 @@ export function PsicossocialModal({
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
+  const [importOpen, setImportOpen] = useState(false);
+
 
   useEffect(() => {
     if (editingIdx !== null && avaliacoes[editingIdx]) {
@@ -401,8 +406,31 @@ export function PsicossocialModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">Avaliação Psicossocial (COPSOQ)</DialogTitle>
+          <DialogTitle className="font-heading flex items-center justify-between gap-2">
+            <span>Avaliação Psicossocial (COPSOQ)</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Gerar Automaticamente por Arquivo
+            </Button>
+          </DialogTitle>
         </DialogHeader>
+
+        {/* Modal de importação automática (planilha/PDF) */}
+        <PsicossocialImportModal
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          relatorioContext={relatorioContext}
+          onImportado={(avs) => {
+            // Anexa as avaliações anonimizadas ao setor, sem sobrescrever as existentes.
+            onChange([...avaliacoes, ...avs]);
+          }}
+        />
+
 
         {/* Lista de avaliações já salvas */}
         {avaliacoes.length > 0 && editingIdx === null && (
