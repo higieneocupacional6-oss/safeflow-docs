@@ -211,12 +211,13 @@ const newSetor = (s: any): SetorAet => ({
 
 // ─────────── FERRAMENTAS MODAL ───────────
 function FerramentasModal({
-  open, onOpenChange, ferramentas, onChange,
+  open, onOpenChange, ferramentas, onChange, onOpenTool,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   ferramentas: Ferramenta[];
   onChange: (f: Ferramenta[]) => void;
+  onOpenTool: (tool: FerramentaTipo) => void;
 }) {
   const add = (tipo: string) => onChange([...ferramentas, emptyFerr(tipo)]);
   const update = (i: number, patch: Partial<Ferramenta>) =>
@@ -232,6 +233,8 @@ function FerramentasModal({
     onOpenChange(false);
   };
 
+  const isModalTool = (tipo: string) => (FERRAMENTAS_COM_MODAL as string[]).includes(tipo);
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
       <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -240,16 +243,29 @@ function FerramentasModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Ferramentas com <strong>modal próprio</strong> (RULA, REBA, NIOSH) executam o cálculo oficial, geram um relatório em PDF
+            e integram automaticamente o resultado à AET. As demais permitem registro manual.
+          </p>
           <div className="space-y-2">
             {FERRAMENTAS_CATEGORIAS.map((c) => (
               <div key={c.categoria}>
                 <p className="text-xs font-bold uppercase text-muted-foreground mb-1.5">{c.categoria}</p>
                 <div className="flex flex-wrap gap-2">
-                  {c.itens.map((it) => (
-                    <Button key={it} size="sm" variant="outline" onClick={() => add(it)}>
-                      <Plus className="w-3.5 h-3.5 mr-1" />{it}
-                    </Button>
-                  ))}
+                  {c.itens.map((it) => {
+                    const hasModal = isModalTool(it);
+                    return (
+                      <Button
+                        key={it}
+                        size="sm"
+                        variant={hasModal ? "default" : "outline"}
+                        onClick={() => hasModal ? onOpenTool(it as FerramentaTipo) : add(it)}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        {it}{hasModal && " ✦"}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -261,33 +277,64 @@ function FerramentasModal({
                 Nenhuma ferramenta adicionada. Clique em uma das categorias acima.
               </p>
             )}
-            {ferramentas.map((f, i) => (
-              <Card key={i} className="p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="font-mono">{f.tipo}</Badge>
-                  <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => remove(i)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <div>
-                  <Label className="text-xs">Dados da avaliação</Label>
-                  <Textarea
-                    rows={2}
-                    value={f.dados_avaliacao}
-                    onChange={(e) => update(i, { dados_avaliacao: e.target.value })}
-                    placeholder="Descreva os parâmetros observados, scores parciais, etc."
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Resultado *</Label>
-                  <Input
-                    value={f.resultado}
-                    onChange={(e) => update(i, { resultado: e.target.value })}
-                    placeholder="Ex: Risco moderado / Score 5"
-                  />
-                </div>
-              </Card>
-            ))}
+            {ferramentas.map((f, i) => {
+              const auto = !!f.avaliacao_id;
+              return (
+                <Card key={i} className="p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="font-mono">{f.tipo}</Badge>
+                      {auto && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">Cálculo oficial</Badge>}
+                      {f.escore_final != null && (
+                        <Badge variant="secondary" className="text-[11px]">Escore: {f.escore_final}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {f.pdf_path && (
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          title="Baixar PDF"
+                          onClick={() => baixarPdfAvaliacao(f.pdf_path!).catch(() => toast.error("Erro ao baixar PDF"))}
+                        >
+                          <FileDown className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => remove(i)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  {auto ? (
+                    <div className="text-xs space-y-0.5 text-muted-foreground">
+                      {f.colaborador_nome && <div><strong>Colaborador:</strong> {f.colaborador_nome}</div>}
+                      {f.data_avaliacao && <div><strong>Data:</strong> {new Date(f.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")}</div>}
+                      {f.classificacao && <div><strong>Classificação:</strong> {f.classificacao}</div>}
+                      {f.nivel_acao && <div><strong>Nível de ação:</strong> {f.nivel_acao}</div>}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-xs">Dados da avaliação</Label>
+                        <Textarea
+                          rows={2}
+                          value={f.dados_avaliacao}
+                          onChange={(e) => update(i, { dados_avaliacao: e.target.value })}
+                          placeholder="Descreva os parâmetros observados, scores parciais, etc."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Resultado *</Label>
+                        <Input
+                          value={f.resultado}
+                          onChange={(e) => update(i, { resultado: e.target.value })}
+                          placeholder="Ex: Risco moderado / Score 5"
+                        />
+                      </div>
+                    </>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
 
