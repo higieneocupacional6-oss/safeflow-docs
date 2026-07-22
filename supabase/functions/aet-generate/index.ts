@@ -121,7 +121,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos } = await req.json();
+    const { descricao, contexto, anexos, instrucoes_usuario } = await req.json();
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 20) {
       return new Response(
         JSON.stringify({ error: "Descreva com mais detalhes o que foi observado in loco (mínimo 20 caracteres)." }),
@@ -130,8 +130,21 @@ Deno.serve(async (req) => {
     }
 
     const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
+    const instrTxt = typeof instrucoes_usuario === "string" ? instrucoes_usuario.trim() : "";
 
-    const userText = `# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
+    // Bloco de instruções personalizadas é injetado como DIRETRIZ INTERNA de redação,
+    // NUNCA como conteúdo a ser copiado literalmente para os campos da AET.
+    const instrBlock = instrTxt
+      ? `# DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO (uso EXCLUSIVO como orientação de estilo e método — PROIBIDO copiar, citar, parafrasear ou reproduzir este texto em qualquer campo da resposta)
+"""
+${instrTxt}
+"""
+Estas diretrizes orientam APENAS a forma de redação (tom, profundidade, normas prioritárias, estrutura do diagnóstico e do plano de ação). O conteúdo dos campos deve ser produzido a partir das evidências do contexto, dos anexos e do relato in loco — nunca do texto das diretrizes.
+
+`
+      : "";
+
+    const userText = `${instrBlock}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
 ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
@@ -151,7 +164,8 @@ Gere a AET completa em JSON conforme o schema.
 - "avaliacoes_quantitativas_analise": parágrafo comparando valores medidos com limites (NHO-01, NBR ISO 8995, ISO 7730, NR-17), classificando conformidade.
 - "diagnostico_ergonomico" e "conclusao": correlacionem físico + organizacional + psicossocial, citando NR-17 e demais normas aplicáveis.
 - Analise as fotografias descrevendo mobiliário, postura, layout, EPIs, iluminação e integrando à análise biomecânica.
-- Extraia dos PDFs (procedimentos, laudos, POPs, OS) dados relevantes e cite-os como fonte.`;
+- Extraia dos PDFs (procedimentos, laudos, POPs, OS) dados relevantes e cite-os como fonte.
+- Se houver DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO acima, siga-as como método de redação — sem, em hipótese alguma, reproduzir seu texto na resposta.`;
 
     // Build multimodal content array
     const userContent: any[] = [{ type: "text", text: userText }];

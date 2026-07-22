@@ -1,0 +1,1 @@
+ALTER TABLE public.aet_instrucoes_usuario ADD COLUMN IF NOT EXISTS ia_ativada boolean NOT NULL DEFAULT false;

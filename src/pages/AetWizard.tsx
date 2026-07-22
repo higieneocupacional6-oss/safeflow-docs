@@ -310,20 +310,45 @@ export default function AetWizard() {
   const [instrucoesUsuario, setInstrucoesUsuario] = useState("");
   const [instrucoesDraft, setInstrucoesDraft] = useState("");
   const [instrucoesSaving, setInstrucoesSaving] = useState(false);
+  const [iaAtivada, setIaAtivada] = useState(false);
+  const [iaToggleSaving, setIaToggleSaving] = useState(false);
 
-  // Carrega as instruções personalizadas do usuário (uma vez)
+  // Carrega as instruções personalizadas e o modo IA do usuário (uma vez)
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       const { data } = await supabase
         .from("aet_instrucoes_usuario")
-        .select("instrucoes")
+        .select("instrucoes, ia_ativada")
         .eq("user_id", user.id)
         .maybeSingle();
       if (data?.instrucoes) setInstrucoesUsuario(data.instrucoes);
+      if (typeof (data as any)?.ia_ativada === "boolean") setIaAtivada((data as any).ia_ativada);
     })();
   }, []);
+
+  const persistIaAtivada = async (next: boolean) => {
+    setIaAtivada(next);
+    setIaToggleSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sessão expirada");
+      const { error } = await supabase
+        .from("aet_instrucoes_usuario")
+        .upsert(
+          { user_id: user.id, instrucoes: instrucoesUsuario, ia_ativada: next },
+          { onConflict: "user_id" },
+        );
+      if (error) throw error;
+      toast.success(next ? "IA ativada para a geração da AET" : "IA desativada — usando geração determinística");
+    } catch (e: any) {
+      setIaAtivada(!next);
+      toast.error(e?.message || "Erro ao atualizar preferência de IA");
+    } finally {
+      setIaToggleSaving(false);
+    }
+  };
 
   const salvarInstrucoes = async () => {
     setInstrucoesSaving(true);
@@ -332,7 +357,10 @@ export default function AetWizard() {
       if (!user) throw new Error("Sessão expirada");
       const { error } = await supabase
         .from("aet_instrucoes_usuario")
-        .upsert({ user_id: user.id, instrucoes: instrucoesDraft }, { onConflict: "user_id" });
+        .upsert(
+          { user_id: user.id, instrucoes: instrucoesDraft, ia_ativada: iaAtivada },
+          { onConflict: "user_id" },
+        );
       if (error) throw error;
       setInstrucoesUsuario(instrucoesDraft);
       setInstrucoesOpen(false);
@@ -1761,31 +1789,50 @@ export default function AetWizard() {
                   <Sparkles className="w-5 h-5 text-purple-600" />
                   Gerar AET Automaticamente
                 </DialogTitle>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="Configurar instruções personalizadas"
-                  onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
-                  disabled={iaLoading}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    type="button"
+                    variant={iaAtivada ? "default" : "outline"}
+                    size="sm"
+                    className={`h-8 text-xs ${iaAtivada ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90" : ""}`}
+                    title={iaAtivada ? "IA ativada — clique para desativar" : "IA desativada — clique para ativar"}
+                    onClick={() => persistIaAtivada(!iaAtivada)}
+                    disabled={iaLoading || iaToggleSaving}
+                  >
+                    {iaToggleSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Brain className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    IA: {iaAtivada ? "Ativada" : "Desativada"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Configurar instruções personalizadas"
+                    onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
+                    disabled={iaLoading}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               {instrucoesUsuario.trim() && (
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — serão aplicadas nesta geração.
+                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — usadas apenas como diretriz interna de redação, nunca copiadas para os campos.
                 </p>
               )}
             </DialogHeader>
 
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Geração <strong>determinística</strong> pelo próprio sistema — sem IA conversacional. Cruza empresa,
-                contrato, setor, funções, ferramentas ergonômicas (RULA/REBA/OWAS/OCRA/NIOSH), avaliação psicossocial
-                (COPSOQ), antropometria/dimensionais, quantitativas, cronoanálise, fotografias e PDFs anexados, e
-                complementa lacunas com o banco de conhecimento interno de funções ocupacionais.
+                {iaAtivada ? (
+                  <>Modo <strong>IA ativada</strong>: interpretação inteligente e contextualizada de empresa, contrato, setor, funções, ferramentas ergonômicas, avaliação psicossocial, antropometria, quantitativas, fotografias e PDFs — orientada pelas suas instruções personalizadas (usadas apenas como diretriz de redação).</>
+                ) : (
+                  <>Modo <strong>determinístico</strong> (sem IA): geração pelo próprio sistema a partir de regras de negócio, banco de conhecimento interno e dados cadastrados. Ative a IA no botão acima para análises contextualizadas.</>
+                )}
               </p>
               <Textarea
                 rows={7}
@@ -1909,13 +1956,53 @@ export default function AetWizard() {
                       descricao_imagens_funcao: setor.descricao_imagens_funcao,
                     };
 
-                    // Geração local determinística
-                    const out = await gerarAetDeterministica({
-                      descricao: iaObs || "",
-                      contexto,
-                      anexos: iaFiles,
-                      instrucoes_usuario: instrucoesUsuario,
-                    });
+                    let out: any;
+                    if (iaAtivada) {
+                      // Modo IA: converte anexos para base64 e chama a edge function
+                      const fileToB64 = (f: File) =>
+                        new Promise<string>((resolve, reject) => {
+                          const r = new FileReader();
+                          r.onload = () => {
+                            const s = String(r.result || "");
+                            const idx = s.indexOf(",");
+                            resolve(idx >= 0 ? s.slice(idx + 1) : s);
+                          };
+                          r.onerror = () => reject(r.error);
+                          r.readAsDataURL(f);
+                        });
+                      const anexosPayload = await Promise.all(
+                        iaFiles.map(async (f) => ({
+                          name: f.name,
+                          mime: f.type,
+                          kind: f.type === "application/pdf" ? "pdf" : "image",
+                          data: await fileToB64(f),
+                        })),
+                      );
+                      const descricaoIA = (iaObs || "").trim().length >= 20
+                        ? iaObs
+                        : (iaObs ? iaObs + " " : "") +
+                          "Elaborar AET completa a partir do contexto cadastrado, anexos e evidências disponíveis.";
+                      const { data: aiData, error: aiError } = await supabase.functions.invoke("aet-generate", {
+                        body: {
+                          descricao: descricaoIA,
+                          contexto,
+                          anexos: anexosPayload,
+                          instrucoes_usuario: instrucoesUsuario,
+                        },
+                      });
+                      if (aiError) throw new Error(aiError.message || "Falha ao chamar a IA");
+                      if ((aiData as any)?.error) throw new Error((aiData as any).error);
+                      out = (aiData as any)?.output || {};
+                      out._debug = { modo: "ia", knowledge_base_utilizada: "IA", imagens_analisadas: anexosPayload.filter((a) => a.kind === "image").length, pdfs_analisados: anexosPayload.filter((a) => a.kind === "pdf").length };
+                    } else {
+                      // Modo determinístico local
+                      out = await gerarAetDeterministica({
+                        descricao: iaObs || "",
+                        contexto,
+                        anexos: iaFiles,
+                        instrucoes_usuario: instrucoesUsuario,
+                      });
+                    }
 
 
                     // Merge helpers respecting iaMode
@@ -2034,8 +2121,7 @@ export default function AetWizard() {
                 className="font-mono text-xs"
               />
               <p className="text-[10px] text-muted-foreground">
-                Hierarquia aplicada na geração: (1) dados preenchidos no formulário &gt; (2) fotos e PDFs anexados &gt;
-                (3) estas instruções &gt; (4) banco de conhecimento interno &gt; (5) regras normativas.
+                Este texto é tratado <strong>exclusivamente como diretriz interna</strong> (prompt) e <strong>nunca</strong> é copiado, citado ou parafraseado nos campos gerados da AET. Ele apenas orienta a forma de redação (tom, profundidade, normas prioritárias, estrutura do diagnóstico e do plano de ação).
               </p>
             </div>
             <DialogFooter>
