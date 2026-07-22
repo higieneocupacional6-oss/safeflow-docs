@@ -148,11 +148,11 @@ Deno.serve(async (req) => {
     // Bloco de instruções personalizadas é injetado como DIRETRIZ INTERNA de redação,
     // NUNCA como conteúdo a ser copiado literalmente para os campos da AET.
     const instrBlock = instrTxt
-      ? `# DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO (uso EXCLUSIVO como orientação de estilo e método — PROIBIDO copiar, citar, parafrasear ou reproduzir este texto em qualquer campo da resposta)
+      ? `# DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO — PRIORIDADE MÁXIMA
+[Estas diretrizes REGEM estilo, tom, profundidade técnica, normas prioritárias, critérios de análise, método de diagnóstico e estrutura do plano de ação. Você DEVE obedecê-las integralmente em TODA a resposta. É PROIBIDO copiar, citar, parafrasear ou reproduzir literalmente qualquer trecho deste bloco em qualquer campo da AET — elas são orientação de método, nunca conteúdo.]
 """
 ${instrTxt}
 """
-Estas diretrizes orientam APENAS a forma de redação (tom, profundidade, normas prioritárias, estrutura do diagnóstico e do plano de ação). O conteúdo dos campos deve ser produzido a partir das evidências do contexto, dos anexos e do relato in loco — nunca do texto das diretrizes.
 
 `
       : "";
