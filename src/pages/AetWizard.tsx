@@ -1090,17 +1090,27 @@ export default function AetWizard() {
           </div>
           <Button
             onClick={() => {
-              if (!setor.ferramentas || setor.ferramentas.length === 0) {
-                toast.error("Preencha ao menos uma Ferramenta Ergonômica antes de gerar a AET automaticamente.");
-                return;
-              }
+              const faltantes: string[] = [];
+              if (!setor.funcoes_selecionadas || setor.funcoes_selecionadas.length === 0) faltantes.push("Funções Avaliadas");
+              if (!setor.ferramentas || setor.ferramentas.length === 0) faltantes.push("Ferramentas Ergonômicas");
               const temPsico = (setor.avaliacoes_psicossociais && setor.avaliacoes_psicossociais.length > 0)
                 || !!setor.resultado_psicossocial_texto?.trim();
-              if (!temPsico) {
-                toast.error("Registre a Avaliação Psicossocial (COPSOQ) antes de gerar a AET automaticamente.");
+              if (!temPsico) faltantes.push("Avaliação Psicossocial");
+              const temDim = Object.values(setor.avaliacoes_dimensionais || {}).some(
+                (d: any) => (d?.medida && String(d.medida).trim()) || (d?.avaliacao && String(d.avaliacao).trim()),
+              );
+              if (!temDim) faltantes.push("Avaliações Antropométricas / Dimensionais");
+              const temQuant = (setor.avaliacoes_quantitativas || []).some((a: any) =>
+                a.ruido_valor || a.iluminancia_valor || a.temperatura_valor || a.especificacao_setor,
+              );
+              if (!temQuant) faltantes.push("Avaliações Quantitativas");
+              if (faltantes.length > 0) {
+                toast.error("Preencha antes de gerar: " + faltantes.join(", "));
                 return;
               }
               setIaObs("");
+              setIaFiles([]);
+              setIaMode("substituir");
               setIaOpen(true);
             }}
             className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
