@@ -159,6 +159,24 @@ export function PsicossocialImportModal({
                     <span className="text-muted-foreground">Respostas reconhecidas:</span>{" "}
                     <strong>{resultado.totalPerguntasReconhecidas}</strong>
                   </div>
+                  {typeof resultado.paginasProcessadas === "number" && (
+                    <div>
+                      <span className="text-muted-foreground">Páginas processadas:</span>{" "}
+                      <strong>{resultado.paginasProcessadas}</strong>
+                    </div>
+                  )}
+                  {resultado.paginasOcr && resultado.paginasOcr.length > 0 && (
+                    <div>
+                      <span className="text-muted-foreground">Páginas via OCR:</span>{" "}
+                      <strong>{resultado.paginasOcr.join(", ")}</strong>
+                    </div>
+                  )}
+                  {resultado.paginasComFalha && resultado.paginasComFalha.length > 0 && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Páginas com falha:</span>{" "}
+                      <strong className="text-amber-700">{resultado.paginasComFalha.join(", ")}</strong>
+                    </div>
+                  )}
                   <div className="col-span-2">
                     <span className="text-muted-foreground">Funções identificadas:</span>
                     <div className="flex flex-wrap gap-1 mt-1">
@@ -181,7 +199,10 @@ export function PsicossocialImportModal({
                 {resultado.avisos.length > 0 && (
                   <ul className="text-[11px] text-amber-700 list-disc pl-4 space-y-0.5">
                     {resultado.avisos.slice(0, 5).map((a, i) => (
-                      <li key={i}>{a.linha ? `Linha ${a.linha}: ` : ""}{a.mensagem}</li>
+                      <li key={i}>
+                        {a.pagina ? `Página ${a.pagina}: ` : a.linha ? `Linha ${a.linha}: ` : ""}
+                        {a.mensagem}
+                      </li>
                     ))}
                     {resultado.avisos.length > 5 && (
                       <li>… e mais {resultado.avisos.length - 5} avisos.</li>
