@@ -2,8 +2,9 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  Wrench, FileDown, FileCheck2, ExternalLink, Brain, Sparkles,
+  Wrench, FileDown, FileCheck2, ExternalLink, Brain, Sparkles, Pencil, Check,
 } from "lucide-react";
+
 import { PsicossocialModal, AvaliacaoPsicossocial, calcularPsicossocial } from "@/components/PsicossocialModal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -305,6 +306,44 @@ export default function AetWizard() {
   const [iaLoading, setIaLoading] = useState(false);
   const [iaFiles, setIaFiles] = useState<File[]>([]);
   const [iaMode, setIaMode] = useState<"substituir" | "complementar" | "manter">("substituir");
+  const [instrucoesOpen, setInstrucoesOpen] = useState(false);
+  const [instrucoesUsuario, setInstrucoesUsuario] = useState("");
+  const [instrucoesDraft, setInstrucoesDraft] = useState("");
+  const [instrucoesSaving, setInstrucoesSaving] = useState(false);
+
+  // Carrega as instruções personalizadas do usuário (uma vez)
+  useEffect(() => {
+    (async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data } = await supabase
+        .from("aet_instrucoes_usuario")
+        .select("instrucoes")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (data?.instrucoes) setInstrucoesUsuario(data.instrucoes);
+    })();
+  }, []);
+
+  const salvarInstrucoes = async () => {
+    setInstrucoesSaving(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sessão expirada");
+      const { error } = await supabase
+        .from("aet_instrucoes_usuario")
+        .upsert({ user_id: user.id, instrucoes: instrucoesDraft }, { onConflict: "user_id" });
+      if (error) throw error;
+      setInstrucoesUsuario(instrucoesDraft);
+      setInstrucoesOpen(false);
+      toast.success("Instruções salvas — serão usadas nas próximas gerações");
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao salvar instruções");
+    } finally {
+      setInstrucoesSaving(false);
+    }
+  };
+
 
   // Generation step
   const [showGerar, setShowGerar] = useState(false);
@@ -1717,11 +1756,30 @@ export default function AetWizard() {
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="font-heading flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                Gerar AET Automaticamente
-              </DialogTitle>
+              <div className="flex items-start justify-between gap-2 pr-8">
+                <DialogTitle className="font-heading flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  Gerar AET Automaticamente
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Configurar instruções personalizadas"
+                  onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
+                  disabled={iaLoading}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+              {instrucoesUsuario.trim() && (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — serão aplicadas nesta geração.
+                </p>
+              )}
             </DialogHeader>
+
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Geração <strong>determinística</strong> pelo próprio sistema — sem IA conversacional. Cruza empresa,
@@ -1856,7 +1914,9 @@ export default function AetWizard() {
                       descricao: iaObs || "",
                       contexto,
                       anexos: iaFiles,
+                      instrucoes_usuario: instrucoesUsuario,
                     });
+
 
                     // Merge helpers respecting iaMode
                     const mergeText = (curr: string, next: string): string => {
@@ -1945,7 +2005,52 @@ export default function AetWizard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Sub-modal — Configuração das instruções personalizadas */}
+        <Dialog open={instrucoesOpen} onOpenChange={(v) => { if (!instrucoesSaving) setInstrucoesOpen(v); }}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-purple-600" />
+                Configuração da Geração Automática da AET
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Defina como deseja que o sistema elabore automaticamente as Análises Ergonômicas do Trabalho.
+                Estas instruções serão utilizadas em todas as gerações automáticas até que sejam alteradas por você.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Exemplos: linguagem técnica, nível de detalhamento, normas prioritárias, metodologia de análise,
+                critérios biomecânicos, estilo do diagnóstico e do plano de ação, requisitos específicos da empresa etc.
+                As instruções orientam <strong>a forma de redação</strong> — nunca substituem as evidências objetivas do formulário.
+              </p>
+              <Textarea
+                rows={16}
+                placeholder="Ex.: Utilizar linguagem técnica formal em terceira pessoa. Priorizar NR-17, ISO 11228 e NIOSH. Elaborar diagnósticos correlacionando fatores biomecânicos, organizacionais e psicossociais. No plano de ação, apresentar sempre justificativa normativa, prioridade (alta/média/baixa) e prazo sugerido..."
+                value={instrucoesDraft}
+                onChange={(e) => setInstrucoesDraft(e.target.value)}
+                disabled={instrucoesSaving}
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Hierarquia aplicada na geração: (1) dados preenchidos no formulário &gt; (2) fotos e PDFs anexados &gt;
+                (3) estas instruções &gt; (4) banco de conhecimento interno &gt; (5) regras normativas.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setInstrucoesOpen(false)} disabled={instrucoesSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={salvarInstrucoes} disabled={instrucoesSaving}>
+                {instrucoesSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Pronto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     );
   }
 
