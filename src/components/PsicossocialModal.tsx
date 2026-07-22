@@ -97,6 +97,8 @@ export const BLOCOS_COPSOQ: { key: string; titulo: string; perguntas: string[] }
 export type BlocoResultado = { media: number; classificacao: string };
 export type AvaliacaoPsicossocial = {
   colaborador_nome: string;
+  /** Função do respondente — usada para agrupamento em relatórios. */
+  funcao?: string;
   data_avaliacao: string;
   respostas: Record<string, number[]>; // bloco_key → array de respostas
   blocos: Record<string, BlocoResultado>;
