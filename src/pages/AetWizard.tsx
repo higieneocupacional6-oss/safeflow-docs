@@ -88,6 +88,7 @@ type SetorAet = {
   conclusao: string;
   plano_acao: PlanoAcao[];
   ferramentas: Ferramenta[];
+  justificativa_ferramentas: string;
   descricao_imagens_ambiente: string;
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
@@ -199,7 +200,8 @@ const newSetor = (s: any): SetorAet => ({
   descricao_imagens_funcao: "",
   avaliacoes_psicossociais: [],
   _salvo: false,
-});
+  justificativa_ferramentas: "",
+} as SetorAet & { justificativa_ferramentas: string });
 
 // ─────────── FERRAMENTAS MODAL ───────────
 function FerramentasModal({
@@ -510,7 +512,20 @@ export default function AetWizard() {
             avaliacoes_dimensionais: { ...emptyDimensoes(), ...(s.avaliacoes_dimensionais || {}) },
             resultado_psicossocial_texto: s.resultado_psicossocial_texto || "",
             avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
-            ferramentas: s.ferramentas || [],
+            ferramentas: (s.ferramentas || []).map((f: any) => ({
+              tipo: f.tipo || "",
+              dados_avaliacao: f.dados_avaliacao || "",
+              resultado: f.resultado || "",
+              escore_final: f.escore_final ?? null,
+              classificacao: f.classificacao || "",
+              nivel_acao: f.nivel_acao || "",
+              colaborador_nome: f.colaborador_nome || "",
+              data_avaliacao: f.data_avaliacao || "",
+              avaliacao_id: f.avaliacao_id || "",
+              pdf_path: f.pdf_path || "",
+              respostas: f.respostas || {},
+            })),
+            justificativa_ferramentas: s.justificativa_ferramentas || "",
             plano_acao: s.plano_acao || [],
             avaliacoes_psicossociais: s.avaliacoes_psicossociais || [],
           }));
@@ -875,7 +890,16 @@ export default function AetWizard() {
           tipo: f.tipo || "",
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
+          escore_final: f.escore_final ?? null,
+          classificacao: f.classificacao || "",
+          nivel_acao: f.nivel_acao || "",
+          colaborador_nome: f.colaborador_nome || "",
+          data_avaliacao: f.data_avaliacao || "",
+          avaliacao_id: f.avaliacao_id || "",
+          pdf_path: f.pdf_path || "",
+          respostas: f.respostas || {},
         })),
+        justificativa_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
         ...(() => {
