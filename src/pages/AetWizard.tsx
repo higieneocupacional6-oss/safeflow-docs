@@ -1914,7 +1914,9 @@ export default function AetWizard() {
                       descricao: iaObs || "",
                       contexto,
                       anexos: iaFiles,
+                      instrucoes_usuario: instrucoesUsuario,
                     });
+
 
                     // Merge helpers respecting iaMode
                     const mergeText = (curr: string, next: string): string => {
