@@ -2005,7 +2005,52 @@ export default function AetWizard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Sub-modal — Configuração das instruções personalizadas */}
+        <Dialog open={instrucoesOpen} onOpenChange={(v) => { if (!instrucoesSaving) setInstrucoesOpen(v); }}>
+          <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading flex items-center gap-2">
+                <Pencil className="w-5 h-5 text-purple-600" />
+                Configuração da Geração Automática da AET
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Defina como deseja que o sistema elabore automaticamente as Análises Ergonômicas do Trabalho.
+                Estas instruções serão utilizadas em todas as gerações automáticas até que sejam alteradas por você.
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                Exemplos: linguagem técnica, nível de detalhamento, normas prioritárias, metodologia de análise,
+                critérios biomecânicos, estilo do diagnóstico e do plano de ação, requisitos específicos da empresa etc.
+                As instruções orientam <strong>a forma de redação</strong> — nunca substituem as evidências objetivas do formulário.
+              </p>
+              <Textarea
+                rows={16}
+                placeholder="Ex.: Utilizar linguagem técnica formal em terceira pessoa. Priorizar NR-17, ISO 11228 e NIOSH. Elaborar diagnósticos correlacionando fatores biomecânicos, organizacionais e psicossociais. No plano de ação, apresentar sempre justificativa normativa, prioridade (alta/média/baixa) e prazo sugerido..."
+                value={instrucoesDraft}
+                onChange={(e) => setInstrucoesDraft(e.target.value)}
+                disabled={instrucoesSaving}
+                className="font-mono text-xs"
+              />
+              <p className="text-[10px] text-muted-foreground">
+                Hierarquia aplicada na geração: (1) dados preenchidos no formulário &gt; (2) fotos e PDFs anexados &gt;
+                (3) estas instruções &gt; (4) banco de conhecimento interno &gt; (5) regras normativas.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="ghost" onClick={() => setInstrucoesOpen(false)} disabled={instrucoesSaving}>
+                Cancelar
+              </Button>
+              <Button onClick={salvarInstrucoes} disabled={instrucoesSaving}>
+                {instrucoesSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                Pronto
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     );
   }
 
