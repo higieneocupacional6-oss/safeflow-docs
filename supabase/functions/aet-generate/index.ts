@@ -169,16 +169,23 @@ ${JSON.stringify(contexto || {}, null, 2)}
 ${anexosArr.length === 0 ? "Nenhum anexo enviado." : anexosArr.map((a, i) => `- Anexo ${i + 1}: ${a.name} (${a.kind === "image" ? "Fotografia" : "PDF"})`).join("\n")}
 
 # INSTRUÇÕES DE SAÍDA
-Gere a AET completa em JSON conforme o schema.
-- "avaliacoes_dimensionais": cada chave recebe TEXTO técnico de avaliação (Adequado/Inadequado + justificativa antropométrica citando norma). Se a medida não foi informada, escreva "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
-- "cronoanalise": 4 a 8 linhas cobrindo o ciclo real. Nunca genérico.
-- "plano_acao": 3 a 6 ações concretas, com "justificativa" (norma/técnica), "prioridade" (Alta/Média/Baixa), "resultado_esperado" e responsável nominado por cargo.
-- "caracterizacao_biomecanica": interprete os escores das ferramentas (RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg) presentes no contexto, citando faixas de risco.
+Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de cada campo (ver system) — cada campo deve ter texto exclusivo, sem repetir sentenças ou parágrafos de outros campos.
+- "posto_trabalho": apenas ambiente/mobiliário/layout/dimensões observadas.
+- "descricao_atividade": apenas trabalho real executado, método e sequência operacional.
+- "analise_organizacional": organização, autonomia, supervisão, suporte, psicossocial (COPSOQ).
+- "ritmo_complexidade": intensidade, repetitividade, exigência cognitiva/física, pressão.
+- "jornada_aspectos": jornada, pausas, turnos, rodízios — aderência à NR-17.6.
+- "caracterizacao_biomecanica": posturas, amplitudes, cargas — interpretar escores (RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg) com faixas de risco, citando ISO 11226/11228.
+- "cronoanalise": 4 a 8 tarefas do ciclo real, tempo realista, risco justificado. Nunca genérico.
+- "avaliacoes_dimensionais": cada chave = TEXTO técnico (Adequado/Inadequado + justificativa antropométrica citando norma). Se não informado: "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
 - "avaliacoes_quantitativas_analise": parágrafo comparando valores medidos com limites (NHO-01, NBR ISO 8995, ISO 7730, NR-17), classificando conformidade.
-- "diagnostico_ergonomico" e "conclusao": correlacionem físico + organizacional + psicossocial, citando NR-17 e demais normas aplicáveis.
-- Analise as fotografias descrevendo mobiliário, postura, layout, EPIs, iluminação e integrando à análise biomecânica.
-- Extraia dos PDFs (procedimentos, laudos, POPs, OS) dados relevantes e cite-os como fonte.
-- Se houver DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO acima, siga-as como método de redação — sem, em hipótese alguma, reproduzir seu texto na resposta.`;
+- "diagnostico_ergonomico": SINTETIZAR físico + organizacional + psicossocial em consolidação nova, com causas/consequências/nível de exposição — não copiar campos anteriores.
+- "conclusao": posicionamento técnico final classificando a condição ergonômica — não repetir o diagnóstico.
+- "plano_acao": 3 a 6 ações concretas com "justificativa" (norma/técnica), "prioridade" (Alta/Média/Baixa), "resultado_esperado", responsável nominado por cargo e prazo em dias.
+- Fotografias: descrever mobiliário, postura, layout, EPIs, iluminação e integrar à análise biomecânica.
+- PDFs: extrair jornada/POPs/laudos/OS e citá-los como fonte.
+- Se houver DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO no topo, obedeça-as INTEGRALMENTE como método de redação — sem, em hipótese alguma, reproduzir seu texto na resposta.
+- Quando faltarem dados, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos.`;
 
     // Build multimodal content array
     const userContent: any[] = [{ type: "text", text: userText }];
