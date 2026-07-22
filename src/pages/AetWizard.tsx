@@ -1956,13 +1956,53 @@ export default function AetWizard() {
                       descricao_imagens_funcao: setor.descricao_imagens_funcao,
                     };
 
-                    // Geração local determinística
-                    const out = await gerarAetDeterministica({
-                      descricao: iaObs || "",
-                      contexto,
-                      anexos: iaFiles,
-                      instrucoes_usuario: instrucoesUsuario,
-                    });
+                    let out: any;
+                    if (iaAtivada) {
+                      // Modo IA: converte anexos para base64 e chama a edge function
+                      const fileToB64 = (f: File) =>
+                        new Promise<string>((resolve, reject) => {
+                          const r = new FileReader();
+                          r.onload = () => {
+                            const s = String(r.result || "");
+                            const idx = s.indexOf(",");
+                            resolve(idx >= 0 ? s.slice(idx + 1) : s);
+                          };
+                          r.onerror = () => reject(r.error);
+                          r.readAsDataURL(f);
+                        });
+                      const anexosPayload = await Promise.all(
+                        iaFiles.map(async (f) => ({
+                          name: f.name,
+                          mime: f.type,
+                          kind: f.type === "application/pdf" ? "pdf" : "image",
+                          data: await fileToB64(f),
+                        })),
+                      );
+                      const descricaoIA = (iaObs || "").trim().length >= 20
+                        ? iaObs
+                        : (iaObs ? iaObs + " " : "") +
+                          "Elaborar AET completa a partir do contexto cadastrado, anexos e evidências disponíveis.";
+                      const { data: aiData, error: aiError } = await supabase.functions.invoke("aet-generate", {
+                        body: {
+                          descricao: descricaoIA,
+                          contexto,
+                          anexos: anexosPayload,
+                          instrucoes_usuario: instrucoesUsuario,
+                        },
+                      });
+                      if (aiError) throw new Error(aiError.message || "Falha ao chamar a IA");
+                      if ((aiData as any)?.error) throw new Error((aiData as any).error);
+                      out = (aiData as any)?.output || {};
+                      out._debug = { modo: "ia", knowledge_base_utilizada: "IA", imagens_analisadas: anexosPayload.filter((a) => a.kind === "image").length, pdfs_analisados: anexosPayload.filter((a) => a.kind === "pdf").length };
+                    } else {
+                      // Modo determinístico local
+                      out = await gerarAetDeterministica({
+                        descricao: iaObs || "",
+                        contexto,
+                        anexos: iaFiles,
+                        instrucoes_usuario: instrucoesUsuario,
+                      });
+                    }
 
 
                     // Merge helpers respecting iaMode
