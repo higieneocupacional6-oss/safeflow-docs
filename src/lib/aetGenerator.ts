@@ -434,7 +434,7 @@ function gerarPlanoAcao(kb: FuncaoConhecimento, ctx: any): AetGenOutput["plano_a
 
 // ─────────── Orquestrador ───────────
 export async function gerarAetDeterministica(input: AetGenInput): Promise<AetGenOutput> {
-  const { descricao, contexto, anexos } = input;
+  const { descricao, contexto, anexos, instrucoes_usuario } = input;
   const funcoes: string[] = (contexto?.funcoes || []).map((f: any) => f.nome).filter(Boolean);
   const kb = acharConhecimento(funcoes) || CONHECIMENTO_GENERICO;
 
@@ -461,15 +461,23 @@ export async function gerarAetDeterministica(input: AetGenInput): Promise<AetGen
   const concl = gerarConclusao(contexto, kb, quantTxt);
   const plano = gerarPlanoAcao(kb, contexto);
 
+  // Diretrizes personalizadas do usuário: aplicadas como preâmbulo metodológico
+  // nos campos discursivos, sem sobrepor evidências objetivas.
+  const instr = (instrucoes_usuario || "").trim();
+  const preambulo = instr
+    ? `Diretrizes metodológicas adotadas pelo responsável técnico:\n${instr}\n\n`
+    : "";
+  const withInstr = (t: string) => (preambulo && t ? preambulo + t : t);
+
   return {
     posto_trabalho: posto,
     descricao_atividade: atividade,
-    analise_organizacional: organizacional,
+    analise_organizacional: withInstr(organizacional),
     ritmo_complexidade: ritmo,
     jornada_aspectos: jornada,
-    caracterizacao_biomecanica: biom,
-    diagnostico_ergonomico: diag,
-    conclusao: concl,
+    caracterizacao_biomecanica: withInstr(biom),
+    diagnostico_ergonomico: withInstr(diag),
+    conclusao: withInstr(concl),
     cronoanalise: crono,
     avaliacoes_dimensionais: dims,
     avaliacoes_quantitativas_analise: quantTxt,
@@ -479,6 +487,8 @@ export async function gerarAetDeterministica(input: AetGenInput): Promise<AetGen
       imagens_analisadas: imagens.quantidade,
       pdfs_analisados: pdfs.length,
       pdf_chars: pdfTexto.length,
+      instrucoes_usuario_aplicadas: !!instr,
     },
   };
 }
+
