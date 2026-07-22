@@ -602,7 +602,8 @@ export default function AetWizard() {
                   const novas = (vinc as any[])
                     .filter((r) => fids.includes(r.funcao_id))
                     .map((r) => ({
-                      colaborador_nome: r.colaborador_nome || "Anônimo",
+                      colaborador_nome: "",
+                      funcao: (s.funcoes_selecionadas || []).find((f: any) => f.id === r.funcao_id)?.nome || "Função não informada",
                       data_avaliacao: r.data_avaliacao || "",
                       respostas: r.respostas || {},
                       blocos: r.blocos || {},
@@ -615,8 +616,8 @@ export default function AetWizard() {
                       copsoq_riscos_identificados: r.copsoq_riscos_identificados || "",
                     }));
                   const existentes = s.avaliacoes_psicossociais || [];
-                  const chaves = new Set(existentes.map((a: any) => `${a.colaborador_nome}|${a.data_avaliacao}`));
-                  const adicionar = novas.filter((n: any) => !chaves.has(`${n.colaborador_nome}|${n.data_avaliacao}`));
+                  const chaves = new Set(existentes.map((a: any) => `${a.funcao || ""}|${a.data_avaliacao}`));
+                  const adicionar = novas.filter((n: any) => !chaves.has(`${n.funcao || ""}|${n.data_avaliacao}`));
                   s.avaliacoes_psicossociais = [...existentes, ...adicionar];
                 });
               }
@@ -630,7 +631,7 @@ export default function AetWizard() {
               const partes = s.avaliacoes_psicossociais
                 .map((p: any) => {
                   const calc = calcularPsicossocial(p);
-                  const nome = calc.colaborador_nome || "Colaborador";
+                  const nome = calc.funcao || "Função não informada";
                   const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
                   const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
                   return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
@@ -1542,7 +1543,7 @@ export default function AetWizard() {
               <h2 className="font-heading font-semibold flex items-center gap-2">
                 <Brain className="w-4 h-4" />Avaliação Psicossocial
               </h2>
-              <p className="text-xs text-muted-foreground">Aplicação do questionário COPSOQ por colaborador</p>
+              <p className="text-xs text-muted-foreground">Aplicação e consolidação do questionário COPSOQ por função</p>
             </div>
             <Button size="sm" variant="outline" onClick={() => setPsicoOpen(true)}>
               {setor.avaliacoes_psicossociais.length > 0
@@ -1554,7 +1555,7 @@ export default function AetWizard() {
             <div className="space-y-1.5 mb-3">
               {setor.avaliacoes_psicossociais.map((p, i) => (
                 <div key={i} className="text-xs border border-border rounded-lg p-2">
-                  <p className="font-semibold">{p.colaborador_nome || "Sem nome"}</p>
+                  <p className="font-semibold">{p.funcao || "Função não informada"}</p>
                   <p className="text-muted-foreground line-clamp-2">{p.resultado_psicossocial}</p>
                 </div>
               ))}
@@ -1567,7 +1568,7 @@ export default function AetWizard() {
                 <Button size="sm" variant="ghost" onClick={() => {
                   const partes = setor.avaliacoes_psicossociais.map((p) => {
                     const calc = calcularPsicossocial(p);
-                    const nome = calc.colaborador_nome || "Colaborador";
+                    const nome = calc.funcao || "Função não informada";
                     const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
                     const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
                     return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
@@ -1988,6 +1989,7 @@ export default function AetWizard() {
               ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
               : "",
           }}
+          funcoesSetor={(setor.funcoes_selecionadas || []).map((f) => ({ id: f.id, nome: f.nome })).filter((f) => f.nome)}
         />
 
         {/* Modal — Gerar AET com IA */}
