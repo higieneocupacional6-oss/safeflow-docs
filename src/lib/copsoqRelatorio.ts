@@ -257,9 +257,8 @@ function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext
     `índices nas dimensões ${top.map((t) => t.titulo).join(", ")}, devendo ser priorizadas no plano de ação.`,
   );
   if (avs.length > 1) {
-    const nomes = avs.map((a) => a.colaborador_nome).filter(Boolean);
     paragrafos.push(
-      `Comparação Entre Grupos: a amostra é composta por ${avs.length} colaboradores (${nomes.slice(0, 5).join(", ")}${nomes.length > 5 ? "…" : ""}). ` +
+      `Comparação Entre Grupos: a amostra é composta por ${avs.length} respondente(s), com resultados apresentados de forma consolidada e anonimizada. ` +
       `A consistência das respostas reforça que os fatores identificados são percebidos coletivamente.`,
     );
   }
