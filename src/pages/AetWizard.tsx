@@ -25,6 +25,12 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
 import { gerarAetDeterministica } from "@/lib/aetGenerator";
+import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/ergonomia/ToolAssessmentModal";
+import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
+import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
+import type { FerramentaTipo } from "@/lib/ergonomia/types";
+
+const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH"];
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
@@ -48,7 +54,20 @@ type AvalQuant = {
   limite_temperatura: string;
 };
 type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
-type Ferramenta = { tipo: string; dados_avaliacao: string; resultado: string };
+type Ferramenta = {
+  tipo: string;
+  dados_avaliacao: string;
+  resultado: string;
+  // Campos preenchidos automaticamente quando a ferramenta é RULA / REBA / NIOSH
+  escore_final?: number | null;
+  classificacao?: string;
+  nivel_acao?: string;
+  colaborador_nome?: string;
+  data_avaliacao?: string;
+  avaliacao_id?: string;
+  pdf_path?: string;
+  respostas?: Record<string, unknown>;
+};
 
 type SetorAet = {
   setor_id: string;
@@ -75,6 +94,7 @@ type SetorAet = {
   conclusao: string;
   plano_acao: PlanoAcao[];
   ferramentas: Ferramenta[];
+  justificativa_ferramentas: string;
   descricao_imagens_ambiente: string;
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
@@ -186,16 +206,18 @@ const newSetor = (s: any): SetorAet => ({
   descricao_imagens_funcao: "",
   avaliacoes_psicossociais: [],
   _salvo: false,
-});
+  justificativa_ferramentas: "",
+} as SetorAet & { justificativa_ferramentas: string });
 
 // ─────────── FERRAMENTAS MODAL ───────────
 function FerramentasModal({
-  open, onOpenChange, ferramentas, onChange,
+  open, onOpenChange, ferramentas, onChange, onOpenTool,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   ferramentas: Ferramenta[];
   onChange: (f: Ferramenta[]) => void;
+  onOpenTool: (tool: FerramentaTipo) => void;
 }) {
   const add = (tipo: string) => onChange([...ferramentas, emptyFerr(tipo)]);
   const update = (i: number, patch: Partial<Ferramenta>) =>
@@ -211,6 +233,8 @@ function FerramentasModal({
     onOpenChange(false);
   };
 
+  const isModalTool = (tipo: string) => (FERRAMENTAS_COM_MODAL as string[]).includes(tipo);
+
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); else onOpenChange(true); }}>
       <DialogContent className="sm:max-w-3xl max-h-[85vh] overflow-y-auto">
@@ -219,16 +243,29 @@ function FerramentasModal({
         </DialogHeader>
 
         <div className="space-y-4">
+          <p className="text-xs text-muted-foreground">
+            Ferramentas com <strong>modal próprio</strong> (RULA, REBA, NIOSH) executam o cálculo oficial, geram um relatório em PDF
+            e integram automaticamente o resultado à AET. As demais permitem registro manual.
+          </p>
           <div className="space-y-2">
             {FERRAMENTAS_CATEGORIAS.map((c) => (
               <div key={c.categoria}>
                 <p className="text-xs font-bold uppercase text-muted-foreground mb-1.5">{c.categoria}</p>
                 <div className="flex flex-wrap gap-2">
-                  {c.itens.map((it) => (
-                    <Button key={it} size="sm" variant="outline" onClick={() => add(it)}>
-                      <Plus className="w-3.5 h-3.5 mr-1" />{it}
-                    </Button>
-                  ))}
+                  {c.itens.map((it) => {
+                    const hasModal = isModalTool(it);
+                    return (
+                      <Button
+                        key={it}
+                        size="sm"
+                        variant={hasModal ? "default" : "outline"}
+                        onClick={() => hasModal ? onOpenTool(it as FerramentaTipo) : add(it)}
+                      >
+                        <Plus className="w-3.5 h-3.5 mr-1" />
+                        {it}{hasModal && " ✦"}
+                      </Button>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -240,33 +277,64 @@ function FerramentasModal({
                 Nenhuma ferramenta adicionada. Clique em uma das categorias acima.
               </p>
             )}
-            {ferramentas.map((f, i) => (
-              <Card key={i} className="p-3 space-y-2">
-                <div className="flex items-center justify-between">
-                  <Badge variant="outline" className="font-mono">{f.tipo}</Badge>
-                  <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => remove(i)}>
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </Button>
-                </div>
-                <div>
-                  <Label className="text-xs">Dados da avaliação</Label>
-                  <Textarea
-                    rows={2}
-                    value={f.dados_avaliacao}
-                    onChange={(e) => update(i, { dados_avaliacao: e.target.value })}
-                    placeholder="Descreva os parâmetros observados, scores parciais, etc."
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs">Resultado *</Label>
-                  <Input
-                    value={f.resultado}
-                    onChange={(e) => update(i, { resultado: e.target.value })}
-                    placeholder="Ex: Risco moderado / Score 5"
-                  />
-                </div>
-              </Card>
-            ))}
+            {ferramentas.map((f, i) => {
+              const auto = !!f.avaliacao_id;
+              return (
+                <Card key={i} className="p-3 space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className="font-mono">{f.tipo}</Badge>
+                      {auto && <Badge className="bg-emerald-100 text-emerald-800 border-emerald-300 text-[10px]">Cálculo oficial</Badge>}
+                      {f.escore_final != null && (
+                        <Badge variant="secondary" className="text-[11px]">Escore: {f.escore_final}</Badge>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {f.pdf_path && (
+                        <Button
+                          variant="ghost" size="icon" className="h-7 w-7"
+                          title="Baixar PDF"
+                          onClick={() => baixarPdfAvaliacao(f.pdf_path!).catch(() => toast.error("Erro ao baixar PDF"))}
+                        >
+                          <FileDown className="w-3.5 h-3.5" />
+                        </Button>
+                      )}
+                      <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => remove(i)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
+                  {auto ? (
+                    <div className="text-xs space-y-0.5 text-muted-foreground">
+                      {f.colaborador_nome && <div><strong>Colaborador:</strong> {f.colaborador_nome}</div>}
+                      {f.data_avaliacao && <div><strong>Data:</strong> {new Date(f.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")}</div>}
+                      {f.classificacao && <div><strong>Classificação:</strong> {f.classificacao}</div>}
+                      {f.nivel_acao && <div><strong>Nível de ação:</strong> {f.nivel_acao}</div>}
+                    </div>
+                  ) : (
+                    <>
+                      <div>
+                        <Label className="text-xs">Dados da avaliação</Label>
+                        <Textarea
+                          rows={2}
+                          value={f.dados_avaliacao}
+                          onChange={(e) => update(i, { dados_avaliacao: e.target.value })}
+                          placeholder="Descreva os parâmetros observados, scores parciais, etc."
+                        />
+                      </div>
+                      <div>
+                        <Label className="text-xs">Resultado *</Label>
+                        <Input
+                          value={f.resultado}
+                          onChange={(e) => update(i, { resultado: e.target.value })}
+                          placeholder="Ex: Risco moderado / Score 5"
+                        />
+                      </div>
+                    </>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         </div>
 
@@ -300,6 +368,8 @@ export default function AetWizard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
+  const [toolModalTool, setToolModalTool] = useState<FerramentaTipo | null>(null);
+  const [justificativaLoadingIdx, setJustificativaLoadingIdx] = useState<number | null>(null);
   const [psicoOpen, setPsicoOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
@@ -497,7 +567,20 @@ export default function AetWizard() {
             avaliacoes_dimensionais: { ...emptyDimensoes(), ...(s.avaliacoes_dimensionais || {}) },
             resultado_psicossocial_texto: s.resultado_psicossocial_texto || "",
             avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
-            ferramentas: s.ferramentas || [],
+            ferramentas: (s.ferramentas || []).map((f: any) => ({
+              tipo: f.tipo || "",
+              dados_avaliacao: f.dados_avaliacao || "",
+              resultado: f.resultado || "",
+              escore_final: f.escore_final ?? null,
+              classificacao: f.classificacao || "",
+              nivel_acao: f.nivel_acao || "",
+              colaborador_nome: f.colaborador_nome || "",
+              data_avaliacao: f.data_avaliacao || "",
+              avaliacao_id: f.avaliacao_id || "",
+              pdf_path: f.pdf_path || "",
+              respostas: f.respostas || {},
+            })),
+            justificativa_ferramentas: s.justificativa_ferramentas || "",
             plano_acao: s.plano_acao || [],
             avaliacoes_psicossociais: s.avaliacoes_psicossociais || [],
           }));
@@ -862,7 +945,16 @@ export default function AetWizard() {
           tipo: f.tipo || "",
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
+          escore_final: f.escore_final ?? null,
+          classificacao: f.classificacao || "",
+          nivel_acao: f.nivel_acao || "",
+          colaborador_nome: f.colaborador_nome || "",
+          data_avaliacao: f.data_avaliacao || "",
+          avaliacao_id: f.avaliacao_id || "",
+          pdf_path: f.pdf_path || "",
+          respostas: f.respostas || {},
         })),
+        justificativa_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
         ...(() => {
@@ -1509,14 +1601,89 @@ export default function AetWizard() {
             </Button>
           </div>
           {setor.ferramentas.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
+            <div className="space-y-1.5">
               {setor.ferramentas.map((f, i) => (
-                <Badge key={i} variant="secondary" className="font-mono text-xs">
-                  {f.tipo}: {f.resultado || "—"}
-                </Badge>
+                <div key={i} className="flex items-center justify-between gap-2 rounded-md border border-border px-2 py-1.5">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Badge variant="outline" className="font-mono text-xs">{f.tipo}</Badge>
+                    <span className="text-xs">
+                      {f.escore_final != null ? `Escore ${f.escore_final} — ` : ""}
+                      {f.classificacao || f.resultado || "—"}
+                    </span>
+                    {f.colaborador_nome && (
+                      <span className="text-[10px] text-muted-foreground">• {f.colaborador_nome}</span>
+                    )}
+                  </div>
+                  {f.pdf_path && (
+                    <Button
+                      variant="ghost" size="icon" className="h-7 w-7"
+                      title="Baixar PDF do relatório"
+                      onClick={() => baixarPdfAvaliacao(f.pdf_path!).catch(() => toast.error("Erro ao baixar PDF"))}
+                    >
+                      <FileDown className="w-3.5 h-3.5" />
+                    </Button>
+                  )}
+                </div>
               ))}
             </div>
           )}
+
+          {/* Justificativa da escolha das ferramentas */}
+          <div className="mt-4 pt-4 border-t border-border space-y-2">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <Label className="text-xs font-semibold">Justificativa da escolha das ferramentas</Label>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm" variant="outline"
+                  disabled={setor.ferramentas.length === 0}
+                  onClick={() => {
+                    const tipos = Array.from(new Set(setor.ferramentas.map((f) => f.tipo))) as FerramentaTipo[];
+                    const funcao = (setor.funcoes_selecionadas || []).map((x) => x.nome).join(", ") || setor.funcao_nome;
+                    const texto = gerarJustificativaDeterministica({
+                      funcao,
+                      descricao_atividade: setor.descricao_atividade,
+                      ferramentas: tipos,
+                    });
+                    updateSetor(editingSetorIdx, { justificativa_ferramentas: texto });
+                    toast.success("Justificativa gerada automaticamente");
+                  }}
+                >
+                  <Sparkles className="w-3.5 h-3.5 mr-1" />Gerar automaticamente
+                </Button>
+                <Button
+                  size="sm" variant="outline"
+                  disabled={setor.ferramentas.length === 0 || !setor.justificativa_ferramentas?.trim() || justificativaLoadingIdx === editingSetorIdx}
+                  onClick={async () => {
+                    setJustificativaLoadingIdx(editingSetorIdx);
+                    try {
+                      const tipos = Array.from(new Set(setor.ferramentas.map((f) => f.tipo))) as FerramentaTipo[];
+                      const funcao = (setor.funcoes_selecionadas || []).map((x) => x.nome).join(", ") || setor.funcao_nome;
+                      const refinado = await refinarJustificativaIA({
+                        funcao,
+                        descricao_atividade: setor.descricao_atividade,
+                        ferramentas: tipos,
+                        texto_base: setor.justificativa_ferramentas || "",
+                      });
+                      updateSetor(editingSetorIdx, { justificativa_ferramentas: refinado });
+                      toast.success("Justificativa refinada com IA");
+                    } catch { toast.error("Não foi possível refinar com IA"); }
+                    finally { setJustificativaLoadingIdx(null); }
+                  }}
+                >
+                  {justificativaLoadingIdx === editingSetorIdx
+                    ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    : <Brain className="w-3.5 h-3.5 mr-1" />}
+                  Refinar com IA
+                </Button>
+              </div>
+            </div>
+            <Textarea
+              rows={4}
+              value={setor.justificativa_ferramentas || ""}
+              onChange={(e) => updateSetor(editingSetorIdx, { justificativa_ferramentas: e.target.value })}
+              placeholder="Explique tecnicamente por que as ferramentas selecionadas são adequadas à função e às características da atividade."
+            />
+          </div>
         </Card>
 
         {/* Avaliações quantitativas */}
@@ -1748,7 +1915,40 @@ export default function AetWizard() {
           onOpenChange={setFerramentasOpen}
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
+          onOpenTool={(tool) => { setFerramentasOpen(false); setToolModalTool(tool); }}
         />
+        {toolModalTool && (
+          <ToolAssessmentModal
+            open={!!toolModalTool}
+            onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
+            tool={toolModalTool as "RULA" | "REBA" | "NIOSH"}
+            cabecalho={{
+              funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
+              empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
+              setor_nome: setor.setor_nome || "",
+            }}
+            aetDocumentoId={documentoId || null}
+            setorRef={setor.setor_id || null}
+            onComplete={(r: ToolAssessmentResult) => {
+              const nova: Ferramenta = {
+                tipo: r.tipo,
+                dados_avaliacao: r.resumo,
+                resultado: `Escore ${r.escore_final} — ${r.classificacao}`,
+                escore_final: r.escore_final,
+                classificacao: r.classificacao,
+                nivel_acao: r.nivel_acao,
+                colaborador_nome: r.colaborador_nome,
+                data_avaliacao: r.data_avaliacao,
+                avaliacao_id: r.avaliacao_id,
+                pdf_path: r.pdf_path,
+                respostas: r.respostas,
+              };
+              updateSetor(editingSetorIdx, { ferramentas: [...setor.ferramentas, nova] });
+              setToolModalTool(null);
+              setFerramentasOpen(true);
+            }}
+          />
+        )}
         <PsicossocialModal
           open={psicoOpen}
           onOpenChange={setPsicoOpen}
