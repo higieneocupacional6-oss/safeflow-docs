@@ -965,6 +965,7 @@ export default function AetWizard() {
             const blocosNorm = normalizePsicoBlocos(calc.blocos);
             return {
               colaborador_nome: calc.colaborador_nome || "",
+              funcao: calc.funcao || "Função não informada",
               data_avaliacao: formatDate(calc.data_avaliacao),
               resultado_psicossocial: calc.resultado_psicossocial || "",
               riscos_psicossociais: calc.riscos_psicossociais || "",
@@ -983,6 +984,7 @@ export default function AetWizard() {
           const primeira = lista[0];
           const avaliacao_psicossocial = primeira || {
             colaborador_nome: "",
+            funcao: "",
             data_avaliacao: "",
             resultado_psicossocial: "",
             riscos_psicossociais: "",
@@ -2129,7 +2131,8 @@ export default function AetWizard() {
                     const psicoResumo = (setor.avaliacoes_psicossociais || []).map((p: any) => {
                       const calc = calcularPsicossocial(p);
                       return {
-                        colaborador: calc.colaborador_nome,
+                        funcao: calc.funcao || "Função não informada",
+                        respondentes: 1,
                         resultado: calc.copsoq_resultado_resumido || calc.resultado_psicossocial,
                         riscos: calc.copsoq_riscos_identificados || calc.riscos_psicossociais,
                         alertas: calc.alertas,
