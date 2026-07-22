@@ -1921,7 +1921,7 @@ export default function AetWizard() {
           <ToolAssessmentModal
             open={!!toolModalTool}
             onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
-            tool={toolModalTool}
+            tool={toolModalTool as "RULA" | "REBA" | "NIOSH" | "OWAS"}
             cabecalho={{
               funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
               empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
