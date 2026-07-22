@@ -1082,10 +1082,29 @@ export default function AetWizard() {
           <Button variant="ghost" size="icon" onClick={() => setEditingSetorIdx(null)}>
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <div>
+          <div className="flex-1">
             <h1 className="font-heading text-2xl font-bold">{setor.setor_nome}</h1>
             <p className="text-xs text-muted-foreground">Edição da AET deste setor</p>
           </div>
+          <Button
+            onClick={() => {
+              if (!setor.ferramentas || setor.ferramentas.length === 0) {
+                toast.error("Preencha ao menos uma Ferramenta Ergonômica antes de gerar a AET automaticamente.");
+                return;
+              }
+              const temPsico = (setor.avaliacoes_psicossociais && setor.avaliacoes_psicossociais.length > 0)
+                || !!setor.resultado_psicossocial_texto?.trim();
+              if (!temPsico) {
+                toast.error("Registre a Avaliação Psicossocial (COPSOQ) antes de gerar a AET automaticamente.");
+                return;
+              }
+              setIaObs("");
+              setIaOpen(true);
+            }}
+            className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
+          >
+            <Sparkles className="w-4 h-4 mr-2" />Gerar Automaticamente
+          </Button>
         </div>
 
         {/* Identificação */}
