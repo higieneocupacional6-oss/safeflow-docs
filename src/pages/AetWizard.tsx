@@ -1699,6 +1699,151 @@ export default function AetWizard() {
               : "",
           }}
         />
+
+        {/* Modal — Gerar AET com IA */}
+        <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
+          <DialogContent className="sm:max-w-2xl">
+            <DialogHeader>
+              <DialogTitle className="font-heading flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-purple-600" />
+                Gerar AET Automaticamente com IA
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-3">
+              <p className="text-xs text-muted-foreground">
+                Descreva livremente o que foi observado in loco (posto, mobiliário, postura, ritmo, jornada, ambiente,
+                queixas dos colaboradores, imagens observadas etc). A IA irá consolidar essa descrição com o contexto
+                cadastrado (empresa, contrato, setor, funções, ferramentas ergonômicas, avaliação psicossocial,
+                avaliações quantitativas e dimensionais) e preencher automaticamente os campos técnicos da AET,
+                fundamentando-se em Ergonomia e na NR-17.
+              </p>
+              <Textarea
+                rows={10}
+                placeholder="Ex.: Colaborador trabalha sentado 8h/dia em cadeira sem regulagem, monitor abaixo da linha dos olhos, mesa fixa. Ritmo intenso, metas semanais, pouca pausa. Queixas de dor lombar e cervical..."
+                value={iaObs}
+                onChange={(e) => setIaObs(e.target.value)}
+                disabled={iaLoading}
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Campos gerados: posto de trabalho, atividade, organização, ritmo/jornada, biomecânica, cronoanálise,
+                avaliação dimensional, diagnóstico, conclusão e plano de ação.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIaOpen(false)} disabled={iaLoading}>
+                Cancelar
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (iaObs.trim().length < 20) {
+                    toast.error("Descreva com mais detalhes (mínimo 20 caracteres).");
+                    return;
+                  }
+                  setIaLoading(true);
+                  try {
+                    const emp: any = empresaSelecionada || {};
+                    const contrato: any = (contratosEmpresa as any[]).find((c: any) => c.id === contratoId) || {};
+                    const funcoesDetalhes = (setor.funcoes_selecionadas || []).map((fs: any) => {
+                      const f: any = (funcoesAll as any[]).find((x: any) => x.id === fs.id);
+                      return { nome: fs.nome, descricao_atividades: f?.descricao_atividades || "" };
+                    });
+                    const psicoResumo = (setor.avaliacoes_psicossociais || []).map((p: any) => {
+                      const calc = calcularPsicossocial(p);
+                      return {
+                        colaborador: calc.colaborador_nome,
+                        resultado: calc.copsoq_resultado_resumido || calc.resultado_psicossocial,
+                        riscos: calc.copsoq_riscos_identificados || calc.riscos_psicossociais,
+                        alertas: calc.alertas,
+                      };
+                    });
+                    const contexto = {
+                      empresa: {
+                        razao_social: emp.razao_social,
+                        cnpj: emp.cnpj,
+                        cnae: emp.cnae_principal,
+                        grau_risco: emp.grau_risco,
+                        endereco: emp.endereco,
+                        jornada_trabalho: emp.jornada_trabalho,
+                      },
+                      contrato: {
+                        numero: contrato.numero_contrato,
+                        contratante: contrato.nome_contratante,
+                      },
+                      setor: {
+                        nome: setor.setor_nome,
+                        ges: setor.ges,
+                        descricao_ambiente: setor.descricao_ambiente,
+                        numero_funcionarios: setor.numero_funcionarios,
+                      },
+                      funcoes: funcoesDetalhes,
+                      ferramentas_ergonomicas: setor.ferramentas,
+                      avaliacao_psicossocial: {
+                        resumo_editavel: setor.resultado_psicossocial_texto,
+                        avaliacoes: psicoResumo,
+                      },
+                      avaliacoes_quantitativas: setor.avaliacoes_quantitativas,
+                      avaliacoes_dimensionais: setor.avaliacoes_dimensionais,
+                      cronoanalise_previa: setor.cronoanalise,
+                    };
+                    const { data, error } = await supabase.functions.invoke("aet-generate", {
+                      body: { descricao: iaObs, contexto },
+                    });
+                    if (error) throw error;
+                    if ((data as any)?.error) throw new Error((data as any).error);
+                    const out: any = (data as any)?.output || {};
+                    const patch: Partial<SetorAet> = {};
+                    if (out.posto_trabalho) patch.posto_trabalho = out.posto_trabalho;
+                    if (out.descricao_atividade) patch.descricao_atividade = out.descricao_atividade;
+                    if (out.analise_organizacional) patch.analise_organizacional = out.analise_organizacional;
+                    if (out.ritmo_complexidade) patch.ritmo_complexidade = out.ritmo_complexidade;
+                    if (out.jornada_aspectos) patch.jornada_aspectos = out.jornada_aspectos;
+                    if (out.caracterizacao_biomecanica) patch.caracterizacao_biomecanica = out.caracterizacao_biomecanica;
+                    if (out.diagnostico_ergonomico) patch.diagnostico_ergonomico = out.diagnostico_ergonomico;
+                    if (out.conclusao) patch.conclusao = out.conclusao;
+                    if (Array.isArray(out.cronoanalise) && out.cronoanalise.length > 0) {
+                      patch.cronoanalise = out.cronoanalise.map((c: any) => ({
+                        tarefa: String(c.tarefa || ""),
+                        tempo: String(c.tempo || ""),
+                        risco: String(c.risco || ""),
+                      }));
+                    }
+                    if (Array.isArray(out.plano_acao) && out.plano_acao.length > 0) {
+                      patch.plano_acao = out.plano_acao.map((p: any) => ({
+                        o_que: String(p.o_que || ""),
+                        como: String(p.como || ""),
+                        responsavel: String(p.responsavel || ""),
+                        prazo: String(p.prazo || ""),
+                      }));
+                    }
+                    if (out.avaliacoes_dimensionais && typeof out.avaliacoes_dimensionais === "object") {
+                      const dims = { ...setor.avaliacoes_dimensionais };
+                      for (const k of Object.keys(dims) as (keyof AvaliacoesDimensionais)[]) {
+                        const v = out.avaliacoes_dimensionais[k];
+                        if (v && typeof v === "string") {
+                          dims[k] = { ...dims[k], avaliacao: v };
+                        }
+                      }
+                      patch.avaliacoes_dimensionais = dims;
+                    }
+                    updateSetor(editingSetorIdx, patch);
+                    toast.success("AET gerada automaticamente. Revise os campos antes de salvar.");
+                    setIaOpen(false);
+                  } catch (e: any) {
+                    console.error(e);
+                    toast.error(e?.message || "Erro ao gerar AET com IA");
+                  } finally {
+                    setIaLoading(false);
+                  }
+                }}
+                disabled={iaLoading}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90"
+              >
+                {iaLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                {iaLoading ? "Gerando..." : "Gerar AET"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
