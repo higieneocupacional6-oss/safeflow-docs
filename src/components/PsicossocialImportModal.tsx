@@ -40,6 +40,8 @@ export function PsicossocialImportModal({
     setCarregando(false);
     setGerando(false);
     setMapeamentosConfirmados({});
+    setFuncoesSelecionadas(new Set());
+    setBusca("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
