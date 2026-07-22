@@ -25,6 +25,12 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
 import { gerarAetDeterministica } from "@/lib/aetGenerator";
+import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/ergonomia/ToolAssessmentModal";
+import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
+import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
+import type { FerramentaTipo } from "@/lib/ergonomia/types";
+
+const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH"];
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
