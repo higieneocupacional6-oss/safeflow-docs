@@ -731,6 +731,24 @@ export default function AetWizard() {
           analise_organizacional: s.analise_organizacional || "",
           tarefas: s.tarefas || "",
           riscos_observados: s.riscos_observados || "",
+          cronoanalise: (s.cronoanalise || []).map((t) => ({
+            tarefa: t.tarefa || "",
+            tempo: t.tempo || "",
+            risco: t.risco || "",
+          })),
+          avaliacoes_dimensionais: DIMENSOES_LABELS.map(({ key, label }) => {
+            const it = s.avaliacoes_dimensionais?.[key] || { medida: "", avaliacao: "" };
+            return { item: label, medida: it.medida || "", avaliacao: it.avaliacao || "" };
+          }),
+          dimensoes: (() => {
+            const out: Record<string, { medida: string; avaliacao: string }> = {};
+            DIMENSOES_LABELS.forEach(({ key }) => {
+              const it = s.avaliacoes_dimensionais?.[key] || { medida: "", avaliacao: "" };
+              out[key] = { medida: it.medida || "", avaliacao: it.avaliacao || "" };
+            });
+            return out;
+          })(),
+          resultado_psicossocial_texto: s.resultado_psicossocial_texto || "",
           ritmo_complexidade: s.ritmo_complexidade || "",
           jornada_aspectos: s.jornada_aspectos || "",
           caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
