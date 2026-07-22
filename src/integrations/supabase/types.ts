@@ -606,6 +606,77 @@ export type Database = {
           },
         ]
       }
+      ergonomia_avaliacoes: {
+        Row: {
+          aet_documento_id: string | null
+          classificacao: string | null
+          colaborador_nome: string | null
+          created_at: string
+          data_avaliacao: string
+          empresa_nome: string | null
+          escore_final: number | null
+          ferramenta: string
+          funcao: string | null
+          id: string
+          nivel_acao: string | null
+          pdf_path: string | null
+          recomendacoes: string | null
+          respostas: Json
+          setor_nome: string | null
+          setor_ref: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          aet_documento_id?: string | null
+          classificacao?: string | null
+          colaborador_nome?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          empresa_nome?: string | null
+          escore_final?: number | null
+          ferramenta: string
+          funcao?: string | null
+          id?: string
+          nivel_acao?: string | null
+          pdf_path?: string | null
+          recomendacoes?: string | null
+          respostas?: Json
+          setor_nome?: string | null
+          setor_ref?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          aet_documento_id?: string | null
+          classificacao?: string | null
+          colaborador_nome?: string | null
+          created_at?: string
+          data_avaliacao?: string
+          empresa_nome?: string | null
+          escore_final?: number | null
+          ferramenta?: string
+          funcao?: string | null
+          id?: string
+          nivel_acao?: string | null
+          pdf_path?: string | null
+          recomendacoes?: string | null
+          respostas?: Json
+          setor_nome?: string | null
+          setor_ref?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ergonomia_avaliacoes_aet_documento_id_fkey"
+            columns: ["aet_documento_id"]
+            isOneToOne: false
+            referencedRelation: "aet_documentos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       exames_cadastro: {
         Row: {
           codigo_esocial: string
