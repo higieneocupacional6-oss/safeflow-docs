@@ -23,6 +23,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
+import { gerarAetDeterministica } from "@/lib/aetGenerator";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
@@ -1718,19 +1719,19 @@ export default function AetWizard() {
             <DialogHeader>
               <DialogTitle className="font-heading flex items-center gap-2">
                 <Sparkles className="w-5 h-5 text-purple-600" />
-                Gerar AET Automaticamente com IA
+                Gerar AET Automaticamente
               </DialogTitle>
             </DialogHeader>
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Descreva livremente o que foi observado in loco. A IA consolidará empresa, contrato, setor,
-                funções, ferramentas ergonômicas (RULA/REBA/OWAS/OCRA/NIOSH), avaliação psicossocial (COPSOQ),
-                antropometria/dimensionais, quantitativas e cronoanálise, produzindo textos técnicos individualizados
-                fundamentados em NR-17, ISO 11226/11228/6385, NIOSH e boas práticas da Ergonomia.
+                Geração <strong>determinística</strong> pelo próprio sistema — sem IA conversacional. Cruza empresa,
+                contrato, setor, funções, ferramentas ergonômicas (RULA/REBA/OWAS/OCRA/NIOSH), avaliação psicossocial
+                (COPSOQ), antropometria/dimensionais, quantitativas, cronoanálise, fotografias e PDFs anexados, e
+                complementa lacunas com o banco de conhecimento interno de funções ocupacionais.
               </p>
               <Textarea
-                rows={8}
-                placeholder="Ex.: Colaborador trabalha sentado 8h/dia em cadeira sem regulagem, monitor abaixo da linha dos olhos, mesa fixa. Ritmo intenso, metas semanais, pouca pausa. Queixas de dor lombar e cervical..."
+                rows={7}
+                placeholder="Informações complementares observadas in loco (opcional): mobiliário, postura, cadência, queixas, condições do ambiente..."
                 value={iaObs}
                 onChange={(e) => setIaObs(e.target.value)}
                 disabled={iaLoading}
@@ -1748,8 +1749,8 @@ export default function AetWizard() {
                     const okKinds = ["image/jpeg", "image/jpg", "image/png", "image/webp", "application/pdf"];
                     const filtered = arr.filter((f) => okKinds.includes(f.type));
                     const totalMb = filtered.reduce((s, f) => s + f.size, 0) / (1024 * 1024);
-                    if (totalMb > 18) {
-                      toast.error("Anexos excedem 18 MB no total. Reduza a quantidade/tamanho.");
+                    if (totalMb > 40) {
+                      toast.error("Anexos excedem 40 MB no total. Reduza a quantidade/tamanho.");
                       return;
                     }
                     setIaFiles(filtered);
@@ -1766,7 +1767,8 @@ export default function AetWizard() {
                   </div>
                 )}
                 <p className="text-[10px] text-muted-foreground mt-1">
-                  A IA analisará imagens (postura, mobiliário, layout, riscos visíveis) e PDFs (procedimentos, laudos, OS).
+                  Imagens: identificação de referências contextuais no material (sem invenção). PDFs: extração
+                  determinística de texto (procedimentos, laudos, OS) para complementar as seções técnicas.
                 </p>
               </div>
 
