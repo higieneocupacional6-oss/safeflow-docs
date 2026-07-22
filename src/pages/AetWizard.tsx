@@ -30,7 +30,7 @@ import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
 import type { FerramentaTipo } from "@/lib/ergonomia/types";
 
-const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH"];
+const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS"];
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
