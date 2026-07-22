@@ -84,9 +84,27 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
     ],
   },
   {
+    title: "Cronoanálise de tarefas (loop dentro do setor)",
+    vars: [
+      { code: "{{#cronoanalise}}\n{{tarefa}} | {{tempo}} | {{risco}}\n{{/cronoanalise}}", desc: "Tabela dinâmica com tarefa, tempo médio e risco associado" },
+    ],
+  },
+  {
+    title: "Avaliações Antropométricas / Dimensionais (loop dentro do setor)",
+    vars: [
+      { code: "{{#avaliacoes_dimensionais}}\n{{item}}: {{medida}} — {{avaliacao}}\n{{/avaliacoes_dimensionais}}", desc: "Loop com item / medida / avaliação (Altura mesa, assento, monitor, etc.)" },
+      { code: "{{dimensoes.altura_mesa.medida}} / {{dimensoes.altura_mesa.avaliacao}}", desc: "Acesso direto: altura da mesa" },
+      { code: "{{dimensoes.altura_assento.medida}} / {{dimensoes.altura_assento.avaliacao}}", desc: "Altura do assento" },
+      { code: "{{dimensoes.profundidade_assento.medida}} / {{dimensoes.profundidade_assento.avaliacao}}", desc: "Profundidade do assento" },
+      { code: "{{dimensoes.monitor.medida}} / {{dimensoes.monitor.avaliacao}}", desc: "Monitor" },
+      { code: "{{dimensoes.distancia_olho_monitor.medida}} / {{dimensoes.distancia_olho_monitor.avaliacao}}", desc: "Distância olho-monitor" },
+      { code: "{{dimensoes.espaco_pernas.medida}} / {{dimensoes.espaco_pernas.avaliacao}}", desc: "Espaço para pernas" },
+    ],
+  },
+  {
     title: "Avaliações quantitativas",
     vars: [
-      { code: "{{#avaliacoes_quantitativas}}\n{{especificacao_setor}}\nRuído: {{ruido_valor}} {{ruido_unidade}} | Limite: {{limite_ruido}} {{unidade_limite_ruido}}\nIluminância: {{iluminancia_valor}} {{iluminancia_unidade}} | Limite: {{limite_iluminancia}} {{unidade_limite_iluminancia}}\nTemperatura: {{temperatura_valor}} {{temperatura_unidade}} | Limite: {{limite_temperatura}}\n{{/avaliacoes_quantitativas}}", desc: "Loop de medições + limites (NBR 10152 / NBR ISO 8995)" },
+      { code: "{{#avaliacoes_quantitativas}}\n{{especificacao_setor}}\nRuído: {{ruido_valor}} {{ruido_unidade}} | Limite: {{limite_ruido}} (padrão 65 dB(A))\nIluminância: {{iluminancia_valor}} {{iluminancia_unidade}} | Limite: {{limite_iluminancia}} {{unidade_limite_iluminancia}}\nTemperatura: {{temperatura_valor}} {{temperatura_unidade}} | Limite: {{limite_temperatura}} (padrão 18°C a 25°C)\n{{/avaliacoes_quantitativas}}", desc: "Loop de medições. Ruído e temperatura têm limites padrão pré-preenchidos (editáveis)." },
     ],
   },
   {

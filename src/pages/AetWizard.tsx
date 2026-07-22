@@ -26,6 +26,16 @@ import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
+type Cronoanalise = { tarefa: string; tempo: string; risco: string };
+type DimensaoItem = { medida: string; avaliacao: string };
+type AvaliacoesDimensionais = {
+  altura_mesa: DimensaoItem;
+  altura_assento: DimensaoItem;
+  profundidade_assento: DimensaoItem;
+  monitor: DimensaoItem;
+  distancia_olho_monitor: DimensaoItem;
+  espaco_pernas: DimensaoItem;
+};
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
@@ -53,6 +63,8 @@ type SetorAet = {
   analise_organizacional: string;
   tarefas: string;
   riscos_observados: string;
+  cronoanalise: Cronoanalise[];
+  avaliacoes_dimensionais: AvaliacoesDimensionais;
   ritmo_complexidade: string;
   jornada_aspectos: string;
   caracterizacao_biomecanica: string;
@@ -64,6 +76,7 @@ type SetorAet = {
   descricao_imagens_ambiente: string;
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
+  resultado_psicossocial_texto: string;
   _salvo?: boolean;
 };
 
@@ -73,19 +86,39 @@ const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
   { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
 ];
 
+const DIMENSOES_LABELS: { key: keyof AvaliacoesDimensionais; label: string }[] = [
+  { key: "altura_mesa", label: "Altura da mesa" },
+  { key: "altura_assento", label: "Altura do assento" },
+  { key: "profundidade_assento", label: "Profundidade do assento" },
+  { key: "monitor", label: "Monitor" },
+  { key: "distancia_olho_monitor", label: "Distância olho-monitor" },
+  { key: "espaco_pernas", label: "Espaço para pernas" },
+];
+
+const emptyDimensoes = (): AvaliacoesDimensionais => ({
+  altura_mesa: { medida: "", avaliacao: "" },
+  altura_assento: { medida: "", avaliacao: "" },
+  profundidade_assento: { medida: "", avaliacao: "" },
+  monitor: { medida: "", avaliacao: "" },
+  distancia_olho_monitor: { medida: "", avaliacao: "" },
+  espaco_pernas: { medida: "", avaliacao: "" },
+});
+
 const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "", funcao: "" });
+const emptyCrono = (): Cronoanalise => ({ tarefa: "", tempo: "", risco: "" });
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
-  limite_ruido: "", unidade_limite_ruido: "dB(A)",
+  limite_ruido: "65 dB(A)", unidade_limite_ruido: "dB(A)",
   iluminancia_valor: "", iluminancia_unidade: "lux",
   limite_iluminancia: "", unidade_limite_iluminancia: "lux",
   temperatura_valor: "", temperatura_unidade: "°C",
-  limite_temperatura: "20°C a 23°C",
+  limite_temperatura: "18°C a 25°C",
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
 const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
+
 
 const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
 
@@ -136,6 +169,9 @@ const newSetor = (s: any): SetorAet => ({
   analise_organizacional: "",
   tarefas: "",
   riscos_observados: "",
+  cronoanalise: [],
+  avaliacoes_dimensionais: emptyDimensoes(),
+  resultado_psicossocial_texto: "",
   ritmo_complexidade: "",
   jornada_aspectos: "",
   caracterizacao_biomecanica: "",
@@ -384,6 +420,9 @@ export default function AetWizard() {
               data_avaliacao: c.data_avaliacao || "",
               funcao: c.funcao || s.funcao_nome || "",
             })),
+            cronoanalise: Array.isArray(s.cronoanalise) ? s.cronoanalise : [],
+            avaliacoes_dimensionais: { ...emptyDimensoes(), ...(s.avaliacoes_dimensionais || {}) },
+            resultado_psicossocial_texto: s.resultado_psicossocial_texto || "",
             avaliacoes_quantitativas: s.avaliacoes_quantitativas || [],
             ferramentas: s.ferramentas || [],
             plano_acao: s.plano_acao || [],
@@ -429,6 +468,21 @@ export default function AetWizard() {
           } catch (mergeErr) {
             console.warn("[AET] merge psico vinculadas:", mergeErr);
           }
+          // Auto-preencher texto psicossocial a partir das avaliações vinculadas (editável)
+          loadedSetores.forEach((s: any) => {
+            if (!s.resultado_psicossocial_texto && (s.avaliacoes_psicossociais || []).length > 0) {
+              const partes = s.avaliacoes_psicossociais
+                .map((p: any) => {
+                  const calc = calcularPsicossocial(p);
+                  const nome = calc.colaborador_nome || "Colaborador";
+                  const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
+                  const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
+                  return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
+                })
+                .filter(Boolean);
+              s.resultado_psicossocial_texto = partes.join("\n\n");
+            }
+          });
           setSetoresAet(loadedSetores);
         }
       } catch (e: any) {
@@ -677,6 +731,24 @@ export default function AetWizard() {
           analise_organizacional: s.analise_organizacional || "",
           tarefas: s.tarefas || "",
           riscos_observados: s.riscos_observados || "",
+          cronoanalise: (s.cronoanalise || []).map((t) => ({
+            tarefa: t.tarefa || "",
+            tempo: t.tempo || "",
+            risco: t.risco || "",
+          })),
+          avaliacoes_dimensionais: DIMENSOES_LABELS.map(({ key, label }) => {
+            const it = s.avaliacoes_dimensionais?.[key] || { medida: "", avaliacao: "" };
+            return { item: label, medida: it.medida || "", avaliacao: it.avaliacao || "" };
+          }),
+          dimensoes: (() => {
+            const out: Record<string, { medida: string; avaliacao: string }> = {};
+            DIMENSOES_LABELS.forEach(({ key }) => {
+              const it = s.avaliacoes_dimensionais?.[key] || { medida: "", avaliacao: "" };
+              out[key] = { medida: it.medida || "", avaliacao: it.avaliacao || "" };
+            });
+            return out;
+          })(),
+          resultado_psicossocial_texto: s.resultado_psicossocial_texto || "",
           ritmo_complexidade: s.ritmo_complexidade || "",
           jornada_aspectos: s.jornada_aspectos || "",
           caracterizacao_biomecanica: s.caracterizacao_biomecanica || "",
@@ -759,7 +831,8 @@ export default function AetWizard() {
             avaliacoes_psicossociais: lista,
             avaliacao_psicossocial,
             blocos: normalizePsicoBlocos(avaliacao_psicossocial.blocos),
-            resultado_psicossocial: avaliacao_psicossocial.resultado_psicossocial || "",
+            resultado_psicossocial: s.resultado_psicossocial_texto || avaliacao_psicossocial.resultado_psicossocial || "",
+            resultado_psicossocial_auto: avaliacao_psicossocial.resultado_psicossocial || "",
             riscos_psicossociais: avaliacao_psicossocial.riscos_psicossociais || "",
             copsoq_resultado_resumido: avaliacao_psicossocial.copsoq_resultado_resumido || "",
             copsoq_riscos_identificados: avaliacao_psicossocial.copsoq_riscos_identificados || "",
@@ -1172,8 +1245,6 @@ export default function AetWizard() {
               ["posto_trabalho", "Posto de trabalho"],
               ["descricao_atividade", "Descrição da atividade *"],
               ["analise_organizacional", "Análise organizacional"],
-              ["tarefas", "Tarefas"],
-              ["riscos_observados", "Riscos observados"],
               ["ritmo_complexidade", "Ritmo e complexidade"],
               ["jornada_aspectos", "Jornada e aspectos temporais"],
               ["caracterizacao_biomecanica", "Caracterização biomecânica"],
@@ -1187,6 +1258,86 @@ export default function AetWizard() {
                 />
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Cronoanálise de Tarefas */}
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-heading font-semibold">Cronoanálise de Tarefas</h2>
+              <p className="text-xs text-muted-foreground">Descrição da tarefa, tempo médio e risco associado</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() =>
+              updateSetor(editingSetorIdx, { cronoanalise: [...setor.cronoanalise, emptyCrono()] })
+            }>
+              <Plus className="w-4 h-4 mr-1" />Adicionar tarefa
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {setor.cronoanalise.map((t, i) => {
+              const updateT = (patch: Partial<Cronoanalise>) => {
+                const arr = [...setor.cronoanalise];
+                arr[i] = { ...arr[i], ...patch };
+                updateSetor(editingSetorIdx, { cronoanalise: arr });
+              };
+              return (
+                <div key={i} className="grid grid-cols-12 gap-2 items-start border border-border rounded-lg p-2">
+                  <div className="col-span-5">
+                    <Label className="text-xs">Tarefa</Label>
+                    <Textarea rows={2} value={t.tarefa} onChange={(e) => updateT({ tarefa: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Tempo médio</Label>
+                    <Input placeholder="ex: 15 min" value={t.tempo} onChange={(e) => updateT({ tempo: e.target.value })} />
+                  </div>
+                  <div className="col-span-4">
+                    <Label className="text-xs">Risco associado</Label>
+                    <Input value={t.risco} onChange={(e) => updateT({ risco: e.target.value })} />
+                  </div>
+                  <div className="col-span-1 flex justify-end pt-5">
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                      updateSetor(editingSetorIdx, { cronoanalise: setor.cronoanalise.filter((_, k) => k !== i) })
+                    }>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {setor.cronoanalise.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma tarefa adicionada.</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Avaliações Antropométricas / Dimensionais */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-1">Avaliações Antropométricas / Dimensionais</h2>
+          <p className="text-xs text-muted-foreground mb-3">Registre a medida real e a avaliação (Adequado / Inadequado / Observações)</p>
+          <div className="space-y-2">
+            {DIMENSOES_LABELS.map(({ key, label }) => {
+              const item = setor.avaliacoes_dimensionais[key];
+              const updateD = (patch: Partial<DimensaoItem>) => {
+                updateSetor(editingSetorIdx, {
+                  avaliacoes_dimensionais: {
+                    ...setor.avaliacoes_dimensionais,
+                    [key]: { ...item, ...patch },
+                  },
+                });
+              };
+              return (
+                <div key={key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-4 text-sm">{label}</div>
+                  <div className="col-span-3">
+                    <Input placeholder="Medida" value={item.medida} onChange={(e) => updateD({ medida: e.target.value })} />
+                  </div>
+                  <div className="col-span-5">
+                    <Input placeholder="Avaliação" value={item.avaliacao} onChange={(e) => updateD({ avaliacao: e.target.value })} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
@@ -1206,7 +1357,7 @@ export default function AetWizard() {
             </Button>
           </div>
           {setor.avaliacoes_psicossociais.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mb-3">
               {setor.avaliacoes_psicossociais.map((p, i) => (
                 <div key={i} className="text-xs border border-border rounded-lg p-2">
                   <p className="font-semibold">{p.colaborador_nome || "Sem nome"}</p>
@@ -1215,7 +1366,33 @@ export default function AetWizard() {
               ))}
             </div>
           )}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Resultados e Análises (editável)</Label>
+              {setor.avaliacoes_psicossociais.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const partes = setor.avaliacoes_psicossociais.map((p) => {
+                    const calc = calcularPsicossocial(p);
+                    const nome = calc.colaborador_nome || "Colaborador";
+                    const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
+                    const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
+                    return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
+                  }).filter(Boolean);
+                  updateSetor(editingSetorIdx, { resultado_psicossocial_texto: partes.join("\n\n") });
+                }}>
+                  Recarregar do COPSOQ
+                </Button>
+              )}
+            </div>
+            <Textarea
+              rows={5}
+              placeholder="Preenchido automaticamente a partir das avaliações vinculadas. Ajustes manuais são preservados."
+              value={setor.resultado_psicossocial_texto}
+              onChange={(e) => updateSetor(editingSetorIdx, { resultado_psicossocial_texto: e.target.value })}
+            />
+          </div>
         </Card>
+
 
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
