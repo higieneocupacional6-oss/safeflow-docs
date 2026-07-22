@@ -2121,8 +2121,7 @@ export default function AetWizard() {
                 className="font-mono text-xs"
               />
               <p className="text-[10px] text-muted-foreground">
-                Hierarquia aplicada na geração: (1) dados preenchidos no formulário &gt; (2) fotos e PDFs anexados &gt;
-                (3) estas instruções &gt; (4) banco de conhecimento interno &gt; (5) regras normativas.
+                Este texto é tratado <strong>exclusivamente como diretriz interna</strong> (prompt) e <strong>nunca</strong> é copiado, citado ou parafraseado nos campos gerados da AET. Ele apenas orienta a forma de redação (tom, profundidade, normas prioritárias, estrutura do diagnóstico e do plano de ação).
               </p>
             </div>
             <DialogFooter>
