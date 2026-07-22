@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  Wrench, FileDown, FileCheck2, ExternalLink, Brain,
+  Wrench, FileDown, FileCheck2, ExternalLink, Brain, Sparkles,
 } from "lucide-react";
 import { PsicossocialModal, AvaliacaoPsicossocial, calcularPsicossocial } from "@/components/PsicossocialModal";
 import { Button } from "@/components/ui/button";
