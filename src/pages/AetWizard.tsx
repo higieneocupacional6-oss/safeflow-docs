@@ -1921,7 +1921,7 @@ export default function AetWizard() {
           <ToolAssessmentModal
             open={!!toolModalTool}
             onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
-            tool={toolModalTool as "RULA" | "REBA" | "NIOSH"}
+            tool={toolModalTool}
             cabecalho={{
               funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
               empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
@@ -1943,7 +1943,17 @@ export default function AetWizard() {
                 pdf_path: r.pdf_path,
                 respostas: r.respostas,
               };
-              updateSetor(editingSetorIdx, { ferramentas: [...setor.ferramentas, nova] });
+              const novasFerramentas = [...setor.ferramentas, nova];
+              const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
+              const justificativa = gerarJustificativaDeterministica({
+                funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
+                descricao_atividade: setor.descricao_atividade || setor.tarefas || "",
+                ferramentas: tiposUnicos,
+              });
+              updateSetor(editingSetorIdx, {
+                ferramentas: novasFerramentas,
+                justificativa_ferramentas: justificativa,
+              });
               setToolModalTool(null);
               setFerramentasOpen(true);
             }}
