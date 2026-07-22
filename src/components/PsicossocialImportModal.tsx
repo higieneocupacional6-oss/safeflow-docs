@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, Check, Loader2, Users, Building2, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Upload, FileSpreadsheet, Check, Loader2, Users, Building2, AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { importarArquivoPsicossocial, type FuncaoSetorPsico, type ImportResultado } from "@/lib/psicoImport";
 import type { AvaliacaoPsicossocial } from "@/components/PsicossocialModal";
