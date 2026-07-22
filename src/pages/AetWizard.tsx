@@ -368,6 +368,8 @@ export default function AetWizard() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
+  const [toolModalTool, setToolModalTool] = useState<FerramentaTipo | null>(null);
+  const [justificativaLoadingIdx, setJustificativaLoadingIdx] = useState<number | null>(null);
   const [psicoOpen, setPsicoOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
