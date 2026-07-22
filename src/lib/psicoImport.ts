@@ -2,8 +2,8 @@
 // Objetivo: transformar um arquivo bruto em avaliações anonimizadas, agrupáveis por função
 // e compatíveis com as funções selecionadas no setor da AET.
 import * as XLSX from "xlsx";
+import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import {
-  BLOCOS_COPSOQ,
   calcularPsicossocial,
   emptyPsicossocial,
   type AvaliacaoPsicossocial,
