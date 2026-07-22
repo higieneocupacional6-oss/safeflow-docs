@@ -381,31 +381,40 @@ export function PsicossocialImportModal({
                 )}
               </Card>
 
-              {resultado.avaliacoes.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Card
-                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("funcao")}
-                  >
-                    <Users className="w-6 h-6 text-accent mb-2" />
-                    <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Um relatório PDF para cada função identificada
-                      ({resultado.funcoesEncontradas.length || 1}).
-                    </p>
-                  </Card>
-                  <Card
-                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("geral")}
-                  >
-                    <Building2 className="w-6 h-6 text-accent mb-2" />
-                    <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Análise institucional consolidada de todos os respondentes.
-                    </p>
-                  </Card>
-                </div>
-              )}
+              {resultado.avaliacoes.length > 0 && (() => {
+                const funcoesAtivasSel = Array.from(funcoesSelecionadas).filter(
+                  (f) => (contagemPorFuncao[f] || 0) > 0,
+                );
+                const respondentesSel = funcoesAtivasSel.reduce(
+                  (s, f) => s + (contagemPorFuncao[f] || 0),
+                  0,
+                );
+                const bloqueado = temAmbiguidade || funcoesAtivasSel.length === 0;
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Card
+                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                      onClick={() => !gerando && !bloqueado && gerarRelatorio("funcao")}
+                    >
+                      <Users className="w-6 h-6 text-accent mb-2" />
+                      <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Um relatório PDF para cada função selecionada ({funcoesAtivasSel.length}).
+                      </p>
+                    </Card>
+                    <Card
+                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                      onClick={() => !gerando && !bloqueado && gerarRelatorio("geral")}
+                    >
+                      <Building2 className="w-6 h-6 text-accent mb-2" />
+                      <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Consolida {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) selecionada(s).
+                      </p>
+                    </Card>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
