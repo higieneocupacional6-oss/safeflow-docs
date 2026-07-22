@@ -9,7 +9,7 @@ import {
   type AvaliacaoPsicossocial,
 } from "@/components/PsicossocialModal";
 
-export type ImportWarning = { linha?: number; mensagem: string };
+export type ImportWarning = { linha?: number; pagina?: number; mensagem: string };
 export type ImportResultado = {
   avaliacoes: AvaliacaoPsicossocial[];
   totalRespondentes: number;
@@ -17,6 +17,9 @@ export type ImportResultado = {
   colunasIgnoradas: string[];
   funcoesEncontradas: string[];
   avisos: ImportWarning[];
+  paginasProcessadas?: number;
+  paginasComFalha?: number[];
+  paginasOcr?: number[];
 };
 
 // ─── Mapeamento textual → valor 0..100 ───
