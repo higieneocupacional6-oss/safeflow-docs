@@ -302,6 +302,8 @@ export default function AetWizard() {
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
   const [iaLoading, setIaLoading] = useState(false);
+  const [iaFiles, setIaFiles] = useState<File[]>([]);
+  const [iaMode, setIaMode] = useState<"substituir" | "complementar" | "manter">("substituir");
 
   // Generation step
   const [showGerar, setShowGerar] = useState(false);
