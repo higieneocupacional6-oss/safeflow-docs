@@ -88,27 +88,73 @@ export function PsicossocialImportModal({
   };
 
   const temAmbiguidade = !!resultado?.ambiguidadesFuncoes?.length;
-  const contagemPorFuncao = (resultado?.avaliacoes || []).reduce<Record<string, number>>((acc, av) => {
-    const f = av.funcao || "Não informada";
-    acc[f] = (acc[f] || 0) + 1;
-    return acc;
-  }, {});
+  const contagemPorFuncao = useMemo(() => {
+    return (resultado?.avaliacoes || []).reduce<Record<string, number>>((acc, av) => {
+      const f = av.funcao || "Não informada";
+      acc[f] = (acc[f] || 0) + 1;
+      return acc;
+    }, {});
+  }, [resultado]);
+
+  // Lista completa de funções (encontradas + "Não informada" se houver)
+  const todasFuncoes = useMemo(() => {
+    if (!resultado) return [] as string[];
+    const set = new Set<string>(resultado.funcoesEncontradas || []);
+    for (const a of resultado.avaliacoes) set.add(a.funcao || "Não informada");
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [resultado]);
+
+  // Ao carregar novo resultado, pré-seleciona todas as funções com respondentes
+  useEffect(() => {
+    if (!resultado) return;
+    setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
+  }, [resultado, todasFuncoes, contagemPorFuncao]);
+
+  const funcoesFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return todasFuncoes;
+    return todasFuncoes.filter((f) => f.toLowerCase().includes(q));
+  }, [todasFuncoes, busca]);
+
+  const toggleFuncao = (f: string) => {
+    setFuncoesSelecionadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+  };
+  const selecionarTodas = () => setFuncoesSelecionadas(new Set(todasFuncoes));
+  const desmarcarTodas = () => setFuncoesSelecionadas(new Set());
+  const selecionarComRespondentes = () =>
+    setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
 
   const gerarRelatorio = async (modo: "funcao" | "geral") => {
     if (!resultado || !resultado.avaliacoes.length) return;
+    if (funcoesSelecionadas.size === 0) {
+      toast.error("Selecione pelo menos uma função para gerar o relatório.");
+      return;
+    }
     setGerando(true);
     try {
       const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
-      // Sempre anonimizar (defesa em profundidade)
-      const anonimas = resultado.avaliacoes.map((a) => ({ ...a, colaborador_nome: "" }));
+      const anonimas = resultado.avaliacoes
+        .filter((a) => funcoesSelecionadas.has(a.funcao || "Não informada"))
+        .map((a) => ({ ...a, colaborador_nome: "" }));
+      if (!anonimas.length) {
+        toast.error("Nenhum respondente nas funções selecionadas.");
+        return;
+      }
+      const funcoesAtivas = Array.from(funcoesSelecionadas).filter(
+        (f) => (contagemPorFuncao[f] || 0) > 0,
+      );
       if (modo === "geral") {
         gerarRelatorioCopsoqPDF(anonimas, {
           ...(relatorioContext || {}),
-          funcoes: resultado.funcoesEncontradas,
+          funcoes: funcoesAtivas,
         });
         toast.success("Relatório geral gerado.");
       } else {
-        // Um PDF por função
         const grupos = new Map<string, AvaliacaoPsicossocial[]>();
         for (const a of anonimas) {
           const k = a.funcao || "Não informada";
@@ -120,7 +166,6 @@ export function PsicossocialImportModal({
             ...(relatorioContext || {}),
             funcoes: [funcao],
           });
-          // pequena espera para navegador não bloquear múltiplos downloads
           await new Promise((r) => setTimeout(r, 400));
         }
         toast.success(`${grupos.size} relatório(s) por função gerado(s).`);
