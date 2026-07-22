@@ -1789,21 +1789,39 @@ export default function AetWizard() {
                   <Sparkles className="w-5 h-5 text-purple-600" />
                   Gerar AET Automaticamente
                 </DialogTitle>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="Configurar instruções personalizadas"
-                  onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
-                  disabled={iaLoading}
-                >
-                  <Pencil className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <Button
+                    type="button"
+                    variant={iaAtivada ? "default" : "outline"}
+                    size="sm"
+                    className={`h-8 text-xs ${iaAtivada ? "bg-gradient-to-r from-purple-600 to-pink-600 text-white hover:opacity-90" : ""}`}
+                    title={iaAtivada ? "IA ativada — clique para desativar" : "IA desativada — clique para ativar"}
+                    onClick={() => persistIaAtivada(!iaAtivada)}
+                    disabled={iaLoading || iaToggleSaving}
+                  >
+                    {iaToggleSaving ? (
+                      <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                    ) : (
+                      <Brain className="w-3.5 h-3.5 mr-1" />
+                    )}
+                    IA: {iaAtivada ? "Ativada" : "Desativada"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    title="Configurar instruções personalizadas"
+                    onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
+                    disabled={iaLoading}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               {instrucoesUsuario.trim() && (
                 <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
-                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — serão aplicadas nesta geração.
+                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — usadas apenas como diretriz interna de redação, nunca copiadas para os campos.
                 </p>
               )}
             </DialogHeader>
