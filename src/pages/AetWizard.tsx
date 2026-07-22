@@ -468,6 +468,21 @@ export default function AetWizard() {
           } catch (mergeErr) {
             console.warn("[AET] merge psico vinculadas:", mergeErr);
           }
+          // Auto-preencher texto psicossocial a partir das avaliações vinculadas (editável)
+          loadedSetores.forEach((s: any) => {
+            if (!s.resultado_psicossocial_texto && (s.avaliacoes_psicossociais || []).length > 0) {
+              const partes = s.avaliacoes_psicossociais
+                .map((p: any) => {
+                  const calc = calcularPsicossocial(p);
+                  const nome = calc.colaborador_nome || "Colaborador";
+                  const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
+                  const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
+                  return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
+                })
+                .filter(Boolean);
+              s.resultado_psicossocial_texto = partes.join("\n\n");
+            }
+          });
           setSetoresAet(loadedSetores);
         }
       } catch (e: any) {
