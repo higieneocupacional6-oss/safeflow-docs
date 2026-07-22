@@ -95,16 +95,19 @@ export type Database = {
       }
       aet_instrucoes_usuario: {
         Row: {
+          ia_ativada: boolean
           instrucoes: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          ia_ativada?: boolean
           instrucoes?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          ia_ativada?: boolean
           instrucoes?: string
           updated_at?: string
           user_id?: string
