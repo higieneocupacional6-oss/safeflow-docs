@@ -1796,10 +1796,6 @@ export default function AetWizard() {
               </Button>
               <Button
                 onClick={async () => {
-                  if (iaObs.trim().length < 20) {
-                    toast.error("Descreva com mais detalhes (mínimo 20 caracteres).");
-                    return;
-                  }
                   setIaLoading(true);
                   try {
                     const emp: any = empresaSelecionada || {};
@@ -1855,29 +1851,12 @@ export default function AetWizard() {
                       descricao_imagens_funcao: setor.descricao_imagens_funcao,
                     };
 
-                    // Convert files to base64
-                    const anexos = await Promise.all(iaFiles.map(async (f) => {
-                      const buf = await f.arrayBuffer();
-                      let bin = "";
-                      const bytes = new Uint8Array(buf);
-                      const chunk = 0x8000;
-                      for (let i = 0; i < bytes.length; i += chunk) {
-                        bin += String.fromCharCode(...bytes.subarray(i, i + chunk));
-                      }
-                      return {
-                        name: f.name,
-                        mime: f.type,
-                        kind: f.type.startsWith("image/") ? "image" : "pdf",
-                        data: btoa(bin),
-                      };
-                    }));
-
-                    const { data, error } = await supabase.functions.invoke("aet-generate", {
-                      body: { descricao: iaObs, contexto, anexos },
+                    // Geração local determinística
+                    const out = await gerarAetDeterministica({
+                      descricao: iaObs || "",
+                      contexto,
+                      anexos: iaFiles,
                     });
-                    if (error) throw error;
-                    if ((data as any)?.error) throw new Error((data as any).error);
-                    const out: any = (data as any)?.output || {};
 
                     // Merge helpers respecting iaMode
                     const mergeText = (curr: string, next: string): string => {
@@ -1885,7 +1864,7 @@ export default function AetWizard() {
                       if (iaMode === "substituir") return next;
                       if (iaMode === "manter") return curr && curr.trim() ? curr : next;
                       if (!curr || !curr.trim()) return next;
-                      return `${curr}\n\n---\nComplemento IA:\n${next}`;
+                      return `${curr}\n\n---\nComplemento automático:\n${next}`;
                     };
                     const mergeArr = <T,>(curr: T[], next: T[]): T[] => {
                       if (!next || next.length === 0) return curr;
@@ -1905,7 +1884,7 @@ export default function AetWizard() {
                     if (out.conclusao) patch.conclusao = mergeText(setor.conclusao, out.conclusao);
 
                     if (Array.isArray(out.cronoanalise) && out.cronoanalise.length > 0) {
-                      const next = out.cronoanalise.map((c: any) => ({
+                      const next = out.cronoanalise.map((c) => ({
                         tarefa: String(c.tarefa || ""),
                         tempo: String(c.tempo || ""),
                         risco: String(c.risco || ""),
@@ -1913,7 +1892,7 @@ export default function AetWizard() {
                       patch.cronoanalise = mergeArr(setor.cronoanalise, next);
                     }
                     if (Array.isArray(out.plano_acao) && out.plano_acao.length > 0) {
-                      const next = out.plano_acao.map((p: any) => {
+                      const next = out.plano_acao.map((p) => {
                         const extras = [
                           p.justificativa ? `Justificativa: ${p.justificativa}` : "",
                           p.prioridade ? `Prioridade: ${p.prioridade}` : "",
@@ -1931,7 +1910,7 @@ export default function AetWizard() {
                     if (out.avaliacoes_dimensionais && typeof out.avaliacoes_dimensionais === "object") {
                       const dims = { ...setor.avaliacoes_dimensionais };
                       for (const k of Object.keys(dims) as (keyof AvaliacoesDimensionais)[]) {
-                        const v = out.avaliacoes_dimensionais[k];
+                        const v = (out.avaliacoes_dimensionais as any)[k];
                         if (v && typeof v === "string") {
                           const currAvaliacao = dims[k]?.avaliacao || "";
                           const nextAvaliacao = iaMode === "manter" && currAvaliacao.trim()
@@ -1945,11 +1924,14 @@ export default function AetWizard() {
                       patch.avaliacoes_dimensionais = dims;
                     }
                     updateSetor(editingSetorIdx, patch);
-                    toast.success("AET gerada. Revise os campos antes de salvar.");
+                    const dbg = (out as any)._debug;
+                    toast.success(
+                      `AET gerada (base "${dbg?.knowledge_base_utilizada || "genérica"}", ${dbg?.imagens_analisadas || 0} imagens, ${dbg?.pdfs_analisados || 0} PDFs). Revise antes de salvar.`,
+                    );
                     setIaOpen(false);
                   } catch (e: any) {
                     console.error(e);
-                    toast.error(e?.message || "Erro ao gerar AET com IA");
+                    toast.error(e?.message || "Erro ao gerar AET");
                   } finally {
                     setIaLoading(false);
                   }
