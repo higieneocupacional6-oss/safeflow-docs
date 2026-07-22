@@ -21,7 +21,7 @@ import type { AvaliacaoErgonomica, CabecalhoAvaliacao, ResultadoErgonomico } fro
 type ToolTipo = "RULA" | "REBA" | "NIOSH" | "OWAS";
 
 export type ToolAssessmentResult = {
-  tipo: "RULA" | "REBA" | "NIOSH";
+  tipo: ToolTipo;
   colaborador_nome: string;
   data_avaliacao: string;
   escore_final: number;
