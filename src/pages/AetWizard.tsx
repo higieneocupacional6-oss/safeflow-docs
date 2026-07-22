@@ -299,6 +299,9 @@ export default function AetWizard() {
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
   const [psicoOpen, setPsicoOpen] = useState(false);
+  const [iaOpen, setIaOpen] = useState(false);
+  const [iaObs, setIaObs] = useState("");
+  const [iaLoading, setIaLoading] = useState(false);
 
   // Generation step
   const [showGerar, setShowGerar] = useState(false);
