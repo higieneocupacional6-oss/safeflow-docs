@@ -200,7 +200,7 @@ function gerarAnalise(blocos: Record<string, BlocoResultado>, respostasSintomas:
   else if (alerta_amarelo) nivel = "alto";
   else if (Object.values(blocos).some((b) => b.classificacao === "Moderado")) nivel = "moderado";
 
-  let resultado = `O colaborador apresenta risco psicossocial ${nivel}`;
+  let resultado = `A função avaliada apresenta risco psicossocial ${nivel}`;
   if (destaques.length > 0) resultado += `, com destaque para ${destaques.join(", ")}`;
   resultado += ".";
   if (recomendacao_imediata) {
@@ -317,6 +317,7 @@ export function PsicossocialModal({
   avaliacoes,
   onChange,
   relatorioContext,
+  funcoesSetor,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -324,6 +325,8 @@ export function PsicossocialModal({
   onChange: (a: AvaliacaoPsicossocial[]) => void;
   /** Contexto opcional para geração do Relatório Psicossocial Geral em PDF. */
   relatorioContext?: import("@/lib/copsoqRelatorio").RelatorioContext;
+  /** Funções selecionadas no setor da AET, usadas para validar PDFs importados. */
+  funcoesSetor?: { id?: string; nome: string }[];
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
@@ -351,8 +354,8 @@ export function PsicossocialModal({
   );
 
   const handleSave = () => {
-    if (!draft.colaborador_nome.trim()) {
-      toast.error("Informe o nome do colaborador");
+    if (!draft.funcao?.trim()) {
+      toast.error("Informe a função avaliada");
       return;
     }
     if (!allAnswered) {
@@ -425,6 +428,7 @@ export function PsicossocialModal({
           open={importOpen}
           onOpenChange={setImportOpen}
           relatorioContext={relatorioContext}
+          funcoesSetor={funcoesSetor || relatorioContext?.funcoes?.map((nome) => ({ nome })) || []}
           onImportado={(avs) => {
             // Anexa as avaliações anonimizadas ao setor, sem sobrescrever as existentes.
             onChange([...avaliacoes, ...avs]);
@@ -439,7 +443,7 @@ export function PsicossocialModal({
             {avaliacoes.map((a, i) => (
               <Card key={i} className="p-3 flex items-center justify-between">
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold truncate">{a.colaborador_nome || "Sem nome"}</p>
+                  <p className="text-sm font-semibold truncate">{a.funcao || "Função não informada"}</p>
                   <p className="text-xs text-muted-foreground truncate">{a.resultado_psicossocial}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
                     {a.alertas?.alerta_vermelho && (
@@ -475,10 +479,10 @@ export function PsicossocialModal({
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <Label>Colaborador *</Label>
+              <Label>Função *</Label>
               <Input
-                value={draft.colaborador_nome}
-                onChange={(e) => setDraft({ ...draft, colaborador_nome: e.target.value })}
+                value={draft.funcao || ""}
+                onChange={(e) => setDraft({ ...draft, funcao: e.target.value, colaborador_nome: "" })}
               />
             </div>
             <div>
