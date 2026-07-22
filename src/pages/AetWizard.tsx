@@ -1226,8 +1226,6 @@ export default function AetWizard() {
               ["posto_trabalho", "Posto de trabalho"],
               ["descricao_atividade", "Descrição da atividade *"],
               ["analise_organizacional", "Análise organizacional"],
-              ["tarefas", "Tarefas"],
-              ["riscos_observados", "Riscos observados"],
               ["ritmo_complexidade", "Ritmo e complexidade"],
               ["jornada_aspectos", "Jornada e aspectos temporais"],
               ["caracterizacao_biomecanica", "Caracterização biomecânica"],
@@ -1241,6 +1239,86 @@ export default function AetWizard() {
                 />
               </div>
             ))}
+          </div>
+        </Card>
+
+        {/* Cronoanálise de Tarefas */}
+        <Card className="p-5 mb-4">
+          <div className="flex items-center justify-between mb-3">
+            <div>
+              <h2 className="font-heading font-semibold">Cronoanálise de Tarefas</h2>
+              <p className="text-xs text-muted-foreground">Descrição da tarefa, tempo médio e risco associado</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() =>
+              updateSetor(editingSetorIdx, { cronoanalise: [...setor.cronoanalise, emptyCrono()] })
+            }>
+              <Plus className="w-4 h-4 mr-1" />Adicionar tarefa
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {setor.cronoanalise.map((t, i) => {
+              const updateT = (patch: Partial<Cronoanalise>) => {
+                const arr = [...setor.cronoanalise];
+                arr[i] = { ...arr[i], ...patch };
+                updateSetor(editingSetorIdx, { cronoanalise: arr });
+              };
+              return (
+                <div key={i} className="grid grid-cols-12 gap-2 items-start border border-border rounded-lg p-2">
+                  <div className="col-span-5">
+                    <Label className="text-xs">Tarefa</Label>
+                    <Textarea rows={2} value={t.tarefa} onChange={(e) => updateT({ tarefa: e.target.value })} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Tempo médio</Label>
+                    <Input placeholder="ex: 15 min" value={t.tempo} onChange={(e) => updateT({ tempo: e.target.value })} />
+                  </div>
+                  <div className="col-span-4">
+                    <Label className="text-xs">Risco associado</Label>
+                    <Input value={t.risco} onChange={(e) => updateT({ risco: e.target.value })} />
+                  </div>
+                  <div className="col-span-1 flex justify-end pt-5">
+                    <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                      updateSetor(editingSetorIdx, { cronoanalise: setor.cronoanalise.filter((_, k) => k !== i) })
+                    }>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              );
+            })}
+            {setor.cronoanalise.length === 0 && (
+              <p className="text-xs text-muted-foreground">Nenhuma tarefa adicionada.</p>
+            )}
+          </div>
+        </Card>
+
+        {/* Avaliações Antropométricas / Dimensionais */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-1">Avaliações Antropométricas / Dimensionais</h2>
+          <p className="text-xs text-muted-foreground mb-3">Registre a medida real e a avaliação (Adequado / Inadequado / Observações)</p>
+          <div className="space-y-2">
+            {DIMENSOES_LABELS.map(({ key, label }) => {
+              const item = setor.avaliacoes_dimensionais[key];
+              const updateD = (patch: Partial<DimensaoItem>) => {
+                updateSetor(editingSetorIdx, {
+                  avaliacoes_dimensionais: {
+                    ...setor.avaliacoes_dimensionais,
+                    [key]: { ...item, ...patch },
+                  },
+                });
+              };
+              return (
+                <div key={key} className="grid grid-cols-12 gap-2 items-center">
+                  <div className="col-span-4 text-sm">{label}</div>
+                  <div className="col-span-3">
+                    <Input placeholder="Medida" value={item.medida} onChange={(e) => updateD({ medida: e.target.value })} />
+                  </div>
+                  <div className="col-span-5">
+                    <Input placeholder="Avaliação" value={item.avaliacao} onChange={(e) => updateD({ avaliacao: e.target.value })} />
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </Card>
 
@@ -1260,7 +1338,7 @@ export default function AetWizard() {
             </Button>
           </div>
           {setor.avaliacoes_psicossociais.length > 0 && (
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 mb-3">
               {setor.avaliacoes_psicossociais.map((p, i) => (
                 <div key={i} className="text-xs border border-border rounded-lg p-2">
                   <p className="font-semibold">{p.colaborador_nome || "Sem nome"}</p>
@@ -1269,7 +1347,33 @@ export default function AetWizard() {
               ))}
             </div>
           )}
+          <div>
+            <div className="flex items-center justify-between mb-1">
+              <Label>Resultados e Análises (editável)</Label>
+              {setor.avaliacoes_psicossociais.length > 0 && (
+                <Button size="sm" variant="ghost" onClick={() => {
+                  const partes = setor.avaliacoes_psicossociais.map((p) => {
+                    const calc = calcularPsicossocial(p);
+                    const nome = calc.colaborador_nome || "Colaborador";
+                    const resumo = calc.copsoq_resultado_resumido || calc.resultado_psicossocial || "";
+                    const riscos = calc.copsoq_riscos_identificados || calc.riscos_psicossociais || "";
+                    return `${nome}: ${resumo}${riscos ? `\nRiscos identificados: ${riscos}` : ""}`;
+                  }).filter(Boolean);
+                  updateSetor(editingSetorIdx, { resultado_psicossocial_texto: partes.join("\n\n") });
+                }}>
+                  Recarregar do COPSOQ
+                </Button>
+              )}
+            </div>
+            <Textarea
+              rows={5}
+              placeholder="Preenchido automaticamente a partir das avaliações vinculadas. Ajustes manuais são preservados."
+              value={setor.resultado_psicossocial_texto}
+              onChange={(e) => updateSetor(editingSetorIdx, { resultado_psicossocial_texto: e.target.value })}
+            />
+          </div>
         </Card>
+
 
         <Card className="p-5 mb-4">
           <div className="flex items-center justify-between mb-3">
