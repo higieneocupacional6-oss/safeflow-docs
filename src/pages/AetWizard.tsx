@@ -1838,7 +1838,40 @@ export default function AetWizard() {
           onOpenChange={setFerramentasOpen}
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
+          onOpenTool={(tool) => { setFerramentasOpen(false); setToolModalTool(tool); }}
         />
+        {toolModalTool && (
+          <ToolAssessmentModal
+            open={!!toolModalTool}
+            onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
+            tool={toolModalTool}
+            cabecalho={{
+              funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
+              empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
+              setor_nome: setor.setor_nome || "",
+            }}
+            aetDocumentoId={documentoId || null}
+            setorRef={setor.setor_id || null}
+            onComplete={(r: ToolAssessmentResult) => {
+              const nova: Ferramenta = {
+                tipo: r.tipo,
+                dados_avaliacao: r.resumo,
+                resultado: `Escore ${r.escore_final} — ${r.classificacao}`,
+                escore_final: r.escore_final,
+                classificacao: r.classificacao,
+                nivel_acao: r.nivel_acao,
+                colaborador_nome: r.colaborador_nome,
+                data_avaliacao: r.data_avaliacao,
+                avaliacao_id: r.avaliacao_id,
+                pdf_path: r.pdf_path,
+                respostas: r.respostas,
+              };
+              updateSetor(editingSetorIdx, { ferramentas: [...setor.ferramentas, nova] });
+              setToolModalTool(null);
+              setFerramentasOpen(true);
+            }}
+          />
+        )}
         <PsicossocialModal
           open={psicoOpen}
           onOpenChange={setPsicoOpen}
