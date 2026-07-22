@@ -102,6 +102,7 @@ export function ToolAssessmentModal({
       const respostas: Record<string, unknown> =
         tool === "RULA" ? (rula as unknown as Record<string, unknown>) :
         tool === "REBA" ? (reba as unknown as Record<string, unknown>) :
+        tool === "OWAS" ? (owas as unknown as Record<string, unknown>) :
         (niosh as unknown as Record<string, unknown>);
       const av: AvaliacaoErgonomica = {
         ferramenta: tool,
