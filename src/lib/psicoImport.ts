@@ -218,55 +218,157 @@ function normalizarData(v: string): string | null {
   return null;
 }
 
-// ─── Parser básico de PDF ───
-// Extrai texto do PDF e tenta identificar respondentes por blocos separados por linhas
-// contendo "função:" ou "cargo:". Solução pragmática: usuário pode fornecer um PDF
-// exportado do sistema; se não for possível reconhecer, retorna aviso.
+// ─── Parser robusto de PDF ───
+// - Extrai texto por página preservando quebras de linha (via posição Y dos itens).
+// - Aplica OCR (tesseract.js — pt+eng) automaticamente em páginas sem texto pesquisável.
+// - Processa até 50 páginas; nunca aborta o documento por causa de uma página falha.
+// - Reconhece múltiplos respondentes por marcadores (Função/Cargo/Respondente/ID).
+const MAX_PAGINAS_PDF = 50;
+
+async function extrairTextoPagina(page: any): Promise<string> {
+  const content = await page.getTextContent();
+  if (!content.items?.length) return "";
+  // Ordena itens por Y desc, X asc para reconstruir linhas
+  const items = content.items
+    .map((it: any) => ({
+      str: it.str as string,
+      x: it.transform?.[4] ?? 0,
+      y: it.transform?.[5] ?? 0,
+    }))
+    .filter((it: any) => it.str && it.str.trim());
+  if (!items.length) return "";
+  items.sort((a: any, b: any) => (b.y - a.y) || (a.x - b.x));
+  const linhas: string[] = [];
+  let atualY: number | null = null;
+  let buf: string[] = [];
+  for (const it of items) {
+    if (atualY === null || Math.abs(it.y - atualY) < 3) {
+      buf.push(it.str);
+      atualY = atualY ?? it.y;
+    } else {
+      linhas.push(buf.join(" ").replace(/\s+/g, " ").trim());
+      buf = [it.str];
+      atualY = it.y;
+    }
+  }
+  if (buf.length) linhas.push(buf.join(" ").replace(/\s+/g, " ").trim());
+  return linhas.filter(Boolean).join("\n");
+}
+
+async function ocrPagina(page: any, Tesseract: any): Promise<string> {
+  try {
+    const viewport = page.getViewport({ scale: 2 });
+    const canvas = document.createElement("canvas");
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    await page.render({ canvasContext: ctx, viewport }).promise;
+    const { data } = await Tesseract.recognize(canvas, "por+eng");
+    return String(data?.text || "");
+  } catch {
+    return "";
+  }
+}
+
 async function importarPdf(file: File): Promise<ImportResultado> {
   const pdfjs: any = await import("pdfjs-dist/legacy/build/pdf.mjs");
   const workerUrl: string = (await import("pdfjs-dist/legacy/build/pdf.worker.mjs?url")).default;
   pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
   const buf = await file.arrayBuffer();
   const doc = await pdfjs.getDocument({ data: buf }).promise;
-  let texto = "";
-  for (let p = 1; p <= doc.numPages; p++) {
-    const pg = await doc.getPage(p);
-    const c = await pg.getTextContent();
-    texto += c.items.map((i: any) => i.str).join(" ") + "\n";
+
+  const totalPaginas = Math.min(doc.numPages, MAX_PAGINAS_PDF);
+  const avisos: ImportWarning[] = [];
+  const paginasComFalha: number[] = [];
+  const paginasOcr: number[] = [];
+  const textosPorPagina: string[] = [];
+  let Tesseract: any = null;
+
+  if (doc.numPages > MAX_PAGINAS_PDF) {
+    avisos.push({ mensagem: `PDF possui ${doc.numPages} páginas; processadas as primeiras ${MAX_PAGINAS_PDF}.` });
   }
 
-  // Divide em respondentes por marcadores de função/cargo
-  const blocosResp = texto.split(/(?=Fun[cç][aã]o\s*[:\-]|Cargo\s*[:\-])/i);
+  for (let p = 1; p <= totalPaginas; p++) {
+    try {
+      const pg = await doc.getPage(p);
+      let txt = await extrairTextoPagina(pg);
+      // Fallback OCR quando a página não possui texto pesquisável útil
+      if (txt.replace(/\s/g, "").length < 30) {
+        if (!Tesseract) {
+          try { Tesseract = await import("tesseract.js"); } catch {
+            avisos.push({ pagina: p, mensagem: "Página sem texto pesquisável e OCR indisponível." });
+          }
+        }
+        if (Tesseract) {
+          const ocrTxt = await ocrPagina(pg, Tesseract);
+          if (ocrTxt.trim().length > txt.length) {
+            txt = ocrTxt;
+            paginasOcr.push(p);
+          }
+        }
+      }
+      textosPorPagina.push(txt || "");
+      if (!txt.trim()) {
+        paginasComFalha.push(p);
+        avisos.push({ pagina: p, mensagem: "Página sem conteúdo interpretável." });
+      }
+    } catch (e: any) {
+      paginasComFalha.push(p);
+      avisos.push({ pagina: p, mensagem: `Falha ao ler página: ${e?.message || "erro desconhecido"}` });
+      textosPorPagina.push("");
+    }
+  }
+
+  const textoCompleto = textosPorPagina.join("\n\n");
+
+  // Divide em respondentes: quebra por marcadores comuns
+  const RX_SPLIT = /(?=(?:Fun[cç][aã]o|Cargo|Respondente|Participante|Colaborador|ID\s*(?:do)?\s*respondente|Question[aá]rio)\s*[:\-#nº]?\s*)/i;
+  let blocos = textoCompleto.split(RX_SPLIT).map((b) => b.trim()).filter((b) => b.length > 40);
+  if (blocos.length <= 1) {
+    // fallback: usa o documento inteiro como um único respondente
+    blocos = [textoCompleto];
+  }
+
   const avaliacoes: AvaliacaoPsicossocial[] = [];
   const funcoesEncontradas = new Set<string>();
-  const avisos: ImportWarning[] = [];
   let totalPerguntasReconhecidas = 0;
 
-  for (const bloco of blocosResp) {
-    if (bloco.trim().length < 40) continue;
-    const mFun = bloco.match(/Fun[cç][aã]o\s*[:\-]\s*([^\n\r|]+?)(?:\s{2,}|$|\n)/i)
-      || bloco.match(/Cargo\s*[:\-]\s*([^\n\r|]+?)(?:\s{2,}|$|\n)/i);
-    const funcao = (mFun?.[1] || "Não informada").trim();
+  for (const bloco of blocos) {
+    const mFun =
+      bloco.match(/Fun[cç][aã]o\s*[:\-]\s*([^\n\r|]+?)(?:\s{2,}|$|\n)/i) ||
+      bloco.match(/Cargo\s*[:\-]\s*([^\n\r|]+?)(?:\s{2,}|$|\n)/i) ||
+      bloco.match(/Ocupa[cç][aã]o\s*[:\-]\s*([^\n\r|]+?)(?:\s{2,}|$|\n)/i);
+    const funcao = (mFun?.[1] || "Não informada").trim().slice(0, 80);
 
     const av = emptyPsicossocial();
     for (const b of BLOCOS_COPSOQ) av.respostas[b.key] = [];
-    // Procura padrões "pergunta ... resposta" — captura respostas textuais/numéricas
-    const linhas = bloco.split(/\n|\.(?=\s+[A-ZÁÉÍÓÚÂÊÔÃÕÇ])/);
+
+    // Divide em segmentos (linhas ou sentenças) e tenta casar pergunta+resposta
+    const segmentos = bloco
+      .split(/\n+|(?<=[\.?!])\s+(?=[A-ZÁÉÍÓÚÂÊÔÃÕÇ0-9])/)
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 5);
+
     let count = 0;
-    for (const linha of linhas) {
-      const bloco = blocoDaPergunta(linha);
-      if (!bloco) continue;
+    for (let i = 0; i < segmentos.length; i++) {
+      const linha = segmentos[i];
+      const blocoKey = blocoDaPergunta(linha);
+      if (!blocoKey) continue;
+      // Busca resposta na mesma linha ou nas próximas 2
+      const janela = [linha, segmentos[i + 1] || "", segmentos[i + 2] || ""].join(" ");
       let valor: number | null = null;
-      for (const m of MAP_TEXTO) if (m.rx.test(linha)) { valor = m.valor; break; }
+      for (const m of MAP_TEXTO) if (m.rx.test(janela)) { valor = m.valor; break; }
       if (valor === null) {
-        const num = linha.match(/\b(0|25|50|75|100|[1-5])\b/);
+        const num = janela.match(/\b(0|25|50|75|100|[1-5])\b/);
         if (num) valor = normalizarValor(Number(num[1]));
       }
       if (valor !== null) {
-        av.respostas[bloco].push(valor);
+        av.respostas[blocoKey].push(valor);
         count++;
       }
     }
+
     if (count < 3) continue;
     av.colaborador_nome = "";
     av.funcao = funcao;
@@ -276,7 +378,7 @@ async function importarPdf(file: File): Promise<ImportResultado> {
   }
 
   if (!avaliacoes.length) {
-    avisos.push({ mensagem: "Não foi possível reconhecer respostas neste PDF automaticamente. Prefira exportar em Excel." });
+    avisos.push({ mensagem: "Não foi possível reconhecer respostas neste PDF. Verifique se o arquivo contém as perguntas e respostas do COPSOQ ou prefira exportar em Excel." });
   }
 
   return {
@@ -286,5 +388,8 @@ async function importarPdf(file: File): Promise<ImportResultado> {
     colunasIgnoradas: [],
     funcoesEncontradas: Array.from(funcoesEncontradas).sort(),
     avisos,
+    paginasProcessadas: totalPaginas,
+    paginasComFalha,
+    paginasOcr,
   };
 }
