@@ -13,8 +13,9 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb } from "lucide-react";
+import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
+import { PsicossocialImportModal } from "@/components/PsicossocialImportModal";
 
 // ─── Escala fixa COPSOQ ───
 export const ESCALA_COPSOQ = [
