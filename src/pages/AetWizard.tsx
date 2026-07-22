@@ -1828,10 +1828,11 @@ export default function AetWizard() {
 
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
-                Geração <strong>determinística</strong> pelo próprio sistema — sem IA conversacional. Cruza empresa,
-                contrato, setor, funções, ferramentas ergonômicas (RULA/REBA/OWAS/OCRA/NIOSH), avaliação psicossocial
-                (COPSOQ), antropometria/dimensionais, quantitativas, cronoanálise, fotografias e PDFs anexados, e
-                complementa lacunas com o banco de conhecimento interno de funções ocupacionais.
+                {iaAtivada ? (
+                  <>Modo <strong>IA ativada</strong>: interpretação inteligente e contextualizada de empresa, contrato, setor, funções, ferramentas ergonômicas, avaliação psicossocial, antropometria, quantitativas, fotografias e PDFs — orientada pelas suas instruções personalizadas (usadas apenas como diretriz de redação).</>
+                ) : (
+                  <>Modo <strong>determinístico</strong> (sem IA): geração pelo próprio sistema a partir de regras de negócio, banco de conhecimento interno e dados cadastrados. Ative a IA no botão acima para análises contextualizadas.</>
+                )}
               </p>
               <Textarea
                 rows={7}
