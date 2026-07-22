@@ -406,8 +406,31 @@ export function PsicossocialModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="font-heading">Avaliação Psicossocial (COPSOQ)</DialogTitle>
+          <DialogTitle className="font-heading flex items-center justify-between gap-2">
+            <span>Avaliação Psicossocial (COPSOQ)</span>
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => setImportOpen(true)}
+            >
+              <FileSpreadsheet className="w-4 h-4" />
+              Gerar Automaticamente por Arquivo
+            </Button>
+          </DialogTitle>
         </DialogHeader>
+
+        {/* Modal de importação automática (planilha/PDF) */}
+        <PsicossocialImportModal
+          open={importOpen}
+          onOpenChange={setImportOpen}
+          relatorioContext={relatorioContext}
+          onImportado={(avs) => {
+            // Anexa as avaliações anonimizadas ao setor, sem sobrescrever as existentes.
+            onChange([...avaliacoes, ...avs]);
+          }}
+        />
+
 
         {/* Lista de avaliações já salvas */}
         {avaliacoes.length > 0 && editingIdx === null && (
