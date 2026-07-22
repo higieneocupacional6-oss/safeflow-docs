@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, Check, Loader2, Users, Building2, AlertTriangle } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Upload, FileSpreadsheet, Check, Loader2, Users, Building2, AlertTriangle, Search } from "lucide-react";
 import { toast } from "sonner";
 import { importarArquivoPsicossocial, type FuncaoSetorPsico, type ImportResultado } from "@/lib/psicoImport";
 import type { AvaliacaoPsicossocial } from "@/components/PsicossocialModal";
@@ -29,6 +30,8 @@ export function PsicossocialImportModal({
   const [resultado, setResultado] = useState<ImportResultado | null>(null);
   const [gerando, setGerando] = useState(false);
   const [mapeamentosConfirmados, setMapeamentosConfirmados] = useState<Record<string, string>>({});
+  const [funcoesSelecionadas, setFuncoesSelecionadas] = useState<Set<string>>(new Set());
+  const [busca, setBusca] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -37,6 +40,8 @@ export function PsicossocialImportModal({
     setCarregando(false);
     setGerando(false);
     setMapeamentosConfirmados({});
+    setFuncoesSelecionadas(new Set());
+    setBusca("");
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -83,27 +88,73 @@ export function PsicossocialImportModal({
   };
 
   const temAmbiguidade = !!resultado?.ambiguidadesFuncoes?.length;
-  const contagemPorFuncao = (resultado?.avaliacoes || []).reduce<Record<string, number>>((acc, av) => {
-    const f = av.funcao || "Não informada";
-    acc[f] = (acc[f] || 0) + 1;
-    return acc;
-  }, {});
+  const contagemPorFuncao = useMemo(() => {
+    return (resultado?.avaliacoes || []).reduce<Record<string, number>>((acc, av) => {
+      const f = av.funcao || "Não informada";
+      acc[f] = (acc[f] || 0) + 1;
+      return acc;
+    }, {});
+  }, [resultado]);
+
+  // Lista completa de funções (encontradas + "Não informada" se houver)
+  const todasFuncoes = useMemo(() => {
+    if (!resultado) return [] as string[];
+    const set = new Set<string>(resultado.funcoesEncontradas || []);
+    for (const a of resultado.avaliacoes) set.add(a.funcao || "Não informada");
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [resultado]);
+
+  // Ao carregar novo resultado, pré-seleciona todas as funções com respondentes
+  useEffect(() => {
+    if (!resultado) return;
+    setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
+  }, [resultado, todasFuncoes, contagemPorFuncao]);
+
+  const funcoesFiltradas = useMemo(() => {
+    const q = busca.trim().toLowerCase();
+    if (!q) return todasFuncoes;
+    return todasFuncoes.filter((f) => f.toLowerCase().includes(q));
+  }, [todasFuncoes, busca]);
+
+  const toggleFuncao = (f: string) => {
+    setFuncoesSelecionadas((prev) => {
+      const next = new Set(prev);
+      if (next.has(f)) next.delete(f);
+      else next.add(f);
+      return next;
+    });
+  };
+  const selecionarTodas = () => setFuncoesSelecionadas(new Set(todasFuncoes));
+  const desmarcarTodas = () => setFuncoesSelecionadas(new Set());
+  const selecionarComRespondentes = () =>
+    setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
 
   const gerarRelatorio = async (modo: "funcao" | "geral") => {
     if (!resultado || !resultado.avaliacoes.length) return;
+    if (funcoesSelecionadas.size === 0) {
+      toast.error("Selecione pelo menos uma função para gerar o relatório.");
+      return;
+    }
     setGerando(true);
     try {
       const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
-      // Sempre anonimizar (defesa em profundidade)
-      const anonimas = resultado.avaliacoes.map((a) => ({ ...a, colaborador_nome: "" }));
+      const anonimas = resultado.avaliacoes
+        .filter((a) => funcoesSelecionadas.has(a.funcao || "Não informada"))
+        .map((a) => ({ ...a, colaborador_nome: "" }));
+      if (!anonimas.length) {
+        toast.error("Nenhum respondente nas funções selecionadas.");
+        return;
+      }
+      const funcoesAtivas = Array.from(funcoesSelecionadas).filter(
+        (f) => (contagemPorFuncao[f] || 0) > 0,
+      );
       if (modo === "geral") {
         gerarRelatorioCopsoqPDF(anonimas, {
           ...(relatorioContext || {}),
-          funcoes: resultado.funcoesEncontradas,
+          funcoes: funcoesAtivas,
         });
         toast.success("Relatório geral gerado.");
       } else {
-        // Um PDF por função
         const grupos = new Map<string, AvaliacaoPsicossocial[]>();
         for (const a of anonimas) {
           const k = a.funcao || "Não informada";
@@ -115,7 +166,6 @@ export function PsicossocialImportModal({
             ...(relatorioContext || {}),
             funcoes: [funcao],
           });
-          // pequena espera para navegador não bloquear múltiplos downloads
           await new Promise((r) => setTimeout(r, 400));
         }
         toast.success(`${grupos.size} relatório(s) por função gerado(s).`);
@@ -206,17 +256,59 @@ export function PsicossocialImportModal({
                       <strong className="text-amber-700">{resultado.paginasComFalha.join(", ")}</strong>
                     </div>
                   )}
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Funções identificadas:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {resultado.funcoesEncontradas.length ? (
-                        resultado.funcoesEncontradas.map((f) => (
-                          <Badge key={f} variant="secondary" className="text-[10px]">
-                            {f} • {contagemPorFuncao[f] || 0} respondente(s)
-                          </Badge>
-                        ))
+                  <div className="col-span-2 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-muted-foreground text-xs">
+                        Funções identificadas ({funcoesSelecionadas.size}/{todasFuncoes.length} selecionadas)
+                      </span>
+                      <div className="flex gap-1 flex-wrap">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selecionarTodas}>
+                          Selecionar todas
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={desmarcarTodas}>
+                          Desmarcar todas
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selecionarComRespondentes}>
+                          Só com respondentes
+                        </Button>
+                      </div>
+                    </div>
+                    {todasFuncoes.length > 6 && (
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={busca}
+                          onChange={(e) => setBusca(e.target.value)}
+                          placeholder="Pesquisar função…"
+                          className="h-8 pl-7 text-xs"
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {funcoesFiltradas.length ? (
+                        funcoesFiltradas.map((f) => {
+                          const selecionada = funcoesSelecionadas.has(f);
+                          const n = contagemPorFuncao[f] || 0;
+                          return (
+                            <button
+                              key={f}
+                              type="button"
+                              onClick={() => toggleFuncao(f)}
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] transition ${
+                                selecionada
+                                  ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/70"
+                              }`}
+                              aria-pressed={selecionada}
+                            >
+                              {selecionada && <Check className="w-3 h-3" />}
+                              <span>{f}</span>
+                              <span className={selecionada ? "opacity-90" : "opacity-70"}>({n})</span>
+                            </button>
+                          );
+                        })
                       ) : (
-                        <span className="text-muted-foreground italic">nenhuma</span>
+                        <span className="text-muted-foreground italic text-xs">nenhuma função encontrada</span>
                       )}
                     </div>
                   </div>
@@ -289,31 +381,40 @@ export function PsicossocialImportModal({
                 )}
               </Card>
 
-              {resultado.avaliacoes.length > 0 && (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <Card
-                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("funcao")}
-                  >
-                    <Users className="w-6 h-6 text-accent mb-2" />
-                    <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Um relatório PDF para cada função identificada
-                      ({resultado.funcoesEncontradas.length || 1}).
-                    </p>
-                  </Card>
-                  <Card
-                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("geral")}
-                  >
-                    <Building2 className="w-6 h-6 text-accent mb-2" />
-                    <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Análise institucional consolidada de todos os respondentes.
-                    </p>
-                  </Card>
-                </div>
-              )}
+              {resultado.avaliacoes.length > 0 && (() => {
+                const funcoesAtivasSel = Array.from(funcoesSelecionadas).filter(
+                  (f) => (contagemPorFuncao[f] || 0) > 0,
+                );
+                const respondentesSel = funcoesAtivasSel.reduce(
+                  (s, f) => s + (contagemPorFuncao[f] || 0),
+                  0,
+                );
+                const bloqueado = temAmbiguidade || funcoesAtivasSel.length === 0;
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <Card
+                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                      onClick={() => !gerando && !bloqueado && gerarRelatorio("funcao")}
+                    >
+                      <Users className="w-6 h-6 text-accent mb-2" />
+                      <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Um relatório PDF para cada função selecionada ({funcoesAtivasSel.length}).
+                      </p>
+                    </Card>
+                    <Card
+                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                      onClick={() => !gerando && !bloqueado && gerarRelatorio("geral")}
+                    >
+                      <Building2 className="w-6 h-6 text-accent mb-2" />
+                      <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Consolida {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) selecionada(s).
+                      </p>
+                    </Card>
+                  </div>
+                );
+              })()}
             </>
           )}
         </div>
