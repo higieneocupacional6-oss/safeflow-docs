@@ -378,6 +378,66 @@ export function ToolAssessmentModal({
             </div>
           )}
 
+          {tool === "OWAS" && (
+            <div className="border rounded-lg p-3 space-y-3">
+              <p className="text-sm font-semibold">Análise postural OWAS</p>
+              <p className="text-xs text-muted-foreground">
+                Selecione a postura predominante observada durante a execução da tarefa. O código OWAS e a
+                categoria de ação são calculados automaticamente conforme a metodologia de Karhu et al. (1977).
+              </p>
+              <R>
+                <div>
+                  <Label className="text-xs">Costas</Label>
+                  <Select value={String(owas.costas)} onValueChange={(v) => setOwas({ ...owas, costas: Number(v) as OwasInput["costas"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.costas as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Braços</Label>
+                  <Select value={String(owas.bracos)} onValueChange={(v) => setOwas({ ...owas, bracos: Number(v) as OwasInput["bracos"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.bracos as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Pernas</Label>
+                  <Select value={String(owas.pernas)} onValueChange={(v) => setOwas({ ...owas, pernas: Number(v) as OwasInput["pernas"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3,4,5,6,7].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{n} — {(OWAS_LABELS.pernas as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label className="text-xs">Carga manipulada</Label>
+                  <Select value={String(owas.carga)} onValueChange={(v) => setOwas({ ...owas, carga: Number(v) as OwasInput["carga"] })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {[1,2,3].map((n) => (
+                        <SelectItem key={n} value={String(n)}>{(OWAS_LABELS.carga as any)[n]}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </R>
+              <div className="text-xs text-muted-foreground">
+                Código OWAS calculado: <span className="font-mono font-bold">{owas.costas}{owas.bracos}{owas.pernas}{owas.carga}</span>
+              </div>
+            </div>
+          )}
+
+
           {resultado && (
             <div className="rounded-lg border-2 border-accent bg-accent/5 p-3 space-y-1">
               <p className="text-xs uppercase text-muted-foreground">Prévia do resultado</p>
