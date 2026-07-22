@@ -80,14 +80,19 @@ export function ToolAssessmentModal({
     F_por_min: 1, duracao: "curta", acoplamento: "bom",
   });
 
+  const [owas, setOwas] = useState<OwasInput>({
+    costas: 1, bracos: 1, pernas: 2, carga: 1,
+  });
+
   const resultado = useMemo<ResultadoErgonomico | null>(() => {
     try {
       if (tool === "RULA") return calcularRula(rula);
       if (tool === "REBA") return calcularReba(reba);
       if (tool === "NIOSH") return calcularNiosh(niosh);
+      if (tool === "OWAS") return calcularOwas(owas);
     } catch { /* ignore */ }
     return null;
-  }, [tool, rula, reba, niosh]);
+  }, [tool, rula, reba, niosh, owas]);
 
   const handleSubmit = async () => {
     if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
