@@ -256,17 +256,59 @@ export function PsicossocialImportModal({
                       <strong className="text-amber-700">{resultado.paginasComFalha.join(", ")}</strong>
                     </div>
                   )}
-                  <div className="col-span-2">
-                    <span className="text-muted-foreground">Funções identificadas:</span>
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {resultado.funcoesEncontradas.length ? (
-                        resultado.funcoesEncontradas.map((f) => (
-                          <Badge key={f} variant="secondary" className="text-[10px]">
-                            {f} • {contagemPorFuncao[f] || 0} respondente(s)
-                          </Badge>
-                        ))
+                  <div className="col-span-2 space-y-2">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <span className="text-muted-foreground text-xs">
+                        Funções identificadas ({funcoesSelecionadas.size}/{todasFuncoes.length} selecionadas)
+                      </span>
+                      <div className="flex gap-1 flex-wrap">
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selecionarTodas}>
+                          Selecionar todas
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={desmarcarTodas}>
+                          Desmarcar todas
+                        </Button>
+                        <Button size="sm" variant="outline" className="h-6 text-[10px]" onClick={selecionarComRespondentes}>
+                          Só com respondentes
+                        </Button>
+                      </div>
+                    </div>
+                    {todasFuncoes.length > 6 && (
+                      <div className="relative">
+                        <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+                        <Input
+                          value={busca}
+                          onChange={(e) => setBusca(e.target.value)}
+                          placeholder="Pesquisar função…"
+                          className="h-8 pl-7 text-xs"
+                        />
+                      </div>
+                    )}
+                    <div className="flex flex-wrap gap-1.5">
+                      {funcoesFiltradas.length ? (
+                        funcoesFiltradas.map((f) => {
+                          const selecionada = funcoesSelecionadas.has(f);
+                          const n = contagemPorFuncao[f] || 0;
+                          return (
+                            <button
+                              key={f}
+                              type="button"
+                              onClick={() => toggleFuncao(f)}
+                              className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] transition ${
+                                selecionada
+                                  ? "bg-emerald-600 text-white border-emerald-600 hover:bg-emerald-700"
+                                  : "bg-muted text-muted-foreground border-border hover:bg-muted/70"
+                              }`}
+                              aria-pressed={selecionada}
+                            >
+                              {selecionada && <Check className="w-3 h-3" />}
+                              <span>{f}</span>
+                              <span className={selecionada ? "opacity-90" : "opacity-70"}>({n})</span>
+                            </button>
+                          );
+                        })
                       ) : (
-                        <span className="text-muted-foreground italic">nenhuma</span>
+                        <span className="text-muted-foreground italic text-xs">nenhuma função encontrada</span>
                       )}
                     </div>
                   </div>
