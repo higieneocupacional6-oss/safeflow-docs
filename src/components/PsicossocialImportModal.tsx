@@ -30,6 +30,8 @@ export function PsicossocialImportModal({
   const [resultado, setResultado] = useState<ImportResultado | null>(null);
   const [gerando, setGerando] = useState(false);
   const [mapeamentosConfirmados, setMapeamentosConfirmados] = useState<Record<string, string>>({});
+  const [funcoesSelecionadas, setFuncoesSelecionadas] = useState<Set<string>>(new Set());
+  const [busca, setBusca] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
