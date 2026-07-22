@@ -18,7 +18,9 @@ export type AetGenInput = {
   descricao: string;
   contexto: any;
   anexos: File[];
+  instrucoes_usuario?: string;
 };
+
 
 export type AetGenOutput = {
   posto_trabalho: string;
