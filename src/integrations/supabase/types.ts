@@ -93,6 +93,24 @@ export type Database = {
           },
         ]
       }
+      aet_instrucoes_usuario: {
+        Row: {
+          instrucoes: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          instrucoes?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          instrucoes?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       contratos: {
         Row: {
           cnpj_contratante: string | null
