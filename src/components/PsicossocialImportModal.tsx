@@ -3,9 +3,9 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileSpreadsheet, FileText, Check, Loader2, Users, Building2 } from "lucide-react";
+import { Upload, FileSpreadsheet, Check, Loader2, Users, Building2, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
-import { importarArquivoPsicossocial, type ImportResultado } from "@/lib/psicoImport";
+import { importarArquivoPsicossocial, type FuncaoSetorPsico, type ImportResultado } from "@/lib/psicoImport";
 import type { AvaliacaoPsicossocial } from "@/components/PsicossocialModal";
 import type { RelatorioContext } from "@/lib/copsoqRelatorio";
 
@@ -13,11 +13,14 @@ export function PsicossocialImportModal({
   open,
   onOpenChange,
   relatorioContext,
+  funcoesSetor = [],
   onImportado,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   relatorioContext?: RelatorioContext;
+  /** Funções selecionadas no setor da AET — usadas para validar/normalizar funções do PDF. */
+  funcoesSetor?: FuncaoSetorPsico[];
   /** Callback opcional — recebe as avaliações anonimizadas importadas para persistir na AET. */
   onImportado?: (avaliacoes: AvaliacaoPsicossocial[]) => void;
 }) {
@@ -25,6 +28,7 @@ export function PsicossocialImportModal({
   const [carregando, setCarregando] = useState(false);
   const [resultado, setResultado] = useState<ImportResultado | null>(null);
   const [gerando, setGerando] = useState(false);
+  const [mapeamentosConfirmados, setMapeamentosConfirmados] = useState<Record<string, string>>({});
   const inputRef = useRef<HTMLInputElement>(null);
 
   const reset = () => {
@@ -32,6 +36,7 @@ export function PsicossocialImportModal({
     setResultado(null);
     setCarregando(false);
     setGerando(false);
+    setMapeamentosConfirmados({});
     if (inputRef.current) inputRef.current.value = "";
   };
 
@@ -40,14 +45,18 @@ export function PsicossocialImportModal({
     onOpenChange(v);
   };
 
-  const handleFile = async (f: File) => {
-    setFile(f);
+  const processarArquivo = async (f: File, mapeamentos: Record<string, string>) => {
     setResultado(null);
     setCarregando(true);
     try {
-      const r = await importarArquivoPsicossocial(f);
+      const r = await importarArquivoPsicossocial(f, {
+        funcoesSetor,
+        mapeamentosConfirmados: mapeamentos,
+      });
       if (!r.avaliacoes.length) {
         toast.error("Nenhuma resposta reconhecida no arquivo.");
+      } else if (r.ambiguidadesFuncoes?.length) {
+        toast.warning("Confirme o mapeamento das funções ambíguas antes de gerar o relatório.");
       } else {
         toast.success(`${r.avaliacoes.length} respondentes processados.`);
       }
@@ -59,6 +68,26 @@ export function PsicossocialImportModal({
       setCarregando(false);
     }
   };
+
+  const handleFile = async (f: File) => {
+    setFile(f);
+    setMapeamentosConfirmados({});
+    await processarArquivo(f, {});
+  };
+
+  const confirmarMapeamento = async (original: string, funcao: string) => {
+    if (!file) return;
+    const next = { ...mapeamentosConfirmados, [original]: funcao };
+    setMapeamentosConfirmados(next);
+    await processarArquivo(file, next);
+  };
+
+  const temAmbiguidade = !!resultado?.ambiguidadesFuncoes?.length;
+  const contagemPorFuncao = (resultado?.avaliacoes || []).reduce<Record<string, number>>((acc, av) => {
+    const f = av.funcao || "Não informada";
+    acc[f] = (acc[f] || 0) + 1;
+    return acc;
+  }, {});
 
   const gerarRelatorio = async (modo: "funcao" | "geral") => {
     if (!resultado || !resultado.avaliacoes.length) return;
@@ -182,7 +211,9 @@ export function PsicossocialImportModal({
                     <div className="flex flex-wrap gap-1 mt-1">
                       {resultado.funcoesEncontradas.length ? (
                         resultado.funcoesEncontradas.map((f) => (
-                          <Badge key={f} variant="secondary" className="text-[10px]">{f}</Badge>
+                          <Badge key={f} variant="secondary" className="text-[10px]">
+                            {f} • {contagemPorFuncao[f] || 0} respondente(s)
+                          </Badge>
                         ))
                       ) : (
                         <span className="text-muted-foreground italic">nenhuma</span>
@@ -195,7 +226,54 @@ export function PsicossocialImportModal({
                       <span className="text-[11px]">{resultado.colunasIgnoradas.join(" • ")}</span>
                     </div>
                   )}
+                  {resultado.funcoesIgnoradas && resultado.funcoesIgnoradas.length > 0 && (
+                    <div className="col-span-2">
+                      <span className="text-muted-foreground">Funções ignoradas por não pertencerem ao setor:</span>{" "}
+                      <span className="text-[11px]">{resultado.funcoesIgnoradas.join(" • ")}</span>
+                    </div>
+                  )}
                 </div>
+                {resultado.mapeamentosFuncoes && resultado.mapeamentosFuncoes.length > 0 && (
+                  <div className="border-t border-border pt-2 space-y-1.5">
+                    <p className="text-xs font-semibold uppercase text-muted-foreground">Mapeamento de funções</p>
+                    <div className="space-y-1">
+                      {resultado.mapeamentosFuncoes.map((m, i) => (
+                        <div key={`${m.original}-${i}`} className="text-[11px] flex flex-wrap items-center gap-1.5">
+                          <Badge variant={m.status === "ambigua" ? "destructive" : "outline"} className="text-[10px]">
+                            {m.status === "automatico" ? "automático" : m.status === "confirmado" ? "confirmado" : m.status === "fora_setor" ? "ignorado" : m.status === "ambigua" ? "confirmar" : "não identificado"}
+                          </Badge>
+                          <span className="text-muted-foreground">{m.original}</span>
+                          {m.funcao && <span>→ <strong>{m.funcao}</strong>{typeof m.score === "number" ? ` (${Math.round(m.score * 100)}%)` : ""}</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {resultado.ambiguidadesFuncoes && resultado.ambiguidadesFuncoes.length > 0 && (
+                  <div className="rounded-md border border-destructive/40 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-sm font-semibold text-destructive">
+                      <AlertTriangle className="w-4 h-4" /> Confirme as funções ambíguas
+                    </div>
+                    {resultado.ambiguidadesFuncoes.map((m) => (
+                      <div key={m.original} className="space-y-1.5">
+                        <p className="text-xs text-muted-foreground">PDF: <strong>{m.original}</strong></p>
+                        <div className="flex flex-wrap gap-1.5">
+                          {(m.candidatos || []).map((c) => (
+                            <Button
+                              key={c.funcao}
+                              size="sm"
+                              variant="outline"
+                              className="h-7 text-xs"
+                              onClick={() => confirmarMapeamento(m.original, c.funcao)}
+                            >
+                              {c.funcao} ({Math.round(c.score * 100)}%)
+                            </Button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {resultado.avisos.length > 0 && (
                   <ul className="text-[11px] text-amber-700 list-disc pl-4 space-y-0.5">
                     {resultado.avisos.slice(0, 5).map((a, i) => (
@@ -214,8 +292,8 @@ export function PsicossocialImportModal({
               {resultado.avaliacoes.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <Card
-                    className="p-4 cursor-pointer hover:border-accent transition"
-                    onClick={() => !gerando && gerarRelatorio("funcao")}
+                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("funcao")}
                   >
                     <Users className="w-6 h-6 text-accent mb-2" />
                     <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
@@ -225,8 +303,8 @@ export function PsicossocialImportModal({
                     </p>
                   </Card>
                   <Card
-                    className="p-4 cursor-pointer hover:border-accent transition"
-                    onClick={() => !gerando && gerarRelatorio("geral")}
+                    className={`p-4 transition ${temAmbiguidade ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
+                    onClick={() => !gerando && !temAmbiguidade && gerarRelatorio("geral")}
                   >
                     <Building2 className="w-6 h-6 text-accent mb-2" />
                     <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
