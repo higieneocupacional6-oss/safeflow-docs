@@ -26,6 +26,16 @@ import { sortByGes } from "@/lib/sortGes";
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
+type Cronoanalise = { tarefa: string; tempo: string; risco: string };
+type DimensaoItem = { medida: string; avaliacao: string };
+type AvaliacoesDimensionais = {
+  altura_mesa: DimensaoItem;
+  altura_assento: DimensaoItem;
+  profundidade_assento: DimensaoItem;
+  monitor: DimensaoItem;
+  distancia_olho_monitor: DimensaoItem;
+  espaco_pernas: DimensaoItem;
+};
 type AvalQuant = {
   especificacao_setor: string;
   ruido_valor: string; ruido_unidade: string;
@@ -53,6 +63,8 @@ type SetorAet = {
   analise_organizacional: string;
   tarefas: string;
   riscos_observados: string;
+  cronoanalise: Cronoanalise[];
+  avaliacoes_dimensionais: AvaliacoesDimensionais;
   ritmo_complexidade: string;
   jornada_aspectos: string;
   caracterizacao_biomecanica: string;
@@ -64,6 +76,7 @@ type SetorAet = {
   descricao_imagens_ambiente: string;
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
+  resultado_psicossocial_texto: string;
   _salvo?: boolean;
 };
 
@@ -73,19 +86,39 @@ const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
   { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
 ];
 
+const DIMENSOES_LABELS: { key: keyof AvaliacoesDimensionais; label: string }[] = [
+  { key: "altura_mesa", label: "Altura da mesa" },
+  { key: "altura_assento", label: "Altura do assento" },
+  { key: "profundidade_assento", label: "Profundidade do assento" },
+  { key: "monitor", label: "Monitor" },
+  { key: "distancia_olho_monitor", label: "Distância olho-monitor" },
+  { key: "espaco_pernas", label: "Espaço para pernas" },
+];
+
+const emptyDimensoes = (): AvaliacoesDimensionais => ({
+  altura_mesa: { medida: "", avaliacao: "" },
+  altura_assento: { medida: "", avaliacao: "" },
+  profundidade_assento: { medida: "", avaliacao: "" },
+  monitor: { medida: "", avaliacao: "" },
+  distancia_olho_monitor: { medida: "", avaliacao: "" },
+  espaco_pernas: { medida: "", avaliacao: "" },
+});
+
 const emptyColab = (): Colaborador => ({ nome_colaborador: "", data_avaliacao: "", funcao: "" });
+const emptyCrono = (): Cronoanalise => ({ tarefa: "", tempo: "", risco: "" });
 const emptyAval = (): AvalQuant => ({
   especificacao_setor: "",
   ruido_valor: "", ruido_unidade: "dB(A)",
-  limite_ruido: "", unidade_limite_ruido: "dB(A)",
+  limite_ruido: "65 dB(A)", unidade_limite_ruido: "dB(A)",
   iluminancia_valor: "", iluminancia_unidade: "lux",
   limite_iluminancia: "", unidade_limite_iluminancia: "lux",
   temperatura_valor: "", temperatura_unidade: "°C",
-  limite_temperatura: "20°C a 23°C",
+  limite_temperatura: "18°C a 25°C",
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
 const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
+
 
 const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
 
