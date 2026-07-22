@@ -1756,11 +1756,30 @@ export default function AetWizard() {
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle className="font-heading flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-purple-600" />
-                Gerar AET Automaticamente
-              </DialogTitle>
+              <div className="flex items-start justify-between gap-2 pr-8">
+                <DialogTitle className="font-heading flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-600" />
+                  Gerar AET Automaticamente
+                </DialogTitle>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  title="Configurar instruções personalizadas"
+                  onClick={() => { setInstrucoesDraft(instrucoesUsuario); setInstrucoesOpen(true); }}
+                  disabled={iaLoading}
+                >
+                  <Pencil className="w-4 h-4" />
+                </Button>
+              </div>
+              {instrucoesUsuario.trim() && (
+                <p className="text-[11px] text-emerald-700 dark:text-emerald-400 mt-1">
+                  ✓ Instruções personalizadas ativas ({instrucoesUsuario.trim().length} caracteres) — serão aplicadas nesta geração.
+                </p>
+              )}
             </DialogHeader>
+
             <div className="space-y-3">
               <p className="text-xs text-muted-foreground">
                 Geração <strong>determinística</strong> pelo próprio sistema — sem IA conversacional. Cruza empresa,
