@@ -48,7 +48,20 @@ type AvalQuant = {
   limite_temperatura: string;
 };
 type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
-type Ferramenta = { tipo: string; dados_avaliacao: string; resultado: string };
+type Ferramenta = {
+  tipo: string;
+  dados_avaliacao: string;
+  resultado: string;
+  // Campos preenchidos automaticamente quando a ferramenta é RULA / REBA / NIOSH
+  escore_final?: number | null;
+  classificacao?: string;
+  nivel_acao?: string;
+  colaborador_nome?: string;
+  data_avaliacao?: string;
+  avaliacao_id?: string;
+  pdf_path?: string;
+  respostas?: Record<string, unknown>;
+};
 
 type SetorAet = {
   setor_id: string;
