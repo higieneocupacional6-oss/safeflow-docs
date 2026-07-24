@@ -707,36 +707,31 @@ export function gerarRelatorioCopsoqPDF(
 
   // ── 1.1 Funções avaliadas (consolidado a partir das próprias avaliações)
   {
-    const mapa = new Map<string, number>();
+    const mapa = new Map<string, string>();
     for (const a of avaliacoes) {
       const nome = (a.funcao || "").trim();
       if (!nome) continue;
       const key = nome.toLocaleLowerCase("pt-BR");
       const label = nome.charAt(0).toUpperCase() + nome.slice(1);
-      mapa.set(key, (mapa.get(key) || 0) + 1);
-      // Guarda a forma exibível
-      (mapa as any).__labels = (mapa as any).__labels || {};
-      (mapa as any).__labels[key] = label;
+      mapa.set(key, label);
     }
-    const labels = (mapa as any).__labels || {};
     const funcoesAvaliadas = Array.from(mapa.keys())
       .sort((a, b) => a.localeCompare(b, "pt-BR"))
-      .map((k) => ({ nome: labels[k] as string, n: mapa.get(k) as number }));
+      .map((k) => mapa.get(k) as string);
 
     if (funcoesAvaliadas.length) {
       y = section(doc, y, "1.1 Funções Avaliadas");
       y = paragraph(
         doc, y,
-        `Foram consolidadas respostas de ${avaliacoes.length} questionário(s) COPSOQ, distribuídos entre ${funcoesAvaliadas.length} função(ões) distinta(s):`,
+        `Foram consolidadas as respostas dos questionários COPSOQ aplicados, distribuídas entre ${funcoesAvaliadas.length} função(ões) distinta(s):`,
       );
       autoTable(doc, {
         startY: y,
-        head: [["Função avaliada", "Respondentes"]],
-        body: funcoesAvaliadas.map((f) => [f.nome, String(f.n)]),
+        head: [["Função avaliada"]],
+        body: funcoesAvaliadas.map((f) => [f]),
         theme: "grid",
         styles: { fontSize: 9, cellPadding: 1.6 },
         headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-        columnStyles: { 1: { halign: "center", cellWidth: 30 } },
         margin: { left: 10, right: 10 },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
