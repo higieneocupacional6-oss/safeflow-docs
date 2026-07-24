@@ -134,7 +134,7 @@ function mediaFator(avs: AvaliacaoPsicossocial[], f: FatorDef): number {
     for (const idx of f.perguntaIdx) {
       const r = respostas[idx];
       if (typeof r === "number" && r >= 0) {
-        valores.push(valorRisco(r, f.bloco));
+        valores.push(valorRisco(r, f.bloco, idx));
       }
     }
   }
