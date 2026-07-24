@@ -58,8 +58,34 @@ export function ToolAssessmentModal({
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [colaborador, setColaborador] = useState(cabecalho.colaborador_nome || "");
+  const [funcaoSel, setFuncaoSel] = useState<string>(cabecalho.funcao || "");
+  const [funcaoManual, setFuncaoManual] = useState<string>("");
+  const [modoManual, setModoManual] = useState<boolean>(false);
+  const [atividade, setAtividade] = useState<string>("");
+  const [funcoesDb, setFuncoesDb] = useState<string[]>([]);
   const [data, setData] = useState(cabecalho.data_avaliacao || today);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!open) return;
+      const nomes = new Set<string>();
+      if (cabecalho.funcao) {
+        cabecalho.funcao.split(",").map((s) => s.trim()).filter(Boolean).forEach((n) => nomes.add(n));
+      }
+      if (setorRef) {
+        const { data: fs } = await supabase
+          .from("funcoes")
+          .select("nome_funcao")
+          .eq("setor_id", setorRef);
+        (fs || []).forEach((f: any) => f?.nome_funcao && nomes.add(f.nome_funcao));
+      }
+      if (!cancelled) setFuncoesDb(Array.from(nomes).sort((a, b) => a.localeCompare(b)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, setorRef, cabecalho.funcao]);
+
 
   // Estados por ferramenta
   const [rula, setRula] = useState<RulaInput>({
