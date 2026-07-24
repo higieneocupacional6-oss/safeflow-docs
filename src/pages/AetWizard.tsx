@@ -2004,12 +2004,13 @@ export default function AetWizard() {
             jornada_trabalho: (empresaSelecionada as any)?.jornada_trabalho,
             atividades: setor.descricao_atividade || setor.tarefas,
             supervisao: setor.analise_organizacional,
+            // Mantém o mesmo índice de `funcoes` (mesmo que a descrição venha vazia)
+            // para que o relatório consiga casar função ↔ descrição de atividades.
             atividades_funcoes: (setor.funcoes_selecionadas || [])
               .map((fs: any) => {
                 const f: any = (funcoesAll as any[]).find((x) => x.id === fs.id);
                 return f?.descricao_atividades || "";
-              })
-              .filter(Boolean),
+              }),
             responsavel: responsavelTecnico,
             cargo_responsavel: cargo,
             crea,
