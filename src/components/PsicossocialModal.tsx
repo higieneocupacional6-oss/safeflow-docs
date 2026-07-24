@@ -356,17 +356,35 @@ export function PsicossocialModal({
         <DialogHeader>
           <DialogTitle className="font-heading flex items-center justify-between gap-2">
             <span>Avaliação Psicossocial (COPSOQ)</span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setImportOpen(true)}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Gerar Automaticamente por Arquivo
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setImportOpen(true)}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Gerar Automaticamente por Arquivo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setTextInputOpen(true)}
+              >
+                <PencilLine className="w-4 h-4" />
+                Escrever Questionário
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
+
+        <PsicossocialTextInputModal
+          open={textInputOpen}
+          onOpenChange={setTextInputOpen}
+          relatorioContext={relatorioContext}
+          onImportado={(avs) => onChange([...avaliacoes, ...avs])}
+        />
 
         {/* Modal de importação automática (planilha/PDF) */}
         <PsicossocialImportModal
