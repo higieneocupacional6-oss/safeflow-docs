@@ -276,7 +276,7 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
     `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}/100).`,
   );
   if (principais.length) partes.push(`Principais fatores de risco identificados: ${principais.join("; ")}.`);
-  else partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta amostra.");
+  else partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta avaliação.");
   if (protecoes.length) partes.push(`Fatores de proteção presentes: ${protecoes.slice(0, 3).join("; ")}.`);
   if (ng.classificacao === "Crítico" || ng.classificacao === "Alto") {
     partes.push("Recomenda-se intervenção prioritária conforme o Plano de Ação e a diretriz de Gerenciamento de Riscos Ocupacionais (NR-01).");
