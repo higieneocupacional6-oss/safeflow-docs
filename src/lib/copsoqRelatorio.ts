@@ -272,11 +272,11 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
   const protecoes = identificarFatoresProtecao(avs);
   const partes: string[] = [];
   partes.push(
-    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação anonimizada de ${avs.length} questionário(s) COPSOQ, ` +
+    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação anonimizada dos questionários COPSOQ aplicados, ` +
     `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}/100).`,
   );
   if (principais.length) partes.push(`Principais fatores de risco identificados: ${principais.join("; ")}.`);
-  else partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta amostra.");
+  else partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta avaliação.");
   if (protecoes.length) partes.push(`Fatores de proteção presentes: ${protecoes.slice(0, 3).join("; ")}.`);
   if (ng.classificacao === "Crítico" || ng.classificacao === "Alto") {
     partes.push("Recomenda-se intervenção prioritária conforme o Plano de Ação e a diretriz de Gerenciamento de Riscos Ocupacionais (NR-01).");
@@ -290,9 +290,8 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
 
 function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
   const funcoes = ctx.funcoes?.length ? ctx.funcoes.join(", ") : "múltiplas funções do setor";
-  const n = avs.length;
   const parts: string[] = [];
-  parts.push(`A avaliação contemplou ${n} respondente(s) atuante(s) em ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
+  parts.push(`A avaliação contemplou as funções ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
   if (ctx.jornada_trabalho) parts.push(`Jornada de trabalho: ${ctx.jornada_trabalho}.`);
   if (ctx.escala) parts.push(`Escala: ${ctx.escala}.`);
   if (ctx.supervisao) parts.push(`Forma de supervisão: ${ctx.supervisao}.`);
@@ -331,8 +330,8 @@ function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext
   }
 
   paragrafos.push(
-    `Coerência e consistência das respostas: a consolidação anonimizada de ${avs.length} respondente(s) permite avaliar ` +
-    `a percepção coletiva. Padrões repetitivos entre respondentes reforçam a validade dos achados como fenômeno organizacional — ` +
+    `Coerência e consistência das respostas: a consolidação anonimizada permite avaliar ` +
+    `a percepção coletiva. Padrões repetitivos entre as respostas reforçam a validade dos achados como fenômeno organizacional — ` +
     `e não como percepção individual isolada — orientando o foco das intervenções para o nível sistêmico (organização/liderança), ` +
     `conforme preconiza a NR-01.`,
   );
@@ -708,36 +707,31 @@ export function gerarRelatorioCopsoqPDF(
 
   // ── 1.1 Funções avaliadas (consolidado a partir das próprias avaliações)
   {
-    const mapa = new Map<string, number>();
+    const mapa = new Map<string, string>();
     for (const a of avaliacoes) {
       const nome = (a.funcao || "").trim();
       if (!nome) continue;
       const key = nome.toLocaleLowerCase("pt-BR");
       const label = nome.charAt(0).toUpperCase() + nome.slice(1);
-      mapa.set(key, (mapa.get(key) || 0) + 1);
-      // Guarda a forma exibível
-      (mapa as any).__labels = (mapa as any).__labels || {};
-      (mapa as any).__labels[key] = label;
+      mapa.set(key, label);
     }
-    const labels = (mapa as any).__labels || {};
     const funcoesAvaliadas = Array.from(mapa.keys())
       .sort((a, b) => a.localeCompare(b, "pt-BR"))
-      .map((k) => ({ nome: labels[k] as string, n: mapa.get(k) as number }));
+      .map((k) => mapa.get(k) as string);
 
     if (funcoesAvaliadas.length) {
       y = section(doc, y, "1.1 Funções Avaliadas");
       y = paragraph(
         doc, y,
-        `Foram consolidadas respostas de ${avaliacoes.length} questionário(s) COPSOQ, distribuídos entre ${funcoesAvaliadas.length} função(ões) distinta(s):`,
+        `Foram consolidadas as respostas dos questionários COPSOQ aplicados, distribuídas entre ${funcoesAvaliadas.length} função(ões) distinta(s):`,
       );
       autoTable(doc, {
         startY: y,
-        head: [["Função avaliada", "Respondentes"]],
-        body: funcoesAvaliadas.map((f) => [f.nome, String(f.n)]),
+        head: [["Função avaliada"]],
+        body: funcoesAvaliadas.map((f) => [f]),
         theme: "grid",
         styles: { fontSize: 9, cellPadding: 1.6 },
         headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-        columnStyles: { 1: { halign: "center", cellWidth: 30 } },
         margin: { left: 10, right: 10 },
       });
       y = (doc as any).lastAutoTable.finalY + 6;
@@ -760,7 +754,7 @@ export function gerarRelatorioCopsoqPDF(
   );
   y = paragraph(
     doc, y,
-    "A consolidação das respostas foi realizada de forma estatística e anônima, agrupando-se os resultados por dimensão psicossocial. Para cada bloco do questionário, calculou-se a média ponderada das pontuações atribuídas pelos respondentes, normalizadas em uma escala contínua de 0 a 100, permitindo a comparação objetiva entre fatores e a identificação dos pontos críticos do ambiente organizacional."
+    "A consolidação das respostas foi realizada de forma estatística e anônima, agrupando-se os resultados por dimensão psicossocial. Para cada bloco do questionário, calculou-se a média ponderada das pontuações registradas, normalizadas em uma escala contínua de 0 a 100, permitindo a comparação objetiva entre fatores e a identificação dos pontos críticos do ambiente organizacional."
   );
   y = paragraph(
     doc, y,
@@ -839,7 +833,7 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "6. Identificação dos Fatores de Risco Psicossocial");
   const relevantes = identificarFatoresRelevantes(avaliacoes);
   if (!Object.keys(relevantes).length) {
-    y = paragraph(doc, y, "Não foram identificados fatores de risco psicossocial significativos nesta amostra.");
+    y = paragraph(doc, y, "Não foram identificados fatores de risco psicossocial significativos nesta avaliação.");
   } else {
     for (const [cat, itens] of Object.entries(relevantes)) {
       if (y > 280) { doc.addPage(); y = 32; }
@@ -862,7 +856,7 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "6.1 Fatores de Proteção Identificados");
   const protecoes = identificarFatoresProtecao(avaliacoes);
   if (!protecoes.length) {
-    y = paragraph(doc, y, "Não foram identificados fatores de proteção expressivos nesta amostra. Recomenda-se atuar prioritariamente sobre os fatores de risco listados na seção anterior.");
+    y = paragraph(doc, y, "Não foram identificados fatores de proteção expressivos nesta avaliação. Recomenda-se atuar prioritariamente sobre os fatores de risco listados na seção anterior.");
   } else {
     for (const p of protecoes) {
       if (y > 285) { doc.addPage(); y = 32; }

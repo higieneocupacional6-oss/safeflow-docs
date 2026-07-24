@@ -263,6 +263,7 @@ export function PsicossocialModal({
   relatorioContext,
   funcoesSetor,
   asPage = false,
+  onRefreshFromDb,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -274,11 +275,19 @@ export function PsicossocialModal({
   funcoesSetor?: { id?: string; nome: string }[];
   /** Renderiza o conteúdo como página (sem Dialog) — usado pela rota dedicada. */
   asPage?: boolean;
+  /**
+   * Callback opcional chamado ao clicar em "Gerar Relatório Consolidado".
+   * Deve retornar a lista completa e atualizada de avaliações lida diretamente
+   * do banco de dados. Quando presente, o relatório é gerado a partir dessa
+   * lista, ignorando qualquer resultado previamente calculado em memória.
+   */
+  onRefreshFromDb?: () => Promise<AvaliacaoPsicossocial[]>;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
   const [importOpen, setImportOpen] = useState(false);
   const [textInputOpen, setTextInputOpen] = useState(false);
+
 
 
   useEffect(() => {
@@ -352,11 +361,28 @@ export function PsicossocialModal({
 
   const handleRelatorio = async () => {
     try {
-      if (avaliacoes.length === 0) {
+      // Sempre releitura do banco (quando disponível) — nunca reutiliza
+      // resultados previamente processados/cacheados.
+      let base: AvaliacaoPsicossocial[] = avaliacoes;
+      if (onRefreshFromDb) {
+        try {
+          const fresca = await onRefreshFromDb();
+          if (Array.isArray(fresca)) {
+            base = fresca;
+            // Sincroniza estado local para refletir a base recém-lida
+            onChange(fresca);
+          }
+        } catch (refreshErr) {
+          console.error("[COPSOQ] Falha ao reler avaliações:", refreshErr);
+          toast.error("Não foi possível reler as avaliações do banco. O relatório não foi gerado.");
+          return;
+        }
+      }
+      if (!base || base.length === 0) {
         toast.error("Não há avaliações salvas para gerar o relatório consolidado.");
         return;
       }
-      const incompletas = avaliacoes
+      const incompletas = base
         .map((a, i) => ({ a, i }))
         .filter(({ a }) => !avaliacaoCompleta(a.respostas));
       if (incompletas.length > 0) {
@@ -366,12 +392,11 @@ export function PsicossocialModal({
         setEditingIdx(incompletas[0].i);
         return;
       }
-      const lista = avaliacoes.map((a) => calcularPsicossocial(a));
+      // Recalcula integralmente cada avaliação a partir das respostas atuais.
+      const lista = base.map((a) => calcularPsicossocial(a));
       const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
       gerarRelatorioCopsoqPDF(lista, relatorioContext || {});
-      toast.success(
-        `Relatório Psicossocial consolidado gerado a partir de ${lista.length} avaliação(ões).`,
-      );
+      toast.success("Relatório Psicossocial consolidado gerado com dados atualizados do banco.");
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao gerar relatório: " + (e?.message || ""));
