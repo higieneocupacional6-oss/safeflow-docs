@@ -813,9 +813,42 @@ export function gerarRelatorioCopsoqPDF(
     y = paragraph(doc, y, p);
   }
 
+  // ── 8.1 Justificativa técnica da classificação
+  y = section(doc, y, "8.1 Justificativa Técnica da Classificação");
+  y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes));
+
   // ── 9. Conclusão
   y = section(doc, y, "9. Conclusão Técnica");
   y = paragraph(doc, y, buildConclusao(avaliacoes));
+
+  // ── 9.1 Recomendações por área
+  y = section(doc, y, "9.1 Recomendações por Área de Atuação");
+  const recArea = buildRecomendacoesPorArea(avaliacoes);
+  const areas: [string, string[]][] = [
+    ["Organizacional", recArea.organizacional],
+    ["Liderança", recArea.lideranca],
+    ["Recursos Humanos", recArea.rh],
+    ["SST / SESMT", recArea.sst],
+  ];
+  for (const [titulo, itens] of areas) {
+    if (!itens.length) continue;
+    if (y > 275) { doc.addPage(); y = 32; }
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(10);
+    doc.text(titulo, 10, y);
+    y += 4;
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    for (const it of itens) {
+      const split = doc.splitTextToSize(`• ${it}`, pw - 24);
+      for (const l of split) {
+        if (y > 285) { doc.addPage(); y = 32; }
+        doc.text(l, 14, y);
+        y += 4.5;
+      }
+    }
+    y += 2;
+  }
 
   // ── 10. Plano de ação
   y = section(doc, y, "10. Plano de Ação");
