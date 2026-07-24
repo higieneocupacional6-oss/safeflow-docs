@@ -755,7 +755,20 @@ export function gerarRelatorioCopsoqPDF(
     }
   }
 
-  // ── 7. Avaliação dos riscos (TODOS os fatores)
+  // ── 6.1 Fatores de proteção identificados
+  y = section(doc, y, "6.1 Fatores de Proteção Identificados");
+  const protecoes = identificarFatoresProtecao(avaliacoes);
+  if (!protecoes.length) {
+    y = paragraph(doc, y, "Não foram identificados fatores de proteção expressivos nesta amostra. Recomenda-se atuar prioritariamente sobre os fatores de risco listados na seção anterior.");
+  } else {
+    for (const p of protecoes) {
+      if (y > 285) { doc.addPage(); y = 32; }
+      doc.setFontSize(9);
+      doc.text(`• ${p}`, 14, y);
+      y += 4.5;
+    }
+    y += 2;
+  }
   y = section(doc, y, "7. Avaliação dos Riscos");
   const tabela: any[] = [];
   for (const cat of CATEGORIAS) {
