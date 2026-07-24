@@ -39,6 +39,26 @@ export type RelatorioContext = {
   entrevistas?: boolean;
   observacao?: boolean;
   analise_documental?: boolean;
+
+  // ─── Integração AET/AEP (dados ergonômicos do setor) ───
+  aet_ritmo_complexidade?: string;
+  aet_jornada_aspectos?: string;
+  aet_caracterizacao_biomecanica?: string;
+  aet_tarefas?: string;
+  aet_riscos_observados?: string;
+  aet_analise_organizacional?: string;
+  aet_diagnostico_ergonomico?: string;
+  aet_conclusao?: string;
+  aet_plano_acao?: { o_que: string; como: string; responsavel: string; prazo: string }[];
+  aet_ferramentas?: {
+    tipo: string;
+    resultado: string;
+    classificacao?: string;
+    nivel_acao?: string;
+    escore_final?: number | null;
+  }[];
+  aet_dimensoes?: { item: string; medida: string; avaliacao: string }[];
+  aet_cronoanalise?: { tarefa: string; tempo: string; risco: string }[];
 };
 
 // ─── Paleta ───
