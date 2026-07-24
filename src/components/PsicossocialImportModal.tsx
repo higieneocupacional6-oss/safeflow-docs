@@ -205,11 +205,11 @@ export function PsicossocialImportModal({
             <p className="text-sm font-medium">
               {file ? file.name : "Clique para selecionar o arquivo"}
             </p>
-            <p className="text-xs text-muted-foreground">.xlsx, .xls, .pdf — até 20 MB</p>
+            <p className="text-xs text-muted-foreground">.xlsx, .xls, .csv, .pdf — até 20 MB</p>
             <input
               ref={inputRef}
               type="file"
-              accept=".xlsx,.xls,.pdf,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/pdf"
+              accept=".xlsx,.xls,.csv,.pdf,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel,application/pdf"
               className="hidden"
               onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
             />
