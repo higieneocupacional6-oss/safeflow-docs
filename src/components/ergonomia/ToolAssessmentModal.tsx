@@ -215,15 +215,56 @@ export function ToolAssessmentModal({
         <div className="space-y-4">
           {/* Cabeçalho */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs">Função avaliada *</Label>
+                <button
+                  type="button"
+                  className="text-[11px] text-accent hover:underline"
+                  onClick={() => setModoManual((v) => !v)}
+                >
+                  {modoManual ? "Escolher da lista" : "+ Nova função"}
+                </button>
+              </div>
+              {modoManual ? (
+                <Input
+                  value={funcaoManual}
+                  onChange={(e) => setFuncaoManual(e.target.value)}
+                  placeholder="Digite o nome da função"
+                />
+              ) : (
+                <Select value={funcaoSel} onValueChange={setFuncaoSel}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
+                  <SelectContent>
+                    {funcoesDb.length === 0 && (
+                      <SelectItem value="__none__" disabled>Nenhuma função cadastrada — use "+ Nova função"</SelectItem>
+                    )}
+                    {funcoesDb.map((n) => (
+                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
             <div>
-              <Label className="text-xs">Colaborador avaliado *</Label>
+              <Label className="text-xs">Colaborador avaliado (opcional)</Label>
               <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Nome completo" />
             </div>
             <div>
               <Label className="text-xs">Data da avaliação</Label>
               <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs">Atividade avaliada (opcional)</Label>
+              <Textarea
+                value={atividade}
+                onChange={(e) => setAtividade(e.target.value)}
+                placeholder="Ex.: digitação contínua, soldagem em estrutura metálica, levantamento manual de cargas…"
+                rows={2}
+              />
+            </div>
           </div>
+
 
           {tool === "RULA" && (
             <div className="space-y-4">
