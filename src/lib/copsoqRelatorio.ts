@@ -1418,22 +1418,22 @@ export function gerarRelatorioCopsoqPDF(
     y = (doc as any).lastAutoTable.finalY + 6;
   }
 
-  // ── 8. Análise técnica (sem "Tendências Identificadas")
-  y = section(doc, y, "8. Resultados e Análise");
+  // ── 9. Análise técnica
+  y = section(doc, y, "9. Resultados e Análise");
   for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
-    y = paragraph(doc, y, p);
+    y = paragraph(doc, y, p, 10, true, { indent: 5 });
   }
 
-  // ── 8.1 Justificativa técnica da classificação
-  y = section(doc, y, "8.1 Justificativa Técnica da Classificação");
-  y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes));
+  // ── 9.1 Justificativa técnica da classificação
+  y = section(doc, y, "9.1 Justificativa Técnica da Classificação");
+  y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes), 10, true, { indent: 5 });
 
-  // ── 9. Conclusão
-  y = section(doc, y, "9. Conclusão Técnica");
-  y = paragraph(doc, y, buildConclusao(avaliacoes));
+  // ── 10. Conclusão
+  y = section(doc, y, "10. Conclusão Técnica");
+  y = paragraph(doc, y, buildConclusao(avaliacoes), 10, true, { indent: 5 });
 
-  // ── 9.1 Recomendações por área
-  y = section(doc, y, "9.1 Recomendações por Área de Atuação");
+  // ── 10.1 Recomendações por área
+  y = section(doc, y, "10.1 Recomendações por Área de Atuação");
   const recArea = buildRecomendacoesPorArea(avaliacoes);
   const areas: [string, string[]][] = [
     ["Organizacional", recArea.organizacional],
@@ -1461,8 +1461,8 @@ export function gerarRelatorioCopsoqPDF(
     y += 2;
   }
 
-  // ── 10. Plano de ação
-  y = section(doc, y, "10. Plano de Ação");
+  // ── 11. Plano de ação
+  y = section(doc, y, "11. Plano de Ação");
   const plano = buildPlanoAcao(avaliacoes);
   if (!plano.length) {
     y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se manutenção das boas práticas e reavaliação periódica.");
