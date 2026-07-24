@@ -222,28 +222,82 @@ function consolidarAtividades(ctx: RelatorioContext): string[] {
   return (filtrada.length ? filtrada : lista).slice(0, 12);
 }
 
+// ─── Fatores de proteção (dimensões percebidas como favoráveis) ───
+function identificarFatoresProtecao(avs: AvaliacaoPsicossocial[]): string[] {
+  const protecoes: string[] = [];
+  const media = (k: string) => mediaDimensao(avs, k);
+  if (media("apoio") <= 40) protecoes.push("Bom nível de apoio social entre colegas e liderança");
+  if (media("lideranca") <= 40) protecoes.push("Liderança percebida como justa, presente e desenvolvedora");
+  if (media("controle") <= 40) protecoes.push("Autonomia decisória e influência sobre o ritmo de trabalho preservadas");
+  if (media("reconhecimento") <= 40) protecoes.push("Reconhecimento profissional e feedback adequados");
+  if (media("seguranca") <= 40) protecoes.push("Estabilidade e satisfação percebidas no emprego");
+  if (media("conflitos") <= 40) protecoes.push("Baixa incidência de conflitos e canais seguros para relato de assédio");
+  if (media("sintomas") <= 33) protecoes.push("Ausência de sinais expressivos de fadiga, distúrbios do sono ou burnout");
+  return protecoes;
+}
+
+// ─── Análise de padrões contextuais (compensações e agravantes) ───
+function analisarPadroesContextuais(avs: AvaliacaoPsicossocial[]): { compensadores: string[]; agravantes: string[] } {
+  const exig = mediaDimensao(avs, "exigencias");
+  const ctrl = mediaDimensao(avs, "controle");
+  const apoio = mediaDimensao(avs, "apoio");
+  const rec = mediaDimensao(avs, "reconhecimento");
+  const lider = mediaDimensao(avs, "lideranca");
+  const conf = mediaDimensao(avs, "conflitos");
+  const sint = mediaDimensao(avs, "sintomas");
+  const seg = mediaDimensao(avs, "seguranca");
+
+  const compensadores: string[] = [];
+  const agravantes: string[] = [];
+
+  if (exig >= 67 && apoio <= 40) compensadores.push("alta demanda mitigada por forte apoio social (efeito buffer)");
+  if (exig >= 67 && lider <= 40) compensadores.push("exigências elevadas amenizadas por liderança de suporte");
+  if (exig >= 50 && ctrl <= 33) compensadores.push("boa autonomia contrabalançando a carga de trabalho");
+  if (rec <= 33 && seg <= 33) compensadores.push("reconhecimento e estabilidade percebidos como fatores de proteção");
+
+  if (exig >= 67 && ctrl >= 67) agravantes.push("modelo demanda-controle desequilibrado (Karasek): alta exigência + baixa autonomia");
+  if (exig >= 67 && apoio >= 67) agravantes.push("alta demanda combinada a baixo apoio (isolamento — Karasek/Johnson)");
+  if (exig >= 67 && rec >= 67) agravantes.push("desequilíbrio esforço-recompensa (modelo de Siegrist)");
+  if (lider >= 67 && conf >= 67) agravantes.push("liderança frágil associada a conflitos frequentes (risco de assédio moral)");
+  if (sint >= 67 && (apoio >= 67 || lider >= 67)) agravantes.push("sinais de esgotamento sem redes de suporte suficientes — risco de burnout");
+  if (conf >= 67 && seg >= 67) agravantes.push("conflitos combinados a insegurança organizacional — clima psicossocial deteriorado");
+
+  return { compensadores, agravantes };
+}
+
 function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
   const ng = nivelGeral(avs);
   const fatores = identificarFatoresRelevantes(avs);
   const principais = Object.values(fatores).flat().slice(0, 5);
+  const protecoes = identificarFatoresProtecao(avs);
   const partes: string[] = [];
   partes.push(
-    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação de ${avs.length} questionário(s) COPSOQ, ` +
+    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação anonimizada de ${avs.length} questionário(s) COPSOQ, ` +
     `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}/100).`,
   );
-  if (principais.length) {
-    partes.push(`Principais fatores de risco identificados: ${principais.join(", ")}.`);
-  } else {
-    partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta amostra.");
-  }
+  if (principais.length) partes.push(`Principais fatores de risco identificados: ${principais.join("; ")}.`);
+  else partes.push("Não foram identificados fatores de risco psicossocial relevantes nesta amostra.");
+  if (protecoes.length) partes.push(`Fatores de proteção presentes: ${protecoes.slice(0, 3).join("; ")}.`);
   if (ng.classificacao === "Crítico" || ng.classificacao === "Alto") {
-    partes.push("Recomenda-se intervenção prioritária conforme o Plano de Ação.");
+    partes.push("Recomenda-se intervenção prioritária conforme o Plano de Ação e a diretriz de Gerenciamento de Riscos Ocupacionais (NR-01).");
   } else if (ng.classificacao === "Moderado") {
-    partes.push("Recomenda-se monitoramento sistemático e implementação gradual das ações sugeridas.");
+    partes.push("Recomenda-se monitoramento sistemático, implementação gradual das ações sugeridas e reavaliação em 12 meses.");
   } else {
-    partes.push("Cenário psicossocial favorável; manter boas práticas e reavaliação periódica.");
+    partes.push("Cenário psicossocial favorável; manter boas práticas de gestão e reavaliação periódica em conformidade com a NR-01.");
   }
   return partes.join(" ");
+}
+
+function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
+  const funcoes = ctx.funcoes?.length ? ctx.funcoes.join(", ") : "múltiplas funções do setor";
+  const n = avs.length;
+  const parts: string[] = [];
+  parts.push(`A avaliação contemplou ${n} respondente(s) atuante(s) em ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
+  if (ctx.jornada_trabalho) parts.push(`Jornada de trabalho: ${ctx.jornada_trabalho}.`);
+  if (ctx.escala) parts.push(`Escala: ${ctx.escala}.`);
+  if (ctx.supervisao) parts.push(`Forma de supervisão: ${ctx.supervisao}.`);
+  parts.push("Os dados a seguir refletem a percepção coletiva do grupo avaliado, preservando integralmente o anonimato individual.");
+  return parts.join(" ");
 }
 
 function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string[] {
@@ -251,42 +305,128 @@ function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext
   const fatores = identificarFatoresRelevantes(avs);
   const totFatores = Object.values(fatores).flat().length;
   const mediasOrden = BLOCOS_COPSOQ
-    .map((b) => ({ titulo: TITULOS_BLOCO[b.key], media: mediaDimensao(avs, b.key) }))
+    .map((b) => ({ titulo: TITULOS_BLOCO[b.key] || b.titulo, media: mediaDimensao(avs, b.key) }))
     .sort((a, b) => b.media - a.media);
   const top = mediasOrden.slice(0, 3);
+  const { compensadores, agravantes } = analisarPadroesContextuais(avs);
 
   const paragrafos: string[] = [];
   paragrafos.push(
-    `Principais Achados: a análise consolidada das ${avs.length} avaliação(ões) evidenciou nível geral ${ng.classificacao} ` +
-    `(média ${ng.media}/100), com maior intensidade nas dimensões ${top.map((t) => `${t.titulo} (${t.media})`).join(", ")}.`,
+    `Principais achados: a análise consolidada evidenciou nível geral ${ng.classificacao} ` +
+    `(média ${ng.media}/100), com maior intensidade nas dimensões ${top.map((t) => `${t.titulo} (${t.media})`).join(", ")}. ` +
+    `Foram identificados ${totFatores} fator(es) de risco distribuídos em ${Object.keys(fatores).length} categoria(s).`,
   );
-  paragrafos.push(
-    `Indicadores Observados: foram identificados ${totFatores} fator(es) de risco distribuídos em ${Object.keys(fatores).length} categoria(s). ` +
-    `Dimensões organizacionais (controle, reconhecimento, segurança) impactam diretamente na percepção de bem-estar do grupo avaliado.`,
-  );
-  paragrafos.push(
-    `Setores mais vulneráveis: dentro do setor ${ctx.setor_nome || ""}, as funções ${(ctx.funcoes || []).join(", ") || "avaliadas"} concentram os maiores ` +
-    `índices nas dimensões ${top.map((t) => t.titulo).join(", ")}, devendo ser priorizadas no plano de ação.`,
-  );
-  if (avs.length > 1) {
+
+  if (agravantes.length) {
     paragrafos.push(
-      `Comparação Entre Grupos: a amostra é composta por ${avs.length} respondente(s), com resultados apresentados de forma consolidada e anonimizada. ` +
-      `A consistência das respostas reforça que os fatores identificados são percebidos coletivamente.`,
+      `Padrões agravantes identificados: ${agravantes.join("; ")}. Tais combinações estão associadas na literatura ocupacional ` +
+      `(Karasek, Johnson, Siegrist) ao aumento de sofrimento psíquico, adoecimento mental, absenteísmo e presenteísmo.`,
     );
   }
+  if (compensadores.length) {
+    paragrafos.push(
+      `Fatores compensatórios observados: ${compensadores.join("; ")}. Esses elementos atuam como amortecedores organizacionais ` +
+      `e devem ser preservados e fortalecidos nas ações de gestão.`,
+    );
+  }
+
+  paragrafos.push(
+    `Coerência e consistência das respostas: a consolidação anonimizada de ${avs.length} respondente(s) permite avaliar ` +
+    `a percepção coletiva. Padrões repetitivos entre respondentes reforçam a validade dos achados como fenômeno organizacional — ` +
+    `e não como percepção individual isolada — orientando o foco das intervenções para o nível sistêmico (organização/liderança), ` +
+    `conforme preconiza a NR-01.`,
+  );
+
+  paragrafos.push(
+    `Grupos vulneráveis: no setor ${ctx.setor_nome || "avaliado"}, as funções ${(ctx.funcoes || []).join(", ") || "avaliadas"} ` +
+    `concentram os maiores índices nas dimensões ${top.map((t) => t.titulo).join(", ")}, ` +
+    `devendo ser priorizadas no plano de ação, com monitoramento nominal-anônimo por função.`,
+  );
   return paragrafos;
+}
+
+function buildJustificativaTecnica(avs: AvaliacaoPsicossocial[]): string {
+  const ng = nivelGeral(avs);
+  const criticas = BLOCOS_COPSOQ
+    .map((b) => ({ t: TITULOS_BLOCO[b.key] || b.titulo, m: mediaDimensao(avs, b.key), c: classificar(mediaDimensao(avs, b.key)) }))
+    .filter((x) => x.c === "Alto" || x.c === "Crítico")
+    .sort((a, b) => b.m - a.m);
+  let txt = `A classificação geral de risco ${ng.classificacao} (média ${ng.media}/100) fundamenta-se nos critérios de tercis do COPSOQ III `;
+  txt += "(Baixo ≤33 • Moderado 34-66 • Alto 67-84 • Crítico ≥85), aplicados a cada uma das 8 dimensões avaliadas. ";
+  if (criticas.length) {
+    txt += `As dimensões que sustentam a criticidade são: ${criticas.map((c) => `${c.t} (${c.m}, ${c.c})`).join("; ")}. `;
+    txt += "A convergência entre múltiplas dimensões elevadas reforça a validade estatística da classificação. ";
+  } else {
+    txt += "Nenhuma dimensão isolada atingiu níveis Alto ou Crítico, o que sustenta a classificação favorável. ";
+  }
+  txt += "A metodologia utiliza polaridade por pergunta — perguntas de sentido positivo (autonomia, apoio, liderança) são invertidas antes do cálculo, ";
+  txt += "garantindo que a métrica final represente sempre o risco, independentemente da formulação da pergunta. ";
+  txt += "Os resultados são interpretados sob a ótica da NR-01 (Gerenciamento de Riscos Ocupacionais), NR-17 (Ergonomia) e das boas práticas internacionais em saúde ocupacional.";
+  return txt;
 }
 
 function buildConclusao(avs: AvaliacaoPsicossocial[]): string {
   const ng = nivelGeral(avs);
   const principais = Object.values(identificarFatoresRelevantes(avs)).flat();
-  let txt = `Com base na análise consolidada das respostas ao questionário COPSOQ, conclui-se que o setor apresenta nível geral de risco psicossocial ${ng.classificacao} (média ${ng.media}/100). `;
-  if (principais.length) txt += `Os principais fatores que requerem atenção são: ${principais.join(", ")}. `;
-  if (ng.classificacao === "Crítico") txt += "Há necessidade de intervenção imediata e acompanhamento psicológico/médico dos colaboradores expostos.";
-  else if (ng.classificacao === "Alto") txt += "Recomenda-se intervenção prioritária em até 90 dias para mitigar os fatores identificados.";
-  else if (ng.classificacao === "Moderado") txt += "Recomenda-se monitoramento contínuo com implementação gradual das ações.";
-  else txt += "Não há necessidade de intervenção imediata; manter boas práticas e reavaliar periodicamente.";
+  const prot = identificarFatoresProtecao(avs);
+  let txt = `Conclui-se que o setor apresenta nível geral de risco psicossocial ${ng.classificacao} (média ${ng.media}/100). `;
+  if (principais.length) txt += `Os principais fatores que requerem atenção são: ${principais.slice(0, 6).join("; ")}. `;
+  if (prot.length) txt += `Como fatores de proteção destacam-se: ${prot.slice(0, 3).join("; ")}. `;
+  if (ng.classificacao === "Crítico") txt += "Há necessidade de intervenção imediata (até 30 dias) e acompanhamento psicológico/médico dos colaboradores expostos, com reavaliação em 6 meses.";
+  else if (ng.classificacao === "Alto") txt += "Recomenda-se intervenção prioritária em até 90 dias para mitigar os fatores identificados, com reavaliação em 12 meses.";
+  else if (ng.classificacao === "Moderado") txt += "Recomenda-se monitoramento contínuo com implementação gradual das ações e reavaliação em 12 meses.";
+  else txt += "Não há necessidade de intervenção imediata; recomenda-se manter as boas práticas identificadas e reavaliar em até 24 meses.";
   return txt;
+}
+
+// ─── Recomendações por área (Organização, Liderança, RH, SST) ───
+type RecArea = { organizacional: string[]; lideranca: string[]; rh: string[]; sst: string[] };
+function buildRecomendacoesPorArea(avs: AvaliacaoPsicossocial[]): RecArea {
+  const out: RecArea = { organizacional: [], lideranca: [], rh: [], sst: [] };
+  const media = (k: string) => mediaDimensao(avs, k);
+  const push = (a: keyof RecArea, t: string) => { if (!out[a].includes(t)) out[a].push(t); };
+
+  if (media("exigencias") >= 34) {
+    push("organizacional", "Revisar carga de trabalho, redistribuir tarefas e estabelecer limites realistas de prazos.");
+    push("organizacional", "Implementar cronogramas participativos e revisão trimestral de metas.");
+  }
+  if (media("controle") >= 34) {
+    push("organizacional", "Ampliar autonomia decisória e permitir flexibilidade sobre ritmo, método e pausas.");
+    push("lideranca", "Delegar decisões operacionais e promover gestão participativa.");
+  }
+  if (media("apoio") >= 34) {
+    push("lideranca", "Estabelecer rotinas de 1:1 semanal com escuta ativa e feedback.");
+    push("rh", "Criar programa de mentoria interna e ações estruturadas de integração.");
+  }
+  if (media("reconhecimento") >= 34) {
+    push("rh", "Implementar programa formal de reconhecimento (financeiro e simbólico) e feedback estruturado.");
+    push("rh", "Revisar política de cargos e salários, garantindo transparência e meritocracia.");
+  }
+  if (media("seguranca") >= 34) {
+    push("organizacional", "Comunicação transparente sobre mudanças organizacionais e planos de futuro.");
+    push("rh", "Instituir canais formais para dúvidas sobre estabilidade e trajetória de carreira.");
+  }
+  if (media("conflitos") >= 34) {
+    push("rh", "Instituir programa de mediação de conflitos e canal de denúncia sigiloso e independente.");
+    push("lideranca", "Capacitar líderes em prevenção e enfrentamento de assédio moral e sexual.");
+    push("sst", "Investigação imediata de denúncias, com acompanhamento psicológico das vítimas.");
+  }
+  if (media("sintomas") >= 34) {
+    push("sst", "Implantar Programa de Promoção da Saúde Mental e qualidade de vida no trabalho.");
+    push("sst", "Ampliar acesso a acompanhamento psicológico (interno ou convênio) e triagem periódica de burnout.");
+    push("rh", "Rever política de férias, folgas e horas extras para reduzir fadiga acumulada.");
+  }
+  if (media("lideranca") >= 34) {
+    push("lideranca", "Trilha de desenvolvimento em liderança humanizada, escuta ativa e imparcialidade.");
+    push("rh", "Avaliação 360º de liderança e vinculação de metas à qualidade da gestão de pessoas.");
+  }
+
+  // Se nada foi identificado, entregar plano de manutenção
+  if (!Object.values(out).some((v) => v.length)) {
+    push("organizacional", "Manter as práticas atuais de gestão e reavaliar psicossocialmente em até 24 meses.");
+    push("sst", "Manter monitoramento de indicadores de absenteísmo, afastamentos e clima organizacional.");
+  }
+  return out;
 }
 
 const RECOMENDACOES: Record<string, { preventiva: string; corretiva: string }> = {
@@ -297,6 +437,7 @@ const RECOMENDACOES: Record<string, { preventiva: string; corretiva: string }> =
   seguranca: { preventiva: "Comunicação transparente sobre mudanças organizacionais.", corretiva: "Plano formal de comunicação interna e gestão de mudanças." },
   conflitos: { preventiva: "Programa de mediação de conflitos e canal de denúncias.", corretiva: "Investigação imediata de denúncias e acompanhamento das vítimas." },
   sintomas: { preventiva: "Programa de Promoção da Saúde Mental e qualidade de vida.", corretiva: "Encaminhamento ao serviço médico/psicológico." },
+  lideranca: { preventiva: "Trilha de desenvolvimento em liderança humanizada e escuta ativa.", corretiva: "Avaliação 360º e substituição de lideranças reincidentes em condutas prejudiciais." },
 };
 
 function buildPlanoAcao(avs: AvaliacaoPsicossocial[]) {
@@ -305,20 +446,21 @@ function buildPlanoAcao(avs: AvaliacaoPsicossocial[]) {
   for (const [cat, lista] of Object.entries(fatores)) {
     for (const item of lista) {
       let bloco = "exigencias";
-      if (/autonomia/i.test(item)) bloco = "controle";
-      else if (/apoio|liderança/i.test(item)) bloco = "apoio";
-      else if (/reconhecimento/i.test(item)) bloco = "reconhecimento";
-      else if (/insegurança|comunicação|mudanças/i.test(item)) bloco = "seguranca";
-      else if (/conflito|assédio|violência/i.test(item)) bloco = "conflitos";
-      else if (/jornada|exaustão|burnout|estresse|emocional|sofrimento/i.test(item)) bloco = "sintomas";
+      if (/autonomia|pausa/i.test(item)) bloco = "controle";
+      else if (/apoio\s+dos\s+colegas|apoio\s+da\s+lideran/i.test(item)) bloco = "apoio";
+      else if (/reconhecimento|feedback/i.test(item)) bloco = "reconhecimento";
+      else if (/insegurança|mudanças|insatisfa/i.test(item)) bloco = "seguranca";
+      else if (/conflito|assédio|desrespeit|denúncia/i.test(item)) bloco = "conflitos";
+      else if (/lideran[çc]a|imparcial|escuta|desenvolvimento/i.test(item)) bloco = "lideranca";
+      else if (/jornada|exaustão|burnout|estresse|emocional|sofrimento|sono|fadiga|esgotamento/i.test(item)) bloco = "sintomas";
       const rec = RECOMENDACOES[bloco];
       linhas.push({
         risco: `${cat} — ${item}`,
         preventiva: rec.preventiva,
         corretiva: rec.corretiva,
-        responsavel: "RH / SESMT",
-        prazo: bloco === "conflitos" ? "30 dias" : bloco === "sintomas" ? "60 dias" : "90 dias",
-        acompanhamento: "Reavaliação trimestral via COPSOQ",
+        responsavel: bloco === "conflitos" || bloco === "sintomas" ? "SESMT / RH" : bloco === "lideranca" ? "RH / Alta Gestão" : "RH / SESMT",
+        prazo: bloco === "conflitos" || bloco === "sintomas" ? "30 dias" : bloco === "lideranca" ? "60 dias" : "90 dias",
+        acompanhamento: "Reavaliação COPSOQ em até 12 meses e indicadores mensais de clima/absenteísmo",
       });
     }
   }
