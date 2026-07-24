@@ -1,72 +1,112 @@
-// Constante isolada em módulo-folha para evitar dependência circular entre
-// PsicossocialModal.tsx → PsicossocialImportModal.tsx → psicoImport.ts →
-// (voltando para) PsicossocialModal.tsx. O ciclo causava TDZ:
-// "Cannot access 'BLOCOS_COPSOQ' before initialization" e deixava a Homepage em branco.
+// Constante isolada em módulo-folha (evita ciclo com PsicossocialModal / PsicossocialImportModal / psicoImport).
+// Cada pergunta possui polaridade explícita:
+//   "pos" → resposta alta (Sempre/Frequentemente) é POSITIVA (reduz risco).
+//   "neg" → resposta alta é NEGATIVA (aumenta risco).
+// Isso é necessário porque, no novo questionário, dentro do mesmo bloco existem perguntas
+// com sentidos opostos (ex.: em "Segurança", "estou satisfeito" é positivo e
+// "estou preocupado com mudanças" é negativo).
 
-export const BLOCOS_COPSOQ: { key: string; titulo: string; perguntas: string[] }[] = [
+export type BlocoCopsoq = {
+  key: string;
+  titulo: string;
+  perguntas: string[];
+  polaridades: ("pos" | "neg")[];
+};
+
+export const BLOCOS_COPSOQ: BlocoCopsoq[] = [
   {
     key: "exigencias",
-    titulo: "Exigências",
+    titulo: "Exigências no trabalho",
     perguntas: [
-      "O ritmo de trabalho é elevado?",
-      "Há acúmulo de tarefas?",
-      "Você precisa trabalhar muito rápido?",
-      "Há sobrecarga emocional na função?",
+      "Seu trabalho exige que você trabalhe muito rápido?",
+      "Seu trabalho exige prazos muito curtos?",
+      "Você precisa tomar decisões difíceis?",
+      "Você precisa controlar suas emoções durante o trabalho?",
+      "Seu trabalho exige lidar com conflitos entre pessoas?",
     ],
+    polaridades: ["neg", "neg", "neg", "neg", "neg"],
   },
   {
     key: "controle",
-    titulo: "Controle",
+    titulo: "Controle e autonomia",
     perguntas: [
-      "Você tem autonomia sobre o ritmo de trabalho?",
-      "Pode decidir como executar suas tarefas?",
-      "Pode fazer pausas quando precisa?",
+      "Você pode decidir como realizar seu trabalho?",
+      "Você tem influência sobre seu ritmo de trabalho?",
+      "Você pode fazer pausas quando necessário?",
     ],
+    polaridades: ["pos", "pos", "pos"],
   },
   {
     key: "apoio",
-    titulo: "Apoio",
+    titulo: "Apoio social",
     perguntas: [
-      "Recebe apoio dos colegas quando precisa?",
-      "Recebe apoio da liderança?",
-      "Sente-se parte da equipe?",
+      "Você recebe ajuda dos colegas quando precisa?",
+      "Os colegas compartilham conhecimentos entre si?",
+      "Seu líder apoia você no trabalho?",
     ],
+    polaridades: ["pos", "pos", "pos"],
   },
   {
     key: "reconhecimento",
-    titulo: "Reconhecimento",
+    titulo: "Reconhecimento e recompensa",
     perguntas: [
-      "Seu trabalho é reconhecido pela liderança?",
-      "Recebe feedback construtivo?",
-      "Sua remuneração é compatível com a função?",
+      "Você acredita que seu trabalho é justamente recompensado?",
+      "Você se sente reconhecido pelo que faz?",
+      "Você recebe feedback sobre seu desempenho?",
     ],
+    polaridades: ["pos", "pos", "pos"],
   },
   {
     key: "seguranca",
-    titulo: "Segurança",
+    titulo: "Segurança e estabilidade",
     perguntas: [
-      "Sente-se seguro quanto à manutenção do emprego?",
-      "Há clareza sobre as mudanças na empresa?",
-      "Há previsibilidade na rotina de trabalho?",
+      "Você se sente seguro quanto à manutenção do seu emprego?",
+      "Você está satisfeito com seu trabalho?",
+      "Você está preocupado com mudanças que possam afetar sua função?",
     ],
+    polaridades: ["pos", "pos", "neg"],
   },
   {
     key: "conflitos",
-    titulo: "Conflitos",
+    titulo: "Conflitos e conduta",
     perguntas: [
-      "Existem conflitos interpessoais frequentes?",
-      "Já sofreu ou presenciou assédio moral?",
-      "Sente conflito entre vida pessoal e trabalho?",
+      "Você presencia conflitos frequentes no trabalho?",
+      "O trabalho interfere na sua vida pessoal?",
+      "Você já foi tratado(a) de forma desrespeitosa por um colega/líder?",
+      "Você se sente seguro(a) para relatar situações de assédio?",
     ],
+    polaridades: ["neg", "neg", "neg", "pos"],
   },
   {
     key: "sintomas",
-    titulo: "Sintomas",
+    titulo: "Sintomas de estresse e fadiga",
     perguntas: [
-      "Sente cansaço excessivo após o trabalho?",
-      "Tem dificuldade para dormir por causa do trabalho?",
-      "Sente irritabilidade ou ansiedade frequente?",
-      "Tem dores de cabeça relacionadas à rotina?",
+      "Você tem dificuldade para dormir por causa do trabalho?",
+      "Com que frequência você sente fadiga?",
+      "Você se sente emocionalmente esgotado após o trabalho?",
+      "Você se sente exausto no início da jornada?",
     ],
+    polaridades: ["neg", "neg", "neg", "neg"],
+  },
+  {
+    key: "lideranca",
+    titulo: "Qualidade da liderança",
+    perguntas: [
+      "Seu líder trata todos de maneira imparcial?",
+      "Seu líder ouve a opinião dos trabalhadores?",
+      "Seu líder incentiva o desenvolvimento da equipe?",
+    ],
+    polaridades: ["pos", "pos", "pos"],
   },
 ];
+
+/** Retorna a polaridade da pergunta (default "neg" para trás-compatibilidade). */
+export function polaridadePergunta(blocoKey: string, perguntaIdx: number): "pos" | "neg" {
+  const b = BLOCOS_COPSOQ.find((x) => x.key === blocoKey);
+  return b?.polaridades?.[perguntaIdx] || "neg";
+}
+
+/** Converte um valor 0–100 para "valor de risco" considerando polaridade. */
+export function valorRiscoPergunta(valor: number, blocoKey: string, perguntaIdx: number): number {
+  return polaridadePergunta(blocoKey, perguntaIdx) === "pos" ? 100 - valor : valor;
+}
