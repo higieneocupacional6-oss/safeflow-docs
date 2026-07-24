@@ -330,8 +330,8 @@ function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext
   }
 
   paragrafos.push(
-    `Coerência e consistência das respostas: a consolidação anonimizada de ${avs.length} respondente(s) permite avaliar ` +
-    `a percepção coletiva. Padrões repetitivos entre respondentes reforçam a validade dos achados como fenômeno organizacional — ` +
+    `Coerência e consistência das respostas: a consolidação anonimizada permite avaliar ` +
+    `a percepção coletiva. Padrões repetitivos entre as respostas reforçam a validade dos achados como fenômeno organizacional — ` +
     `e não como percepção individual isolada — orientando o foco das intervenções para o nível sistêmico (organização/liderança), ` +
     `conforme preconiza a NR-01.`,
   );
