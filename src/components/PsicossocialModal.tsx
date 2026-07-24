@@ -30,7 +30,7 @@ export const ESCALA_COPSOQ = [
 // Reexportado de módulo-folha para evitar dependência circular
 // (PsicossocialModal → PsicossocialImportModal → psicoImport → PsicossocialModal).
 export { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
-import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
+import { BLOCOS_COPSOQ, valorRiscoPergunta, polaridadePergunta } from "@/lib/copsoqBlocos";
 
 export type BlocoResultado = { media: number; classificacao: string };
 export type AvaliacaoPsicossocial = {
@@ -47,31 +47,16 @@ export type AvaliacaoPsicossocial = {
   };
   resultado_psicossocial: string;
   riscos_psicossociais: string;
-  /** Total de respostas classificadas como positivas (somando todos os blocos). */
   total_positivas?: number;
-  /** Total de respostas classificadas como negativas. */
   total_negativas?: number;
-  /** Resumo automático em linguagem natural — variável {{copsoq_resultado_resumido}}. */
   copsoq_resultado_resumido?: string;
-  /** Riscos derivados da predominância de respostas negativas — {{copsoq_riscos_identificados}}. */
   copsoq_riscos_identificados?: string;
+  /** Fatores de proteção identificados (blocos com risco Baixo/Moderado favorável). */
+  fatores_protecao?: string[];
 };
 
-/** Blocos cujas respostas altas (Sempre/Frequentemente) representam ASPECTO NEGATIVO.
- *  Para os demais blocos, respostas altas representam aspecto POSITIVO. */
-const BLOCOS_INVERTIDOS = new Set(["exigencias", "conflitos", "sintomas"]);
-
-/** Blocos POSITIVOS — quanto mais o colaborador responde "Sempre/Frequentemente",
- *  MENOR é o risco. Para esses blocos invertemos o valor antes de calcular a média
- *  de risco (100→0, 75→25, 50→50, 25→75, 0→100). */
-const BLOCOS_POSITIVOS = new Set(["controle", "apoio", "reconhecimento", "seguranca"]);
-
-function valorRisco(valor: number, blocoKey: string): number {
-  // Se o bloco é positivo, inverte: alta frequência = baixo risco
-  if (BLOCOS_POSITIVOS.has(blocoKey)) {
-    return 100 - valor;
-  }
-  return valor;
+function valorRisco(valor: number, blocoKey: string, perguntaIdx: number): number {
+  return valorRiscoPergunta(valor, blocoKey, perguntaIdx);
 }
 
 export const emptyPsicossocial = (): AvaliacaoPsicossocial => ({
