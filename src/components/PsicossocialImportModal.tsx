@@ -129,15 +129,14 @@ export function PsicossocialImportModal({
   const selecionarComRespondentes = () =>
     setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
 
-  const gerarRelatorio = async (modo: "funcao" | "geral") => {
+  const vincular = async () => {
     if (!resultado || !resultado.avaliacoes.length) return;
     if (funcoesSelecionadas.size === 0) {
-      toast.error("Selecione pelo menos uma função para gerar o relatório.");
+      toast.error("Selecione pelo menos uma função para vincular à AET.");
       return;
     }
     setGerando(true);
     try {
-      const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
       const anonimas = resultado.avaliacoes
         .filter((a) => funcoesSelecionadas.has(a.funcao || "Não informada"))
         .map((a) => ({ ...a, colaborador_nome: "" }));
@@ -145,39 +144,30 @@ export function PsicossocialImportModal({
         toast.error("Nenhum respondente nas funções selecionadas.");
         return;
       }
-      const funcoesAtivas = Array.from(funcoesSelecionadas).filter(
-        (f) => (contagemPorFuncao[f] || 0) > 0,
-      );
-      if (modo === "geral") {
-        gerarRelatorioCopsoqPDF(anonimas, {
-          ...(relatorioContext || {}),
-          funcoes: funcoesAtivas,
-        });
-        toast.success("Relatório geral gerado.");
-      } else {
-        const grupos = new Map<string, AvaliacaoPsicossocial[]>();
-        for (const a of anonimas) {
-          const k = a.funcao || "Não informada";
-          if (!grupos.has(k)) grupos.set(k, []);
-          grupos.get(k)!.push(a);
-        }
-        for (const [funcao, avs] of grupos) {
-          gerarRelatorioCopsoqPDF(avs, {
-            ...(relatorioContext || {}),
-            funcoes: [funcao],
-          });
-          await new Promise((r) => setTimeout(r, 400));
-        }
-        toast.success(`${grupos.size} relatório(s) por função gerado(s).`);
-      }
       onImportado?.(anonimas);
+
+      const incompletas = anonimas.filter((a) =>
+        Object.values(a.respostas).some((arr) => arr.some((v) => v < 0)),
+      ).length;
+
+      if (incompletas > 0) {
+        toast.warning(
+          `${anonimas.length} avaliação(ões) importada(s). ${incompletas} apresentam respostas pendentes — complete-as antes de gerar o relatório consolidado.`,
+        );
+      } else {
+        toast.success(
+          `${anonimas.length} avaliação(ões) importada(s). Gere o relatório psicossocial consolidado na tela principal.`,
+        );
+      }
+      handleClose(false);
     } catch (e: any) {
       console.error(e);
-      toast.error("Erro ao gerar: " + (e?.message || ""));
+      toast.error("Erro ao importar: " + (e?.message || ""));
     } finally {
       setGerando(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
