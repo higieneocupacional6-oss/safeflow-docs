@@ -284,7 +284,24 @@ export function PsicossocialModal({
     }
   }, [editingIdx, avaliacoes]);
 
+  // Ao receber avaliações importadas incompletas, abre automaticamente a primeira
+  // pendente para complementação manual.
+  useEffect(() => {
+    if (!open) return;
+    if (editingIdx !== null) return;
+    const idxIncompleto = avaliacoes.findIndex((a) => !avaliacaoCompleta(a.respostas));
+    if (idxIncompleto >= 0) {
+      setEditingIdx(idxIncompleto);
+      toast.warning("Avaliação importada com respostas pendentes — complete os campos destacados.");
+    }
+  }, [avaliacoes, open, editingIdx]);
+
   const computed = useMemo(() => calcularPsicossocial(draft), [draft]);
+  const pendentesDraft = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of perguntasPendentes(draft.respostas)) set.add(`${p.blocoKey}-${p.perguntaIdx}`);
+    return set;
+  }, [draft.respostas]);
 
   const setResposta = (blocoKey: string, perguntaIdx: number, value: number) => {
     setDraft((prev) => {
@@ -294,9 +311,7 @@ export function PsicossocialModal({
     });
   };
 
-  const allAnswered = BLOCOS_COPSOQ.every((b) =>
-    (draft.respostas[b.key] || []).every((r) => r >= 0),
-  );
+  const allAnswered = avaliacaoCompleta(draft.respostas);
 
   const handleSave = () => {
     if (!draft.funcao?.trim()) {
@@ -334,21 +349,32 @@ export function PsicossocialModal({
 
   const handleRelatorio = async () => {
     try {
-      const lista = avaliacoes.length > 0
-        ? avaliacoes.map((a) => calcularPsicossocial(a))
-        : [calcularPsicossocial(draft)];
-      if (lista.length === 0) {
-        toast.error("Não há avaliações para gerar o relatório.");
+      if (avaliacoes.length === 0) {
+        toast.error("Não há avaliações salvas para gerar o relatório consolidado.");
         return;
       }
+      const incompletas = avaliacoes
+        .map((a, i) => ({ a, i }))
+        .filter(({ a }) => !avaliacaoCompleta(a.respostas));
+      if (incompletas.length > 0) {
+        toast.error(
+          `Existem ${incompletas.length} avaliação(ões) psicossocial(is) com respostas incompletas. Finalize o preenchimento antes de gerar o relatório consolidado.`,
+        );
+        setEditingIdx(incompletas[0].i);
+        return;
+      }
+      const lista = avaliacoes.map((a) => calcularPsicossocial(a));
       const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
       gerarRelatorioCopsoqPDF(lista, relatorioContext || {});
-      toast.success("Relatório Psicossocial Geral gerado em PDF");
+      toast.success(
+        `Relatório Psicossocial consolidado gerado a partir de ${lista.length} avaliação(ões).`,
+      );
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao gerar relatório: " + (e?.message || ""));
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
