@@ -600,14 +600,28 @@ export function PsicossocialModal({
           </Card>
         </div>
 
-        <DialogFooter className="gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleRelatorio} disabled={avaliacoes.length === 0 && !allAnswered}>
-            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório
+        <DialogFooter className="gap-2 flex-wrap items-center">
+          {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+            <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            onClick={handleRelatorio}
+            disabled={
+              avaliacoes.length === 0 ||
+              avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+            }
+          >
+            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Save className="w-4 h-4 mr-2" />Salvar
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
