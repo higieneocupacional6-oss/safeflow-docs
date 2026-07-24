@@ -2043,11 +2043,15 @@ export default function AetWizard() {
             })),
             aet_ferramentas: (setor.ferramentas || []).map((f) => ({
               tipo: f.tipo,
+              funcao: f.funcao || "",
+              colaborador: f.colaborador_nome || "",
+              atividade: f.atividade || "",
               resultado: f.resultado,
               classificacao: f.classificacao,
               nivel_acao: f.nivel_acao,
               escore_final: f.escore_final ?? null,
             })),
+
             aet_dimensoes: Object.entries(setor.avaliacoes_dimensionais || {})
               .map(([k, v]: [string, any]) => ({
                 item: k,
