@@ -532,18 +532,19 @@ export function ToolAssessmentModal({
           )}
 
           {!aetDocumentoId && (
-            <div className="rounded-lg border border-amber-400 bg-amber-50 text-amber-900 p-3 text-sm">
-              Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.
+            <div className="rounded-lg border border-sky-400 bg-sky-50 text-sky-900 p-3 text-xs">
+              A AET ainda não foi salva. A avaliação será gravada normalmente e vinculada automaticamente à AET assim que ela for criada.
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading || !aetDocumentoId}>
+          <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-            Concluir avaliação e gerar PDF
+            Salvar avaliação e gerar PDF
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>
