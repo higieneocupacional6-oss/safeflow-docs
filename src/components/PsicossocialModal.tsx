@@ -13,9 +13,10 @@ import {
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb, FileSpreadsheet } from "lucide-react";
+import { Save, FileDown, Trash2, AlertTriangle, AlertOctagon, Lightbulb, FileSpreadsheet, PencilLine } from "lucide-react";
 import { toast } from "sonner";
 import { PsicossocialImportModal } from "@/components/PsicossocialImportModal";
+import { PsicossocialTextInputModal } from "@/components/PsicossocialTextInputModal";
 
 // ─── Escala fixa COPSOQ ───
 export const ESCALA_COPSOQ = [
@@ -274,6 +275,7 @@ export function PsicossocialModal({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
   const [importOpen, setImportOpen] = useState(false);
+  const [textInputOpen, setTextInputOpen] = useState(false);
 
 
   useEffect(() => {
@@ -354,17 +356,35 @@ export function PsicossocialModal({
         <DialogHeader>
           <DialogTitle className="font-heading flex items-center justify-between gap-2">
             <span>Avaliação Psicossocial (COPSOQ)</span>
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-1.5"
-              onClick={() => setImportOpen(true)}
-            >
-              <FileSpreadsheet className="w-4 h-4" />
-              Gerar Automaticamente por Arquivo
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setImportOpen(true)}
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                Gerar Automaticamente por Arquivo
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-1.5"
+                onClick={() => setTextInputOpen(true)}
+              >
+                <PencilLine className="w-4 h-4" />
+                Escrever Questionário
+              </Button>
+            </div>
           </DialogTitle>
         </DialogHeader>
+
+        <PsicossocialTextInputModal
+          open={textInputOpen}
+          onOpenChange={setTextInputOpen}
+          relatorioContext={relatorioContext}
+          onImportado={(avs) => onChange([...avaliacoes, ...avs])}
+        />
 
         {/* Modal de importação automática (planilha/PDF) */}
         <PsicossocialImportModal
