@@ -126,12 +126,10 @@ export function ToolAssessmentModal({
     return null;
   }, [tool, rula, reba, niosh, owas]);
 
+  const funcaoAtual = (modoManual ? funcaoManual : funcaoSel).trim();
+
   const handleSubmit = async () => {
-    if (!aetDocumentoId) {
-      toast.error("Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.");
-      return;
-    }
-    if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
+    if (!funcaoAtual) { toast.error("Selecione ou informe a função avaliada"); return; }
     if (!resultado) { toast.error("Não foi possível calcular a avaliação"); return; }
     setLoading(true);
     try {
@@ -144,11 +142,12 @@ export function ToolAssessmentModal({
         ferramenta: tool,
         cabecalho: {
           colaborador_nome: colaborador.trim(),
-          funcao: cabecalho.funcao,
+          funcao: funcaoAtual,
           empresa_nome: cabecalho.empresa_nome,
           setor_nome: cabecalho.setor_nome,
           data_avaliacao: data,
         },
+        atividade: atividade.trim() || undefined,
         respostas,
         resultado,
       };
@@ -159,6 +158,8 @@ export function ToolAssessmentModal({
       onComplete({
         tipo: tool,
         colaborador_nome: colaborador.trim(),
+        funcao: funcaoAtual,
+        atividade: atividade.trim(),
         data_avaliacao: data,
         escore_final: resultado.escore_final,
         classificacao: resultado.classificacao,
@@ -168,7 +169,11 @@ export function ToolAssessmentModal({
         respostas,
         resumo: resultado.memoria_calculo.map((m) => `${m.etapa}: ${m.valor}`).join(" • "),
       });
-      toast.success(`Avaliação ${tool} concluída — PDF gerado e baixado`);
+      toast.success(
+        aetDocumentoId
+          ? `Avaliação ${tool} concluída — PDF gerado e baixado`
+          : `Avaliação ${tool} salva — será vinculada automaticamente quando a AET for salva`
+      );
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao salvar avaliação");
@@ -176,6 +181,7 @@ export function ToolAssessmentModal({
       setLoading(false);
     }
   };
+
 
   const R = ({ children }: { children: React.ReactNode }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
