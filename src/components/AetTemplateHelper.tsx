@@ -116,9 +116,13 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
   {
     title: "Ferramentas ergonômicas",
     vars: [
-      { code: "{{#ferramentas}}\nTipo: {{tipo}}\nResultado: {{resultado}}\n{{/ferramentas}}", desc: "RULA/REBA/OCRA/NIOSH/OWAS/Moore-Garg" },
+      { code: "{{#ferramentas}}\nTipo: {{tipo}}\nFunção: {{funcao}}\nColaborador: {{colaborador}}\nAtividade: {{atividade}}\nResultado: {{resultado}}\n{{/ferramentas}}", desc: "RULA/REBA/OCRA/NIOSH/OWAS/Moore-Garg (agora com função, colaborador e atividade)" },
+      { code: "{{funcao}}", desc: "Função avaliada (dentro do loop de ferramentas)" },
+      { code: "{{colaborador}}", desc: "Colaborador avaliado (opcional, dentro do loop)" },
+      { code: "{{atividade}}", desc: "Atividade específica avaliada (opcional, dentro do loop)" },
     ],
   },
+
   {
     title: "Descrição das imagens",
     vars: [
