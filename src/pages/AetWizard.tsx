@@ -1557,7 +1557,33 @@ export default function AetWizard() {
             <div className="space-y-1.5 mb-3">
               {setor.avaliacoes_psicossociais.map((p, i) => (
                 <div key={i} className="text-xs border border-border rounded-lg p-2">
-                  <p className="font-semibold">{p.funcao || "Função não informada"}</p>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold">{p.funcao || "Função não informada"}</p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6"
+                        title="Editar respostas"
+                        onClick={() => setPsicoOpen(true)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-6 w-6 text-destructive hover:text-destructive"
+                        title="Excluir avaliação"
+                        onClick={() => {
+                          if (!confirm(`Excluir a avaliação de "${p.funcao || "Função não informada"}"?`)) return;
+                          const novas = setor.avaliacoes_psicossociais.filter((_, idx) => idx !== i);
+                          updateSetor(editingSetorIdx, { avaliacoes_psicossociais: novas });
+                        }}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </div>
                   <p className="text-muted-foreground line-clamp-2">{p.resultado_psicossocial}</p>
                 </div>
               ))}
