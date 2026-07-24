@@ -262,6 +262,7 @@ export function PsicossocialModal({
   onChange,
   relatorioContext,
   funcoesSetor,
+  asPage = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -271,6 +272,8 @@ export function PsicossocialModal({
   relatorioContext?: import("@/lib/copsoqRelatorio").RelatorioContext;
   /** Funções selecionadas no setor da AET, usadas para validar PDFs importados. */
   funcoesSetor?: { id?: string; nome: string }[];
+  /** Renderiza o conteúdo como página (sem Dialog) — usado pela rota dedicada. */
+  asPage?: boolean;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
@@ -376,34 +379,50 @@ export function PsicossocialModal({
   };
 
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-heading flex items-center justify-between gap-2">
-            <span>Avaliação Psicossocial (COPSOQ)</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setImportOpen(true)}
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Gerar Automaticamente por Arquivo
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setTextInputOpen(true)}
-              >
-                <PencilLine className="w-4 h-4" />
-                Escrever Questionário
-              </Button>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+  const header = (
+    <div className="font-heading flex items-center justify-between gap-2 flex-wrap">
+      <span className="text-lg font-semibold">Avaliação Psicossocial (COPSOQ)</span>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
+          <FileSpreadsheet className="w-4 h-4" />
+          Gerar Automaticamente por Arquivo
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTextInputOpen(true)}>
+          <PencilLine className="w-4 h-4" />
+          Escrever Questionário
+        </Button>
+      </div>
+    </div>
+  );
+
+  const footerContent = (
+    <>
+      {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+        <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
+        </p>
+      )}
+      <Button
+        variant="outline"
+        onClick={handleRelatorio}
+        disabled={
+          avaliacoes.length === 0 ||
+          avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+        }
+      >
+        <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
+      </Button>
+      <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
+        <Save className="w-4 h-4 mr-2" />Salvar
+      </Button>
+    </>
+  );
+
+  const body = (
+    <>
+
+
 
         <PsicossocialTextInputModal
           open={textInputOpen}
@@ -600,29 +619,37 @@ export function PsicossocialModal({
           </Card>
         </div>
 
-        <DialogFooter className="gap-2 flex-wrap items-center">
-          {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
-            <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
-            </p>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleRelatorio}
-            disabled={
-              avaliacoes.length === 0 ||
-              avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
-            }
-          >
-            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
-          </Button>
-          <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Save className="w-4 h-4 mr-2" />Salvar
-          </Button>
-        </DialogFooter>
+      {asPage ? (
+        <div className="flex gap-2 flex-wrap items-center pt-4 border-t border-border sticky bottom-0 bg-background/95 backdrop-blur py-3 z-10">
+          {footerContent}
+        </div>
+      ) : (
+        <DialogFooter className="gap-2 flex-wrap items-center">{footerContent}</DialogFooter>
+      )}
+    </>
+  );
 
+  if (asPage) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-4">
+        <Card className="p-4">{header}</Card>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-none w-screen h-screen sm:rounded-none p-0 flex flex-col gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border shrink-0">
+          <DialogTitle asChild>{header}</DialogTitle>
+        </DialogHeader>
+        <div className="flex-1 overflow-y-auto px-6 py-4">
+          {body}
+        </div>
       </DialogContent>
     </Dialog>
   );
 }
+
+

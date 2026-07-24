@@ -1,77 +1,79 @@
-# Refatoração: Hierarquia Empresa → Contrato → Setores/Funções/Documentos
+# Refatoração do Módulo Avaliação Psicossocial (COPSOQ)
 
-## Visão geral
+Escopo grande dividido em 5 frentes independentes. Todas as mudanças ficam em frontend/apresentação (nada de banco).
 
-Hoje setores, funções e documentos ficam ligados apenas à empresa. Vamos introduzir o contrato como contexto obrigatório entre a empresa e tudo o que está abaixo dela, de forma que cada cliente possa ter vários contratos com cadastros e documentos completamente isolados entre si.
+## 1. PDF Profissional (`src/lib/copsoqRelatorio.ts`)
 
-```text
-Empresa
- └── Contrato
-      ├── Setores
-      │    └── Funções
-      └── Documentos (PGR, PCMSO, LTCAT, Insalubridade, Periculosidade, AET)
-```
+Substituir o motor atual (jsPDF puro com `doc.text` linha-a-linha, que causa o efeito de "letras esticadas" quando o texto é justificado sem métricas corretas) por renderização baseada em `jspdf.html` **não** — usar `jsPDF` com utilitários próprios:
 
-## Estado atual dos dados
+- Fonte: `helvetica` (built-in), tamanhos padronizados (Título 16pt bold, H1 13pt bold, H2 11pt bold, corpo 10pt normal, legenda 8pt).
+- Margens fixas: 20 mm todas.
+- Parágrafos via helper `paragrafo(texto, {justify, indent, lineHeight: 1.4})`:
+  - `splitTextToSize` para quebra automática.
+  - Justificação **manual correta**: última linha e linhas curtas ficam à esquerda; demais linhas distribuem apenas espaço extra entre palavras (usar `doc.getTextWidth` e desenhar palavra a palavra com espaçamento calculado). **Nunca** aplicar `charSpace` — era a causa das letras esticadas.
+- Títulos com faixa cinza clara; subtítulos com sublinhado fino.
+- Rodapé com nº de página / total, cabeçalho com nome da empresa.
+- Recuo de primeira linha (5 mm) em parágrafos de corpo.
+- Tabelas via `autotable` (já em uso) mantidas, com tema `grid` uniformizado.
 
-- 13 empresas, 7 contratos, 48 setores, 112 funções, 28 documentos.
-- `setores.empresa_id` existe; `setores.contrato_id` **não** existe.
-- `funcoes` só tem `setor_id` (herda contrato via setor).
-- `documentos`, `pcmso_documentos`, `ltcat_avaliacoes`, `aet_documentos` já têm `contrato_id` (nullable) — apenas 5 dos 28 documentos têm contrato preenchido.
+## 2. Seção "Funções Avaliadas" no relatório consolidado
 
-## Estratégia de migração de dados
+Em `gerarRelatorioCopsoqPDF` (ou wrapper consolidado):
+- Agregar `avaliacoes.map(a => a.funcao)` com dedupe case-insensitive.
+- Ordenar alfabeticamente.
+- Renderizar seção "Funções Avaliadas" logo após os dados da empresa, com lista com marcadores.
+- Mostrar contagem (N respondentes por função entre parênteses).
 
-Para cada empresa sem contrato ou com dados legados sem contrato, criar automaticamente um contrato chamado **"Contrato Padrão"** e vincular a ele todos os setores, funções (via setor) e documentos órfãos. Nada é perdido e o sistema passa a exigir contrato dali em diante.
+## 3. Parser inteligente (`src/components/PsicossocialTextInputModal.tsx`)
 
-## Etapas de implementação
+Reescrever completo:
+- **Normalização**: lowercase, remoção de acentos, colapso de espaços/tabs, remoção de numeração (`1.`, `1)`, `-`, `•`, `*`) e pontuação final.
+- **Reconstrução de perguntas quebradas**: unir linhas consecutivas até encontrar `?`, `:` ou uma linha que case como resposta.
+- **Detecção de resposta**: regex tolerante (`^\s*(nunca|raramente|as\s*vezes|frequentemente|sempre)\s*$` já normalizado) + números 0–4 / 0–100.
+- **Fuzzy matching**: manter Jaccard atual + fallback por trigramas (Dice) e limiar mais baixo (0.18) quando não houver ambiguidade; escolher melhor score global por linha.
+- **Associação pergunta→resposta**: após identificar pergunta, avançar linhas ignorando vazias/tabulações até encontrar próxima resposta válida **ou** próxima pergunta reconhecida (nesse caso, marca como sem resposta e reprocessa a nova pergunta).
+- Sem limite de tamanho — remover qualquer slice/limite atual.
+- Suporte a marcador de função robusto: `Função`, `Cargo`, `Colaborador`, `Posto`, com `:` `-` `–` `=` opcionais.
 
-### 1. Migração de banco
-- Garantir um "Contrato Padrão" por empresa que tenha qualquer setor/documento sem contrato.
-- Adicionar `setores.contrato_id` (FK → contratos, ON DELETE CASCADE) e popular com o contrato padrão correspondente.
-- Backfill em `documentos`, `pcmso_documentos`, `ltcat_avaliacoes`, `aet_documentos` para preencher `contrato_id` quando estiver nulo.
-- Marcar `contrato_id` como NOT NULL nessas tabelas após o backfill.
-- Adicionar índice em `setores(contrato_id)` e nos `*.contrato_id` dos documentos.
-- Funções continuam sem coluna própria — pertencem ao contrato via `setor.contrato_id`. Isso evita duplicar a hierarquia e mantém a consistência.
+## 4. Página dedicada COPSOQ
 
-### 2. Módulo "Setores e Funções" (`src/pages/SetoresFuncoes.tsx`)
-- Adicionar segundo seletor obrigatório "Selecionar Contrato" abaixo de "Selecionar Empresa".
-- Lista de contratos filtrada pela empresa selecionada.
-- Setores e funções só aparecem após escolher contrato; botões de "Novo Setor" / "Nova Função" desabilitados antes disso.
-- `SetorFuncaoModal` e `FuncaoModal` recebem `contratoId` e gravam `contrato_id` no setor criado.
-- `copyPgrToPcmso.ts` (`buildSetoresFromEmpresa`) passa a filtrar por contrato.
+Criar rota `/avaliacao-psicossocial/:aetId` renderizada por nova página `src/pages/AvaliacaoPsicossocial.tsx`:
+- Layout com `AppLayout` + `PageHeader`.
+- Seções em cards: Dados da Empresa/Contrato, Ações (importar PDF/Excel/CSV, Escrever Questionário, Novo Manual, COPSOQ template para impressão), Lista de Avaliações Salvas (com editar/excluir por função — reutilizando ícones já criados), Indicadores rápidos (nº avaliações, funções, % completas), Botão "Gerar Relatório Consolidado" fixo no topo direito.
+- Reaproveitar toda a lógica existente de `PsicossocialModal` extraindo o miolo em componentes:
+  - `PsicoAvaliacaoForm` (edição de uma avaliação)
+  - `PsicoAvaliacoesList`
+  - `PsicoAcoesToolbar`
+- Registrar rota em `src/App.tsx`.
+- Em `AetWizard.tsx`, substituir a abertura do modal por navegação para a nova página (`navigate('/avaliacao-psicossocial/${aetId}')`). Manter o modal antigo apenas se necessário para retrocompatibilidade — remover botão do modal.
 
-### 3. Wizards de documentos
-Aplicar o mesmo fluxo em PGR, PCMSO, LTCAT, Insalubridade, Periculosidade e AET (`PgrWizard`, `PcmsoWizard`, `LtcatWizard` se existir, `AetWizard`, mais os modais de start: `PcmsoStartModal`, `InsalubridadeStartModal`, `PericulosidadeStartModal`):
+## 5. Ajustes finos
 
-- Etapa Identificação ganha campo "Selecionar Contrato" logo após empresa.
-- Listar apenas contratos que tenham ao menos uma função cadastrada (via setor → função).
-- Todos os carregamentos de setores/funções/GHEs/riscos/EPIs/medidas passam a filtrar por `contrato_id`.
-- Persistir `contrato_id` em `documentos` e na tabela específica do tipo.
-- Cópia PGR → PCMSO: buscar PGR mais recente do **mesmo contrato**; se não houver, oferecer iniciar em branco.
+- Ícones editar/excluir por função permanecem (já implementados).
+- Auto-abertura de avaliação incompleta continua funcionando na nova página.
+- Bloqueio do botão de relatório enquanto houver pendências mantido.
 
-### 4. Listagens e filtros
-- `src/pages/Documentos.tsx`: agrupar/filtrar por empresa **e** contrato, mostrar coluna/badge do contrato em cada documento.
-- `src/pages/ControleDocumentos.tsx`: mesmo filtro empresa+contrato.
-- Qualquer dropdown que mostre setores/funções/GHEs/EPIs passa a respeitar o contrato ativo do contexto.
+## Detalhes Técnicos
 
-### 5. UX / validações
-- Se a empresa não tiver contratos, mostrar mensagem com atalho para `/empresas-contratos`.
-- Mensagem clara quando o contrato escolhido não tem setores/funções ainda.
-- Toasters de erro amigáveis nos casos em que o contrato é exigido.
+**Arquivos criados**
+- `src/pages/AvaliacaoPsicossocial.tsx`
+- `src/components/psico/PsicoAvaliacaoForm.tsx`
+- `src/components/psico/PsicoAvaliacoesList.tsx`
+- `src/components/psico/PsicoAcoesToolbar.tsx`
+- `src/lib/pdf/textRender.ts` (helpers `paragrafo`, `titulo`, `subtitulo`, `secao`)
 
-## Detalhes técnicos
+**Arquivos alterados**
+- `src/lib/copsoqRelatorio.ts` — reescrita da geração
+- `src/components/PsicossocialTextInputModal.tsx` — parser novo
+- `src/components/PsicossocialModal.tsx` — vira wrapper compat OU deprecado
+- `src/pages/AetWizard.tsx` — botão navega para nova página
+- `src/App.tsx` — nova rota
 
-- **Migração SQL** (em um único arquivo): cria contratos padrão faltantes em transação, faz UPDATEs de backfill, adiciona coluna `setores.contrato_id`, FKs, índices, NOT NULLs.
-- **Tipos**: após a migração, `src/integrations/supabase/types.ts` é regenerado automaticamente — só então atualizo os componentes que dependem do novo campo.
-- **Queries**: substituir `.eq('empresa_id', X)` por `.eq('contrato_id', Y)` nos pontos de leitura de setores/funções; quando precisar de empresa, navegar via join.
-- **Realtime**: `useRealtimeSync` nas telas afetadas continua igual, só mudam os `queryKey` para incluir `contratoId`.
-- **Sem mexer em**: schemas `auth`/`storage`, cliente Supabase auto-gerado, configs de projeto.
+**Sem alterações de banco.** Toda a lógica de leitura/gravação (`aet_documentos`, `psico_respostas`) permanece.
 
-## Risco e validação
-
-- Mudança ampla → fazer commit único da migração e em seguida ajustar todos os pontos do front. Após deploy, validar manualmente cada wizard criando documento em contratos diferentes da mesma empresa para confirmar isolamento.
-- Documentos legados ficarão visíveis dentro do "Contrato Padrão" da empresa correspondente, sem perda de histórico.
-
-## Fora de escopo
-- Não criamos novas tabelas para riscos/EPIs por contrato — eles já vivem dentro do snapshot do documento ou em tabelas que referenciam o documento, que por sua vez já será do contrato correto.
-- Não alteramos templates nem variáveis de template (já entregues anteriormente).
+## Ordem de execução
+1. Helpers de PDF + reescrita do relatório (impacto imediato visível).
+2. Seção "Funções Avaliadas" no relatório.
+3. Parser inteligente (independente).
+4. Extração de componentes + página dedicada + rota.
+5. Ajuste do AetWizard.
