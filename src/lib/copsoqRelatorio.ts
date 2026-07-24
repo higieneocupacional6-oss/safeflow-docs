@@ -608,6 +608,10 @@ function paragraph(
   const maxW = pw - leftMargin - rightMargin;
   const lineH = size * 0.42 + 1.6;
 
+  // Bullets e itens listados nunca são justificados
+  const startsWithBullet = /^\s*(?:[•\-*·]|\d+[\.\)])\s+/.test(String(txt));
+  if (startsWithBullet) justify = false;
+
   // Preserva quebras explícitas do texto
   const paragrafos = String(txt).split(/\n/);
   let cy = y;
