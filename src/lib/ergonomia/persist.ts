@@ -12,6 +12,21 @@ export async function salvarAvaliacaoEGerarPdf(
   const userId = userData.user?.id;
   if (!userId) throw new Error("Usuário não autenticado");
 
+  const aetDocumentoId = opts.aetDocumentoId ?? null;
+  if (!aetDocumentoId) {
+    throw new Error("Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.");
+  }
+  // Valida existência da AET (evita violação de FK)
+  const { data: aetRow, error: aetErr } = await supabase
+    .from("aet_documentos")
+    .select("id")
+    .eq("id", aetDocumentoId)
+    .maybeSingle();
+  if (aetErr) throw aetErr;
+  if (!aetRow) {
+    throw new Error("AET não encontrada no banco. Salve a AET novamente antes de registrar a avaliação.");
+  }
+
   const blob = gerarPdfErgonomia(av);
   const timestamp = Date.now();
   const safeFerr = av.ferramenta.toLowerCase();
