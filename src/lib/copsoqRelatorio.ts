@@ -289,14 +289,86 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
 }
 
 function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
-  const funcoes = ctx.funcoes?.length ? ctx.funcoes.join(", ") : "múltiplas funções do setor";
-  const parts: string[] = [];
-  parts.push(`A avaliação contemplou as funções ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
-  if (ctx.jornada_trabalho) parts.push(`Jornada de trabalho: ${ctx.jornada_trabalho}.`);
-  if (ctx.escala) parts.push(`Escala: ${ctx.escala}.`);
-  if (ctx.supervisao) parts.push(`Forma de supervisão: ${ctx.supervisao}.`);
-  parts.push("Os dados a seguir refletem a percepção coletiva do grupo avaliado, preservando integralmente o anonimato individual.");
-  return parts.join(" ");
+  // Cruza funções previstas (ctx.funcoes) com funções que efetivamente responderam,
+  // preservando alinhamento por índice com ctx.atividades_funcoes.
+  const funcoesCtx = ctx.funcoes || [];
+  const descsCtx = ctx.atividades_funcoes || [];
+  const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const respondentes = new Set<string>();
+  for (const a of avs) {
+    const n = (a.funcao || "").trim();
+    if (n) respondentes.add(norm(n));
+  }
+  // Alvo: união entre selecionadas e respondentes (nome canônico via ctx quando existir)
+  const alvoOrdenado: { nome: string; desc: string }[] = [];
+  const jaAdd = new Set<string>();
+  funcoesCtx.forEach((f, i) => {
+    const k = norm(f);
+    if (!k || jaAdd.has(k)) return;
+    jaAdd.add(k);
+    alvoOrdenado.push({ nome: f, desc: (descsCtx[i] || "").trim() });
+  });
+  for (const a of avs) {
+    const nome = (a.funcao || "").trim();
+    const k = norm(nome);
+    if (!k || jaAdd.has(k)) continue;
+    jaAdd.add(k);
+    alvoOrdenado.push({ nome, desc: "" });
+  }
+  if (!alvoOrdenado.length) {
+    return "Não foi possível identificar as funções avaliadas para caracterização técnica individual.";
+  }
+  return alvoOrdenado.map((f) => descreverFuncao(f.nome, f.desc, ctx)).join("\n\n");
+}
+
+function descreverFuncao(nome: string, descAtividades: string, ctx: RelatorioContext): string {
+  const partes: string[] = [];
+  const gesTxt = ctx.ges ? ` (GHE/GES ${ctx.ges})` : "";
+  const setorTxt = ctx.setor_nome ? `, vinculada ao setor ${ctx.setor_nome}${gesTxt}` : gesTxt;
+  partes.push(`Função ${nome}${setorTxt}.`);
+
+  const d = (descAtividades || "").trim();
+  if (d.length >= 6) {
+    partes.push(`Natureza das atividades e principais responsabilidades: ${d.replace(/\s+/g, " ")}.`);
+  } else {
+    partes.push(
+      `Natureza das atividades: atividades técnico-operacionais compatíveis com o escopo do setor, sem descrição específica registrada para esta função no cadastro de referência.`,
+    );
+  }
+
+  const contexto: string[] = [];
+  if (ctx.jornada_trabalho) contexto.push(`jornada ${ctx.jornada_trabalho}`);
+  if (ctx.escala) contexto.push(`escala ${ctx.escala}`);
+  if (ctx.supervisao) contexto.push(`supervisão ${ctx.supervisao}`);
+  if (contexto.length) partes.push(`Contexto de trabalho: ${contexto.join(", ")}.`);
+
+  // Inferência léxica de demandas físicas, cognitivas e organizacionais
+  const t = d.toLowerCase();
+  const fis: string[] = [];
+  const cog: string[] = [];
+  const org: string[] = [];
+  if (/carreg|levant|peso|esfor[çc]o|manuseio|postur|repet/.test(t)) fis.push("manuseio de cargas ou posturas exigentes");
+  if (/desloca|caminhad|percurso|externa/.test(t)) fis.push("deslocamentos e trabalho externo");
+  if (/máquin|equipament|ferrament|operac/.test(t)) fis.push("operação de equipamentos");
+  if (/atend|clien|públic|paci|contato/.test(t)) cog.push("interação frequente com público, clientes ou pacientes");
+  if (/decis|anális|planejam|controle|superv|coordena|responsabilidade/.test(t)) cog.push("tomada de decisão e responsabilidade sobre processos");
+  if (/document|report|sistema|relat|dados|inform/.test(t)) cog.push("processamento de informações e uso de sistemas");
+  if (/prazo|meta|urgen|emergen|turno|plantão|escala/.test(t)) org.push("prazos, metas ou plantões com pressão temporal");
+  if (/equipe|colega|grupo|time|multidisc/.test(t)) org.push("trabalho em equipe e interdependência");
+  if (/normativ|regulament|auditor|conformidade/.test(t)) org.push("cumprimento de normas e conformidade regulatória");
+
+  const demandas: string[] = [];
+  if (fis.length) demandas.push(`físicas (${fis.join(", ")})`);
+  if (cog.length) demandas.push(`cognitivas (${cog.join(", ")})`);
+  if (org.length) demandas.push(`organizacionais (${org.join(", ")})`);
+  if (demandas.length) {
+    partes.push(`Principais exigências identificadas: ${demandas.join("; ")} — elementos diretamente relacionados aos fatores psicossociais avaliados nesta análise.`);
+  } else {
+    partes.push(
+      `As exigências físicas, cognitivas e organizacionais são compatíveis com o escopo típico da função, cabendo à avaliação COPSOQ dimensionar a percepção coletiva sobre carga, autonomia, apoio e reconhecimento.`,
+    );
+  }
+  return partes.join(" ");
 }
 
 function buildAnaliseTecnica(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string[] {
@@ -428,38 +500,228 @@ function buildRecomendacoesPorArea(avs: AvaliacaoPsicossocial[]): RecArea {
   return out;
 }
 
-const RECOMENDACOES: Record<string, { preventiva: string; corretiva: string }> = {
-  exigencias: { preventiva: "Revisão da carga de trabalho e redistribuição de tarefas.", corretiva: "Programa de gestão do estresse e acompanhamento psicológico." },
-  controle: { preventiva: "Ampliar autonomia decisória e participação no planejamento.", corretiva: "Treinamento de líderes em gestão participativa." },
-  apoio: { preventiva: "Fortalecer canais de comunicação e ações de integração.", corretiva: "Programa de mentoria e liderança humanizada." },
-  reconhecimento: { preventiva: "Programa de reconhecimento profissional e feedback estruturado.", corretiva: "Revisão de cargos, salários e meritocracia." },
-  seguranca: { preventiva: "Comunicação transparente sobre mudanças organizacionais.", corretiva: "Plano formal de comunicação interna e gestão de mudanças." },
-  conflitos: { preventiva: "Programa de mediação de conflitos e canal de denúncias.", corretiva: "Investigação imediata de denúncias e acompanhamento das vítimas." },
-  sintomas: { preventiva: "Programa de Promoção da Saúde Mental e qualidade de vida.", corretiva: "Encaminhamento ao serviço médico/psicológico." },
-  lideranca: { preventiva: "Trilha de desenvolvimento em liderança humanizada e escuta ativa.", corretiva: "Avaliação 360º e substituição de lideranças reincidentes em condutas prejudiciais." },
+// Pool de ações específicas por fator de risco. Cada fator recebe:
+//  - causa provável (raiz do problema),
+//  - preventiva (ação estrutural que ataca a causa — evita paliativos),
+//  - corretiva (ação direta sobre o quadro já instalado),
+//  - responsável primário e prazo de referência.
+// A intenção é evitar recomendações genéricas repetidas ("realizar treinamentos",
+// "promover palestras") — priorizando redesenho de trabalho, redistribuição de
+// tarefas, revisão de processos e ajustes de organização/gestão.
+const ACOES_POR_FATOR: Record<
+  string,
+  { causa: string; preventiva: string; corretiva: string; responsavel: string; prazo: string }
+> = {
+  "Ritmo excessivo de trabalho": {
+    causa: "Dimensionamento de equipe insuficiente para o volume de tarefas ou distribuição desigual da carga entre os postos.",
+    preventiva: "Redimensionar a equipe e redistribuir o volume de tarefas com base na capacidade produtiva real, revisando o balanceamento entre postos.",
+    corretiva: "Reorganizar o fluxo operacional para eliminar gargalos identificados e reforçar temporariamente pessoal nos pontos críticos até estabilização do ritmo.",
+    responsavel: "Gestão do setor / RH",
+    prazo: "60 dias",
+  },
+  "Prazos muito curtos": {
+    causa: "Definição de prazos sem participação técnica das equipes executoras e sem análise da capacidade operacional disponível.",
+    preventiva: "Instituir processo formal de definição participativa de prazos, com validação técnica prévia por parte de quem executa o trabalho.",
+    corretiva: "Renegociar prazos vigentes considerados inviáveis e criar mecanismo formal de replanejamento acionável em situações de sobrecarga.",
+    responsavel: "Gestão do setor / Planejamento",
+    prazo: "60 dias",
+  },
+  "Alta responsabilidade decisória": {
+    causa: "Concentração excessiva de decisões críticas em poucos colaboradores, sem estrutura de suporte técnico.",
+    preventiva: "Descentralizar decisões de rotina por meio de matriz de responsabilidade (RACI) explícita e criar suporte técnico consultivo para decisões complexas.",
+    corretiva: "Constituir fórum ou comitê de apoio à decisão para casos de alta complexidade, reduzindo o peso individual sobre o colaborador exposto.",
+    responsavel: "Alta Gestão / Gestão do setor",
+    prazo: "90 dias",
+  },
+  "Falta de autonomia sobre o trabalho": {
+    causa: "Modelo de gestão excessivamente hierárquico e procedimentos que centralizam decisões operacionais.",
+    preventiva: "Ampliar a autonomia funcional por meio de alçadas claras que permitam ao colaborador decidir sobre método, sequência e ritmo de execução.",
+    corretiva: "Revisar procedimentos operacionais para eliminar controles redundantes e delegar decisões operacionais ao nível de execução.",
+    responsavel: "Gestão do setor / Alta Gestão",
+    prazo: "90 dias",
+  },
+  "Ausência de pausas adequadas": {
+    causa: "Organização do trabalho sem previsão formal de intervalos ou de rodízio de postos.",
+    preventiva: "Estruturar cronograma de pausas escalonadas dentro da jornada, com rodízio entre postos quando aplicável.",
+    corretiva: "Ajustar escala e composição das equipes para assegurar substituição efetiva durante os intervalos.",
+    responsavel: "Gestão do setor / SESMT",
+    prazo: "30 dias",
+  },
+  "Conflitos frequentes no ambiente": {
+    causa: "Falta de clareza de papéis, sobreposição de responsabilidades ou disputa por recursos entre equipes/áreas.",
+    preventiva: "Delimitar formalmente papéis e limites de responsabilidade entre funções e áreas correlatas, reduzindo zonas de atrito.",
+    corretiva: "Mediar conflitos vigentes com apoio de área neutra (RH/Psicologia) e reestruturar as interfaces problemáticas entre equipes.",
+    responsavel: "RH / Gestão do setor",
+    prazo: "45 dias",
+  },
+  "Tratamento desrespeitoso / assédio moral": {
+    causa: "Ausência de política formal de conduta e fragilidade nos canais internos de escuta e apuração.",
+    preventiva: "Implantar política formal de conduta com apuração obrigatória, proteção ao denunciante e revisão da linha de comando quando envolvida.",
+    corretiva: "Investigar imediatamente os relatos, afastar preventivamente o denunciado quando cabível e prover acompanhamento psicológico às pessoas afetadas.",
+    responsavel: "RH / Alta Gestão / SESMT",
+    prazo: "Imediato (até 15 dias)",
+  },
+  "Falta de canal seguro para denúncia de assédio": {
+    causa: "Inexistência de canal independente e sigiloso para o recebimento de relatos.",
+    preventiva: "Disponibilizar canal externo/independente de denúncias, com anonimato garantido e fluxo de tramitação formalizado.",
+    corretiva: "Rever o fluxo atual de recebimento e apuração para assegurar independência em relação à linha de gestão envolvida.",
+    responsavel: "RH / Compliance",
+    prazo: "60 dias",
+  },
+  "Baixo apoio dos colegas": {
+    causa: "Ambiente competitivo, individualização de metas ou isolamento estrutural entre pares.",
+    preventiva: "Redesenhar metas incorporando indicadores coletivos e promover interdependência produtiva entre pares.",
+    corretiva: "Reorganizar o arranjo físico e/ou virtual para favorecer trocas técnicas e instituir pares de apoio (buddy system) nas rotinas críticas.",
+    responsavel: "Gestão do setor / RH",
+    prazo: "60 dias",
+  },
+  "Falta de apoio da liderança direta": {
+    causa: "Sobrecarga da liderança, ausência física ou modelo de gestão distante do dia a dia da equipe.",
+    preventiva: "Reduzir a razão liderados/líder para permitir acompanhamento próximo e instituir rotinas obrigatórias de 1:1 estruturado.",
+    corretiva: "Redistribuir a equipe entre lideranças disponíveis ou provisionar liderança de apoio nas áreas em maior tensão.",
+    responsavel: "Alta Gestão / RH",
+    prazo: "60 dias",
+  },
+  "Insegurança quanto ao emprego": {
+    causa: "Comunicação institucional insuficiente sobre planos, resultados e cenário do negócio.",
+    preventiva: "Estabelecer rotina periódica de comunicação institucional sobre resultados, planos e horizonte de estabilidade da operação.",
+    corretiva: "Comunicar formalmente e com antecedência qualquer alteração estrutural em curso, com plano de transição para os colaboradores afetados.",
+    responsavel: "Alta Gestão / RH",
+    prazo: "45 dias",
+  },
+  "Insatisfação com o trabalho": {
+    causa: "Desalinhamento entre escopo entregue, expectativas do colaborador e recompensa oferecida.",
+    preventiva: "Realinhar escopo e recompensa por meio de revisão da descrição de cargo e política salarial coerente com a entrega efetiva.",
+    corretiva: "Abrir diálogos individuais estruturados para redesenhar trajetórias possíveis dentro da organização (job crafting) e regularizar enquadramentos.",
+    responsavel: "RH / Gestão do setor",
+    prazo: "90 dias",
+  },
+  "Preocupação com mudanças organizacionais": {
+    causa: "Mudanças anunciadas sem plano estruturado de gestão de transição.",
+    preventiva: "Adotar metodologia formal de gestão de mudanças, com envolvimento das áreas afetadas desde a fase de planejamento.",
+    corretiva: "Constituir comitê de acompanhamento das mudanças em curso, com plantões de esclarecimento e canais dedicados ao público impactado.",
+    responsavel: "Alta Gestão / RH",
+    prazo: "60 dias",
+  },
+  "Falta de reconhecimento profissional": {
+    causa: "Ausência de critérios objetivos e visíveis para valorização das entregas.",
+    preventiva: "Formalizar política de reconhecimento com critérios objetivos, visibilidade das entregas e vinculação a benefícios concretos.",
+    corretiva: "Revisar promoções e enquadramentos pendentes e regularizar reconhecimentos represados no ciclo atual.",
+    responsavel: "RH / Gestão do setor",
+    prazo: "90 dias",
+  },
+  "Ausência de feedback estruturado": {
+    causa: "Inexistência de ritual formal e recorrente de feedback contínuo.",
+    preventiva: "Instituir ritmo obrigatório de feedback estruturado (mensal ou trimestral), integrado ao ciclo de gestão de desempenho.",
+    corretiva: "Realizar rodada extraordinária de feedback para saldar déficits acumulados e realinhar expectativas com a equipe.",
+    responsavel: "Gestão do setor / RH",
+    prazo: "45 dias",
+  },
+  "Liderança percebida como parcial/injusta": {
+    causa: "Ausência de critérios objetivos e auditáveis nas decisões cotidianas da liderança.",
+    preventiva: "Padronizar critérios de decisão da liderança (distribuição de tarefas, folgas, oportunidades) com registro auditável.",
+    corretiva: "Aplicar avaliação 360º sobre os líderes envolvidos e implementar plano de correção individual, com acompanhamento por RH.",
+    responsavel: "RH / Alta Gestão",
+    prazo: "60 dias",
+  },
+  "Baixa escuta ativa da liderança": {
+    causa: "Modelo de gestão top-down sem canais formais de escuta bidirecional.",
+    preventiva: "Criar rituais obrigatórios de escuta bidirecional (reuniões de equipe com pauta aberta, pesquisas rápidas de pulso, caixas de sugestão tratadas).",
+    corretiva: "Promover devolutiva formal sobre pontos já levantados pela equipe, demonstrando efetivação das sugestões viáveis.",
+    responsavel: "Gestão do setor / RH",
+    prazo: "45 dias",
+  },
+  "Ausência de incentivo ao desenvolvimento": {
+    causa: "Falta de plano de carreira ou de orçamento efetivamente alocado ao desenvolvimento das pessoas.",
+    preventiva: "Estruturar plano individual de desenvolvimento (PDI) atrelado a metas objetivas e orçamento próprio para viabilizá-lo.",
+    corretiva: "Ampliar o portfólio de oportunidades internas (movimentações, projetos transversais, mentorias) para gerar caminhos concretos de evolução.",
+    responsavel: "RH / Gestão do setor",
+    prazo: "90 dias",
+  },
+  "Sobrecarga emocional": {
+    causa: "Exposição frequente a situações emocionalmente exigentes sem suporte estruturado nem tempo de recuperação.",
+    preventiva: "Redesenhar rotinas para reduzir a exposição contínua a situações emocionalmente pesadas (rodízio, tempo de descompressão entre atendimentos, limites por turno).",
+    corretiva: "Disponibilizar suporte psicológico regular e protocolo de acolhimento pós-eventos críticos, com liberação temporária quando necessário.",
+    responsavel: "SESMT / RH",
+    prazo: "45 dias",
+  },
+  "Exposição a conflitos interpessoais": {
+    causa: "Interfaces de trabalho não formalizadas e responsabilidades sobrepostas entre equipes.",
+    preventiva: "Formalizar interfaces e regras de convivência entre equipes que colaboram em um mesmo processo, eliminando zonas cinzentas.",
+    corretiva: "Mediar conflitos vigentes e ajustar a composição das equipes quando o desgaste interpessoal já estiver instalado.",
+    responsavel: "RH / Gestão do setor",
+    prazo: "45 dias",
+  },
+  "Interferência trabalho-vida pessoal": {
+    causa: "Ausência de limites claros entre jornada e tempo pessoal / uso excessivo de canais fora do horário.",
+    preventiva: "Definir política clara de desconexão, com bloqueio de demandas fora do horário e limites de contato assíncrono.",
+    corretiva: "Reorganizar as demandas em curso que estão exigindo trabalho fora do horário, revendo prazos e prioridades.",
+    responsavel: "Alta Gestão / RH",
+    prazo: "60 dias",
+  },
+  "Distúrbios do sono relacionados ao trabalho": {
+    causa: "Escalas com virada rápida entre turnos, horas extras recorrentes ou pressão contínua fora do horário.",
+    preventiva: "Revisar as escalas para garantir intervalo mínimo entre jornadas e limitar horas extras habituais.",
+    corretiva: "Encaminhar colaboradores sintomáticos ao serviço médico ocupacional e ajustar imediatamente a escala individual afetada.",
+    responsavel: "SESMT / Gestão do setor",
+    prazo: "30 dias",
+  },
+  "Fadiga recorrente": {
+    causa: "Volume de trabalho acima da capacidade sustentável e ausência de recuperação efetiva entre ciclos.",
+    preventiva: "Ajustar a carga sustentável, redistribuir o volume e garantir folgas efetivas (sem acionamentos de trabalho).",
+    corretiva: "Suspender temporariamente demandas não críticas para restaurar a capacidade da equipe e reavaliar volume após a recuperação.",
+    responsavel: "Gestão do setor / SESMT",
+    prazo: "30 dias",
+  },
+  "Esgotamento emocional (burnout)": {
+    causa: "Combinação prolongada de alta demanda, baixo apoio da liderança e baixo controle sobre o próprio trabalho.",
+    preventiva: "Reestruturar simultaneamente demanda, apoio da liderança e autonomia da função — atuando sobre as três alavancas clássicas do burnout.",
+    corretiva: "Encaminhar imediatamente casos identificados ao serviço médico/psicológico e afastar preventivamente quando indicado, com plano de retorno gradual.",
+    responsavel: "SESMT / RH / Alta Gestão",
+    prazo: "Imediato (até 15 dias)",
+  },
+  "Exaustão no início da jornada": {
+    causa: "Recuperação insuficiente entre jornadas e/ou ambiente de trabalho desmotivador que gera antecipação negativa.",
+    preventiva: "Revisar intervalos entre jornadas e atuar sobre as causas de desmotivação já identificadas no setor.",
+    corretiva: "Investigar individualmente os casos persistentes com apoio ocupacional, considerando remanejamento funcional quando indicado.",
+    responsavel: "SESMT / RH",
+    prazo: "45 dias",
+  },
 };
 
 function buildPlanoAcao(avs: AvaliacaoPsicossocial[]) {
-  const fatores = identificarFatoresRelevantes(avs);
-  const linhas: { risco: string; preventiva: string; corretiva: string; responsavel: string; prazo: string; acompanhamento: string }[] = [];
-  for (const [cat, lista] of Object.entries(fatores)) {
-    for (const item of lista) {
-      let bloco = "exigencias";
-      if (/autonomia|pausa/i.test(item)) bloco = "controle";
-      else if (/apoio\s+dos\s+colegas|apoio\s+da\s+lideran/i.test(item)) bloco = "apoio";
-      else if (/reconhecimento|feedback/i.test(item)) bloco = "reconhecimento";
-      else if (/insegurança|mudanças|insatisfa/i.test(item)) bloco = "seguranca";
-      else if (/conflito|assédio|desrespeit|denúncia/i.test(item)) bloco = "conflitos";
-      else if (/lideran[çc]a|imparcial|escuta|desenvolvimento/i.test(item)) bloco = "lideranca";
-      else if (/jornada|exaustão|burnout|estresse|emocional|sofrimento|sono|fadiga|esgotamento/i.test(item)) bloco = "sintomas";
-      const rec = RECOMENDACOES[bloco];
+  const linhas: {
+    risco: string;
+    causa: string;
+    preventiva: string;
+    corretiva: string;
+    responsavel: string;
+    prazo: string;
+    acompanhamento: string;
+  }[] = [];
+  for (const cat of CATEGORIAS) {
+    for (const f of cat.fatores) {
+      const media = mediaFator(avs, f);
+      const cls = classificar(media);
+      if (cls === "Baixo") continue;
+      const acao = ACOES_POR_FATOR[f.nome];
+      if (!acao) continue;
+      // Prazo escalado pela criticidade
+      const prazo =
+        cls === "Crítico"
+          ? "Imediato (até 15 dias)"
+          : cls === "Alto"
+            ? acao.prazo
+            : "90 dias";
       linhas.push({
-        risco: `${cat} — ${item}`,
-        preventiva: rec.preventiva,
-        corretiva: rec.corretiva,
-        responsavel: bloco === "conflitos" || bloco === "sintomas" ? "SESMT / RH" : bloco === "lideranca" ? "RH / Alta Gestão" : "RH / SESMT",
-        prazo: bloco === "conflitos" || bloco === "sintomas" ? "30 dias" : bloco === "lideranca" ? "60 dias" : "90 dias",
-        acompanhamento: "Reavaliação COPSOQ em até 12 meses e indicadores mensais de clima/absenteísmo",
+        risco: `${cat.categoria} — ${f.nome} (${cls}, média ${media}/100)`,
+        causa: acao.causa,
+        preventiva: acao.preventiva,
+        corretiva: acao.corretiva,
+        responsavel: acao.responsavel,
+        prazo,
+        acompanhamento:
+          "Reavaliação COPSOQ do fator em até 12 meses; monitoramento intermediário via indicadores de clima, absenteísmo e afastamentos por CID F.",
       });
     }
   }
@@ -705,7 +967,7 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 1.1 Funções avaliadas (consolidado a partir das próprias avaliações)
+  // ── 1.1 Funções Avaliadas — texto técnico (GES, relação e contexto operacional)
   {
     const mapa = new Map<string, string>();
     for (const a of avaliacoes) {
@@ -721,20 +983,27 @@ export function gerarRelatorioCopsoqPDF(
 
     if (funcoesAvaliadas.length) {
       y = section(doc, y, "1.1 Funções Avaliadas");
-      y = paragraph(
-        doc, y,
-        `Foram consolidadas as respostas dos questionários COPSOQ aplicados, distribuídas entre ${funcoesAvaliadas.length} função(ões) distinta(s):`,
-      );
-      autoTable(doc, {
-        startY: y,
-        head: [["Função avaliada"]],
-        body: funcoesAvaliadas.map((f) => [f]),
-        theme: "grid",
-        styles: { fontSize: 9, cellPadding: 1.6 },
-        headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-        margin: { left: 10, right: 10 },
-      });
-      y = (doc as any).lastAutoTable.finalY + 6;
+      const gesTxt = ctx.ges
+        ? `pertencentes ao GHE/GES ${ctx.ges}`
+        : `pertencentes ao mesmo grupo homogêneo de exposição`;
+      const setorTxt = ctx.setor_nome ? ` no setor ${ctx.setor_nome}` : "";
+      const listaTxt = funcoesAvaliadas.join(", ");
+      const atv = (ctx.atividades || ctx.descricao_ambiente || "").trim().replace(/\s+/g, " ");
+      const atvSintese = atv
+        ? ` A atividade predominante desempenhada pelo grupo consiste em ${atv.slice(0, 240)}${atv.length > 240 ? "…" : ""}.`
+        : "";
+      const contextoOp: string[] = [];
+      if (ctx.jornada_trabalho) contextoOp.push(`jornada ${ctx.jornada_trabalho}`);
+      if (ctx.escala) contextoOp.push(`escala ${ctx.escala}`);
+      if (ctx.supervisao) contextoOp.push(`supervisão ${ctx.supervisao}`);
+      const ctxTxt = contextoOp.length
+        ? ` O contexto operacional comum entre as funções caracteriza-se por ${contextoOp.join(", ")}, o que reforça a pertinência da análise consolidada.`
+        : "";
+      const txt =
+        `As funções avaliadas neste relatório — ${listaTxt} — são ${gesTxt}${setorTxt} e apresentam relação técnica e operacional entre si, ` +
+        `compartilhando exposição a fatores psicossociais equivalentes, o que justifica sua análise consolidada sob a metodologia COPSOQ.` +
+        atvSintese + ctxTxt;
+      y = paragraph(doc, y, txt, 10, true, { indent: 5 });
     }
   }
 
@@ -777,18 +1046,61 @@ export function gerarRelatorioCopsoqPDF(
   }
 
 
-  // ── 4. Caracterização do trabalho (sem "Quantidade de trabalhadores"; atividades consolidadas)
+  // ── 4. Caracterização do Trabalho
+  //  • Funções: mostra selecionadas x respondentes e diferenças
+  //  • Principais atividades: dinâmico, por função, com base nas descrições do cadastro
   y = section(doc, y, "4. Caracterização do Trabalho");
-  const ativConsolidadas = consolidarAtividades(ctx);
+  const _norm = (s: string) =>
+    s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
+  const respondentesMap = new Map<string, string>();
+  for (const a of avaliacoes) {
+    const n = (a.funcao || "").trim();
+    if (!n) continue;
+    respondentesMap.set(_norm(n), n.charAt(0).toUpperCase() + n.slice(1));
+  }
+  const respondentes = Array.from(respondentesMap.values()).sort((a, b) =>
+    a.localeCompare(b, "pt-BR"),
+  );
+  const selecionadas = (ctx.funcoes || []).slice().sort((a, b) => a.localeCompare(b, "pt-BR"));
+  const respSet = new Set(respondentes.map((f) => _norm(f)));
+  const selSet = new Set(selecionadas.map((f) => _norm(f)));
+  const soRespondentes = respondentes.filter((f) => !selSet.has(_norm(f)));
+  const soSelecionadas = selecionadas.filter((f) => !respSet.has(_norm(f)));
+
   const carac: [string, string][] = [];
   if (ctx.setor_nome) carac.push(["Setor avaliado", ctx.setor_nome]);
-  if (ctx.funcoes?.length) carac.push(["Funções avaliadas", ctx.funcoes.join(", ")]);
+  if (selecionadas.length)
+    carac.push(["Funções selecionadas para o relatório", selecionadas.join(", ")]);
+  if (respondentes.length)
+    carac.push(["Funções respondentes ao COPSOQ", respondentes.join(", ")]);
+  if (soSelecionadas.length)
+    carac.push(["Selecionadas sem respondentes identificados", soSelecionadas.join(", ")]);
+  if (soRespondentes.length)
+    carac.push(["Respondentes fora da seleção inicial", soRespondentes.join(", ")]);
   if (ctx.jornada_trabalho) carac.push(["Jornada de trabalho", ctx.jornada_trabalho]);
   if (ctx.escala) carac.push(["Escalas aplicadas", ctx.escala]);
   if (ctx.supervisao) carac.push(["Forma de supervisão", ctx.supervisao]);
-  if (ativConsolidadas.length) {
-    carac.push(["Principais atividades", ativConsolidadas.map((a) => `• ${a}`).join("\n")]);
+
+  // Principais atividades — dinâmico por função (usa descrições do cadastro)
+  const funcoesCtx = ctx.funcoes || [];
+  const descsCtx = ctx.atividades_funcoes || [];
+  const blocosAtiv: string[] = [];
+  funcoesCtx.forEach((f, i) => {
+    const d = (descsCtx[i] || "").trim();
+    if (d && d.length >= 5) {
+      blocosAtiv.push(`▸ ${f}: ${d.replace(/\s+/g, " ")}`);
+    }
+  });
+  if (!blocosAtiv.length && (ctx.atividades || "").trim()) {
+    blocosAtiv.push(String(ctx.atividades).trim());
   }
+  if (!blocosAtiv.length && (ctx.descricao_ambiente || "").trim()) {
+    blocosAtiv.push(String(ctx.descricao_ambiente).trim());
+  }
+  if (blocosAtiv.length) {
+    carac.push(["Principais atividades", blocosAtiv.join("\n\n")]);
+  }
+
   if (carac.length) {
     autoTable(doc, {
       startY: y,
@@ -955,11 +1267,27 @@ export function gerarRelatorioCopsoqPDF(
   } else {
     autoTable(doc, {
       startY: y,
-      head: [["Risco Identificado", "Medida Preventiva", "Medida Corretiva", "Responsável", "Prazo", "Acompanhamento"]],
-      body: plano.map((p) => [p.risco, p.preventiva, p.corretiva, p.responsavel, p.prazo, p.acompanhamento]),
+      head: [[
+        "Risco Identificado",
+        "Causa Provável",
+        "Medida Preventiva",
+        "Medida Corretiva",
+        "Responsável",
+        "Prazo",
+        "Acompanhamento",
+      ]],
+      body: plano.map((p) => [
+        p.risco,
+        p.causa,
+        p.preventiva,
+        p.corretiva,
+        p.responsavel,
+        p.prazo,
+        p.acompanhamento,
+      ]),
       theme: "grid",
-      styles: { fontSize: 8, cellPadding: 1.5, valign: "top" },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+      styles: { fontSize: 7.5, cellPadding: 1.4, valign: "top" },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
       margin: { left: 10, right: 10 },
     });
     y = (doc as any).lastAutoTable.finalY + 6;
