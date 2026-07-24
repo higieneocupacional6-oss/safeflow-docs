@@ -263,6 +263,7 @@ export function PsicossocialModal({
   relatorioContext,
   funcoesSetor,
   asPage = false,
+  onRefreshFromDb,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -274,11 +275,19 @@ export function PsicossocialModal({
   funcoesSetor?: { id?: string; nome: string }[];
   /** Renderiza o conteúdo como página (sem Dialog) — usado pela rota dedicada. */
   asPage?: boolean;
+  /**
+   * Callback opcional chamado ao clicar em "Gerar Relatório Consolidado".
+   * Deve retornar a lista completa e atualizada de avaliações lida diretamente
+   * do banco de dados. Quando presente, o relatório é gerado a partir dessa
+   * lista, ignorando qualquer resultado previamente calculado em memória.
+   */
+  onRefreshFromDb?: () => Promise<AvaliacaoPsicossocial[]>;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
   const [importOpen, setImportOpen] = useState(false);
   const [textInputOpen, setTextInputOpen] = useState(false);
+
 
 
   useEffect(() => {
