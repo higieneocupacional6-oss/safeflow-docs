@@ -63,10 +63,13 @@ type Ferramenta = {
   classificacao?: string;
   nivel_acao?: string;
   colaborador_nome?: string;
+  funcao?: string;
+  atividade?: string;
   data_avaliacao?: string;
   avaliacao_id?: string;
   pdf_path?: string;
   respostas?: Record<string, unknown>;
+
 };
 
 type SetorAet = {
