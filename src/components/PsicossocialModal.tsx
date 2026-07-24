@@ -264,6 +264,7 @@ export function PsicossocialModal({
   funcoesSetor,
   asPage = false,
   onRefreshFromDb,
+  aetSalvo = true,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -282,6 +283,10 @@ export function PsicossocialModal({
    * lista, ignorando qualquer resultado previamente calculado em memória.
    */
   onRefreshFromDb?: () => Promise<AvaliacaoPsicossocial[]>;
+  /** Indica se a AET/AEP deste setor já está salva. Sem AET salva o botão de
+   *  gerar relatório fica bloqueado (as informações ergonômicas alimentam a
+   *  personalização da análise psicossocial). */
+  aetSalvo?: boolean;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
@@ -361,6 +366,12 @@ export function PsicossocialModal({
 
   const handleRelatorio = async () => {
     try {
+      if (!aetSalvo) {
+        toast.error(
+          "Para gerar o Relatório Psicossocial Consolidado é necessário salvar previamente a AET/AEP do setor, pois as informações ergonômicas são utilizadas na personalização da análise psicossocial.",
+        );
+        return;
+      }
       // Sempre releitura do banco (quando disponível) — nunca reutiliza
       // resultados previamente processados/cacheados.
       let base: AvaliacaoPsicossocial[] = avaliacoes;
@@ -422,7 +433,13 @@ export function PsicossocialModal({
 
   const footerContent = (
     <>
-      {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+      {!aetSalvo && (
+        <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Salve a AET/AEP deste setor para liberar a geração do relatório consolidado — as informações ergonômicas alimentam a análise psicossocial.
+        </p>
+      )}
+      {aetSalvo && avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
         <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
           <AlertTriangle className="w-3.5 h-3.5" />
           Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
@@ -432,8 +449,14 @@ export function PsicossocialModal({
         variant="outline"
         onClick={handleRelatorio}
         disabled={
+          !aetSalvo ||
           avaliacoes.length === 0 ||
           avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+        }
+        title={
+          !aetSalvo
+            ? "Salve a AET/AEP do setor para liberar o relatório psicossocial consolidado."
+            : undefined
         }
       >
         <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado

@@ -2017,7 +2017,37 @@ export default function AetWizard() {
             data_elaboracao: dataElaboracao
               ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
               : "",
+            // Integração AET/AEP → COPSOQ
+            aet_ritmo_complexidade: setor.ritmo_complexidade,
+            aet_jornada_aspectos: setor.jornada_aspectos,
+            aet_caracterizacao_biomecanica: setor.caracterizacao_biomecanica,
+            aet_tarefas: setor.tarefas,
+            aet_riscos_observados: setor.riscos_observados,
+            aet_analise_organizacional: setor.analise_organizacional,
+            aet_diagnostico_ergonomico: setor.diagnostico_ergonomico,
+            aet_conclusao: setor.conclusao,
+            aet_plano_acao: (setor.plano_acao || []).map((p) => ({
+              o_que: p.o_que, como: p.como, responsavel: p.responsavel, prazo: p.prazo,
+            })),
+            aet_ferramentas: (setor.ferramentas || []).map((f) => ({
+              tipo: f.tipo,
+              resultado: f.resultado,
+              classificacao: f.classificacao,
+              nivel_acao: f.nivel_acao,
+              escore_final: f.escore_final ?? null,
+            })),
+            aet_dimensoes: Object.entries(setor.avaliacoes_dimensionais || {})
+              .map(([k, v]: [string, any]) => ({
+                item: k,
+                medida: String(v?.medida || ""),
+                avaliacao: String(v?.avaliacao || ""),
+              }))
+              .filter((d) => d.medida || d.avaliacao),
+            aet_cronoanalise: (setor.cronoanalise || []).map((c) => ({
+              tarefa: c.tarefa, tempo: c.tempo, risco: c.risco,
+            })),
           }}
+          aetSalvo={!!setor._salvo}
           funcoesSetor={(setor.funcoes_selecionadas || []).map((f) => ({ id: f.id, nome: f.nome })).filter((f) => f.nome)}
           onRefreshFromDb={async () => {
             // Releitura integral das avaliações psicossociais salvas no banco,

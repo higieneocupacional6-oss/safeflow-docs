@@ -39,6 +39,26 @@ export type RelatorioContext = {
   entrevistas?: boolean;
   observacao?: boolean;
   analise_documental?: boolean;
+
+  // ─── Integração AET/AEP (dados ergonômicos do setor) ───
+  aet_ritmo_complexidade?: string;
+  aet_jornada_aspectos?: string;
+  aet_caracterizacao_biomecanica?: string;
+  aet_tarefas?: string;
+  aet_riscos_observados?: string;
+  aet_analise_organizacional?: string;
+  aet_diagnostico_ergonomico?: string;
+  aet_conclusao?: string;
+  aet_plano_acao?: { o_que: string; como: string; responsavel: string; prazo: string }[];
+  aet_ferramentas?: {
+    tipo: string;
+    resultado: string;
+    classificacao?: string;
+    nivel_acao?: string;
+    escore_final?: number | null;
+  }[];
+  aet_dimensoes?: { item: string; medida: string; avaliacao: string }[];
+  aet_cronoanalise?: { tarefa: string; tempo: string; risco: string }[];
 };
 
 // ─── Paleta ───
@@ -929,6 +949,127 @@ function paragraph(
   return cy + 2;
 }
 
+// ─── Integração AET × COPSOQ: cruzamento de dados ergonômicos e psicossociais ───
+function buildIntegracaoAet(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string[] {
+  const paras: string[] = [];
+  const norm = (s?: string) => (s || "").toLowerCase();
+  const media = (k: string) => mediaDimensao(avs, k);
+  const exig = media("exigencias");
+  const ctrl = media("controle");
+  const apoio = media("apoio");
+  const rec = media("reconhecimento");
+  const lider = media("lideranca");
+  const conf = media("conflitos");
+  const sint = media("sintomas");
+  const seg = media("seguranca");
+
+  const temAetInfo =
+    !!(ctx.aet_ritmo_complexidade || ctx.aet_jornada_aspectos || ctx.aet_caracterizacao_biomecanica ||
+       ctx.aet_tarefas || ctx.aet_riscos_observados || ctx.aet_diagnostico_ergonomico ||
+       ctx.aet_analise_organizacional || (ctx.aet_ferramentas && ctx.aet_ferramentas.length) ||
+       (ctx.aet_plano_acao && ctx.aet_plano_acao.length));
+
+  if (!temAetInfo) {
+    paras.push(
+      "Esta seção cruza a Análise Ergonômica do Trabalho (AET/AEP) do setor com os resultados psicossociais. " +
+      "No momento da geração, a AET vinculada não contém informações complementares suficientes para inferências cruzadas específicas; a análise foi conduzida com base apenas nos dados psicossociais disponíveis.",
+    );
+    return paras;
+  }
+
+  // Ritmo × Exigências
+  const ritmo = norm(ctx.aet_ritmo_complexidade);
+  if (ritmo) {
+    if (/acelerad|intens|elevad|alto|pressao|prazo|urgen/.test(ritmo) && exig >= 50) {
+      paras.push(
+        `O ritmo de trabalho descrito na AET (${ctx.aet_ritmo_complexidade!.trim().slice(0, 220)}) é coerente com a percepção coletiva ` +
+        `de exigências psicológicas classificada como ${classificar(exig)} (média ${exig}/100), reforçando o diagnóstico de sobrecarga quantitativa.`,
+      );
+    } else {
+      paras.push(
+        `A caracterização do ritmo/complexidade na AET (${ctx.aet_ritmo_complexidade!.trim().slice(0, 220)}) mostra coerência com a percepção psicossocial de exigências ${classificar(exig)} (média ${exig}/100).`,
+      );
+    }
+  }
+
+  // Organização/jornada × autonomia e apoio
+  if (ctx.aet_jornada_aspectos) {
+    const j = norm(ctx.aet_jornada_aspectos);
+    const rigido = /fixa|rigid|turno|escala|noturn|revez/.test(j);
+    if (rigido && ctrl >= 50) {
+      paras.push(
+        `A jornada descrita na AET (${ctx.aet_jornada_aspectos.trim().slice(0, 220)}) apresenta pouca flexibilidade, o que se alinha à baixa autonomia percebida no COPSOQ (${classificar(ctrl)}, média ${ctrl}/100) — sugerindo que a organização temporal do trabalho é um fator determinante para o quadro psicossocial.`,
+      );
+    }
+  }
+
+  // Análise organizacional (supervisão/gestão) × liderança/apoio
+  if (ctx.aet_analise_organizacional) {
+    const o = norm(ctx.aet_analise_organizacional);
+    const centraliz = /central|hierarq|top-?down|autorit|controle rig/.test(o);
+    if (centraliz && (lider >= 50 || apoio >= 50)) {
+      paras.push(
+        `A análise organizacional registrada na AET indica ${ctx.aet_analise_organizacional.trim().slice(0, 220)}. ` +
+        `Esse modelo de gestão é consistente com a percepção coletiva de qualidade da liderança (${classificar(lider)}) e apoio social (${classificar(apoio)}), reforçando a hipótese de que a estrutura de comando concentra decisões e limita canais de suporte.`,
+      );
+    }
+  }
+
+  // Tarefas/atividades × sobrecarga emocional e cognitiva
+  const tarefasTxt = norm((ctx.aet_tarefas || "") + " " + (ctx.atividades || "") + " " + (ctx.atividades_funcoes || []).join(" "));
+  if (/atend|clien|paci|publ|contato|emerg|conflit/.test(tarefasTxt) && exig >= 50) {
+    paras.push(
+      `As atividades descritas na AET envolvem contato intensivo com público, clientes ou pacientes — condição diretamente associada à sobrecarga emocional identificada no COPSOQ (média ${mediaFator(avs, { nome: "Sobrecarga emocional", bloco: "exigencias", perguntaIdx: [3] })}/100).`,
+    );
+  }
+  if (/decis|anális|planejam|responsab|supervis|coorden/.test(tarefasTxt) && exig >= 50) {
+    paras.push(
+      `A AET aponta atividades com alta demanda cognitiva e responsabilidade decisória, o que é coerente com a média ${mediaFator(avs, { nome: "Alta responsabilidade decisória", bloco: "exigencias", perguntaIdx: [2] })}/100 registrada no fator "Alta responsabilidade decisória" do COPSOQ.`,
+    );
+  }
+
+  // Riscos ergonômicos × sintomas / burnout
+  const riscosTxt = norm((ctx.aet_riscos_observados || "") + " " + (ctx.aet_caracterizacao_biomecanica || ""));
+  if (riscosTxt && sint >= 50) {
+    paras.push(
+      `Os riscos ergonômicos observados na AET (${(ctx.aet_riscos_observados || ctx.aet_caracterizacao_biomecanica || "").trim().slice(0, 220)}) potencializam os sintomas de fadiga/estresse identificados no COPSOQ (${classificar(sint)}, média ${sint}/100). A literatura ocupacional aponta interação direta entre sobrecarga física e adoecimento mental, especialmente em contextos de baixo apoio e reconhecimento.`,
+    );
+  }
+
+  // Ferramentas ergonômicas × plano de ação psicossocial
+  if (ctx.aet_ferramentas && ctx.aet_ferramentas.length) {
+    const criticas = ctx.aet_ferramentas.filter((f) =>
+      /alto|crítico|inaceit|urgen|imedi|4|5/i.test(String(f.classificacao || f.nivel_acao || f.resultado || "")),
+    );
+    if (criticas.length) {
+      paras.push(
+        `As avaliações ergonômicas quantitativas aplicadas (${criticas.map((f) => f.tipo).join(", ")}) apontam nível de ação elevado, ` +
+        `condição que agrava o quadro psicossocial e reforça a prioridade das ações do Plano constante nesta análise.`,
+      );
+    } else {
+      paras.push(
+        `As avaliações ergonômicas aplicadas (${ctx.aet_ferramentas.map((f) => f.tipo).join(", ")}) não indicaram nível de ação crítico, o que não descaracteriza os riscos psicossociais identificados, mas permite priorizar as intervenções organizacionais em relação às biomecânicas.`,
+      );
+    }
+  }
+
+  // Diagnóstico ergonômico já emitido pela AET
+  if (ctx.aet_diagnostico_ergonomico) {
+    paras.push(
+      `O diagnóstico ergonômico registrado na AET — "${ctx.aet_diagnostico_ergonomico.trim().slice(0, 260)}" — foi considerado nesta interpretação psicossocial, ` +
+      `garantindo coerência técnica entre os dois documentos e evitando conclusões divergentes sobre a mesma condição de trabalho.`,
+    );
+  }
+
+  // Consistência global
+  paras.push(
+    `De forma integrada, os dados da AET e do COPSOQ convergem para caracterizar o setor ${ctx.setor_nome || "avaliado"} como um ambiente cujas condições organizacionais, ` +
+    `de conteúdo e de relações interpessoais determinam significativamente o risco psicossocial percebido — orientando as intervenções propostas ao nível sistêmico (organização e gestão), em conformidade com a NR-01 e a NR-17.`,
+  );
+
+  return paras;
+}
+
 export function gerarRelatorioCopsoqPDF(
   avaliacoes: AvaliacaoPsicossocial[],
   ctx: RelatorioContext,
@@ -961,8 +1102,12 @@ export function gerarRelatorioCopsoqPDF(
     startY: y,
     body: datas,
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 1.5 },
-    columnStyles: { 0: { fontStyle: "bold", cellWidth: 55, fillColor: [241, 245, 249] } },
+    styles: { fontSize: 9, cellPadding: 2, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
+    columnStyles: {
+      0: { fontStyle: "bold", cellWidth: 55, fillColor: [241, 245, 249] },
+      1: { cellWidth: 135 },
+    },
+    tableWidth: 190,
     margin: { left: 10, right: 10 },
   });
   y = (doc as any).lastAutoTable.finalY + 6;
@@ -1106,8 +1251,19 @@ export function gerarRelatorioCopsoqPDF(
       startY: y,
       body: carac,
       theme: "grid",
-      styles: { fontSize: 9, cellPadding: 1.5, valign: "top" },
-      columnStyles: { 0: { fontStyle: "bold", cellWidth: 55, fillColor: [241, 245, 249] } },
+      styles: {
+        fontSize: 9,
+        cellPadding: 2,
+        valign: "top",
+        overflow: "linebreak",
+        cellWidth: "wrap",
+        lineWidth: 0.15,
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 55, fillColor: [241, 245, 249] },
+        1: { cellWidth: 135 },
+      },
+      tableWidth: 190,
       margin: { left: 10, right: 10 },
     });
     y = (doc as any).lastAutoTable.finalY + 6;
@@ -1200,8 +1356,16 @@ export function gerarRelatorioCopsoqPDF(
     head: [["Fator de Risco", "Setor / Função Exposta", "Probabilidade", "Gravidade", "Nível de Risco"]],
     body: tabela,
     theme: "grid",
-    styles: { fontSize: 8.5, cellPadding: 1.6, valign: "top" },
-    headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+    styles: { fontSize: 8.5, cellPadding: 1.8, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
+    headStyles: { fillColor: [15, 23, 42], textColor: 255, halign: "center" },
+    columnStyles: {
+      0: { cellWidth: 62 },
+      1: { cellWidth: 60 },
+      2: { cellWidth: 22, halign: "center" },
+      3: { cellWidth: 22, halign: "center" },
+      4: { cellWidth: 24, halign: "center" },
+    },
+    tableWidth: 190,
     didParseCell: (data) => {
       if (data.section === "body" && data.column.index === 4) {
         const cor = COR_NIVEL[String(data.cell.raw)];
@@ -1216,22 +1380,64 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 8. Análise técnica (sem "Tendências Identificadas")
-  y = section(doc, y, "8. Resultados e Análise");
-  for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
-    y = paragraph(doc, y, p);
+  // ── 8. Integração AET × Psicossocial
+  y = section(doc, y, "8. Integração AET × Psicossocial");
+  for (const p of buildIntegracaoAet(avaliacoes, ctx)) {
+    y = paragraph(doc, y, p, 10, true, { indent: 5 });
   }
 
-  // ── 8.1 Justificativa técnica da classificação
-  y = section(doc, y, "8.1 Justificativa Técnica da Classificação");
-  y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes));
+  // Anexo: síntese dos dados ergonômicos considerados
+  const anexoLinhas: [string, string][] = [];
+  if (ctx.aet_ritmo_complexidade) anexoLinhas.push(["Ritmo e complexidade (AET)", ctx.aet_ritmo_complexidade]);
+  if (ctx.aet_jornada_aspectos) anexoLinhas.push(["Aspectos da jornada (AET)", ctx.aet_jornada_aspectos]);
+  if (ctx.aet_analise_organizacional) anexoLinhas.push(["Análise organizacional (AET)", ctx.aet_analise_organizacional]);
+  if (ctx.aet_tarefas) anexoLinhas.push(["Tarefas descritas (AET)", ctx.aet_tarefas]);
+  if (ctx.aet_caracterizacao_biomecanica) anexoLinhas.push(["Caracterização biomecânica (AET)", ctx.aet_caracterizacao_biomecanica]);
+  if (ctx.aet_riscos_observados) anexoLinhas.push(["Riscos observados (AET)", ctx.aet_riscos_observados]);
+  if (ctx.aet_diagnostico_ergonomico) anexoLinhas.push(["Diagnóstico ergonômico (AET)", ctx.aet_diagnostico_ergonomico]);
+  if (ctx.aet_conclusao) anexoLinhas.push(["Conclusão da AET", ctx.aet_conclusao]);
+  if (ctx.aet_ferramentas && ctx.aet_ferramentas.length) {
+    anexoLinhas.push([
+      "Ferramentas ergonômicas aplicadas",
+      ctx.aet_ferramentas
+        .map((f) => `${f.tipo}: ${f.resultado || "—"}${f.classificacao ? ` (${f.classificacao})` : ""}${f.nivel_acao ? ` — ação: ${f.nivel_acao}` : ""}`)
+        .join("\n"),
+    ]);
+  }
+  if (anexoLinhas.length) {
+    autoTable(doc, {
+      startY: y,
+      head: [["Dado da AET/AEP", "Conteúdo considerado"]],
+      body: anexoLinhas,
+      theme: "grid",
+      styles: { fontSize: 8.5, cellPadding: 2, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255 },
+      columnStyles: {
+        0: { cellWidth: 55, fontStyle: "bold", fillColor: [241, 245, 249] },
+        1: { cellWidth: 135 },
+      },
+      tableWidth: 190,
+      margin: { left: 10, right: 10 },
+    });
+    y = (doc as any).lastAutoTable.finalY + 6;
+  }
 
-  // ── 9. Conclusão
-  y = section(doc, y, "9. Conclusão Técnica");
-  y = paragraph(doc, y, buildConclusao(avaliacoes));
+  // ── 9. Análise técnica
+  y = section(doc, y, "9. Resultados e Análise");
+  for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
+    y = paragraph(doc, y, p, 10, true, { indent: 5 });
+  }
 
-  // ── 9.1 Recomendações por área
-  y = section(doc, y, "9.1 Recomendações por Área de Atuação");
+  // ── 9.1 Justificativa técnica da classificação
+  y = section(doc, y, "9.1 Justificativa Técnica da Classificação");
+  y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes), 10, true, { indent: 5 });
+
+  // ── 10. Conclusão
+  y = section(doc, y, "10. Conclusão Técnica");
+  y = paragraph(doc, y, buildConclusao(avaliacoes), 10, true, { indent: 5 });
+
+  // ── 10.1 Recomendações por área
+  y = section(doc, y, "10.1 Recomendações por Área de Atuação");
   const recArea = buildRecomendacoesPorArea(avaliacoes);
   const areas: [string, string[]][] = [
     ["Organizacional", recArea.organizacional],
@@ -1259,8 +1465,8 @@ export function gerarRelatorioCopsoqPDF(
     y += 2;
   }
 
-  // ── 10. Plano de ação
-  y = section(doc, y, "10. Plano de Ação");
+  // ── 11. Plano de ação
+  y = section(doc, y, "11. Plano de Ação");
   const plano = buildPlanoAcao(avaliacoes);
   if (!plano.length) {
     y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se manutenção das boas práticas e reavaliação periódica.");
@@ -1286,8 +1492,18 @@ export function gerarRelatorioCopsoqPDF(
         p.acompanhamento,
       ]),
       theme: "grid",
-      styles: { fontSize: 7.5, cellPadding: 1.4, valign: "top" },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.6, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8, halign: "center" },
+      columnStyles: {
+        0: { cellWidth: 32 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 14, halign: "center" },
+        6: { cellWidth: 18 },
+      },
+      tableWidth: 190,
       margin: { left: 10, right: 10 },
     });
     y = (doc as any).lastAutoTable.finalY + 6;
