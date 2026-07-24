@@ -1970,11 +1970,14 @@ export default function AetWizard() {
                 classificacao: r.classificacao,
                 nivel_acao: r.nivel_acao,
                 colaborador_nome: r.colaborador_nome,
+                funcao: r.funcao,
+                atividade: r.atividade,
                 data_avaliacao: r.data_avaliacao,
                 avaliacao_id: r.avaliacao_id,
                 pdf_path: r.pdf_path,
                 respostas: r.respostas,
               };
+
               const novasFerramentas = [...setor.ferramentas, nova];
               const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
               const justificativa = gerarJustificativaDeterministica({
