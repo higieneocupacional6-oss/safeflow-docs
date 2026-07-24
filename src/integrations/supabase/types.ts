@@ -609,6 +609,7 @@ export type Database = {
       ergonomia_avaliacoes: {
         Row: {
           aet_documento_id: string | null
+          atividade: string | null
           classificacao: string | null
           colaborador_nome: string | null
           created_at: string
@@ -629,6 +630,7 @@ export type Database = {
         }
         Insert: {
           aet_documento_id?: string | null
+          atividade?: string | null
           classificacao?: string | null
           colaborador_nome?: string | null
           created_at?: string
@@ -649,6 +651,7 @@ export type Database = {
         }
         Update: {
           aet_documento_id?: string | null
+          atividade?: string | null
           classificacao?: string | null
           colaborador_nome?: string | null
           created_at?: string
