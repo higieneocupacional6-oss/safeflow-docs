@@ -191,7 +191,7 @@ export function PsicossocialImportModal({
 
         <div className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Envie uma planilha (.xlsx / .xls) ou PDF com as respostas do questionário.
+            Envie uma planilha (.xlsx / .xls / .csv) ou PDF com as respostas do questionário.
             O sistema identifica automaticamente perguntas, respostas e funções.
             Nomes dos colaboradores <strong>não</strong> serão utilizados nos relatórios.
           </p>
