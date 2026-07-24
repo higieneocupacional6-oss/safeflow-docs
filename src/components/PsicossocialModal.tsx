@@ -366,6 +366,12 @@ export function PsicossocialModal({
 
   const handleRelatorio = async () => {
     try {
+      if (!aetSalvo) {
+        toast.error(
+          "Para gerar o Relatório Psicossocial Consolidado é necessário salvar previamente a AET/AEP do setor, pois as informações ergonômicas são utilizadas na personalização da análise psicossocial.",
+        );
+        return;
+      }
       // Sempre releitura do banco (quando disponível) — nunca reutiliza
       // resultados previamente processados/cacheados.
       let base: AvaliacaoPsicossocial[] = avaliacoes;
