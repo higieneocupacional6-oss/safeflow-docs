@@ -17,6 +17,7 @@ import {
   BLOCOS_COPSOQ,
   calcularPsicossocial,
 } from "@/components/PsicossocialModal";
+import { polaridadePergunta } from "@/lib/copsoqBlocos";
 
 export type RelatorioContext = {
   empresa_nome?: string;
@@ -30,7 +31,6 @@ export type RelatorioContext = {
   escala?: string;
   supervisao?: string;
   atividades?: string;
-  /** Atividades por função (uma string por função). Será consolidada e desduplicada. */
   atividades_funcoes?: string[];
   responsavel?: string;
   cargo_responsavel?: string;
@@ -41,25 +41,26 @@ export type RelatorioContext = {
   analise_documental?: boolean;
 };
 
-// ─── Paleta de cores por nível de risco ───
+// ─── Paleta ───
 const COR_NIVEL: Record<string, [number, number, number]> = {
-  Baixo: [34, 197, 94],     // verde
-  Moderado: [234, 179, 8],  // amarelo
-  Alto: [249, 115, 22],     // laranja
-  Crítico: [220, 38, 38],   // vermelho
+  Baixo: [34, 197, 94],
+  Moderado: [234, 179, 8],
+  Alto: [249, 115, 22],
+  Crítico: [220, 38, 38],
 };
 
 const TITULOS_BLOCO: Record<string, string> = {
   exigencias: "Exigências psicológicas",
-  controle: "Controle sobre o trabalho",
+  controle: "Controle e autonomia",
   apoio: "Apoio social",
-  reconhecimento: "Reconhecimento",
-  seguranca: "Segurança no emprego",
-  conflitos: "Conflitos / Conflito trabalho-família",
-  sintomas: "Estresse / Burnout (sintomas)",
+  reconhecimento: "Reconhecimento e recompensa",
+  seguranca: "Segurança e estabilidade",
+  conflitos: "Conflitos e conduta",
+  sintomas: "Sintomas de estresse / burnout",
+  lideranca: "Qualidade da liderança",
 };
 
-// ─── Limiares de classificação (COPSOQ III, tercis com Crítico ≥85) ───
+// ─── Classificação (COPSOQ III, tercis) ───
 function classificar(media: number): "Baixo" | "Moderado" | "Alto" | "Crítico" {
   if (media >= 85) return "Crítico";
   if (media >= 67) return "Alto";
@@ -67,50 +68,61 @@ function classificar(media: number): "Baixo" | "Moderado" | "Alto" | "Crítico" 
   return "Baixo";
 }
 
-// Inversão: blocos positivos têm "alta resposta = baixo risco".
-const BLOCOS_POSITIVOS = new Set(["controle", "apoio", "reconhecimento", "seguranca"]);
-function valorRisco(valor: number, blocoKey: string): number {
-  return BLOCOS_POSITIVOS.has(blocoKey) ? 100 - valor : valor;
+function valorRisco(valor: number, blocoKey: string, perguntaIdx: number): number {
+  return polaridadePergunta(blocoKey, perguntaIdx) === "pos" ? 100 - valor : valor;
 }
 
-// ─── Catálogo de FATORES por categoria (nome completo + perguntas associadas) ───
+// ─── Fatores por categoria (atualizados para o novo questionário) ───
 type FatorDef = { nome: string; bloco: string; perguntaIdx: number[] };
 const CATEGORIAS: { categoria: string; fatores: FatorDef[] }[] = [
   {
     categoria: "Organização do Trabalho",
     fatores: [
-      { nome: "Sobrecarga de trabalho", bloco: "exigencias", perguntaIdx: [0, 1] },
-      { nome: "Metas excessivas", bloco: "exigencias", perguntaIdx: [0, 2] },
-      { nome: "Ritmo intenso de trabalho", bloco: "exigencias", perguntaIdx: [2] },
-      { nome: "Falta de autonomia", bloco: "controle", perguntaIdx: [0, 1] },
-      { nome: "Jornadas prolongadas", bloco: "sintomas", perguntaIdx: [0] },
+      { nome: "Ritmo excessivo de trabalho", bloco: "exigencias", perguntaIdx: [0] },
+      { nome: "Prazos muito curtos", bloco: "exigencias", perguntaIdx: [1] },
+      { nome: "Alta responsabilidade decisória", bloco: "exigencias", perguntaIdx: [2] },
+      { nome: "Falta de autonomia sobre o trabalho", bloco: "controle", perguntaIdx: [0, 1] },
+      { nome: "Ausência de pausas adequadas", bloco: "controle", perguntaIdx: [2] },
     ],
   },
   {
     categoria: "Relações Interpessoais",
     fatores: [
-      { nome: "Conflitos entre equipes", bloco: "conflitos", perguntaIdx: [0] },
-      { nome: "Assédio moral", bloco: "conflitos", perguntaIdx: [1] },
-      { nome: "Assédio sexual", bloco: "conflitos", perguntaIdx: [1] },
-      { nome: "Falta de apoio da liderança", bloco: "apoio", perguntaIdx: [1] },
-      { nome: "Violência ocupacional", bloco: "conflitos", perguntaIdx: [0, 1] },
+      { nome: "Conflitos frequentes no ambiente", bloco: "conflitos", perguntaIdx: [0] },
+      { nome: "Tratamento desrespeitoso / assédio moral", bloco: "conflitos", perguntaIdx: [2] },
+      { nome: "Falta de canal seguro para denúncia de assédio", bloco: "conflitos", perguntaIdx: [3] },
+      { nome: "Baixo apoio dos colegas", bloco: "apoio", perguntaIdx: [0, 1] },
+      { nome: "Falta de apoio da liderança direta", bloco: "apoio", perguntaIdx: [2] },
     ],
   },
   {
     categoria: "Condições Organizacionais",
     fatores: [
       { nome: "Insegurança quanto ao emprego", bloco: "seguranca", perguntaIdx: [0] },
-      { nome: "Comunicação deficiente", bloco: "seguranca", perguntaIdx: [1] },
+      { nome: "Insatisfação com o trabalho", bloco: "seguranca", perguntaIdx: [1] },
+      { nome: "Preocupação com mudanças organizacionais", bloco: "seguranca", perguntaIdx: [2] },
       { nome: "Falta de reconhecimento profissional", bloco: "reconhecimento", perguntaIdx: [0, 1] },
-      { nome: "Mudanças organizacionais frequentes", bloco: "seguranca", perguntaIdx: [1, 2] },
+      { nome: "Ausência de feedback estruturado", bloco: "reconhecimento", perguntaIdx: [2] },
     ],
   },
   {
-    categoria: "Aspectos Emocionais",
+    categoria: "Liderança e Justiça Organizacional",
     fatores: [
-      { nome: "Exposição a sofrimento humano", bloco: "exigencias", perguntaIdx: [3] },
-      { nome: "Atendimento a clientes agressivos", bloco: "conflitos", perguntaIdx: [0] },
-      { nome: "Alta responsabilidade por erros críticos", bloco: "exigencias", perguntaIdx: [3] },
+      { nome: "Liderança percebida como parcial/injusta", bloco: "lideranca", perguntaIdx: [0] },
+      { nome: "Baixa escuta ativa da liderança", bloco: "lideranca", perguntaIdx: [1] },
+      { nome: "Ausência de incentivo ao desenvolvimento", bloco: "lideranca", perguntaIdx: [2] },
+    ],
+  },
+  {
+    categoria: "Saúde Mental e Sintomas",
+    fatores: [
+      { nome: "Sobrecarga emocional (controlar emoções)", bloco: "exigencias", perguntaIdx: [3] },
+      { nome: "Exposição a conflitos interpessoais", bloco: "exigencias", perguntaIdx: [4] },
+      { nome: "Interferência trabalho-vida pessoal", bloco: "conflitos", perguntaIdx: [1] },
+      { nome: "Distúrbios do sono relacionados ao trabalho", bloco: "sintomas", perguntaIdx: [0] },
+      { nome: "Fadiga recorrente", bloco: "sintomas", perguntaIdx: [1] },
+      { nome: "Esgotamento emocional (burnout)", bloco: "sintomas", perguntaIdx: [2] },
+      { nome: "Exaustão no início da jornada", bloco: "sintomas", perguntaIdx: [3] },
     ],
   },
 ];
