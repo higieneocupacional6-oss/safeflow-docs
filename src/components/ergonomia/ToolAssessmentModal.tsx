@@ -26,6 +26,8 @@ type ToolTipo = "RULA" | "REBA" | "NIOSH" | "OWAS";
 export type ToolAssessmentResult = {
   tipo: ToolTipo;
   colaborador_nome: string;
+  funcao: string;
+  atividade: string;
   data_avaliacao: string;
   escore_final: number;
   classificacao: string;
@@ -35,6 +37,7 @@ export type ToolAssessmentResult = {
   respostas: Record<string, unknown>;
   resumo: string;
 };
+
 
 type Props = {
   open: boolean;
