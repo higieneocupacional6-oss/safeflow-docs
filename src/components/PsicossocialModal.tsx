@@ -433,7 +433,13 @@ export function PsicossocialModal({
 
   const footerContent = (
     <>
-      {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+      {!aetSalvo && (
+        <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Salve a AET/AEP deste setor para liberar a geração do relatório consolidado — as informações ergonômicas alimentam a análise psicossocial.
+        </p>
+      )}
+      {aetSalvo && avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
         <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
           <AlertTriangle className="w-3.5 h-3.5" />
           Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
@@ -443,8 +449,14 @@ export function PsicossocialModal({
         variant="outline"
         onClick={handleRelatorio}
         disabled={
+          !aetSalvo ||
           avaliacoes.length === 0 ||
           avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+        }
+        title={
+          !aetSalvo
+            ? "Salve a AET/AEP do setor para liberar o relatório psicossocial consolidado."
+            : undefined
         }
       >
         <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
