@@ -31,7 +31,7 @@ export const ESCALA_COPSOQ = [
 // Reexportado de módulo-folha para evitar dependência circular
 // (PsicossocialModal → PsicossocialImportModal → psicoImport → PsicossocialModal).
 export { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
-import { BLOCOS_COPSOQ, valorRiscoPergunta, polaridadePergunta } from "@/lib/copsoqBlocos";
+import { BLOCOS_COPSOQ, valorRiscoPergunta, polaridadePergunta, avaliacaoCompleta, perguntasPendentes } from "@/lib/copsoqBlocos";
 
 export type BlocoResultado = { media: number; classificacao: string };
 export type AvaliacaoPsicossocial = {
@@ -284,7 +284,24 @@ export function PsicossocialModal({
     }
   }, [editingIdx, avaliacoes]);
 
+  // Ao receber avaliações importadas incompletas, abre automaticamente a primeira
+  // pendente para complementação manual.
+  useEffect(() => {
+    if (!open) return;
+    if (editingIdx !== null) return;
+    const idxIncompleto = avaliacoes.findIndex((a) => !avaliacaoCompleta(a.respostas));
+    if (idxIncompleto >= 0) {
+      setEditingIdx(idxIncompleto);
+      toast.warning("Avaliação importada com respostas pendentes — complete os campos destacados.");
+    }
+  }, [avaliacoes, open, editingIdx]);
+
   const computed = useMemo(() => calcularPsicossocial(draft), [draft]);
+  const pendentesDraft = useMemo(() => {
+    const set = new Set<string>();
+    for (const p of perguntasPendentes(draft.respostas)) set.add(`${p.blocoKey}-${p.perguntaIdx}`);
+    return set;
+  }, [draft.respostas]);
 
   const setResposta = (blocoKey: string, perguntaIdx: number, value: number) => {
     setDraft((prev) => {
@@ -294,9 +311,7 @@ export function PsicossocialModal({
     });
   };
 
-  const allAnswered = BLOCOS_COPSOQ.every((b) =>
-    (draft.respostas[b.key] || []).every((r) => r >= 0),
-  );
+  const allAnswered = avaliacaoCompleta(draft.respostas);
 
   const handleSave = () => {
     if (!draft.funcao?.trim()) {
@@ -334,21 +349,32 @@ export function PsicossocialModal({
 
   const handleRelatorio = async () => {
     try {
-      const lista = avaliacoes.length > 0
-        ? avaliacoes.map((a) => calcularPsicossocial(a))
-        : [calcularPsicossocial(draft)];
-      if (lista.length === 0) {
-        toast.error("Não há avaliações para gerar o relatório.");
+      if (avaliacoes.length === 0) {
+        toast.error("Não há avaliações salvas para gerar o relatório consolidado.");
         return;
       }
+      const incompletas = avaliacoes
+        .map((a, i) => ({ a, i }))
+        .filter(({ a }) => !avaliacaoCompleta(a.respostas));
+      if (incompletas.length > 0) {
+        toast.error(
+          `Existem ${incompletas.length} avaliação(ões) psicossocial(is) com respostas incompletas. Finalize o preenchimento antes de gerar o relatório consolidado.`,
+        );
+        setEditingIdx(incompletas[0].i);
+        return;
+      }
+      const lista = avaliacoes.map((a) => calcularPsicossocial(a));
       const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
       gerarRelatorioCopsoqPDF(lista, relatorioContext || {});
-      toast.success("Relatório Psicossocial Geral gerado em PDF");
+      toast.success(
+        `Relatório Psicossocial consolidado gerado a partir de ${lista.length} avaliação(ões).`,
+      );
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao gerar relatório: " + (e?.message || ""));
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -403,23 +429,32 @@ export function PsicossocialModal({
         {avaliacoes.length > 0 && editingIdx === null && (
           <div className="space-y-2 border-b border-border pb-3">
             <p className="text-xs font-semibold uppercase text-muted-foreground">Avaliações salvas</p>
-            {avaliacoes.map((a, i) => (
-              <Card key={i} className="p-3 flex items-center justify-between">
+            {avaliacoes.map((a, i) => {
+              const incompleta = !avaliacaoCompleta(a.respostas);
+              const pendCount = perguntasPendentes(a.respostas).length;
+              return (
+              <Card key={i} className={`p-3 flex items-center justify-between ${incompleta ? "border-amber-400 bg-amber-50/40" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate">{a.funcao || "Função não informada"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{a.resultado_psicossocial}</p>
+                  <p className="text-xs text-muted-foreground truncate">{incompleta ? "Avaliação incompleta — pendente de complementação manual." : a.resultado_psicossocial}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {a.alertas?.alerta_vermelho && (
+                    {incompleta && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        {pendCount} pergunta(s) pendente(s)
+                      </Badge>
+                    )}
+                    {!incompleta && a.alertas?.alerta_vermelho && (
                       <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">
                         <AlertOctagon className="w-3 h-3 mr-1" />Vermelho
                       </Badge>
                     )}
-                    {a.alertas?.alerta_amarelo && (
+                    {!incompleta && a.alertas?.alerta_amarelo && (
                       <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">
                         <AlertTriangle className="w-3 h-3 mr-1" />Amarelo
                       </Badge>
                     )}
-                    {a.alertas?.recomendacao_imediata && (
+                    {!incompleta && a.alertas?.recomendacao_imediata && (
                       <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
                         <Lightbulb className="w-3 h-3 mr-1" />Acompanhamento
                       </Badge>
@@ -427,13 +462,17 @@ export function PsicossocialModal({
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(i)}>Editar</Button>
+                  <Button size="sm" variant={incompleta ? "default" : "outline"} onClick={() => handleEdit(i)}>
+                    {incompleta ? "Complementar" : "Editar"}
+                  </Button>
                   <Button size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => handleDelete(i)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </Card>
-            ))}
+              );
+            })}
+
             <Button variant="outline" size="sm" onClick={handleNew}>+ Nova avaliação</Button>
           </div>
         )}
@@ -458,10 +497,26 @@ export function PsicossocialModal({
             </div>
           </div>
 
+          {editingIdx !== null && pendentesDraft.size > 0 && (
+            <Card className="p-3 border-amber-400 bg-amber-50/60">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5" />
+                <div className="text-xs text-amber-900">
+                  <p className="font-semibold">Avaliação incompleta importada</p>
+                  <p>
+                    {pendentesDraft.size} pergunta(s) não foram identificadas automaticamente e estão destacadas em amarelo abaixo.
+                    Complete-as manualmente para que esta avaliação seja considerada na consolidação do relatório psicossocial.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {BLOCOS_COPSOQ.map((bloco) => {
             const bres = computed.blocos[bloco.key];
+            const blocoTemPend = bloco.perguntas.some((_, pi) => pendentesDraft.has(`${bloco.key}-${pi}`));
             return (
-              <Card key={bloco.key} className="p-4">
+              <Card key={bloco.key} className={`p-4 ${blocoTemPend ? "border-amber-400" : ""}`}>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-heading font-semibold text-sm">{bloco.titulo}</h3>
                   {bres && (
@@ -471,9 +526,18 @@ export function PsicossocialModal({
                   )}
                 </div>
                 <div className="space-y-3">
-                  {bloco.perguntas.map((p, pi) => (
-                    <div key={pi}>
-                      <p className="text-sm mb-1.5">{p}</p>
+                  {bloco.perguntas.map((p, pi) => {
+                    const pend = pendentesDraft.has(`${bloco.key}-${pi}`);
+                    return (
+                    <div
+                      key={pi}
+                      className={pend ? "rounded-md border border-amber-400 bg-amber-50/60 p-2" : ""}
+                    >
+                      <p className="text-sm mb-1.5 flex items-center gap-1.5">
+                        {pend && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
+                        <span>{p}</span>
+                        {pend && <span className="text-[10px] font-semibold text-amber-700 uppercase">Pendente</span>}
+                      </p>
                       <RadioGroup
                         value={String(draft.respostas[bloco.key]?.[pi] ?? -1)}
                         onValueChange={(v) => setResposta(bloco.key, pi, Number(v))}
@@ -487,11 +551,13 @@ export function PsicossocialModal({
                         ))}
                       </RadioGroup>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Card>
             );
           })}
+
 
           {/* Inteligência */}
           <Card className="p-4 bg-muted/30">
@@ -534,14 +600,28 @@ export function PsicossocialModal({
           </Card>
         </div>
 
-        <DialogFooter className="gap-2 flex-wrap">
-          <Button variant="outline" onClick={handleRelatorio} disabled={avaliacoes.length === 0 && !allAnswered}>
-            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório
+        <DialogFooter className="gap-2 flex-wrap items-center">
+          {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+            <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+              <AlertTriangle className="w-3.5 h-3.5" />
+              Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
+            </p>
+          )}
+          <Button
+            variant="outline"
+            onClick={handleRelatorio}
+            disabled={
+              avaliacoes.length === 0 ||
+              avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+            }
+          >
+            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
           </Button>
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Save className="w-4 h-4 mr-2" />Salvar
           </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

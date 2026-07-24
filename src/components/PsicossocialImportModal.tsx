@@ -129,15 +129,14 @@ export function PsicossocialImportModal({
   const selecionarComRespondentes = () =>
     setFuncoesSelecionadas(new Set(todasFuncoes.filter((f) => (contagemPorFuncao[f] || 0) > 0)));
 
-  const gerarRelatorio = async (modo: "funcao" | "geral") => {
+  const vincular = async () => {
     if (!resultado || !resultado.avaliacoes.length) return;
     if (funcoesSelecionadas.size === 0) {
-      toast.error("Selecione pelo menos uma função para gerar o relatório.");
+      toast.error("Selecione pelo menos uma função para vincular à AET.");
       return;
     }
     setGerando(true);
     try {
-      const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
       const anonimas = resultado.avaliacoes
         .filter((a) => funcoesSelecionadas.has(a.funcao || "Não informada"))
         .map((a) => ({ ...a, colaborador_nome: "" }));
@@ -145,39 +144,30 @@ export function PsicossocialImportModal({
         toast.error("Nenhum respondente nas funções selecionadas.");
         return;
       }
-      const funcoesAtivas = Array.from(funcoesSelecionadas).filter(
-        (f) => (contagemPorFuncao[f] || 0) > 0,
-      );
-      if (modo === "geral") {
-        gerarRelatorioCopsoqPDF(anonimas, {
-          ...(relatorioContext || {}),
-          funcoes: funcoesAtivas,
-        });
-        toast.success("Relatório geral gerado.");
-      } else {
-        const grupos = new Map<string, AvaliacaoPsicossocial[]>();
-        for (const a of anonimas) {
-          const k = a.funcao || "Não informada";
-          if (!grupos.has(k)) grupos.set(k, []);
-          grupos.get(k)!.push(a);
-        }
-        for (const [funcao, avs] of grupos) {
-          gerarRelatorioCopsoqPDF(avs, {
-            ...(relatorioContext || {}),
-            funcoes: [funcao],
-          });
-          await new Promise((r) => setTimeout(r, 400));
-        }
-        toast.success(`${grupos.size} relatório(s) por função gerado(s).`);
-      }
       onImportado?.(anonimas);
+
+      const incompletas = anonimas.filter((a) =>
+        Object.values(a.respostas).some((arr) => arr.some((v) => v < 0)),
+      ).length;
+
+      if (incompletas > 0) {
+        toast.warning(
+          `${anonimas.length} avaliação(ões) importada(s). ${incompletas} apresentam respostas pendentes — complete-as antes de gerar o relatório consolidado.`,
+        );
+      } else {
+        toast.success(
+          `${anonimas.length} avaliação(ões) importada(s). Gere o relatório psicossocial consolidado na tela principal.`,
+        );
+      }
+      handleClose(false);
     } catch (e: any) {
       console.error(e);
-      toast.error("Erro ao gerar: " + (e?.message || ""));
+      toast.error("Erro ao importar: " + (e?.message || ""));
     } finally {
       setGerando(false);
     }
   };
+
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -389,44 +379,58 @@ export function PsicossocialImportModal({
                   (s, f) => s + (contagemPorFuncao[f] || 0),
                   0,
                 );
+                const incompletas = resultado.avaliacoes.filter((a) =>
+                  funcoesSelecionadas.has(a.funcao || "Não informada") &&
+                  Object.values(a.respostas).some((arr) => arr.some((v) => v < 0)),
+                ).length;
                 const bloqueado = temAmbiguidade || funcoesAtivasSel.length === 0;
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Card
-                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                      onClick={() => !gerando && !bloqueado && gerarRelatorio("funcao")}
-                    >
-                      <Users className="w-6 h-6 text-accent mb-2" />
-                      <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Um relatório PDF para cada função selecionada ({funcoesAtivasSel.length}).
-                      </p>
-                    </Card>
-                    <Card
-                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                      onClick={() => !gerando && !bloqueado && gerarRelatorio("geral")}
-                    >
-                      <Building2 className="w-6 h-6 text-accent mb-2" />
-                      <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Consolida {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) selecionada(s).
-                      </p>
-                    </Card>
-                  </div>
+                  <Card className={`p-4 space-y-3 ${bloqueado ? "opacity-60" : ""}`}>
+                    <div className="flex items-start gap-2">
+                      <Users className="w-5 h-5 text-accent mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="font-heading font-semibold text-sm">Vincular avaliações à AET</h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) serão salvos como
+                          avaliações individuais. O <strong>Relatório Psicossocial Consolidado</strong> deverá ser gerado
+                          posteriormente na tela principal, reunindo todas as avaliações da empresa/setor.
+                        </p>
+                        {incompletas > 0 && (
+                          <p className="text-[11px] text-amber-700 flex items-center gap-1 mt-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            {incompletas} avaliação(ões) apresentam respostas pendentes — o sistema abrirá a tela de
+                            complementação automaticamente.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 );
               })()}
             </>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => handleClose(false)}>Fechar</Button>
-          {gerando && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" /> Gerando…
-            </div>
-          )}
+          <Button
+            onClick={vincular}
+            disabled={
+              gerando ||
+              !resultado?.avaliacoes.length ||
+              temAmbiguidade ||
+              funcoesSelecionadas.size === 0
+            }
+            className="gap-1.5"
+          >
+            {gerando ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Vinculando…</>
+            ) : (
+              <><Check className="w-4 h-4" /> Vincular à AET</>
+            )}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );

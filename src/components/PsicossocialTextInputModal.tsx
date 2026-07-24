@@ -245,23 +245,21 @@ export function PsicossocialTextInputModal({
       setPreview(res);
       onImportado?.(res.avaliacoes);
 
-      // Gera relatório PDF por função automaticamente
-      try {
-        const { gerarRelatorioCopsoqPDF } = await import("@/lib/copsoqRelatorio");
-        for (const av of res.avaliacoes) {
-          gerarRelatorioCopsoqPDF([{ ...av, colaborador_nome: "" }], {
-            ...(relatorioContext || {}),
-            funcoes: [av.funcao || "Não informada"],
-          });
-          await new Promise((r) => setTimeout(r, 300));
-        }
-      } catch (e) {
-        console.error("Falha ao gerar PDF automático:", e);
-      }
+      const incompletas = res.avaliacoes.filter((a) =>
+        Object.values(a.respostas).some((arr) => arr.some((v) => v < 0)),
+      ).length;
 
-      toast.success(
-        `${res.avaliacoes.length} avaliação(ões) vinculada(s) — ${res.totalPerguntasMapeadas} respostas mapeadas.`,
-      );
+      if (incompletas > 0) {
+        toast.warning(
+          `${res.avaliacoes.length} avaliação(ões) vinculada(s). ${incompletas} contém respostas pendentes — complete-as na tela de edição antes de gerar o relatório consolidado.`,
+        );
+      } else {
+        toast.success(
+          `${res.avaliacoes.length} avaliação(ões) vinculada(s) — ${res.totalPerguntasMapeadas} respostas mapeadas. Gere o relatório consolidado na tela principal.`,
+        );
+      }
+      onOpenChange(false);
+
     } catch (e: any) {
       console.error(e);
       toast.error("Erro ao processar: " + (e?.message || ""));

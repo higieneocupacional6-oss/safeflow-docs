@@ -110,3 +110,22 @@ export function polaridadePergunta(blocoKey: string, perguntaIdx: number): "pos"
 export function valorRiscoPergunta(valor: number, blocoKey: string, perguntaIdx: number): number {
   return polaridadePergunta(blocoKey, perguntaIdx) === "pos" ? 100 - valor : valor;
 }
+
+/** Retorna as perguntas sem resposta (valor < 0 ou ausente) de uma avaliação. */
+export function perguntasPendentes(respostas: Record<string, number[]> | undefined): { blocoKey: string; perguntaIdx: number }[] {
+  const out: { blocoKey: string; perguntaIdx: number }[] = [];
+  for (const b of BLOCOS_COPSOQ) {
+    const arr = respostas?.[b.key] || [];
+    for (let i = 0; i < b.perguntas.length; i++) {
+      const v = arr[i];
+      if (typeof v !== "number" || v < 0) out.push({ blocoKey: b.key, perguntaIdx: i });
+    }
+  }
+  return out;
+}
+
+/** Avaliação está completa quando todas as perguntas de todos os blocos foram respondidas. */
+export function avaliacaoCompleta(respostas: Record<string, number[]> | undefined): boolean {
+  return perguntasPendentes(respostas).length === 0;
+}
+
