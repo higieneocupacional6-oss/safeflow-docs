@@ -379,44 +379,58 @@ export function PsicossocialImportModal({
                   (s, f) => s + (contagemPorFuncao[f] || 0),
                   0,
                 );
+                const incompletas = resultado.avaliacoes.filter((a) =>
+                  funcoesSelecionadas.has(a.funcao || "Não informada") &&
+                  Object.values(a.respostas).some((arr) => arr.some((v) => v < 0)),
+                ).length;
                 const bloqueado = temAmbiguidade || funcoesAtivasSel.length === 0;
                 return (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <Card
-                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                      onClick={() => !gerando && !bloqueado && gerarRelatorio("funcao")}
-                    >
-                      <Users className="w-6 h-6 text-accent mb-2" />
-                      <h3 className="font-heading font-semibold text-sm">Gerar por Função</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Um relatório PDF para cada função selecionada ({funcoesAtivasSel.length}).
-                      </p>
-                    </Card>
-                    <Card
-                      className={`p-4 transition ${bloqueado ? "opacity-60" : "cursor-pointer hover:border-accent"}`}
-                      onClick={() => !gerando && !bloqueado && gerarRelatorio("geral")}
-                    >
-                      <Building2 className="w-6 h-6 text-accent mb-2" />
-                      <h3 className="font-heading font-semibold text-sm">Relatório Geral da Empresa</h3>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Consolida {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) selecionada(s).
-                      </p>
-                    </Card>
-                  </div>
+                  <Card className={`p-4 space-y-3 ${bloqueado ? "opacity-60" : ""}`}>
+                    <div className="flex items-start gap-2">
+                      <Users className="w-5 h-5 text-accent mt-0.5" />
+                      <div className="flex-1">
+                        <h3 className="font-heading font-semibold text-sm">Vincular avaliações à AET</h3>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {respondentesSel} respondente(s) de {funcoesAtivasSel.length} função(ões) serão salvos como
+                          avaliações individuais. O <strong>Relatório Psicossocial Consolidado</strong> deverá ser gerado
+                          posteriormente na tela principal, reunindo todas as avaliações da empresa/setor.
+                        </p>
+                        {incompletas > 0 && (
+                          <p className="text-[11px] text-amber-700 flex items-center gap-1 mt-1.5">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                            {incompletas} avaliação(ões) apresentam respostas pendentes — o sistema abrirá a tela de
+                            complementação automaticamente.
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </Card>
                 );
               })()}
             </>
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2">
           <Button variant="outline" onClick={() => handleClose(false)}>Fechar</Button>
-          {gerando && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="w-4 h-4 animate-spin" /> Gerando…
-            </div>
-          )}
+          <Button
+            onClick={vincular}
+            disabled={
+              gerando ||
+              !resultado?.avaliacoes.length ||
+              temAmbiguidade ||
+              funcoesSelecionadas.size === 0
+            }
+            className="gap-1.5"
+          >
+            {gerando ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Vinculando…</>
+            ) : (
+              <><Check className="w-4 h-4" /> Vincular à AET</>
+            )}
+          </Button>
         </DialogFooter>
+
       </DialogContent>
     </Dialog>
   );
