@@ -581,25 +581,86 @@ function section(doc: jsPDF, y: number, titulo: string): number {
   return y + 12;
 }
 
-function paragraph(doc: jsPDF, y: number, txt: string, size = 10, justify = true): number {
+/**
+ * Renderização profissional de parágrafo:
+ * - `splitTextToSize` para quebra automática.
+ * - Justificação por espaçamento entre palavras (nunca entre letras)
+ *   evita o efeito de "letras esticadas" produzido pelo `align:"justify"`
+ *   nativo do jsPDF quando aplicado a linhas já ajustadas.
+ * - `indent` opcional aplicado apenas à primeira linha.
+ */
+function paragraph(
+  doc: jsPDF,
+  y: number,
+  txt: string,
+  size = 10,
+  justify = true,
+  opts: { indent?: number; leftMargin?: number; rightMargin?: number } = {},
+): number {
   doc.setFont("helvetica", "normal");
   doc.setFontSize(size);
   doc.setTextColor(40);
-  const maxW = 190;
-  const lineH = size * 0.45 + 1.2;
-  const split: string[] = doc.splitTextToSize(txt, maxW);
+
+  const pw = doc.internal.pageSize.getWidth();
+  const leftMargin = opts.leftMargin ?? 10;
+  const rightMargin = opts.rightMargin ?? 10;
+  const indent = opts.indent ?? 0;
+  const maxW = pw - leftMargin - rightMargin;
+  const lineH = size * 0.42 + 1.6;
+
+  // Preserva quebras explícitas do texto
+  const paragrafos = String(txt).split(/\n/);
   let cy = y;
-  for (let i = 0; i < split.length; i++) {
-    if (cy + lineH > 285) { doc.addPage(); cy = 32; }
-    const line = split[i];
-    const isLast = i === split.length - 1 || /[\n]$/.test(line);
-    if (justify && !isLast && line.trim().split(/\s+/).length > 1) {
-      doc.text(line, 10, cy, { align: "justify", maxWidth: maxW });
-    } else {
-      doc.text(line, 10, cy);
+
+  paragrafos.forEach((par) => {
+    const first = indent > 0 ? maxW - indent : maxW;
+    const linhasFirst: string[] = doc.splitTextToSize(par, first);
+    let linhas: string[] = linhasFirst;
+    if (indent > 0 && linhasFirst.length > 1) {
+      // Re-quebra o restante sem o recuo
+      const usadoNaPrimeira = linhasFirst[0];
+      const resto = par.slice(usadoNaPrimeira.length).replace(/^\s+/, "");
+      const linhasResto = resto
+        ? doc.splitTextToSize(resto, maxW)
+        : [];
+      linhas = [usadoNaPrimeira, ...linhasResto];
     }
-    cy += lineH;
-  }
+
+    for (let i = 0; i < linhas.length; i++) {
+      if (cy + lineH > 285) { doc.addPage(); cy = 32; }
+      const line = String(linhas[i] || "");
+      const isFirst = i === 0;
+      const isLast = i === linhas.length - 1;
+      const xStart = leftMargin + (isFirst ? indent : 0);
+      const areaW = maxW - (isFirst ? indent : 0);
+
+      const palavras = line.trim().split(/\s+/).filter(Boolean);
+      if (!justify || isLast || palavras.length < 2) {
+        doc.text(line, xStart, cy);
+      } else {
+        // Justificação: distribui espaço extra APENAS entre palavras.
+        const larguraPalavras = palavras.reduce((s, w) => s + doc.getTextWidth(w), 0);
+        const espacoExtra = areaW - larguraPalavras;
+        const gap = espacoExtra / (palavras.length - 1);
+        // Limite de segurança: não justifica se o gap ficaria absurdo
+        // (ex.: linha curta demais). Nesse caso, desenha alinhado à esquerda.
+        const espacoNormal = doc.getTextWidth(" ");
+        if (gap > espacoNormal * 3.2 || gap <= 0) {
+          doc.text(line, xStart, cy);
+        } else {
+          let cx = xStart;
+          for (let w = 0; w < palavras.length; w++) {
+            doc.text(palavras[w], cx, cy);
+            cx += doc.getTextWidth(palavras[w]) + gap;
+          }
+        }
+      }
+      cy += lineH;
+    }
+    // Pequeno espaço entre parágrafos internos
+    if (paragrafos.length > 1) cy += 1;
+  });
+
   return cy + 2;
 }
 
