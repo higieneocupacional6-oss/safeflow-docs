@@ -833,7 +833,7 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "6. Identificação dos Fatores de Risco Psicossocial");
   const relevantes = identificarFatoresRelevantes(avaliacoes);
   if (!Object.keys(relevantes).length) {
-    y = paragraph(doc, y, "Não foram identificados fatores de risco psicossocial significativos nesta amostra.");
+    y = paragraph(doc, y, "Não foram identificados fatores de risco psicossocial significativos nesta avaliação.");
   } else {
     for (const [cat, itens] of Object.entries(relevantes)) {
       if (y > 280) { doc.addPage(); y = 32; }
@@ -856,7 +856,7 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "6.1 Fatores de Proteção Identificados");
   const protecoes = identificarFatoresProtecao(avaliacoes);
   if (!protecoes.length) {
-    y = paragraph(doc, y, "Não foram identificados fatores de proteção expressivos nesta amostra. Recomenda-se atuar prioritariamente sobre os fatores de risco listados na seção anterior.");
+    y = paragraph(doc, y, "Não foram identificados fatores de proteção expressivos nesta avaliação. Recomenda-se atuar prioritariamente sobre os fatores de risco listados na seção anterior.");
   } else {
     for (const p of protecoes) {
       if (y > 285) { doc.addPage(); y = 32; }
