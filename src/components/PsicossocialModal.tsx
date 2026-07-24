@@ -379,34 +379,51 @@ export function PsicossocialModal({
   };
 
 
+  const Header = (
+    <div className="font-heading flex items-center justify-between gap-2 flex-wrap">
+      <span className="text-lg font-semibold">Avaliação Psicossocial (COPSOQ)</span>
+      <div className="flex items-center gap-2">
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setImportOpen(true)}>
+          <FileSpreadsheet className="w-4 h-4" />
+          Gerar Automaticamente por Arquivo
+        </Button>
+        <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setTextInputOpen(true)}>
+          <PencilLine className="w-4 h-4" />
+          Escrever Questionário
+        </Button>
+      </div>
+    </div>
+  );
+
+  const Wrapper = asPage
+    ? ({ children }: { children: React.ReactNode }) => (
+        <div className="max-w-5xl mx-auto space-y-4">
+          <Card className="p-4">{Header}</Card>
+          {children}
+        </div>
+      )
+    : ({ children }: { children: React.ReactNode }) => (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle asChild>{Header}</DialogTitle>
+            </DialogHeader>
+            {children}
+          </DialogContent>
+        </Dialog>
+      );
+
+  const FooterWrapper = asPage
+    ? ({ children }: { children: React.ReactNode }) => (
+        <div className="flex gap-2 flex-wrap items-center pt-4 border-t border-border sticky bottom-0 bg-background/95 backdrop-blur py-3 z-10">
+          {children}
+        </div>
+      )
+    : ({ children }: { children: React.ReactNode }) => <DialogFooter className="gap-2 flex-wrap items-center">{children}</DialogFooter>;
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="font-heading flex items-center justify-between gap-2">
-            <span>Avaliação Psicossocial (COPSOQ)</span>
-            <div className="flex items-center gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setImportOpen(true)}
-              >
-                <FileSpreadsheet className="w-4 h-4" />
-                Gerar Automaticamente por Arquivo
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                onClick={() => setTextInputOpen(true)}
-              >
-                <PencilLine className="w-4 h-4" />
-                Escrever Questionário
-              </Button>
-            </div>
-          </DialogTitle>
-        </DialogHeader>
+    <Wrapper>
+
 
         <PsicossocialTextInputModal
           open={textInputOpen}
