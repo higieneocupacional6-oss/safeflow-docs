@@ -21,9 +21,11 @@ export type AvaliacaoErgonomica = {
   id?: string;
   ferramenta: FerramentaTipo;
   cabecalho: CabecalhoAvaliacao;
+  atividade?: string;
   respostas: Record<string, unknown>;
   resultado: ResultadoErgonomico;
   pdf_path?: string;
   aet_documento_id?: string | null;
   setor_ref?: string | null;
 };
+

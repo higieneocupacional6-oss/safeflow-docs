@@ -1,16 +1,18 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { calcularRula, type RulaInput } from "@/lib/ergonomia/rula";
 import { calcularReba, type RebaInput } from "@/lib/ergonomia/reba";
 import { calcularNiosh, type NioshInput } from "@/lib/ergonomia/niosh";
@@ -18,11 +20,14 @@ import { calcularOwas, OWAS_LABELS, type OwasInput } from "@/lib/ergonomia/owas"
 import { salvarAvaliacaoEGerarPdf } from "@/lib/ergonomia/persist";
 import type { AvaliacaoErgonomica, CabecalhoAvaliacao, ResultadoErgonomico } from "@/lib/ergonomia/types";
 
+
 type ToolTipo = "RULA" | "REBA" | "NIOSH" | "OWAS";
 
 export type ToolAssessmentResult = {
   tipo: ToolTipo;
   colaborador_nome: string;
+  funcao: string;
+  atividade: string;
   data_avaliacao: string;
   escore_final: number;
   classificacao: string;
@@ -32,6 +37,7 @@ export type ToolAssessmentResult = {
   respostas: Record<string, unknown>;
   resumo: string;
 };
+
 
 type Props = {
   open: boolean;
@@ -52,8 +58,34 @@ export function ToolAssessmentModal({
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [colaborador, setColaborador] = useState(cabecalho.colaborador_nome || "");
+  const [funcaoSel, setFuncaoSel] = useState<string>(cabecalho.funcao || "");
+  const [funcaoManual, setFuncaoManual] = useState<string>("");
+  const [modoManual, setModoManual] = useState<boolean>(false);
+  const [atividade, setAtividade] = useState<string>("");
+  const [funcoesDb, setFuncoesDb] = useState<string[]>([]);
   const [data, setData] = useState(cabecalho.data_avaliacao || today);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!open) return;
+      const nomes = new Set<string>();
+      if (cabecalho.funcao) {
+        cabecalho.funcao.split(",").map((s) => s.trim()).filter(Boolean).forEach((n) => nomes.add(n));
+      }
+      if (setorRef) {
+        const { data: fs } = await supabase
+          .from("funcoes")
+          .select("nome_funcao")
+          .eq("setor_id", setorRef);
+        (fs || []).forEach((f: any) => f?.nome_funcao && nomes.add(f.nome_funcao));
+      }
+      if (!cancelled) setFuncoesDb(Array.from(nomes).sort((a, b) => a.localeCompare(b)));
+    })();
+    return () => { cancelled = true; };
+  }, [open, setorRef, cabecalho.funcao]);
+
 
   // Estados por ferramenta
   const [rula, setRula] = useState<RulaInput>({
@@ -94,12 +126,10 @@ export function ToolAssessmentModal({
     return null;
   }, [tool, rula, reba, niosh, owas]);
 
+  const funcaoAtual = (modoManual ? funcaoManual : funcaoSel).trim();
+
   const handleSubmit = async () => {
-    if (!aetDocumentoId) {
-      toast.error("Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.");
-      return;
-    }
-    if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
+    if (!funcaoAtual) { toast.error("Selecione ou informe a função avaliada"); return; }
     if (!resultado) { toast.error("Não foi possível calcular a avaliação"); return; }
     setLoading(true);
     try {
@@ -112,11 +142,12 @@ export function ToolAssessmentModal({
         ferramenta: tool,
         cabecalho: {
           colaborador_nome: colaborador.trim(),
-          funcao: cabecalho.funcao,
+          funcao: funcaoAtual,
           empresa_nome: cabecalho.empresa_nome,
           setor_nome: cabecalho.setor_nome,
           data_avaliacao: data,
         },
+        atividade: atividade.trim() || undefined,
         respostas,
         resultado,
       };
@@ -127,6 +158,8 @@ export function ToolAssessmentModal({
       onComplete({
         tipo: tool,
         colaborador_nome: colaborador.trim(),
+        funcao: funcaoAtual,
+        atividade: atividade.trim(),
         data_avaliacao: data,
         escore_final: resultado.escore_final,
         classificacao: resultado.classificacao,
@@ -136,7 +169,11 @@ export function ToolAssessmentModal({
         respostas,
         resumo: resultado.memoria_calculo.map((m) => `${m.etapa}: ${m.valor}`).join(" • "),
       });
-      toast.success(`Avaliação ${tool} concluída — PDF gerado e baixado`);
+      toast.success(
+        aetDocumentoId
+          ? `Avaliação ${tool} concluída — PDF gerado e baixado`
+          : `Avaliação ${tool} salva — será vinculada automaticamente quando a AET for salva`
+      );
       onOpenChange(false);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao salvar avaliação");
@@ -144,6 +181,7 @@ export function ToolAssessmentModal({
       setLoading(false);
     }
   };
+
 
   const R = ({ children }: { children: React.ReactNode }) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{children}</div>
@@ -177,15 +215,56 @@ export function ToolAssessmentModal({
         <div className="space-y-4">
           {/* Cabeçalho */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <div className="flex items-center justify-between mb-1">
+                <Label className="text-xs">Função avaliada *</Label>
+                <button
+                  type="button"
+                  className="text-[11px] text-accent hover:underline"
+                  onClick={() => setModoManual((v) => !v)}
+                >
+                  {modoManual ? "Escolher da lista" : "+ Nova função"}
+                </button>
+              </div>
+              {modoManual ? (
+                <Input
+                  value={funcaoManual}
+                  onChange={(e) => setFuncaoManual(e.target.value)}
+                  placeholder="Digite o nome da função"
+                />
+              ) : (
+                <Select value={funcaoSel} onValueChange={setFuncaoSel}>
+                  <SelectTrigger><SelectValue placeholder="Selecione a função" /></SelectTrigger>
+                  <SelectContent>
+                    {funcoesDb.length === 0 && (
+                      <SelectItem value="__none__" disabled>Nenhuma função cadastrada — use "+ Nova função"</SelectItem>
+                    )}
+                    {funcoesDb.map((n) => (
+                      <SelectItem key={n} value={n}>{n}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
             <div>
-              <Label className="text-xs">Colaborador avaliado *</Label>
+              <Label className="text-xs">Colaborador avaliado (opcional)</Label>
               <Input value={colaborador} onChange={(e) => setColaborador(e.target.value)} placeholder="Nome completo" />
             </div>
             <div>
               <Label className="text-xs">Data da avaliação</Label>
               <Input type="date" value={data} onChange={(e) => setData(e.target.value)} />
             </div>
+            <div className="md:col-span-2">
+              <Label className="text-xs">Atividade avaliada (opcional)</Label>
+              <Textarea
+                value={atividade}
+                onChange={(e) => setAtividade(e.target.value)}
+                placeholder="Ex.: digitação contínua, soldagem em estrutura metálica, levantamento manual de cargas…"
+                rows={2}
+              />
+            </div>
           </div>
+
 
           {tool === "RULA" && (
             <div className="space-y-4">
@@ -453,18 +532,19 @@ export function ToolAssessmentModal({
           )}
 
           {!aetDocumentoId && (
-            <div className="rounded-lg border border-amber-400 bg-amber-50 text-amber-900 p-3 text-sm">
-              Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.
+            <div className="rounded-lg border border-sky-400 bg-sky-50 text-sky-900 p-3 text-xs">
+              A AET ainda não foi salva. A avaliação será gravada normalmente e vinculada automaticamente à AET assim que ela for criada.
             </div>
           )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading || !aetDocumentoId}>
+          <Button onClick={handleSubmit} disabled={loading}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
-            Concluir avaliação e gerar PDF
+            Salvar avaliação e gerar PDF
           </Button>
+
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -63,10 +63,13 @@ type Ferramenta = {
   classificacao?: string;
   nivel_acao?: string;
   colaborador_nome?: string;
+  funcao?: string;
+  atividade?: string;
   data_avaliacao?: string;
   avaliacao_id?: string;
   pdf_path?: string;
   respostas?: Record<string, unknown>;
+
 };
 
 type SetorAet = {
@@ -575,10 +578,13 @@ export default function AetWizard() {
               classificacao: f.classificacao || "",
               nivel_acao: f.nivel_acao || "",
               colaborador_nome: f.colaborador_nome || "",
+              funcao: f.funcao || "",
+              atividade: f.atividade || "",
               data_avaliacao: f.data_avaliacao || "",
               avaliacao_id: f.avaliacao_id || "",
               pdf_path: f.pdf_path || "",
               respostas: f.respostas || {},
+
             })),
             justificativa_ferramentas: s.justificativa_ferramentas || "",
             plano_acao: s.plano_acao || [],
@@ -950,10 +956,13 @@ export default function AetWizard() {
           classificacao: f.classificacao || "",
           nivel_acao: f.nivel_acao || "",
           colaborador_nome: f.colaborador_nome || "",
+          funcao: f.funcao || "",
+          atividade: f.atividade || "",
           data_avaliacao: f.data_avaliacao || "",
           avaliacao_id: f.avaliacao_id || "",
           pdf_path: f.pdf_path || "",
           respostas: f.respostas || {},
+
         })),
         justificativa_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
@@ -1967,11 +1976,14 @@ export default function AetWizard() {
                 classificacao: r.classificacao,
                 nivel_acao: r.nivel_acao,
                 colaborador_nome: r.colaborador_nome,
+                funcao: r.funcao,
+                atividade: r.atividade,
                 data_avaliacao: r.data_avaliacao,
                 avaliacao_id: r.avaliacao_id,
                 pdf_path: r.pdf_path,
                 respostas: r.respostas,
               };
+
               const novasFerramentas = [...setor.ferramentas, nova];
               const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
               const justificativa = gerarJustificativaDeterministica({
@@ -2031,11 +2043,15 @@ export default function AetWizard() {
             })),
             aet_ferramentas: (setor.ferramentas || []).map((f) => ({
               tipo: f.tipo,
+              funcao: f.funcao || "",
+              colaborador: f.colaborador_nome || "",
+              atividade: f.atividade || "",
               resultado: f.resultado,
               classificacao: f.classificacao,
               nivel_acao: f.nivel_acao,
               escore_final: f.escore_final ?? null,
             })),
+
             aet_dimensoes: Object.entries(setor.avaliacoes_dimensionais || {})
               .map(([k, v]: [string, any]) => ({
                 item: k,
