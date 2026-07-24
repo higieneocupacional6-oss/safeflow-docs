@@ -1,22 +1,25 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Download } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import { calcularRula, type RulaInput } from "@/lib/ergonomia/rula";
 import { calcularReba, type RebaInput } from "@/lib/ergonomia/reba";
 import { calcularNiosh, type NioshInput } from "@/lib/ergonomia/niosh";
 import { calcularOwas, OWAS_LABELS, type OwasInput } from "@/lib/ergonomia/owas";
 import { salvarAvaliacaoEGerarPdf } from "@/lib/ergonomia/persist";
 import type { AvaliacaoErgonomica, CabecalhoAvaliacao, ResultadoErgonomico } from "@/lib/ergonomia/types";
+
 
 type ToolTipo = "RULA" | "REBA" | "NIOSH" | "OWAS";
 
