@@ -497,10 +497,26 @@ export function PsicossocialModal({
             </div>
           </div>
 
+          {editingIdx !== null && pendentesDraft.size > 0 && (
+            <Card className="p-3 border-amber-400 bg-amber-50/60">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-700 mt-0.5" />
+                <div className="text-xs text-amber-900">
+                  <p className="font-semibold">Avaliação incompleta importada</p>
+                  <p>
+                    {pendentesDraft.size} pergunta(s) não foram identificadas automaticamente e estão destacadas em amarelo abaixo.
+                    Complete-as manualmente para que esta avaliação seja considerada na consolidação do relatório psicossocial.
+                  </p>
+                </div>
+              </div>
+            </Card>
+          )}
+
           {BLOCOS_COPSOQ.map((bloco) => {
             const bres = computed.blocos[bloco.key];
+            const blocoTemPend = bloco.perguntas.some((_, pi) => pendentesDraft.has(`${bloco.key}-${pi}`));
             return (
-              <Card key={bloco.key} className="p-4">
+              <Card key={bloco.key} className={`p-4 ${blocoTemPend ? "border-amber-400" : ""}`}>
                 <div className="flex items-center justify-between mb-2">
                   <h3 className="font-heading font-semibold text-sm">{bloco.titulo}</h3>
                   {bres && (
@@ -510,9 +526,18 @@ export function PsicossocialModal({
                   )}
                 </div>
                 <div className="space-y-3">
-                  {bloco.perguntas.map((p, pi) => (
-                    <div key={pi}>
-                      <p className="text-sm mb-1.5">{p}</p>
+                  {bloco.perguntas.map((p, pi) => {
+                    const pend = pendentesDraft.has(`${bloco.key}-${pi}`);
+                    return (
+                    <div
+                      key={pi}
+                      className={pend ? "rounded-md border border-amber-400 bg-amber-50/60 p-2" : ""}
+                    >
+                      <p className="text-sm mb-1.5 flex items-center gap-1.5">
+                        {pend && <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />}
+                        <span>{p}</span>
+                        {pend && <span className="text-[10px] font-semibold text-amber-700 uppercase">Pendente</span>}
+                      </p>
                       <RadioGroup
                         value={String(draft.respostas[bloco.key]?.[pi] ?? -1)}
                         onValueChange={(v) => setResposta(bloco.key, pi, Number(v))}
@@ -526,11 +551,13 @@ export function PsicossocialModal({
                         ))}
                       </RadioGroup>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </Card>
             );
           })}
+
 
           {/* Inteligência */}
           <Card className="p-4 bg-muted/30">
