@@ -290,9 +290,8 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
 
 function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
   const funcoes = ctx.funcoes?.length ? ctx.funcoes.join(", ") : "múltiplas funções do setor";
-  const n = avs.length;
   const parts: string[] = [];
-  parts.push(`A avaliação contemplou ${n} respondente(s) atuante(s) em ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
+  parts.push(`A avaliação contemplou as funções ${funcoes}, no setor ${ctx.setor_nome || "não informado"}.`);
   if (ctx.jornada_trabalho) parts.push(`Jornada de trabalho: ${ctx.jornada_trabalho}.`);
   if (ctx.escala) parts.push(`Escala: ${ctx.escala}.`);
   if (ctx.supervisao) parts.push(`Forma de supervisão: ${ctx.supervisao}.`);
