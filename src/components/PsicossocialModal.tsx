@@ -429,23 +429,32 @@ export function PsicossocialModal({
         {avaliacoes.length > 0 && editingIdx === null && (
           <div className="space-y-2 border-b border-border pb-3">
             <p className="text-xs font-semibold uppercase text-muted-foreground">Avaliações salvas</p>
-            {avaliacoes.map((a, i) => (
-              <Card key={i} className="p-3 flex items-center justify-between">
+            {avaliacoes.map((a, i) => {
+              const incompleta = !avaliacaoCompleta(a.respostas);
+              const pendCount = perguntasPendentes(a.respostas).length;
+              return (
+              <Card key={i} className={`p-3 flex items-center justify-between ${incompleta ? "border-amber-400 bg-amber-50/40" : ""}`}>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-semibold truncate">{a.funcao || "Função não informada"}</p>
-                  <p className="text-xs text-muted-foreground truncate">{a.resultado_psicossocial}</p>
+                  <p className="text-xs text-muted-foreground truncate">{incompleta ? "Avaliação incompleta — pendente de complementação manual." : a.resultado_psicossocial}</p>
                   <div className="flex flex-wrap gap-1 mt-1">
-                    {a.alertas?.alerta_vermelho && (
+                    {incompleta && (
+                      <Badge className="bg-amber-100 text-amber-800 border-amber-300 text-[10px]">
+                        <AlertTriangle className="w-3 h-3 mr-1" />
+                        {pendCount} pergunta(s) pendente(s)
+                      </Badge>
+                    )}
+                    {!incompleta && a.alertas?.alerta_vermelho && (
                       <Badge className="bg-red-100 text-red-800 border-red-300 text-[10px]">
                         <AlertOctagon className="w-3 h-3 mr-1" />Vermelho
                       </Badge>
                     )}
-                    {a.alertas?.alerta_amarelo && (
+                    {!incompleta && a.alertas?.alerta_amarelo && (
                       <Badge className="bg-yellow-100 text-yellow-800 border-yellow-300 text-[10px]">
                         <AlertTriangle className="w-3 h-3 mr-1" />Amarelo
                       </Badge>
                     )}
-                    {a.alertas?.recomendacao_imediata && (
+                    {!incompleta && a.alertas?.recomendacao_imediata && (
                       <Badge className="bg-orange-100 text-orange-800 border-orange-300 text-[10px]">
                         <Lightbulb className="w-3 h-3 mr-1" />Acompanhamento
                       </Badge>
@@ -453,13 +462,17 @@ export function PsicossocialModal({
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button size="sm" variant="outline" onClick={() => handleEdit(i)}>Editar</Button>
+                  <Button size="sm" variant={incompleta ? "default" : "outline"} onClick={() => handleEdit(i)}>
+                    {incompleta ? "Complementar" : "Editar"}
+                  </Button>
                   <Button size="icon" variant="ghost" className="text-destructive h-8 w-8" onClick={() => handleDelete(i)}>
                     <Trash2 className="w-4 h-4" />
                   </Button>
                 </div>
               </Card>
-            ))}
+              );
+            })}
+
             <Button variant="outline" size="sm" onClick={handleNew}>+ Nova avaliação</Button>
           </div>
         )}
