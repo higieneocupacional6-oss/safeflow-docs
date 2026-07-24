@@ -116,7 +116,7 @@ const CATEGORIAS: { categoria: string; fatores: FatorDef[] }[] = [
   {
     categoria: "Saúde Mental e Sintomas",
     fatores: [
-      { nome: "Sobrecarga emocional (controlar emoções)", bloco: "exigencias", perguntaIdx: [3] },
+      { nome: "Sobrecarga emocional", bloco: "exigencias", perguntaIdx: [3] },
       { nome: "Exposição a conflitos interpessoais", bloco: "exigencias", perguntaIdx: [4] },
       { nome: "Interferência trabalho-vida pessoal", bloco: "conflitos", perguntaIdx: [1] },
       { nome: "Distúrbios do sono relacionados ao trabalho", bloco: "sintomas", perguntaIdx: [0] },
