@@ -1488,8 +1488,18 @@ export function gerarRelatorioCopsoqPDF(
         p.acompanhamento,
       ]),
       theme: "grid",
-      styles: { fontSize: 7.5, cellPadding: 1.4, valign: "top" },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8 },
+      styles: { fontSize: 7.5, cellPadding: 1.6, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
+      headStyles: { fillColor: [15, 23, 42], textColor: 255, fontSize: 8, halign: "center" },
+      columnStyles: {
+        0: { cellWidth: 32 },
+        1: { cellWidth: 32 },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 38 },
+        4: { cellWidth: 18 },
+        5: { cellWidth: 14, halign: "center" },
+        6: { cellWidth: 18 },
+      },
+      tableWidth: 190,
       margin: { left: 10, right: 10 },
     });
     y = (doc as any).lastAutoTable.finalY + 6;
