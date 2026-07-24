@@ -275,6 +275,7 @@ export function PsicossocialModal({
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
   const [importOpen, setImportOpen] = useState(false);
+  const [textInputOpen, setTextInputOpen] = useState(false);
 
 
   useEffect(() => {
