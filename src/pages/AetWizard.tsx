@@ -2018,7 +2018,51 @@ export default function AetWizard() {
               : "",
           }}
           funcoesSetor={(setor.funcoes_selecionadas || []).map((f) => ({ id: f.id, nome: f.nome })).filter((f) => f.nome)}
+          onRefreshFromDb={async () => {
+            // Releitura integral das avaliações psicossociais salvas no banco,
+            // ignorando qualquer resultado processado anteriormente. Preserva
+            // avaliações locais ainda não sincronizadas (sem funcao_id).
+            const funcoesSel = (setor.funcoes_selecionadas || []) as any[];
+            const funcaoIds = funcoesSel.map((f) => f.id).filter(Boolean) as string[];
+            const dbList: AvaliacaoPsicossocial[] = [];
+            if (funcaoIds.length > 0) {
+              const { data, error } = await supabase
+                .from("psico_respostas")
+                .select("*")
+                .in("funcao_id", funcaoIds);
+              if (error) throw error;
+              for (const r of (data as any[]) || []) {
+                const nomeFuncao =
+                  funcoesSel.find((f) => f.id === (r as any).funcao_id)?.nome ||
+                  (r as any).funcao_nome ||
+                  "Função não informada";
+                dbList.push({
+                  colaborador_nome: "",
+                  funcao: nomeFuncao,
+                  data_avaliacao: r.data_avaliacao || "",
+                  respostas: r.respostas || {},
+                  blocos: r.blocos || {},
+                  alertas: r.alertas || { alerta_amarelo: false, alerta_vermelho: false, recomendacao_imediata: false },
+                  resultado_psicossocial: r.resultado_psicossocial || "",
+                  riscos_psicossociais: r.riscos_psicossociais || "",
+                  total_positivas: r.total_positivas || 0,
+                  total_negativas: r.total_negativas || 0,
+                  copsoq_resultado_resumido: r.copsoq_resultado_resumido || "",
+                  copsoq_riscos_identificados: r.copsoq_riscos_identificados || "",
+                });
+              }
+            }
+            // Preserva avaliações locais (ex.: inseridas manualmente ou via
+            // "Escrever Questionário") que ainda não estão persistidas em
+            // psico_respostas. Dedupe por função + data.
+            const chavesDb = new Set(dbList.map((a) => `${(a.funcao || "").toLowerCase()}|${a.data_avaliacao}`));
+            const locaisNaoSincronizadas = (setor.avaliacoes_psicossociais || []).filter(
+              (a) => !chavesDb.has(`${(a.funcao || "").toLowerCase()}|${a.data_avaliacao}`),
+            );
+            return [...dbList, ...locaisNaoSincronizadas];
+          }}
         />
+
 
         {/* Modal — Gerar AET com IA */}
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
