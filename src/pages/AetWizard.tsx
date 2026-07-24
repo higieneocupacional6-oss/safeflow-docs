@@ -578,10 +578,13 @@ export default function AetWizard() {
               classificacao: f.classificacao || "",
               nivel_acao: f.nivel_acao || "",
               colaborador_nome: f.colaborador_nome || "",
+              funcao: f.funcao || "",
+              atividade: f.atividade || "",
               data_avaliacao: f.data_avaliacao || "",
               avaliacao_id: f.avaliacao_id || "",
               pdf_path: f.pdf_path || "",
               respostas: f.respostas || {},
+
             })),
             justificativa_ferramentas: s.justificativa_ferramentas || "",
             plano_acao: s.plano_acao || [],
