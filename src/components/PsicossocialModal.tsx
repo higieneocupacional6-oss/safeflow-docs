@@ -31,7 +31,7 @@ export const ESCALA_COPSOQ = [
 // Reexportado de módulo-folha para evitar dependência circular
 // (PsicossocialModal → PsicossocialImportModal → psicoImport → PsicossocialModal).
 export { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
-import { BLOCOS_COPSOQ, valorRiscoPergunta, polaridadePergunta } from "@/lib/copsoqBlocos";
+import { BLOCOS_COPSOQ, valorRiscoPergunta, polaridadePergunta, avaliacaoCompleta, perguntasPendentes } from "@/lib/copsoqBlocos";
 
 export type BlocoResultado = { media: number; classificacao: string };
 export type AvaliacaoPsicossocial = {
