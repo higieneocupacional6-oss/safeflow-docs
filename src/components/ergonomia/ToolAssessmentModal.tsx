@@ -95,6 +95,10 @@ export function ToolAssessmentModal({
   }, [tool, rula, reba, niosh, owas]);
 
   const handleSubmit = async () => {
+    if (!aetDocumentoId) {
+      toast.error("Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.");
+      return;
+    }
     if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
     if (!resultado) { toast.error("Não foi possível calcular a avaliação"); return; }
     setLoading(true);
