@@ -645,6 +645,10 @@ export function gerarRelatorioCopsoqPDF(
   y = section(doc, y, "2. Resumo Executivo");
   y = paragraph(doc, y, buildResumoExecutivo(avaliacoes, ctx));
 
+  // ── 2.1 Perfil da função avaliada
+  y = section(doc, y, "2.1 Perfil da(s) Função(ões) Avaliada(s)");
+  y = paragraph(doc, y, buildPerfilFuncao(avaliacoes, ctx));
+
   // ── 3. Metodologia (com critérios de classificação)
   y = section(doc, y, "3. Metodologia Utilizada");
   y = paragraph(
