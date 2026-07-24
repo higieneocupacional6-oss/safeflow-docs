@@ -30,7 +30,10 @@ function normalize(s: string): string {
     .toLowerCase()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, " ")
+    // remove numeração de início ("1.", "1)", "01 -", "•", "*", "-", "–")
+    .replace(/^\s*(?:\(?\d{1,3}[\.\)\-–:]|[•\-*·])\s*/g, " ")
+    // remove pontuação
+    .replace(/[^\w\s?]/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
@@ -39,12 +42,28 @@ function tokens(s: string): string[] {
   const STOP = new Set([
     "a","o","as","os","de","do","da","dos","das","e","ou","em","no","na","nos","nas",
     "para","por","com","sem","que","se","um","uma","uns","umas","ao","aos","à","às",
-    "seu","sua","seus","suas","voce","vc","é","ser","tem","the","of",
+    "seu","sua","seus","suas","voce","vc","é","ser","tem","the","of","muito","muita",
+    "sempre","nunca","raramente","frequentemente","vezes","as","às","tao","tão",
   ]);
-  return normalize(s).split(" ").filter((t) => t && !STOP.has(t));
+  return normalize(s).split(" ").filter((t) => t.length > 1 && !STOP.has(t));
 }
 
-function similarity(a: string, b: string): number {
+function trigrams(s: string): Set<string> {
+  const n = normalize(s).replace(/\s+/g, "_");
+  const out = new Set<string>();
+  const t = `__${n}__`;
+  for (let i = 0; i < t.length - 2; i++) out.add(t.slice(i, i + 3));
+  return out;
+}
+
+function dice(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0;
+  let inter = 0;
+  a.forEach((x) => { if (b.has(x)) inter++; });
+  return (2 * inter) / (a.size + b.size);
+}
+
+function jaccardTokens(a: string, b: string): number {
   const A = new Set(tokens(a));
   const B = new Set(tokens(b));
   if (!A.size || !B.size) return 0;
@@ -54,48 +73,88 @@ function similarity(a: string, b: string): number {
   return inter / union;
 }
 
-/** Mapa: label da escala → valor (0/25/50/75/100). Também suporta sinônimos. */
-const ESCALA_MAP: { pattern: RegExp; value: number }[] = [
-  { pattern: /\bnunca\b|\bjamais\b/i, value: 0 },
-  { pattern: /\braramente\b|\bpouc[oa]s?\s*vezes\b|\bquase\s*nunca\b/i, value: 25 },
-  { pattern: /\b(as|às)\s*vezes\b|\balgumas\s*vezes\b|\beventualmente\b|\bmoderadamente\b/i, value: 50 },
-  { pattern: /\bfrequentemente\b|\bcom\s*frequencia\b|\bmuit[oa]s?\s*vezes\b|\bquase\s*sempre\b/i, value: 75 },
-  { pattern: /\bsempre\b|\btotalmente\b|\bplenamente\b/i, value: 100 },
-];
+/** Score combinado (Jaccard + Dice de trigramas) — robusto a variações. */
+function similarity(a: string, b: string): number {
+  const j = jaccardTokens(a, b);
+  const d = dice(trigrams(a), trigrams(b));
+  return j * 0.6 + d * 0.4;
+}
 
-function detectResposta(linha: string): number | null {
-  for (const { pattern, value } of ESCALA_MAP) {
-    if (pattern.test(linha)) return value;
-  }
-  // números diretos: 0–100 ou 0–4
-  const m = linha.match(/\b(\d{1,3})\b/);
-  if (m) {
-    const n = parseInt(m[1], 10);
+/** Detecta resposta em uma linha (após normalização). Retorna null se não for resposta. */
+function detectResposta(linhaOriginal: string): number | null {
+  const t = normalize(linhaOriginal);
+  if (!t) return null;
+  // Palavras — checar isoladamente (linha inteira sendo a resposta)
+  const RESP: { re: RegExp; v: number }[] = [
+    { re: /^\s*(?:r[:\-]?\s*)?nunca\s*$/, v: 0 },
+    { re: /^\s*(?:r[:\-]?\s*)?jamais\s*$/, v: 0 },
+    { re: /^\s*(?:r[:\-]?\s*)?raramente\s*$/, v: 25 },
+    { re: /^\s*(?:r[:\-]?\s*)?quase\s*nunca\s*$/, v: 25 },
+    { re: /^\s*(?:r[:\-]?\s*)?pouc[oa]s?\s*vezes\s*$/, v: 25 },
+    { re: /^\s*(?:r[:\-]?\s*)?as\s*vezes\s*$/, v: 50 },
+    { re: /^\s*(?:r[:\-]?\s*)?algumas\s*vezes\s*$/, v: 50 },
+    { re: /^\s*(?:r[:\-]?\s*)?eventualmente\s*$/, v: 50 },
+    { re: /^\s*(?:r[:\-]?\s*)?moderadamente\s*$/, v: 50 },
+    { re: /^\s*(?:r[:\-]?\s*)?frequentemente\s*$/, v: 75 },
+    { re: /^\s*(?:r[:\-]?\s*)?com\s*frequencia\s*$/, v: 75 },
+    { re: /^\s*(?:r[:\-]?\s*)?muit[oa]s?\s*vezes\s*$/, v: 75 },
+    { re: /^\s*(?:r[:\-]?\s*)?quase\s*sempre\s*$/, v: 75 },
+    { re: /^\s*(?:r[:\-]?\s*)?sempre\s*$/, v: 100 },
+    { re: /^\s*(?:r[:\-]?\s*)?totalmente\s*$/, v: 100 },
+    { re: /^\s*(?:r[:\-]?\s*)?plenamente\s*$/, v: 100 },
+  ];
+  for (const { re, v } of RESP) if (re.test(t)) return v;
+
+  // Também aceita padrão inline "resposta: nunca"
+  const mInline = t.match(/(?:^|\s)(?:resposta|r)\s*[:\-]\s*(nunca|jamais|raramente|quase\s*nunca|pouc[oa]s?\s*vezes|as\s*vezes|algumas\s*vezes|eventualmente|moderadamente|frequentemente|com\s*frequencia|muit[oa]s?\s*vezes|quase\s*sempre|sempre|totalmente|plenamente)\b/);
+  if (mInline) return detectResposta(mInline[1]);
+
+  // Números isolados
+  const mNum = t.match(/^\s*(\d{1,3})\s*$/);
+  if (mNum) {
+    const n = parseInt(mNum[1], 10);
     if (n >= 0 && n <= 4) return n * 25;
     if (n >= 0 && n <= 100) return Math.round(n / 25) * 25;
   }
   return null;
 }
 
+/** Extrai resposta escrita ao final de uma pergunta (ex.: "…muito rápido? Frequentemente"). */
+function detectRespostaInline(linhaOriginal: string): number | null {
+  const t = normalize(linhaOriginal);
+  const m = t.match(/\b(nunca|jamais|raramente|quase\s*nunca|pouc[oa]s?\s*vezes|as\s*vezes|algumas\s*vezes|eventualmente|moderadamente|frequentemente|com\s*frequencia|muit[oa]s?\s*vezes|quase\s*sempre|sempre|totalmente|plenamente)\s*$/);
+  if (m) return detectResposta(m[1]);
+  return null;
+}
+
 /** Detecta linha do tipo "Função: X" / "Cargo - X" / "Setor / Função ..." */
 function detectFuncao(linha: string): string | null {
-  const m = linha.match(/^\s*(?:funcao|função|cargo|posto|colaborador\s*funcao)\s*[:\-–]\s*(.+)$/i);
+  const m = linha.match(/^\s*(?:funcao|função|cargo|posto|colaborador\s*funcao|colaborador)\s*[:\-–=]\s*(.+)$/i);
   if (m) return m[1].trim().replace(/[.;]+$/, "");
   return null;
 }
 
 /* ─────────── Motor de parsing ─────────── */
 
-type PerguntaCopsoq = { blocoKey: string; perguntaIdx: number; texto: string };
+type PerguntaCopsoq = { blocoKey: string; perguntaIdx: number; texto: string; trigs: Set<string> };
 
 const TODAS_PERGUNTAS: PerguntaCopsoq[] = BLOCOS_COPSOQ.flatMap((b) =>
-  b.perguntas.map((p, i) => ({ blocoKey: b.key, perguntaIdx: i, texto: p })),
+  b.perguntas.map((p, i) => ({
+    blocoKey: b.key,
+    perguntaIdx: i,
+    texto: p,
+    trigs: trigrams(p),
+  })),
 );
 
+/** Melhor pergunta COPSOQ para uma linha (candidata) — retorna null se score muito baixo. */
 function melhorPergunta(linha: string): { p: PerguntaCopsoq; score: number } | null {
+  const linhaTri = trigrams(linha);
   let best: { p: PerguntaCopsoq; score: number } | null = null;
   for (const p of TODAS_PERGUNTAS) {
-    const s = similarity(linha, p.texto);
+    const j = jaccardTokens(linha, p.texto);
+    const d = dice(linhaTri, p.trigs);
+    const s = j * 0.6 + d * 0.4;
     if (!best || s > best.score) best = { p, score: s };
   }
   return best;
@@ -108,17 +167,28 @@ export type ParseResult = {
   avisos: string[];
 };
 
+/**
+ * Parser tolerante:
+ *  1. Normaliza tudo (case, acentos, tabs, pontuação, marcadores).
+ *  2. Detecta blocos por "Função:" (opcional).
+ *  3. Junta linhas contíguas de pergunta (não-vazias, sem resposta detectada)
+ *     até formar uma pergunta reconhecível pelo COPSOQ.
+ *  4. Para cada pergunta reconhecida, procura a próxima resposta válida
+ *     (mesma linha ao final, próxima linha, ou próximas ignorando vazias),
+ *     interrompendo se encontrar nova pergunta reconhecível.
+ */
 function parseTexto(texto: string, funcaoPadrao?: string): ParseResult {
-  const linhas = texto
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+  // Limpeza inicial: remove tabs, normaliza CRLF, remove BOM
+  const bruto = String(texto || "").replace(/\uFEFF/g, "").replace(/\t+/g, " ");
+  const linhasBrutas = bruto.split(/\r?\n/).map((l) => l.replace(/\s+$/g, ""));
 
-  const grupos: { funcao: string; linhas: string[] }[] = [];
-  let atual: { funcao: string; linhas: string[] } | null = null;
-
-  for (const l of linhas) {
-    const f = detectFuncao(l);
+  // Agrupa por função
+  type Grupo = { funcao: string; linhas: string[] };
+  const grupos: Grupo[] = [];
+  let atual: Grupo | null = null;
+  for (const l of linhasBrutas) {
+    const trimmed = l.trim();
+    const f = detectFuncao(trimmed);
     if (f) {
       atual = { funcao: f, linhas: [] };
       grupos.push(atual);
@@ -136,46 +206,118 @@ function parseTexto(texto: string, funcaoPadrao?: string): ParseResult {
   let mapeadas = 0;
   let ignoradas = 0;
 
+  const SCORE_MIN = 0.22;         // limiar fuzzy p/ aceitar como pergunta COPSOQ
+  const SCORE_MIN_FORTE = 0.4;    // se ≥ este limiar, aceita imediatamente (encerra concatenação)
+
   for (const g of grupos) {
     const av = emptyPsicossocial();
     av.funcao = g.funcao;
     av.data_avaliacao = new Date().toISOString().slice(0, 10);
 
-    // Percorre linhas do grupo. Modelo: pergunta na linha N, resposta na linha N (após "?" ou ":") ou N+1.
-    for (let i = 0; i < g.linhas.length; i++) {
-      const linha = g.linhas[i];
+    const linhas = g.linhas;
+    let i = 0;
+    let bufferPergunta = "";
+    let bufferPeek: { p: PerguntaCopsoq; score: number } | null = null;
 
-      // Tenta separar "Pergunta? Resposta" na mesma linha
-      let perguntaTxt = linha;
-      let respostaTxt = "";
-      const splitInline = linha.match(/^(.*?[?:\-–])\s*(.+)$/);
-      if (splitInline) {
-        perguntaTxt = splitInline[1];
-        respostaTxt = splitInline[2];
-      }
-
-      const best = melhorPergunta(perguntaTxt);
-      if (!best || best.score < 0.25) continue;
-
-      // Resposta: 1) inline; 2) próxima linha; 3) linha seguinte que contenha escala
-      let valor: number | null = respostaTxt ? detectResposta(respostaTxt) : null;
-      if (valor == null && i + 1 < g.linhas.length) {
-        valor = detectResposta(g.linhas[i + 1]);
-        if (valor != null) i++; // consome próxima linha
-      }
-      if (valor == null) {
+    const flushComResposta = (valor: number) => {
+      if (!bufferPeek) return;
+      const arr = [...(av.respostas[bufferPeek.p.blocoKey] || [])];
+      arr[bufferPeek.p.perguntaIdx] = valor;
+      av.respostas[bufferPeek.p.blocoKey] = arr;
+      mapeadas++;
+      bufferPergunta = "";
+      bufferPeek = null;
+    };
+    const descartarBuffer = (motivo: string) => {
+      if (bufferPeek) {
         ignoradas++;
-        avisos.push(`Sem resposta detectada para: "${best.p.texto}" (função ${g.funcao}).`);
+        avisos.push(`Sem resposta detectada para: "${bufferPeek.p.texto}" (função ${g.funcao}) — ${motivo}.`);
+      }
+      bufferPergunta = "";
+      bufferPeek = null;
+    };
+
+    while (i < linhas.length) {
+      const linha = linhas[i];
+      const trimmed = linha.trim();
+
+      if (!trimmed) { i++; continue; }
+
+      // Se a linha é apenas uma resposta e temos pergunta em buffer, associa.
+      const respIsolada = detectResposta(trimmed);
+      if (respIsolada != null && bufferPeek) {
+        flushComResposta(respIsolada);
+        i++;
+        continue;
+      }
+      if (respIsolada != null && !bufferPeek) {
+        // resposta órfã — ignora silenciosamente
+        i++;
         continue;
       }
 
-      const arr = [...(av.respostas[best.p.blocoKey] || [])];
-      arr[best.p.perguntaIdx] = valor;
-      av.respostas[best.p.blocoKey] = arr;
-      mapeadas++;
-    }
+      // Tenta resposta inline no final da própria linha ("...trabalho? Frequentemente")
+      const inline = detectRespostaInline(trimmed);
 
-    // Só considera a avaliação se tiver pelo menos 1 resposta mapeada
+      // Concatena ao buffer de pergunta corrente
+      const candidato = (bufferPergunta ? bufferPergunta + " " : "") + trimmed
+        .replace(/\?\s*(nunca|jamais|raramente|quase\s*nunca|pouc[oa]s?\s*vezes|as\s*vezes|algumas\s*vezes|eventualmente|moderadamente|frequentemente|com\s*frequencia|muit[oa]s?\s*vezes|quase\s*sempre|sempre|totalmente|plenamente)\s*$/i, "?");
+
+      const best = melhorPergunta(candidato);
+
+      // Se buffer já casava com pergunta forte e a nova linha piora — assume nova pergunta.
+      if (bufferPeek && best && best.score < bufferPeek.score * 0.85 && bufferPeek.score >= SCORE_MIN) {
+        // A linha atual parece novo bloco. Descarta buffer antigo sem resposta.
+        descartarBuffer("nova pergunta iniciou antes da resposta");
+        // Reprocessa a linha atual como novo início
+        bufferPergunta = trimmed;
+        const b2 = melhorPergunta(trimmed);
+        bufferPeek = b2 && b2.score >= SCORE_MIN ? b2 : null;
+        if (inline != null && bufferPeek) flushComResposta(inline);
+        i++;
+        continue;
+      }
+
+      bufferPergunta = candidato;
+      bufferPeek = best && best.score >= SCORE_MIN ? best : null;
+
+      if (inline != null && bufferPeek) {
+        flushComResposta(inline);
+        i++;
+        continue;
+      }
+
+      // Se o casamento é forte, procura a resposta nas próximas linhas não-vazias.
+      if (bufferPeek && bufferPeek.score >= SCORE_MIN_FORTE) {
+        let j = i + 1;
+        let achou = false;
+        while (j < linhas.length) {
+          const t2 = linhas[j].trim();
+          if (!t2) { j++; continue; }
+          const r = detectResposta(t2);
+          if (r != null) {
+            flushComResposta(r);
+            i = j + 1;
+            achou = true;
+            break;
+          }
+          // Se próxima linha também casa forte com outra pergunta, encerra sem resposta.
+          const bb = melhorPergunta(t2);
+          if (bb && bb.score >= SCORE_MIN_FORTE) {
+            descartarBuffer("resposta ausente entre duas perguntas");
+            break; // deixa o while externo reprocessar linha j
+          }
+          // Senão, pode ser continuação da pergunta seguinte ou lixo — para busca.
+          break;
+        }
+        if (achou) continue;
+      }
+
+      i++;
+    }
+    // Buffer residual sem resposta
+    descartarBuffer("fim do bloco alcançado");
+
     const totalRespondidas = Object.values(av.respostas).reduce(
       (acc, arr) => acc + arr.filter((v) => v >= 0).length,
       0,
