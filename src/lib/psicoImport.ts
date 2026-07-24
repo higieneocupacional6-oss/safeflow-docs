@@ -345,18 +345,30 @@ function extrairRespostaParaSegmento(segmentos: string[], idx: number): number |
 export async function importarArquivoPsicossocial(file: File, options?: ImportOptions): Promise<ImportResultado> {
   const nome = file.name.toLowerCase();
   if (nome.endsWith(".pdf")) return importarPdf(file, options);
-  if (nome.endsWith(".xlsx") || nome.endsWith(".xls")) return importarPlanilha(file, options);
-  throw new Error("Formato de arquivo não suportado. Use .xlsx, .xls ou .pdf.");
+  if (nome.endsWith(".xlsx") || nome.endsWith(".xls") || nome.endsWith(".csv")) return importarPlanilha(file, options);
+  throw new Error("Formato de arquivo não suportado. Use .xlsx, .xls, .csv ou .pdf.");
 }
 
 async function importarPlanilha(file: File, options?: ImportOptions): Promise<ImportResultado> {
-  const buf = await file.arrayBuffer();
-  const wb = XLSX.read(buf, { type: "array" });
+  const nome = file.name.toLowerCase();
+  let wb: XLSX.WorkBook;
+  if (nome.endsWith(".csv")) {
+    // Leitura CSV com autodetecção de separador (vírgula, ponto e vírgula ou tabulação)
+    // e suporte a acentuação (UTF-8 / Latin-1).
+    let txt = await file.text();
+    // Remove BOM
+    if (txt.charCodeAt(0) === 0xfeff) txt = txt.slice(1);
+    wb = XLSX.read(txt, { type: "string", raw: false });
+  } else {
+    const buf = await file.arrayBuffer();
+    wb = XLSX.read(buf, { type: "array" });
+  }
   const sheetName = wb.SheetNames[0];
   if (!sheetName) throw new Error("Planilha vazia.");
   const sheet = wb.Sheets[sheetName];
   const linhas: any[][] = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "", raw: true });
   if (linhas.length < 2) throw new Error("Planilha sem dados suficientes.");
+
 
   let headerIdx = 0;
   let melhor = 0;
