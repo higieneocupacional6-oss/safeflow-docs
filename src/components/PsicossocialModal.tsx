@@ -262,6 +262,7 @@ export function PsicossocialModal({
   onChange,
   relatorioContext,
   funcoesSetor,
+  asPage = false,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -271,6 +272,8 @@ export function PsicossocialModal({
   relatorioContext?: import("@/lib/copsoqRelatorio").RelatorioContext;
   /** Funções selecionadas no setor da AET, usadas para validar PDFs importados. */
   funcoesSetor?: { id?: string; nome: string }[];
+  /** Renderiza o conteúdo como página (sem Dialog) — usado pela rota dedicada. */
+  asPage?: boolean;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
