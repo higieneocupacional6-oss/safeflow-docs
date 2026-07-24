@@ -272,7 +272,7 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
   const protecoes = identificarFatoresProtecao(avs);
   const partes: string[] = [];
   partes.push(
-    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação anonimizada de ${avs.length} questionário(s) COPSOQ, ` +
+    `O setor ${ctx.setor_nome || ""} apresentou, na consolidação anonimizada dos questionários COPSOQ aplicados, ` +
     `nível geral de risco psicossocial classificado como ${ng.classificacao} (média ${ng.media}/100).`,
   );
   if (principais.length) partes.push(`Principais fatores de risco identificados: ${principais.join("; ")}.`);
