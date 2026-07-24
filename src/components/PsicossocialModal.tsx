@@ -595,28 +595,59 @@ export function PsicossocialModal({
           </Card>
         </div>
 
-        <FooterWrapper>
-          {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
-            <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
-              <AlertTriangle className="w-3.5 h-3.5" />
-              Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
-            </p>
-          )}
-          <Button
-            variant="outline"
-            onClick={handleRelatorio}
-            disabled={
-              avaliacoes.length === 0 ||
-              avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
-            }
-          >
-            <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
-          </Button>
-          <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Save className="w-4 h-4 mr-2" />Salvar
-          </Button>
-        </FooterWrapper>
-    </Wrapper>
+      {asPage ? (
+        <div className="flex gap-2 flex-wrap items-center pt-4 border-t border-border sticky bottom-0 bg-background/95 backdrop-blur py-3 z-10">
+          {footerContent}
+        </div>
+      ) : (
+        <DialogFooter className="gap-2 flex-wrap items-center">{footerContent}</DialogFooter>
+      )}
+    </>
+  );
+
+  const footerContent = (
+    <>
+      {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
+        <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
+          <AlertTriangle className="w-3.5 h-3.5" />
+          Existem avaliações incompletas — finalize-as para liberar a geração do relatório consolidado.
+        </p>
+      )}
+      <Button
+        variant="outline"
+        onClick={handleRelatorio}
+        disabled={
+          avaliacoes.length === 0 ||
+          avaliacoes.some((a) => !avaliacaoCompleta(a.respostas))
+        }
+      >
+        <FileDown className="w-4 h-4 mr-2" />Gerar Relatório Psicossocial Consolidado
+      </Button>
+      <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
+        <Save className="w-4 h-4 mr-2" />Salvar
+      </Button>
+    </>
+  );
+
+  if (asPage) {
+    return (
+      <div className="max-w-5xl mx-auto space-y-4">
+        <Card className="p-4">{header}</Card>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle asChild>{header}</DialogTitle>
+        </DialogHeader>
+        {body}
+      </DialogContent>
+    </Dialog>
   );
 }
+
 
