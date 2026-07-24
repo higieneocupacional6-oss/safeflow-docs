@@ -264,6 +264,7 @@ export function PsicossocialModal({
   funcoesSetor,
   asPage = false,
   onRefreshFromDb,
+  aetSalvo = true,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
@@ -282,6 +283,10 @@ export function PsicossocialModal({
    * lista, ignorando qualquer resultado previamente calculado em memória.
    */
   onRefreshFromDb?: () => Promise<AvaliacaoPsicossocial[]>;
+  /** Indica se a AET/AEP deste setor já está salva. Sem AET salva o botão de
+   *  gerar relatório fica bloqueado (as informações ergonômicas alimentam a
+   *  personalização da análise psicossocial). */
+  aetSalvo?: boolean;
 }) {
   const [editingIdx, setEditingIdx] = useState<number | null>(null);
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
