@@ -55,7 +55,7 @@ export async function salvarAvaliacaoEGerarPdf(
       nivel_acao: av.resultado.nivel_acao,
       recomendacoes: av.resultado.recomendacoes,
       pdf_path: pdfPath,
-      aet_documento_id: opts.aetDocumentoId ?? null,
+      aet_documento_id: aetDocumentoId,
       setor_ref: opts.setorRef ?? null,
     })
     .select("id, pdf_path")
