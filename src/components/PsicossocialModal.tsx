@@ -620,7 +620,7 @@ export function PsicossocialModal({
           </Card>
         </div>
 
-        <DialogFooter className="gap-2 flex-wrap items-center">
+        <FooterWrapper>
           {avaliacoes.some((a) => !avaliacaoCompleta(a.respostas)) && (
             <p className="text-xs text-amber-700 flex items-center gap-1 mr-auto">
               <AlertTriangle className="w-3.5 h-3.5" />
@@ -640,9 +640,8 @@ export function PsicossocialModal({
           <Button onClick={handleSave} className="bg-accent text-accent-foreground hover:bg-accent/90">
             <Save className="w-4 h-4 mr-2" />Salvar
           </Button>
-        </DialogFooter>
-
-      </DialogContent>
-    </Dialog>
+        </FooterWrapper>
+    </Wrapper>
   );
 }
+
