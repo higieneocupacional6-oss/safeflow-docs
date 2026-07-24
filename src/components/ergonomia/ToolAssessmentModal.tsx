@@ -95,6 +95,10 @@ export function ToolAssessmentModal({
   }, [tool, rula, reba, niosh, owas]);
 
   const handleSubmit = async () => {
+    if (!aetDocumentoId) {
+      toast.error("Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.");
+      return;
+    }
     if (!colaborador.trim()) { toast.error("Informe o colaborador avaliado"); return; }
     if (!resultado) { toast.error("Não foi possível calcular a avaliação"); return; }
     setLoading(true);
@@ -447,11 +451,17 @@ export function ToolAssessmentModal({
               <p className="text-xs text-muted-foreground">{resultado.nivel_acao}</p>
             </div>
           )}
+
+          {!aetDocumentoId && (
+            <div className="rounded-lg border border-amber-400 bg-amber-50 text-amber-900 p-3 text-sm">
+              Salve primeiro a AET deste setor antes de registrar avaliações ergonômicas.
+            </div>
+          )}
         </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={loading}>Cancelar</Button>
-          <Button onClick={handleSubmit} disabled={loading}>
+          <Button onClick={handleSubmit} disabled={loading || !aetDocumentoId}>
             {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />}
             Concluir avaliação e gerar PDF
           </Button>
