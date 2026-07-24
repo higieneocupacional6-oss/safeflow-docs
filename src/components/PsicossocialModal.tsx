@@ -379,7 +379,7 @@ export function PsicossocialModal({
   };
 
 
-  const Header = (
+  const header = (
     <div className="font-heading flex items-center justify-between gap-2 flex-wrap">
       <span className="text-lg font-semibold">Avaliação Psicossocial (COPSOQ)</span>
       <div className="flex items-center gap-2">
@@ -395,34 +395,9 @@ export function PsicossocialModal({
     </div>
   );
 
-  const Wrapper = asPage
-    ? ({ children }: { children: React.ReactNode }) => (
-        <div className="max-w-5xl mx-auto space-y-4">
-          <Card className="p-4">{Header}</Card>
-          {children}
-        </div>
-      )
-    : ({ children }: { children: React.ReactNode }) => (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-          <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle asChild>{Header}</DialogTitle>
-            </DialogHeader>
-            {children}
-          </DialogContent>
-        </Dialog>
-      );
+  const body = (
+    <>
 
-  const FooterWrapper = asPage
-    ? ({ children }: { children: React.ReactNode }) => (
-        <div className="flex gap-2 flex-wrap items-center pt-4 border-t border-border sticky bottom-0 bg-background/95 backdrop-blur py-3 z-10">
-          {children}
-        </div>
-      )
-    : ({ children }: { children: React.ReactNode }) => <DialogFooter className="gap-2 flex-wrap items-center">{children}</DialogFooter>;
-
-  return (
-    <Wrapper>
 
 
         <PsicossocialTextInputModal
