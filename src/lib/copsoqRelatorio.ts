@@ -754,7 +754,7 @@ export function gerarRelatorioCopsoqPDF(
   );
   y = paragraph(
     doc, y,
-    "A consolidação das respostas foi realizada de forma estatística e anônima, agrupando-se os resultados por dimensão psicossocial. Para cada bloco do questionário, calculou-se a média ponderada das pontuações atribuídas pelos respondentes, normalizadas em uma escala contínua de 0 a 100, permitindo a comparação objetiva entre fatores e a identificação dos pontos críticos do ambiente organizacional."
+    "A consolidação das respostas foi realizada de forma estatística e anônima, agrupando-se os resultados por dimensão psicossocial. Para cada bloco do questionário, calculou-se a média ponderada das pontuações registradas, normalizadas em uma escala contínua de 0 a 100, permitindo a comparação objetiva entre fatores e a identificação dos pontos críticos do ambiente organizacional."
   );
   y = paragraph(
     doc, y,
