@@ -1255,22 +1255,42 @@ export function gerarRelatorioCopsoqPDF(
   // Principais atividades — dinâmico por função (usa descrições do cadastro)
   const funcoesCtx = ctx.funcoes || [];
   const descsCtx = ctx.atividades_funcoes || [];
-  const blocosAtiv: string[] = [];
-  funcoesCtx.forEach((f, i) => {
-    const d = (descsCtx[i] || "").trim();
-    if (d && d.length >= 5) {
-      blocosAtiv.push(`▸ ${f}: ${d.replace(/\s+/g, " ")}`);
-    }
-  });
-  if (!blocosAtiv.length && (ctx.atividades || "").trim()) {
-    blocosAtiv.push(String(ctx.atividades).trim());
+  // Principais atividades — apenas 3 tópicos comuns, curtos e padronizados
+  const descsUnidas = (ctx.atividades_funcoes || [])
+    .map((s) => (s || "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const baseTexto = descsUnidas + " " + (ctx.atividades || "").toLowerCase() + " " + (ctx.descricao_ambiente || "").toLowerCase();
+  const candidatos: Array<{ re: RegExp; frase: string }> = [
+    { re: /atend|clien|p[úu]blic|paci|contato/, frase: "Atendimento e interação com público, clientes ou usuários." },
+    { re: /operac|equipament|m[áa]quin|ferrament/, frase: "Operação de equipamentos, ferramentas ou sistemas do processo." },
+    { re: /document|registro|relat|sistema|dados|inform/, frase: "Registro de informações, preenchimento de documentos e uso de sistemas." },
+    { re: /carreg|levant|manuse|transporte de|carga|peso/, frase: "Manuseio, movimentação ou transporte de materiais." },
+    { re: /desloca|percurso|extern|campo|obra/, frase: "Deslocamentos internos ou externos durante a jornada." },
+    { re: /superv|coordena|planejam|controle|decis|responsabil/, frase: "Supervisão, coordenação e tomada de decisão em tarefas rotineiras." },
+    { re: /limpeza|higien|organiza[çc][ãa]o do posto/, frase: "Organização, limpeza e conservação do posto de trabalho." },
+    { re: /norma|procedimento|conformidade|auditor/, frase: "Cumprimento de procedimentos operacionais e normas internas." },
+  ];
+  const tresComuns: string[] = [];
+  for (const c of candidatos) {
+    if (tresComuns.length >= 3) break;
+    if (c.re.test(baseTexto)) tresComuns.push(c.frase);
   }
-  if (!blocosAtiv.length && (ctx.descricao_ambiente || "").trim()) {
-    blocosAtiv.push(String(ctx.descricao_ambiente).trim());
+  while (tresComuns.length < 3) {
+    const genericos = [
+      "Execução das tarefas rotineiras previstas para a função.",
+      "Interação com colegas e liderança imediata ao longo da jornada.",
+      "Cumprimento de metas, prazos e rotinas operacionais estabelecidas.",
+    ];
+    const prox = genericos.find((g) => !tresComuns.includes(g));
+    if (!prox) break;
+    tresComuns.push(prox);
   }
-  if (blocosAtiv.length) {
-    carac.push(["Principais atividades", blocosAtiv.join("\n\n")]);
+  if (tresComuns.length) {
+    carac.push(["Principais atividades (comuns)", tresComuns.map((t) => `• ${t}`).join("\n")]);
   }
+
 
   if (carac.length) {
     autoTable(doc, {
