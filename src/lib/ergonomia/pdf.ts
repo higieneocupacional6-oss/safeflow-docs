@@ -156,23 +156,30 @@ export function gerarPdfErgonomia(av: AvaliacaoErgonomica): Blob {
   doc.setTextColor(0, 0, 0);
   y = 30;
 
-  // Identificação
+  // Identificação — inclui Colaborador e Atividade apenas quando preenchidos
   doc.setFont("helvetica", "bold"); doc.setFontSize(11);
   doc.text("Identificação", 10, y); y += 2;
+  const idBody: Row[] = [];
+  if (av.cabecalho.colaborador_nome && av.cabecalho.colaborador_nome.trim()) {
+    idBody.push(["Colaborador", av.cabecalho.colaborador_nome.trim()]);
+  }
+  idBody.push(["Função", av.cabecalho.funcao || "-"]);
+  idBody.push(["Empresa", av.cabecalho.empresa_nome || "-"]);
+  idBody.push(["Setor", av.cabecalho.setor_nome || "-"]);
+  idBody.push(["Data da avaliação", fmtDate(av.cabecalho.data_avaliacao)]);
+  if (av.atividade && av.atividade.trim()) {
+    idBody.push(["Atividade avaliada", av.atividade.trim()]);
+  }
   autoTable(doc, {
     startY: y + 2,
     theme: "grid",
-    styles: { fontSize: 9, cellPadding: 2 },
+    styles: { fontSize: 9, cellPadding: 2, overflow: "linebreak" },
     head: [["Campo", "Valor"]],
     headStyles: { fillColor: [30, 58, 138] },
-    body: [
-      ["Colaborador", av.cabecalho.colaborador_nome || "-"],
-      ["Função", av.cabecalho.funcao || "-"],
-      ["Empresa", av.cabecalho.empresa_nome || "-"],
-      ["Setor", av.cabecalho.setor_nome || "-"],
-      ["Data da avaliação", fmtDate(av.cabecalho.data_avaliacao)],
-    ],
+    columnStyles: { 0: { fontStyle: "bold", cellWidth: 45 }, 1: { cellWidth: 145 } },
+    body: idBody,
   });
+
   y = (doc as any).lastAutoTable.finalY + 6;
 
   // Parâmetros avaliados (respostas legíveis)
