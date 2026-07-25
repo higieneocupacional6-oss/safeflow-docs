@@ -1531,7 +1531,7 @@ export default function AetWizard() {
         </Card>
 
         {/* Avaliações Antropométricas / Dimensionais */}
-        <Card className="p-5 mb-4">
+        <Card className={`p-5 mb-4 ${highlightMissing && !Object.values(setor.avaliacoes_dimensionais || {}).some((d: any) => (d?.medida && String(d.medida).trim()) || (d?.avaliacao && String(d.avaliacao).trim())) ? "border-destructive border-2" : ""}`}>
           <h2 className="font-heading font-semibold mb-1">Avaliações Antropométricas / Dimensionais</h2>
           <p className="text-xs text-muted-foreground mb-3">Registre a medida real e a avaliação (Adequado / Inadequado / Observações)</p>
           <div className="space-y-2">
