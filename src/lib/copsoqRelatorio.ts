@@ -1431,7 +1431,7 @@ export function gerarRelatorioCopsoqPDF(
 
 
   // ── 9. Análise técnica
-  y = section(doc, y, "9. Resultados e Análise");
+  y = section(doc, y, "8. Resultados e Análise");
   for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
     y = paragraph(doc, y, p, 10, true, { indent: 5 });
   }
