@@ -1437,7 +1437,7 @@ export function gerarRelatorioCopsoqPDF(
   }
 
   // ── 9.1 Justificativa técnica da classificação
-  y = section(doc, y, "9.1 Justificativa Técnica da Classificação");
+  y = section(doc, y, "8.1 Justificativa Técnica da Classificação");
   y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10. Conclusão
