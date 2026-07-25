@@ -1426,47 +1426,9 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 8. Integração AET × Psicossocial
-  y = section(doc, y, "8. Integração AET × Psicossocial");
-  for (const p of buildIntegracaoAet(avaliacoes, ctx)) {
-    y = paragraph(doc, y, p, 10, true, { indent: 5 });
-  }
+  // (Seção "Integração AET × Psicossocial" removida a pedido do usuário.)
 
-  // Anexo: síntese dos dados ergonômicos considerados
-  const anexoLinhas: [string, string][] = [];
-  if (ctx.aet_ritmo_complexidade) anexoLinhas.push(["Ritmo e complexidade (AET)", ctx.aet_ritmo_complexidade]);
-  if (ctx.aet_jornada_aspectos) anexoLinhas.push(["Aspectos da jornada (AET)", ctx.aet_jornada_aspectos]);
-  if (ctx.aet_analise_organizacional) anexoLinhas.push(["Análise organizacional (AET)", ctx.aet_analise_organizacional]);
-  if (ctx.aet_tarefas) anexoLinhas.push(["Tarefas descritas (AET)", ctx.aet_tarefas]);
-  if (ctx.aet_caracterizacao_biomecanica) anexoLinhas.push(["Caracterização biomecânica (AET)", ctx.aet_caracterizacao_biomecanica]);
-  if (ctx.aet_riscos_observados) anexoLinhas.push(["Riscos observados (AET)", ctx.aet_riscos_observados]);
-  if (ctx.aet_diagnostico_ergonomico) anexoLinhas.push(["Diagnóstico ergonômico (AET)", ctx.aet_diagnostico_ergonomico]);
-  if (ctx.aet_conclusao) anexoLinhas.push(["Conclusão da AET", ctx.aet_conclusao]);
-  if (ctx.aet_ferramentas && ctx.aet_ferramentas.length) {
-    anexoLinhas.push([
-      "Ferramentas ergonômicas aplicadas",
-      ctx.aet_ferramentas
-        .map((f) => `${f.tipo}: ${f.resultado || "—"}${f.classificacao ? ` (${f.classificacao})` : ""}${f.nivel_acao ? ` — ação: ${f.nivel_acao}` : ""}`)
-        .join("\n"),
-    ]);
-  }
-  if (anexoLinhas.length) {
-    autoTable(doc, {
-      startY: y,
-      head: [["Dado da AET/AEP", "Conteúdo considerado"]],
-      body: anexoLinhas,
-      theme: "grid",
-      styles: { fontSize: 8.5, cellPadding: 2, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-      columnStyles: {
-        0: { cellWidth: 55, fontStyle: "bold", fillColor: [241, 245, 249] },
-        1: { cellWidth: 135 },
-      },
-      tableWidth: 190,
-      margin: { left: 10, right: 10 },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+
 
   // ── 9. Análise técnica
   y = section(doc, y, "9. Resultados e Análise");
