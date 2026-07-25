@@ -386,6 +386,8 @@ export default function AetWizard() {
   const [instrucoesSaving, setInstrucoesSaving] = useState(false);
   const [iaAtivada, setIaAtivada] = useState(false);
   const [iaToggleSaving, setIaToggleSaving] = useState(false);
+  const [confirmOperacionalOpen, setConfirmOperacionalOpen] = useState(false);
+  const [highlightMissing, setHighlightMissing] = useState(false);
 
   // Carrega as instruções personalizadas e o modo IA do usuário (uma vez)
   useEffect(() => {
