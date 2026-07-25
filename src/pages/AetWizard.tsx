@@ -1738,7 +1738,7 @@ export default function AetWizard() {
         </Card>
 
         {/* Avaliações quantitativas */}
-        <Card className="p-5 mb-4">
+        <Card className={`p-5 mb-4 ${highlightMissing && !(setor.avaliacoes_quantitativas || []).some((a: any) => a.ruido_valor || a.iluminancia_valor || a.temperatura_valor || a.especificacao_setor) ? "border-destructive border-2" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-heading font-semibold">Avaliações quantitativas</h2>
             <Button size="sm" variant="outline" onClick={() =>
