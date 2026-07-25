@@ -1441,7 +1441,7 @@ export function gerarRelatorioCopsoqPDF(
   y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10. Conclusão
-  y = section(doc, y, "10. Conclusão Técnica");
+  y = section(doc, y, "9. Conclusão Técnica");
   y = paragraph(doc, y, buildConclusao(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10.1 Recomendações por área
