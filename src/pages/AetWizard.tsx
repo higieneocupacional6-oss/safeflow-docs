@@ -2123,8 +2123,47 @@ export default function AetWizard() {
           }}
         />
 
+        {/* Modal — Confirmação de atividade operacional */}
+        <Dialog open={confirmOperacionalOpen} onOpenChange={setConfirmOperacionalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Atividade operacional externa?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Não foram registradas avaliações antropométricas/dimensionais nem quantitativas para este setor.
+              Se a atividade é <strong>operacional em ambiente externo</strong> (ex.: campo, obra, deslocamento), esses
+              parâmetros podem não se aplicar. Deseja liberar a geração automática sem esses campos?
+            </p>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfirmOperacionalOpen(false);
+                  setHighlightMissing(true);
+                  toast.error("Preencha as Avaliações Antropométricas / Dimensionais e Quantitativas antes de gerar.");
+                }}
+              >
+                Não — preencher campos
+              </Button>
+              <Button
+                onClick={() => {
+                  if (editingSetorIdx === null) return;
+                  updateSetor(editingSetorIdx, { atividade_operacional: true });
+                  setConfirmOperacionalOpen(false);
+                  setHighlightMissing(false);
+                  setIaObs("");
+                  setIaFiles([]);
+                  setIaMode("substituir");
+                  setIaOpen(true);
+                }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+              >
+                Sim — é operacional
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-        {/* Modal — Gerar AET com IA */}
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
