@@ -1474,7 +1474,7 @@ export function gerarRelatorioCopsoqPDF(
   }
 
   // ── 11. Plano de ação
-  y = section(doc, y, "11. Plano de Ação");
+  y = section(doc, y, "10. Plano de Ação");
   const plano = buildPlanoAcao(avaliacoes);
   if (!plano.length) {
     y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se manutenção das boas práticas e reavaliação periódica.");
