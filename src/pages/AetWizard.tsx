@@ -1277,17 +1277,12 @@ export default function AetWizard() {
               const temQuant = (setor.avaliacoes_quantitativas || []).some((a: any) =>
                 a.ruido_valor || a.iluminancia_valor || a.temperatura_valor || a.especificacao_setor,
               );
-              // Novo: se AMBOS antropométrico e quantitativo estão vazios, pergunta se é operacional
-              if (!temDim && !temQuant) {
-                if (setor.atividade_operacional !== true) {
-                  setConfirmOperacionalOpen(true);
-                  return;
-                }
-                // já confirmado como operacional — libera sem exigir esses campos
-              } else {
-                if (!temDim) faltantes.push("Avaliações Antropométricas / Dimensionais");
-                if (!temQuant) faltantes.push("Avaliações Quantitativas");
+              // Se antropométrico OU quantitativo estão vazios, pergunta se é atividade operacional externa
+              if ((!temDim || !temQuant) && setor.atividade_operacional !== true) {
+                setConfirmOperacionalOpen(true);
+                return;
               }
+              // se não confirmado como operacional e ambos preenchidos, segue normal
               if (faltantes.length > 0) {
                 toast.error("Preencha antes de gerar: " + faltantes.join(", "));
                 return;
