@@ -1445,7 +1445,7 @@ export function gerarRelatorioCopsoqPDF(
   y = paragraph(doc, y, buildConclusao(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10.1 Recomendações por área
-  y = section(doc, y, "10.1 Recomendações por Área de Atuação");
+  y = section(doc, y, "9.1 Recomendações por Área de Atuação");
   const recArea = buildRecomendacoesPorArea(avaliacoes);
   const areas: [string, string[]][] = [
     ["Organizacional", recArea.organizacional],
