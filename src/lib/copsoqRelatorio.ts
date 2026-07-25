@@ -1112,7 +1112,7 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 1.1 Funções Avaliadas — texto técnico (GES, relação e contexto operacional)
+  // ── 1.1 Funções Avaliadas — lista objetiva + ramo predominante
   {
     const mapa = new Map<string, string>();
     for (const a of avaliacoes) {
@@ -1128,29 +1128,19 @@ export function gerarRelatorioCopsoqPDF(
 
     if (funcoesAvaliadas.length) {
       y = section(doc, y, "1.1 Funções Avaliadas");
-      const gesTxt = ctx.ges
-        ? `pertencentes ao GHE/GES ${ctx.ges}`
-        : `pertencentes ao mesmo grupo homogêneo de exposição`;
-      const setorTxt = ctx.setor_nome ? ` no setor ${ctx.setor_nome}` : "";
       const listaTxt = funcoesAvaliadas.join(", ");
-      const atv = (ctx.atividades || ctx.descricao_ambiente || "").trim().replace(/\s+/g, " ");
-      const atvSintese = atv
-        ? ` A atividade predominante desempenhada pelo grupo consiste em ${atv.slice(0, 240)}${atv.length > 240 ? "…" : ""}.`
-        : "";
-      const contextoOp: string[] = [];
-      if (ctx.jornada_trabalho) contextoOp.push(`jornada ${ctx.jornada_trabalho}`);
-      if (ctx.escala) contextoOp.push(`escala ${ctx.escala}`);
-      if (ctx.supervisao) contextoOp.push(`supervisão ${ctx.supervisao}`);
-      const ctxTxt = contextoOp.length
-        ? ` O contexto operacional comum entre as funções caracteriza-se por ${contextoOp.join(", ")}, o que reforça a pertinência da análise consolidada.`
-        : "";
+      const ramo = inferirRamoAtividade(ctx);
+      const gesTxt = ctx.ges ? ` (GHE/GES ${ctx.ges})` : "";
+      const setorTxt = ctx.setor_nome ? ` do setor ${ctx.setor_nome}${gesTxt}` : gesTxt;
       const txt =
-        `As funções avaliadas neste relatório — ${listaTxt} — são ${gesTxt}${setorTxt} e apresentam relação técnica e operacional entre si, ` +
-        `compartilhando exposição a fatores psicossociais equivalentes, o que justifica sua análise consolidada sob a metodologia COPSOQ.` +
-        atvSintese + ctxTxt;
+        `Foram avaliadas as seguintes funções${setorTxt}: ${listaTxt}. ` +
+        `As funções possuem atividades em comum e compartilham exposição a fatores psicossociais equivalentes, ` +
+        `o que fundamenta a análise consolidada sob a metodologia COPSOQ. ` +
+        `Ramo de atividade predominante da empresa: ${ramo}.`;
       y = paragraph(doc, y, txt, 10, true, { indent: 5 });
     }
   }
+
 
   // ── 2. Resumo executivo
   y = section(doc, y, "2. Resumo Executivo");
