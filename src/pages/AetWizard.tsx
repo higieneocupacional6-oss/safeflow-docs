@@ -102,6 +102,7 @@ type SetorAet = {
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
   resultado_psicossocial_texto: string;
+  atividade_operacional?: boolean;
   _salvo?: boolean;
 };
 
@@ -385,6 +386,8 @@ export default function AetWizard() {
   const [instrucoesSaving, setInstrucoesSaving] = useState(false);
   const [iaAtivada, setIaAtivada] = useState(false);
   const [iaToggleSaving, setIaToggleSaving] = useState(false);
+  const [confirmOperacionalOpen, setConfirmOperacionalOpen] = useState(false);
+  const [highlightMissing, setHighlightMissing] = useState(false);
 
   // Carrega as instruções personalizadas e o modo IA do usuário (uma vez)
   useEffect(() => {
@@ -1271,15 +1274,25 @@ export default function AetWizard() {
               const temDim = Object.values(setor.avaliacoes_dimensionais || {}).some(
                 (d: any) => (d?.medida && String(d.medida).trim()) || (d?.avaliacao && String(d.avaliacao).trim()),
               );
-              if (!temDim) faltantes.push("Avaliações Antropométricas / Dimensionais");
               const temQuant = (setor.avaliacoes_quantitativas || []).some((a: any) =>
                 a.ruido_valor || a.iluminancia_valor || a.temperatura_valor || a.especificacao_setor,
               );
-              if (!temQuant) faltantes.push("Avaliações Quantitativas");
+              // Novo: se AMBOS antropométrico e quantitativo estão vazios, pergunta se é operacional
+              if (!temDim && !temQuant) {
+                if (setor.atividade_operacional !== true) {
+                  setConfirmOperacionalOpen(true);
+                  return;
+                }
+                // já confirmado como operacional — libera sem exigir esses campos
+              } else {
+                if (!temDim) faltantes.push("Avaliações Antropométricas / Dimensionais");
+                if (!temQuant) faltantes.push("Avaliações Quantitativas");
+              }
               if (faltantes.length > 0) {
                 toast.error("Preencha antes de gerar: " + faltantes.join(", "));
                 return;
               }
+              setHighlightMissing(false);
               setIaObs("");
               setIaFiles([]);
               setIaMode("substituir");
@@ -1518,7 +1531,7 @@ export default function AetWizard() {
         </Card>
 
         {/* Avaliações Antropométricas / Dimensionais */}
-        <Card className="p-5 mb-4">
+        <Card className={`p-5 mb-4 ${highlightMissing && !Object.values(setor.avaliacoes_dimensionais || {}).some((d: any) => (d?.medida && String(d.medida).trim()) || (d?.avaliacao && String(d.avaliacao).trim())) ? "border-destructive border-2" : ""}`}>
           <h2 className="font-heading font-semibold mb-1">Avaliações Antropométricas / Dimensionais</h2>
           <p className="text-xs text-muted-foreground mb-3">Registre a medida real e a avaliação (Adequado / Inadequado / Observações)</p>
           <div className="space-y-2">
@@ -1725,7 +1738,7 @@ export default function AetWizard() {
         </Card>
 
         {/* Avaliações quantitativas */}
-        <Card className="p-5 mb-4">
+        <Card className={`p-5 mb-4 ${highlightMissing && !(setor.avaliacoes_quantitativas || []).some((a: any) => a.ruido_valor || a.iluminancia_valor || a.temperatura_valor || a.especificacao_setor) ? "border-destructive border-2" : ""}`}>
           <div className="flex items-center justify-between mb-3">
             <h2 className="font-heading font-semibold">Avaliações quantitativas</h2>
             <Button size="sm" variant="outline" onClick={() =>
@@ -2110,8 +2123,47 @@ export default function AetWizard() {
           }}
         />
 
+        {/* Modal — Confirmação de atividade operacional */}
+        <Dialog open={confirmOperacionalOpen} onOpenChange={setConfirmOperacionalOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="font-heading">Atividade operacional externa?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Não foram registradas avaliações antropométricas/dimensionais nem quantitativas para este setor.
+              Se a atividade é <strong>operacional em ambiente externo</strong> (ex.: campo, obra, deslocamento), esses
+              parâmetros podem não se aplicar. Deseja liberar a geração automática sem esses campos?
+            </p>
+            <DialogFooter className="gap-2">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setConfirmOperacionalOpen(false);
+                  setHighlightMissing(true);
+                  toast.error("Preencha as Avaliações Antropométricas / Dimensionais e Quantitativas antes de gerar.");
+                }}
+              >
+                Não — preencher campos
+              </Button>
+              <Button
+                onClick={() => {
+                  if (editingSetorIdx === null) return;
+                  updateSetor(editingSetorIdx, { atividade_operacional: true });
+                  setConfirmOperacionalOpen(false);
+                  setHighlightMissing(false);
+                  setIaObs("");
+                  setIaFiles([]);
+                  setIaMode("substituir");
+                  setIaOpen(true);
+                }}
+                className="bg-gradient-to-r from-purple-600 to-pink-600 text-white"
+              >
+                Sim — é operacional
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-        {/* Modal — Gerar AET com IA */}
         <Dialog open={iaOpen} onOpenChange={(v) => { if (!iaLoading) setIaOpen(v); }}>
           <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>

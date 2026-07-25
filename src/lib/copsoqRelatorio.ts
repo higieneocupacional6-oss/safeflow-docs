@@ -308,38 +308,74 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
   return partes.join(" ");
 }
 
+function inferirRamoAtividade(ctx: RelatorioContext): string {
+  const base = `${ctx.empresa_nome || ""} ${ctx.atividades || ""} ${ctx.descricao_ambiente || ""} ${ctx.setor_nome || ""}`
+    .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const regras: Array<[RegExp, string]> = [
+    [/hospital|cl[íi]nic|sa[úu]de|enferm|m[ée]dic|paciente|ambulator/, "Serviços de saúde"],
+    [/constru[çc][ãa]o|obra|canteiro|edifica|engenharia civil/, "Construção civil"],
+    [/ind[úu]stri|f[áa]brica|manufatur|produ[çc][ãa]o industrial|metal|siderurg/, "Indústria / Manufatura"],
+    [/log[íi]stic|transporte|frota|motorista|distribui|armaz[ée]m|centro de distribui/, "Logística e transporte"],
+    [/comerc|varejo|loja|atendimento ao p[úu]blico|venda/, "Comércio e serviços"],
+    [/educa|escola|universidad|ensino|professor/, "Educação"],
+    [/administr|escrit[óo]rio|financeir|contabil|banc[áa]ri/, "Serviços administrativos e financeiros"],
+    [/limpeza|higieniza|conserva[çc][ãa]o|zeladoria/, "Serviços de limpeza e conservação"],
+    [/seguran[çc]a|vigilan/, "Segurança patrimonial"],
+    [/alimenta|restaurante|cozinha|cheff|copa/, "Alimentação"],
+    [/agr[íi]col|rural|fazenda|pecu[áa]ri|lavoura/, "Agropecuária"],
+    [/energia|el[ée]tric|petr[óo]le|g[áa]s|minera[çc][ãa]o|mineral/, "Energia e mineração"],
+  ];
+  for (const [re, nome] of regras) if (re.test(base)) return nome;
+  return "Não classificado (verificar CNAE da empresa)";
+}
+
 function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
-  // Cruza funções previstas (ctx.funcoes) com funções que efetivamente responderam,
-  // preservando alinhamento por índice com ctx.atividades_funcoes.
   const funcoesCtx = ctx.funcoes || [];
-  const descsCtx = ctx.atividades_funcoes || [];
   const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   const respondentes = new Set<string>();
   for (const a of avs) {
     const n = (a.funcao || "").trim();
     if (n) respondentes.add(norm(n));
   }
-  // Alvo: união entre selecionadas e respondentes (nome canônico via ctx quando existir)
-  const alvoOrdenado: { nome: string; desc: string }[] = [];
   const jaAdd = new Set<string>();
-  funcoesCtx.forEach((f, i) => {
+  const lista: string[] = [];
+  funcoesCtx.forEach((f) => {
     const k = norm(f);
     if (!k || jaAdd.has(k)) return;
     jaAdd.add(k);
-    alvoOrdenado.push({ nome: f, desc: (descsCtx[i] || "").trim() });
+    lista.push(f);
   });
   for (const a of avs) {
     const nome = (a.funcao || "").trim();
     const k = norm(nome);
     if (!k || jaAdd.has(k)) continue;
     jaAdd.add(k);
-    alvoOrdenado.push({ nome, desc: "" });
+    lista.push(nome);
   }
-  if (!alvoOrdenado.length) {
-    return "Não foi possível identificar as funções avaliadas para caracterização técnica individual.";
+  if (!lista.length) {
+    return "Não foi possível identificar as funções avaliadas para caracterização técnica.";
   }
-  return alvoOrdenado.map((f) => descreverFuncao(f.nome, f.desc, ctx)).join("\n\n");
+
+  // Texto único (~6 linhas) sobre características comuns
+  const ctxOp: string[] = [];
+  if (ctx.jornada_trabalho) ctxOp.push(`jornada ${ctx.jornada_trabalho}`);
+  if (ctx.escala) ctxOp.push(`escala ${ctx.escala}`);
+  if (ctx.supervisao) ctxOp.push(`supervisão ${ctx.supervisao}`);
+  const ctxTxt = ctxOp.length ? ` O contexto operacional comum caracteriza-se por ${ctxOp.join(", ")}.` : "";
+  const setorTxt = ctx.setor_nome ? ` no setor ${ctx.setor_nome}` : "";
+  const gesTxt = ctx.ges ? ` (GHE/GES ${ctx.ges})` : "";
+
+  return (
+    `O conjunto de funções avaliadas${setorTxt}${gesTxt} apresenta natureza técnico-operacional convergente, ` +
+    `com rotinas estruturadas em procedimentos definidos e interdependência entre postos. ` +
+    `As exigências cognitivas envolvem atenção sustentada, tomada de decisão em situações rotineiras e uso de informações operacionais, ` +
+    `enquanto a organização do trabalho combina metas, prazos e supervisão direta ou indireta pela liderança imediata. ` +
+    `A autonomia é parcial — limitada por normas, protocolos e ritmo do processo — e o apoio social depende do relacionamento com colegas e da qualidade da liderança. ` +
+    `Esses elementos configuram o perfil psicossocial coletivo analisado neste relatório, permitindo abordagem consolidada dos fatores de risco.` +
+    ctxTxt
+  );
 }
+
 
 function descreverFuncao(nome: string, descAtividades: string, ctx: RelatorioContext): string {
   const partes: string[] = [];
@@ -1112,7 +1148,7 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 1.1 Funções Avaliadas — texto técnico (GES, relação e contexto operacional)
+  // ── 1.1 Funções Avaliadas — lista objetiva + ramo predominante
   {
     const mapa = new Map<string, string>();
     for (const a of avaliacoes) {
@@ -1128,29 +1164,19 @@ export function gerarRelatorioCopsoqPDF(
 
     if (funcoesAvaliadas.length) {
       y = section(doc, y, "1.1 Funções Avaliadas");
-      const gesTxt = ctx.ges
-        ? `pertencentes ao GHE/GES ${ctx.ges}`
-        : `pertencentes ao mesmo grupo homogêneo de exposição`;
-      const setorTxt = ctx.setor_nome ? ` no setor ${ctx.setor_nome}` : "";
       const listaTxt = funcoesAvaliadas.join(", ");
-      const atv = (ctx.atividades || ctx.descricao_ambiente || "").trim().replace(/\s+/g, " ");
-      const atvSintese = atv
-        ? ` A atividade predominante desempenhada pelo grupo consiste em ${atv.slice(0, 240)}${atv.length > 240 ? "…" : ""}.`
-        : "";
-      const contextoOp: string[] = [];
-      if (ctx.jornada_trabalho) contextoOp.push(`jornada ${ctx.jornada_trabalho}`);
-      if (ctx.escala) contextoOp.push(`escala ${ctx.escala}`);
-      if (ctx.supervisao) contextoOp.push(`supervisão ${ctx.supervisao}`);
-      const ctxTxt = contextoOp.length
-        ? ` O contexto operacional comum entre as funções caracteriza-se por ${contextoOp.join(", ")}, o que reforça a pertinência da análise consolidada.`
-        : "";
+      const ramo = inferirRamoAtividade(ctx);
+      const gesTxt = ctx.ges ? ` (GHE/GES ${ctx.ges})` : "";
+      const setorTxt = ctx.setor_nome ? ` do setor ${ctx.setor_nome}${gesTxt}` : gesTxt;
       const txt =
-        `As funções avaliadas neste relatório — ${listaTxt} — são ${gesTxt}${setorTxt} e apresentam relação técnica e operacional entre si, ` +
-        `compartilhando exposição a fatores psicossociais equivalentes, o que justifica sua análise consolidada sob a metodologia COPSOQ.` +
-        atvSintese + ctxTxt;
+        `Foram avaliadas as seguintes funções${setorTxt}: ${listaTxt}. ` +
+        `As funções possuem atividades em comum e compartilham exposição a fatores psicossociais equivalentes, ` +
+        `o que fundamenta a análise consolidada sob a metodologia COPSOQ. ` +
+        `Ramo de atividade predominante da empresa: ${ramo}.`;
       y = paragraph(doc, y, txt, 10, true, { indent: 5 });
     }
   }
+
 
   // ── 2. Resumo executivo
   y = section(doc, y, "2. Resumo Executivo");
@@ -1229,22 +1255,42 @@ export function gerarRelatorioCopsoqPDF(
   // Principais atividades — dinâmico por função (usa descrições do cadastro)
   const funcoesCtx = ctx.funcoes || [];
   const descsCtx = ctx.atividades_funcoes || [];
-  const blocosAtiv: string[] = [];
-  funcoesCtx.forEach((f, i) => {
-    const d = (descsCtx[i] || "").trim();
-    if (d && d.length >= 5) {
-      blocosAtiv.push(`▸ ${f}: ${d.replace(/\s+/g, " ")}`);
-    }
-  });
-  if (!blocosAtiv.length && (ctx.atividades || "").trim()) {
-    blocosAtiv.push(String(ctx.atividades).trim());
+  // Principais atividades — apenas 3 tópicos comuns, curtos e padronizados
+  const descsUnidas = (ctx.atividades_funcoes || [])
+    .map((s) => (s || "").trim())
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+  const baseTexto = descsUnidas + " " + (ctx.atividades || "").toLowerCase() + " " + (ctx.descricao_ambiente || "").toLowerCase();
+  const candidatos: Array<{ re: RegExp; frase: string }> = [
+    { re: /atend|clien|p[úu]blic|paci|contato/, frase: "Atendimento e interação com público, clientes ou usuários." },
+    { re: /operac|equipament|m[áa]quin|ferrament/, frase: "Operação de equipamentos, ferramentas ou sistemas do processo." },
+    { re: /document|registro|relat|sistema|dados|inform/, frase: "Registro de informações, preenchimento de documentos e uso de sistemas." },
+    { re: /carreg|levant|manuse|transporte de|carga|peso/, frase: "Manuseio, movimentação ou transporte de materiais." },
+    { re: /desloca|percurso|extern|campo|obra/, frase: "Deslocamentos internos ou externos durante a jornada." },
+    { re: /superv|coordena|planejam|controle|decis|responsabil/, frase: "Supervisão, coordenação e tomada de decisão em tarefas rotineiras." },
+    { re: /limpeza|higien|organiza[çc][ãa]o do posto/, frase: "Organização, limpeza e conservação do posto de trabalho." },
+    { re: /norma|procedimento|conformidade|auditor/, frase: "Cumprimento de procedimentos operacionais e normas internas." },
+  ];
+  const tresComuns: string[] = [];
+  for (const c of candidatos) {
+    if (tresComuns.length >= 3) break;
+    if (c.re.test(baseTexto)) tresComuns.push(c.frase);
   }
-  if (!blocosAtiv.length && (ctx.descricao_ambiente || "").trim()) {
-    blocosAtiv.push(String(ctx.descricao_ambiente).trim());
+  while (tresComuns.length < 3) {
+    const genericos = [
+      "Execução das tarefas rotineiras previstas para a função.",
+      "Interação com colegas e liderança imediata ao longo da jornada.",
+      "Cumprimento de metas, prazos e rotinas operacionais estabelecidas.",
+    ];
+    const prox = genericos.find((g) => !tresComuns.includes(g));
+    if (!prox) break;
+    tresComuns.push(prox);
   }
-  if (blocosAtiv.length) {
-    carac.push(["Principais atividades", blocosAtiv.join("\n\n")]);
+  if (tresComuns.length) {
+    carac.push(["Principais atividades (comuns)", tresComuns.map((t) => `• ${t}`).join("\n")]);
   }
+
 
   if (carac.length) {
     autoTable(doc, {
@@ -1380,64 +1426,26 @@ export function gerarRelatorioCopsoqPDF(
   });
   y = (doc as any).lastAutoTable.finalY + 6;
 
-  // ── 8. Integração AET × Psicossocial
-  y = section(doc, y, "8. Integração AET × Psicossocial");
-  for (const p of buildIntegracaoAet(avaliacoes, ctx)) {
-    y = paragraph(doc, y, p, 10, true, { indent: 5 });
-  }
+  // (Seção "Integração AET × Psicossocial" removida a pedido do usuário.)
 
-  // Anexo: síntese dos dados ergonômicos considerados
-  const anexoLinhas: [string, string][] = [];
-  if (ctx.aet_ritmo_complexidade) anexoLinhas.push(["Ritmo e complexidade (AET)", ctx.aet_ritmo_complexidade]);
-  if (ctx.aet_jornada_aspectos) anexoLinhas.push(["Aspectos da jornada (AET)", ctx.aet_jornada_aspectos]);
-  if (ctx.aet_analise_organizacional) anexoLinhas.push(["Análise organizacional (AET)", ctx.aet_analise_organizacional]);
-  if (ctx.aet_tarefas) anexoLinhas.push(["Tarefas descritas (AET)", ctx.aet_tarefas]);
-  if (ctx.aet_caracterizacao_biomecanica) anexoLinhas.push(["Caracterização biomecânica (AET)", ctx.aet_caracterizacao_biomecanica]);
-  if (ctx.aet_riscos_observados) anexoLinhas.push(["Riscos observados (AET)", ctx.aet_riscos_observados]);
-  if (ctx.aet_diagnostico_ergonomico) anexoLinhas.push(["Diagnóstico ergonômico (AET)", ctx.aet_diagnostico_ergonomico]);
-  if (ctx.aet_conclusao) anexoLinhas.push(["Conclusão da AET", ctx.aet_conclusao]);
-  if (ctx.aet_ferramentas && ctx.aet_ferramentas.length) {
-    anexoLinhas.push([
-      "Ferramentas ergonômicas aplicadas",
-      ctx.aet_ferramentas
-        .map((f) => `${f.tipo}: ${f.resultado || "—"}${f.classificacao ? ` (${f.classificacao})` : ""}${f.nivel_acao ? ` — ação: ${f.nivel_acao}` : ""}`)
-        .join("\n"),
-    ]);
-  }
-  if (anexoLinhas.length) {
-    autoTable(doc, {
-      startY: y,
-      head: [["Dado da AET/AEP", "Conteúdo considerado"]],
-      body: anexoLinhas,
-      theme: "grid",
-      styles: { fontSize: 8.5, cellPadding: 2, valign: "top", overflow: "linebreak", cellWidth: "wrap", lineWidth: 0.15 },
-      headStyles: { fillColor: [15, 23, 42], textColor: 255 },
-      columnStyles: {
-        0: { cellWidth: 55, fontStyle: "bold", fillColor: [241, 245, 249] },
-        1: { cellWidth: 135 },
-      },
-      tableWidth: 190,
-      margin: { left: 10, right: 10 },
-    });
-    y = (doc as any).lastAutoTable.finalY + 6;
-  }
+
 
   // ── 9. Análise técnica
-  y = section(doc, y, "9. Resultados e Análise");
+  y = section(doc, y, "8. Resultados e Análise");
   for (const p of buildAnaliseTecnica(avaliacoes, ctx)) {
     y = paragraph(doc, y, p, 10, true, { indent: 5 });
   }
 
   // ── 9.1 Justificativa técnica da classificação
-  y = section(doc, y, "9.1 Justificativa Técnica da Classificação");
+  y = section(doc, y, "8.1 Justificativa Técnica da Classificação");
   y = paragraph(doc, y, buildJustificativaTecnica(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10. Conclusão
-  y = section(doc, y, "10. Conclusão Técnica");
+  y = section(doc, y, "9. Conclusão Técnica");
   y = paragraph(doc, y, buildConclusao(avaliacoes), 10, true, { indent: 5 });
 
   // ── 10.1 Recomendações por área
-  y = section(doc, y, "10.1 Recomendações por Área de Atuação");
+  y = section(doc, y, "9.1 Recomendações por Área de Atuação");
   const recArea = buildRecomendacoesPorArea(avaliacoes);
   const areas: [string, string[]][] = [
     ["Organizacional", recArea.organizacional],
@@ -1466,7 +1474,7 @@ export function gerarRelatorioCopsoqPDF(
   }
 
   // ── 11. Plano de ação
-  y = section(doc, y, "11. Plano de Ação");
+  y = section(doc, y, "10. Plano de Ação");
   const plano = buildPlanoAcao(avaliacoes);
   if (!plano.length) {
     y = paragraph(doc, y, "Não há ações corretivas obrigatórias. Recomenda-se manutenção das boas práticas e reavaliação periódica.");
