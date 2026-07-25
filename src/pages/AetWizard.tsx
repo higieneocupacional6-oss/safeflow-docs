@@ -102,6 +102,7 @@ type SetorAet = {
   descricao_imagens_funcao: string;
   avaliacoes_psicossociais: AvaliacaoPsicossocial[];
   resultado_psicossocial_texto: string;
+  atividade_operacional?: boolean;
   _salvo?: boolean;
 };
 
