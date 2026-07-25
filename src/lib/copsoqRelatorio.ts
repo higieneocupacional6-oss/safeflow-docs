@@ -308,38 +308,74 @@ function buildResumoExecutivo(avs: AvaliacaoPsicossocial[], ctx: RelatorioContex
   return partes.join(" ");
 }
 
+function inferirRamoAtividade(ctx: RelatorioContext): string {
+  const base = `${ctx.empresa_nome || ""} ${ctx.atividades || ""} ${ctx.descricao_ambiente || ""} ${ctx.setor_nome || ""}`
+    .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const regras: Array<[RegExp, string]> = [
+    [/hospital|cl[íi]nic|sa[úu]de|enferm|m[ée]dic|paciente|ambulator/, "Serviços de saúde"],
+    [/constru[çc][ãa]o|obra|canteiro|edifica|engenharia civil/, "Construção civil"],
+    [/ind[úu]stri|f[áa]brica|manufatur|produ[çc][ãa]o industrial|metal|siderurg/, "Indústria / Manufatura"],
+    [/log[íi]stic|transporte|frota|motorista|distribui|armaz[ée]m|centro de distribui/, "Logística e transporte"],
+    [/comerc|varejo|loja|atendimento ao p[úu]blico|venda/, "Comércio e serviços"],
+    [/educa|escola|universidad|ensino|professor/, "Educação"],
+    [/administr|escrit[óo]rio|financeir|contabil|banc[áa]ri/, "Serviços administrativos e financeiros"],
+    [/limpeza|higieniza|conserva[çc][ãa]o|zeladoria/, "Serviços de limpeza e conservação"],
+    [/seguran[çc]a|vigilan/, "Segurança patrimonial"],
+    [/alimenta|restaurante|cozinha|cheff|copa/, "Alimentação"],
+    [/agr[íi]col|rural|fazenda|pecu[áa]ri|lavoura/, "Agropecuária"],
+    [/energia|el[ée]tric|petr[óo]le|g[áa]s|minera[çc][ãa]o|mineral/, "Energia e mineração"],
+  ];
+  for (const [re, nome] of regras) if (re.test(base)) return nome;
+  return "Não classificado (verificar CNAE da empresa)";
+}
+
 function buildPerfilFuncao(avs: AvaliacaoPsicossocial[], ctx: RelatorioContext): string {
-  // Cruza funções previstas (ctx.funcoes) com funções que efetivamente responderam,
-  // preservando alinhamento por índice com ctx.atividades_funcoes.
   const funcoesCtx = ctx.funcoes || [];
-  const descsCtx = ctx.atividades_funcoes || [];
   const norm = (s: string) => s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
   const respondentes = new Set<string>();
   for (const a of avs) {
     const n = (a.funcao || "").trim();
     if (n) respondentes.add(norm(n));
   }
-  // Alvo: união entre selecionadas e respondentes (nome canônico via ctx quando existir)
-  const alvoOrdenado: { nome: string; desc: string }[] = [];
   const jaAdd = new Set<string>();
-  funcoesCtx.forEach((f, i) => {
+  const lista: string[] = [];
+  funcoesCtx.forEach((f) => {
     const k = norm(f);
     if (!k || jaAdd.has(k)) return;
     jaAdd.add(k);
-    alvoOrdenado.push({ nome: f, desc: (descsCtx[i] || "").trim() });
+    lista.push(f);
   });
   for (const a of avs) {
     const nome = (a.funcao || "").trim();
     const k = norm(nome);
     if (!k || jaAdd.has(k)) continue;
     jaAdd.add(k);
-    alvoOrdenado.push({ nome, desc: "" });
+    lista.push(nome);
   }
-  if (!alvoOrdenado.length) {
-    return "Não foi possível identificar as funções avaliadas para caracterização técnica individual.";
+  if (!lista.length) {
+    return "Não foi possível identificar as funções avaliadas para caracterização técnica.";
   }
-  return alvoOrdenado.map((f) => descreverFuncao(f.nome, f.desc, ctx)).join("\n\n");
+
+  // Texto único (~6 linhas) sobre características comuns
+  const ctxOp: string[] = [];
+  if (ctx.jornada_trabalho) ctxOp.push(`jornada ${ctx.jornada_trabalho}`);
+  if (ctx.escala) ctxOp.push(`escala ${ctx.escala}`);
+  if (ctx.supervisao) ctxOp.push(`supervisão ${ctx.supervisao}`);
+  const ctxTxt = ctxOp.length ? ` O contexto operacional comum caracteriza-se por ${ctxOp.join(", ")}.` : "";
+  const setorTxt = ctx.setor_nome ? ` no setor ${ctx.setor_nome}` : "";
+  const gesTxt = ctx.ges ? ` (GHE/GES ${ctx.ges})` : "";
+
+  return (
+    `O conjunto de funções avaliadas${setorTxt}${gesTxt} apresenta natureza técnico-operacional convergente, ` +
+    `com rotinas estruturadas em procedimentos definidos e interdependência entre postos. ` +
+    `As exigências cognitivas envolvem atenção sustentada, tomada de decisão em situações rotineiras e uso de informações operacionais, ` +
+    `enquanto a organização do trabalho combina metas, prazos e supervisão direta ou indireta pela liderança imediata. ` +
+    `A autonomia é parcial — limitada por normas, protocolos e ritmo do processo — e o apoio social depende do relacionamento com colegas e da qualidade da liderança. ` +
+    `Esses elementos configuram o perfil psicossocial coletivo analisado neste relatório, permitindo abordagem consolidada dos fatores de risco.` +
+    ctxTxt
+  );
 }
+
 
 function descreverFuncao(nome: string, descAtividades: string, ctx: RelatorioContext): string {
   const partes: string[] = [];
