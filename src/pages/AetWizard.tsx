@@ -2017,7 +2017,7 @@ export default function AetWizard() {
           onOpenChange={setFerramentasOpen}
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
-          onOpenTool={(tool) => { setFerramentasOpen(false); setToolModalTool(tool); }}
+          onOpenTool={(tool) => { setFerramentasOpen(false); setToolSetorIdx(editingSetorIdx); setToolModalTool(tool); }}
         />
         {toolModalTool && (() => {
           const setorAlvo = setoresAet[toolSetorIdx] || setor;
