@@ -69,6 +69,8 @@ type Ferramenta = {
   avaliacao_id?: string;
   pdf_path?: string;
   respostas?: Record<string, unknown>;
+  objetivo?: string;
+  interpretacao?: string;
 
 };
 
