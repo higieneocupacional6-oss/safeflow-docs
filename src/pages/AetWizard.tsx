@@ -2045,7 +2045,16 @@ export default function AetWizard() {
                 avaliacao_id: r.avaliacao_id,
                 pdf_path: r.pdf_path,
                 respostas: r.respostas,
+                objetivo: objetivoFerramenta(r.tipo),
+                interpretacao: interpretarFerramentaAuto({
+                  tipo: r.tipo,
+                  escore_final: r.escore_final,
+                  classificacao: r.classificacao,
+                  nivel_acao: r.nivel_acao,
+                  funcao: r.funcao,
+                }),
               };
+
 
               const novasFerramentas = [...setor.ferramentas, nova];
               const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
