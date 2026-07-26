@@ -1023,6 +1023,7 @@ export default function AetWizard() {
           .filter(Boolean)
           .join(" "),
         justificativa_ferramentas: s.justificativa_ferramentas || "",
+        justificativa_escolha_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
         ...(() => {
