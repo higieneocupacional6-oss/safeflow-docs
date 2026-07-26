@@ -29,6 +29,7 @@ import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/erg
 import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
 import type { FerramentaTipo } from "@/lib/ergonomia/types";
+import { objetivoFerramenta, interpretarFerramentaAuto } from "@/lib/ergonomia/objetivoInterpretacao";
 
 const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS"];
 
@@ -69,6 +70,8 @@ type Ferramenta = {
   avaliacao_id?: string;
   pdf_path?: string;
   respostas?: Record<string, unknown>;
+  objetivo?: string;
+  interpretacao?: string;
 
 };
 
@@ -143,7 +146,13 @@ const emptyAval = (): AvalQuant => ({
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
-const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
+const emptyFerr = (tipo: string): Ferramenta => ({
+  tipo,
+  dados_avaliacao: "",
+  resultado: "",
+  objetivo: objetivoFerramenta(tipo),
+  interpretacao: "",
+});
 
 
 const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
@@ -225,7 +234,15 @@ function FerramentasModal({
 }) {
   const add = (tipo: string) => onChange([...ferramentas, emptyFerr(tipo)]);
   const update = (i: number, patch: Partial<Ferramenta>) =>
-    onChange(ferramentas.map((f, k) => (k === i ? { ...f, ...patch } : f)));
+    onChange(ferramentas.map((f, k) => {
+      if (k !== i) return f;
+      const merged = { ...f, ...patch };
+      return {
+        ...merged,
+        objetivo: objetivoFerramenta(merged.tipo),
+        interpretacao: interpretarFerramentaAuto(merged),
+      };
+    }));
   const remove = (i: number) => onChange(ferramentas.filter((_, k) => k !== i));
 
   const handleClose = () => {
@@ -336,6 +353,18 @@ function FerramentasModal({
                       </div>
                     </>
                   )}
+                  <div className="rounded-md bg-muted/40 p-2 space-y-1">
+                    <p className="text-[11px]">
+                      <strong>Objetivo:</strong>{" "}
+                      <span className="text-muted-foreground">{f.objetivo || objetivoFerramenta(f.tipo)}</span>
+                    </p>
+                    <p className="text-[11px]">
+                      <strong>Interpretação:</strong>{" "}
+                      <span className="text-muted-foreground">{f.interpretacao || interpretarFerramentaAuto(f)}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70">Preenchimento automático pelo sistema.</p>
+                  </div>
+
                 </Card>
               );
             })}
@@ -373,6 +402,7 @@ export default function AetWizard() {
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
   const [toolModalTool, setToolModalTool] = useState<FerramentaTipo | null>(null);
+  const [toolSetorIdx, setToolSetorIdx] = useState(0);
   const [justificativaLoadingIdx, setJustificativaLoadingIdx] = useState<number | null>(null);
   const [psicoOpen, setPsicoOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
@@ -587,6 +617,9 @@ export default function AetWizard() {
               avaliacao_id: f.avaliacao_id || "",
               pdf_path: f.pdf_path || "",
               respostas: f.respostas || {},
+              objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+              interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
+
 
             })),
             justificativa_ferramentas: s.justificativa_ferramentas || "",
@@ -953,6 +986,7 @@ export default function AetWizard() {
         })),
         ferramentas: (s.ferramentas || []).map((f) => ({
           tipo: f.tipo || "",
+          nome: f.tipo || "",
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
           escore_final: f.escore_final ?? null,
@@ -965,8 +999,29 @@ export default function AetWizard() {
           avaliacao_id: f.avaliacao_id || "",
           pdf_path: f.pdf_path || "",
           respostas: f.respostas || {},
-
+          objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+          interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
         })),
+        ferramentas_ergonomicas: (s.ferramentas || []).map((f) => ({
+          nome: f.tipo || "",
+          tipo: f.tipo || "",
+          resultado: f.escore_final ?? (f.resultado || ""),
+          classificacao: f.classificacao || "",
+          nivel_acao: f.nivel_acao || "",
+          funcao: f.funcao || "",
+          colaborador: f.colaborador_nome || "",
+          atividade: f.atividade || "",
+          objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+          interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
+        })),
+        ferramenta_objetivo: (s.ferramentas || [])
+          .map((f) => f.objetivo || objetivoFerramenta(f.tipo))
+          .filter(Boolean)
+          .join(" "),
+        ferramenta_interpretacao: (s.ferramentas || [])
+          .map((f) => f.interpretacao || interpretarFerramentaAuto(f))
+          .filter(Boolean)
+          .join(" "),
         justificativa_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
@@ -1962,20 +2017,25 @@ export default function AetWizard() {
           onOpenChange={setFerramentasOpen}
           ferramentas={setor.ferramentas}
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
-          onOpenTool={(tool) => { setFerramentasOpen(false); setToolModalTool(tool); }}
+          onOpenTool={(tool) => { setFerramentasOpen(false); setToolSetorIdx(editingSetorIdx); setToolModalTool(tool); }}
         />
-        {toolModalTool && (
+        {toolModalTool && (() => {
+          const setorAlvo = setoresAet[toolSetorIdx] || setor;
+          return (
           <ToolAssessmentModal
             open={!!toolModalTool}
             onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
             tool={toolModalTool as "RULA" | "REBA" | "NIOSH" | "OWAS"}
             cabecalho={{
-              funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
+              funcao: (setorAlvo.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setorAlvo.funcao_nome || "",
               empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
-              setor_nome: setor.setor_nome || "",
+              setor_nome: setorAlvo.setor_nome || "",
             }}
             aetDocumentoId={documentoId || null}
-            setorRef={setor.setor_id || null}
+            setorRef={setorAlvo.setor_id || null}
+            setoresDisponiveis={setoresAet.map((s, i) => ({ id: s.setor_id || String(i), nome: s.setor_nome || `Setor ${i + 1}` }))}
+            setorIndex={toolSetorIdx}
+            onSetorIndexChange={setToolSetorIdx}
             onComplete={(r: ToolAssessmentResult) => {
               const nova: Ferramenta = {
                 tipo: r.tipo,
@@ -1991,16 +2051,25 @@ export default function AetWizard() {
                 avaliacao_id: r.avaliacao_id,
                 pdf_path: r.pdf_path,
                 respostas: r.respostas,
+                objetivo: objetivoFerramenta(r.tipo),
+                interpretacao: interpretarFerramentaAuto({
+                  tipo: r.tipo,
+                  escore_final: r.escore_final,
+                  classificacao: r.classificacao,
+                  nivel_acao: r.nivel_acao,
+                  funcao: r.funcao,
+                }),
               };
 
-              const novasFerramentas = [...setor.ferramentas, nova];
+
+              const novasFerramentas = [...setorAlvo.ferramentas, nova];
               const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
               const justificativa = gerarJustificativaDeterministica({
-                funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
-                descricao_atividade: setor.descricao_atividade || setor.tarefas || "",
+                funcao: (setorAlvo.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setorAlvo.funcao_nome || "",
+                descricao_atividade: setorAlvo.descricao_atividade || setorAlvo.tarefas || "",
                 ferramentas: tiposUnicos,
               });
-              updateSetor(editingSetorIdx, {
+              updateSetor(toolSetorIdx, {
                 ferramentas: novasFerramentas,
                 justificativa_ferramentas: justificativa,
               });
@@ -2008,7 +2077,8 @@ export default function AetWizard() {
               setFerramentasOpen(true);
             }}
           />
-        )}
+          );
+        })()}
         <PsicossocialModal
           open={psicoOpen}
           onOpenChange={setPsicoOpen}
