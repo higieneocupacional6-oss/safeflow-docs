@@ -146,7 +146,13 @@ const emptyAval = (): AvalQuant => ({
 });
 const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
 const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
-const emptyFerr = (tipo: string): Ferramenta => ({ tipo, dados_avaliacao: "", resultado: "" });
+const emptyFerr = (tipo: string): Ferramenta => ({
+  tipo,
+  dados_avaliacao: "",
+  resultado: "",
+  objetivo: objetivoFerramenta(tipo),
+  interpretacao: "",
+});
 
 
 const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
