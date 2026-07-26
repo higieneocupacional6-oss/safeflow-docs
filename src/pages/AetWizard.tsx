@@ -2018,18 +2018,23 @@ export default function AetWizard() {
           onChange={(f) => updateSetor(editingSetorIdx, { ferramentas: f })}
           onOpenTool={(tool) => { setFerramentasOpen(false); setToolModalTool(tool); }}
         />
-        {toolModalTool && (
+        {toolModalTool && (() => {
+          const setorAlvo = setoresAet[toolSetorIdx] || setor;
+          return (
           <ToolAssessmentModal
             open={!!toolModalTool}
             onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
             tool={toolModalTool as "RULA" | "REBA" | "NIOSH" | "OWAS"}
             cabecalho={{
-              funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
+              funcao: (setorAlvo.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setorAlvo.funcao_nome || "",
               empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
-              setor_nome: setor.setor_nome || "",
+              setor_nome: setorAlvo.setor_nome || "",
             }}
             aetDocumentoId={documentoId || null}
-            setorRef={setor.setor_id || null}
+            setorRef={setorAlvo.setor_id || null}
+            setoresDisponiveis={setoresAet.map((s, i) => ({ id: s.setor_id || String(i), nome: s.setor_nome || `Setor ${i + 1}` }))}
+            setorIndex={toolSetorIdx}
+            onSetorIndexChange={setToolSetorIdx}
             onComplete={(r: ToolAssessmentResult) => {
               const nova: Ferramenta = {
                 tipo: r.tipo,
@@ -2056,14 +2061,14 @@ export default function AetWizard() {
               };
 
 
-              const novasFerramentas = [...setor.ferramentas, nova];
+              const novasFerramentas = [...setorAlvo.ferramentas, nova];
               const tiposUnicos = Array.from(new Set(novasFerramentas.map((f) => f.tipo))) as FerramentaTipo[];
               const justificativa = gerarJustificativaDeterministica({
-                funcao: (setor.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setor.funcao_nome || "",
-                descricao_atividade: setor.descricao_atividade || setor.tarefas || "",
+                funcao: (setorAlvo.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setorAlvo.funcao_nome || "",
+                descricao_atividade: setorAlvo.descricao_atividade || setorAlvo.tarefas || "",
                 ferramentas: tiposUnicos,
               });
-              updateSetor(editingSetorIdx, {
+              updateSetor(toolSetorIdx, {
                 ferramentas: novasFerramentas,
                 justificativa_ferramentas: justificativa,
               });
@@ -2071,7 +2076,8 @@ export default function AetWizard() {
               setFerramentasOpen(true);
             }}
           />
-        )}
+          );
+        })()}
         <PsicossocialModal
           open={psicoOpen}
           onOpenChange={setPsicoOpen}
