@@ -29,6 +29,7 @@ import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/erg
 import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
 import type { FerramentaTipo } from "@/lib/ergonomia/types";
+import { objetivoFerramenta, interpretarFerramentaAuto } from "@/lib/ergonomia/objetivoInterpretacao";
 
 const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS"];
 
