@@ -122,6 +122,21 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
       { code: "{{atividade}}", desc: "Atividade específica avaliada (opcional, dentro do loop)" },
     ],
   },
+  {
+    title: "Ferramentas Ergonômicas (objetivo e interpretação)",
+    vars: [
+      { code: "{{#ferramentas_ergonomicas}}\nFerramenta: {{nome}}\nObjetivo: {{objetivo}}\nResultado: {{resultado}}\nClassificação: {{classificacao}}\nInterpretação: {{interpretacao}}\n{{/ferramentas_ergonomicas}}", desc: "Bloco completo — repete automaticamente para cada ferramenta do setor" },
+      { code: "{{nome}}", desc: "Nome da ferramenta (RULA, REBA, OWAS, NIOSH, OCRA...) — dentro do loop" },
+      { code: "{{resultado}}", desc: "Pontuação/escore obtido — dentro do loop" },
+      { code: "{{classificacao}}", desc: "Classificação do risco — dentro do loop" },
+      { code: "{{objetivo}}", desc: "Objetivo da ferramenta (preenchido automaticamente) — dentro do loop" },
+      { code: "{{interpretacao}}", desc: "Interpretação técnica automática do resultado — dentro do loop" },
+      { code: "{{nivel_acao}}", desc: "Nível de ação indicado — dentro do loop" },
+      { code: "{{ferramenta_objetivo}}", desc: "Objetivo(s) das ferramentas do setor (texto único)" },
+      { code: "{{ferramenta_interpretacao}}", desc: "Interpretação(ões) técnica(s) do setor (texto único)" },
+    ],
+  },
+
 
   {
     title: "Descrição das imagens",
