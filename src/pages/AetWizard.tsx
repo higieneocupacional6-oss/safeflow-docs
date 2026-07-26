@@ -953,6 +953,7 @@ export default function AetWizard() {
         })),
         ferramentas: (s.ferramentas || []).map((f) => ({
           tipo: f.tipo || "",
+          nome: f.tipo || "",
           dados_avaliacao: f.dados_avaliacao || "",
           resultado: f.resultado || "",
           escore_final: f.escore_final ?? null,
@@ -965,8 +966,29 @@ export default function AetWizard() {
           avaliacao_id: f.avaliacao_id || "",
           pdf_path: f.pdf_path || "",
           respostas: f.respostas || {},
-
+          objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+          interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
         })),
+        ferramentas_ergonomicas: (s.ferramentas || []).map((f) => ({
+          nome: f.tipo || "",
+          tipo: f.tipo || "",
+          resultado: f.escore_final ?? (f.resultado || ""),
+          classificacao: f.classificacao || "",
+          nivel_acao: f.nivel_acao || "",
+          funcao: f.funcao || "",
+          colaborador: f.colaborador_nome || "",
+          atividade: f.atividade || "",
+          objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+          interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
+        })),
+        ferramenta_objetivo: (s.ferramentas || [])
+          .map((f) => f.objetivo || objetivoFerramenta(f.tipo))
+          .filter(Boolean)
+          .join(" "),
+        ferramenta_interpretacao: (s.ferramentas || [])
+          .map((f) => f.interpretacao || interpretarFerramentaAuto(f))
+          .filter(Boolean)
+          .join(" "),
         justificativa_ferramentas: s.justificativa_ferramentas || "",
         descricao_imagens_ambiente: s.descricao_imagens_ambiente || "",
         descricao_imagens_funcao: s.descricao_imagens_funcao || "",
