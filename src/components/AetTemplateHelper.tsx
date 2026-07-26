@@ -166,6 +166,18 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
   },
 ];
 
+const JSON_EXEMPLO = `{
+  "ferramentas_ergonomicas": [
+    {
+      "nome": "RULA",
+      "resultado": 6,
+      "classificacao": "Alto risco",
+      "objetivo": "Avaliar a sobrecarga biomecânica dos membros superiores e postura corporal.",
+      "interpretacao": "O resultado obtido indica alto risco ergonômico, sendo recomendada intervenção em curto prazo para adequação do posto de trabalho."
+    }
+  ]
+}`;
+
 export function AetTemplateHelper() {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
@@ -187,6 +199,23 @@ export function AetTemplateHelper() {
           <DialogHeader>
             <DialogTitle className="font-heading">Variáveis disponíveis para template AET</DialogTitle>
           </DialogHeader>
+          <div className="rounded-lg border border-border bg-muted/40 p-3 mb-5">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xs font-bold uppercase text-muted-foreground">
+                Exemplo de JSON — Ferramentas Ergonômicas
+              </h3>
+              <Button variant="ghost" size="sm" className="h-7" onClick={() => copy(JSON_EXEMPLO)}>
+                <Copy className="w-3.5 h-3.5 mr-1" /> Copiar
+              </Button>
+            </div>
+            <pre className="text-[11px] font-mono whitespace-pre-wrap break-all bg-background/60 rounded-md p-2 overflow-x-auto">
+{JSON_EXEMPLO}
+            </pre>
+            <p className="text-[11px] text-muted-foreground mt-2">
+              Estrutura apenas ilustrativa, para orientar a montagem do template DOCX.
+            </p>
+          </div>
+
           <div className="space-y-5">
             {groups.map((g) => (
               <div key={g.title}>
