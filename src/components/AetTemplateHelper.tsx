@@ -136,6 +136,13 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
       { code: "{{ferramenta_interpretacao}}", desc: "Interpretação(ões) técnica(s) do setor (texto único)" },
     ],
   },
+  {
+    title: "Justificativa da escolha das ferramentas",
+    vars: [
+      { code: "{{justificativa_ferramentas}}", desc: "Texto completo da justificativa da escolha das ferramentas (dentro do loop {{#setores}})" },
+      { code: "{{justificativa_escolha_ferramentas}}", desc: "Alias com o mesmo conteúdo — use o que preferir no template" },
+    ],
+  },
 
 
   {
