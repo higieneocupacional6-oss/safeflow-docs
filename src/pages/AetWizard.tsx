@@ -590,6 +590,9 @@ export default function AetWizard() {
               avaliacao_id: f.avaliacao_id || "",
               pdf_path: f.pdf_path || "",
               respostas: f.respostas || {},
+              objetivo: f.objetivo || objetivoFerramenta(f.tipo),
+              interpretacao: f.interpretacao || interpretarFerramentaAuto(f),
+
 
             })),
             justificativa_ferramentas: s.justificativa_ferramentas || "",
