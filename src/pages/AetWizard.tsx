@@ -234,7 +234,15 @@ function FerramentasModal({
 }) {
   const add = (tipo: string) => onChange([...ferramentas, emptyFerr(tipo)]);
   const update = (i: number, patch: Partial<Ferramenta>) =>
-    onChange(ferramentas.map((f, k) => (k === i ? { ...f, ...patch } : f)));
+    onChange(ferramentas.map((f, k) => {
+      if (k !== i) return f;
+      const merged = { ...f, ...patch };
+      return {
+        ...merged,
+        objetivo: objetivoFerramenta(merged.tipo),
+        interpretacao: interpretarFerramentaAuto(merged),
+      };
+    }));
   const remove = (i: number) => onChange(ferramentas.filter((_, k) => k !== i));
 
   const handleClose = () => {
