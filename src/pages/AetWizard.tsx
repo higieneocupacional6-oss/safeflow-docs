@@ -1068,6 +1068,7 @@ export default function AetWizard() {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
+      nullGetter: () => "",
     });
   };
 
