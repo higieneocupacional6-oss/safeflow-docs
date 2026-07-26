@@ -48,13 +48,19 @@ type Props = {
   };
   aetDocumentoId?: string | null;
   setorRef?: string | null;
+  /** Setores já cadastrados na AET em rascunho (preenchimento automático) */
+  setoresDisponiveis?: { id: string; nome: string }[];
+  /** Índice do setor selecionado na lista acima */
+  setorIndex?: number;
+  onSetorIndexChange?: (idx: number) => void;
   onComplete: (r: ToolAssessmentResult) => void;
 };
 
 const OPT = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
 
 export function ToolAssessmentModal({
-  open, onOpenChange, tool, cabecalho, aetDocumentoId, setorRef, onComplete,
+  open, onOpenChange, tool, cabecalho, aetDocumentoId, setorRef,
+  setoresDisponiveis = [], setorIndex = 0, onSetorIndexChange, onComplete,
 }: Props) {
   const today = new Date().toISOString().slice(0, 10);
   const [colaborador, setColaborador] = useState(cabecalho.colaborador_nome || "");
@@ -215,6 +221,29 @@ export function ToolAssessmentModal({
         <div className="space-y-4">
           {/* Cabeçalho */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <Label className="text-xs">Setor (AET atual)</Label>
+              {setoresDisponiveis.length > 0 ? (
+                <Select
+                  value={String(setorIndex)}
+                  onValueChange={(v) => onSetorIndexChange?.(Number(v))}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o setor" /></SelectTrigger>
+                  <SelectContent>
+                    {setoresDisponiveis.map((s, i) => (
+                      <SelectItem key={`${s.id || "setor"}-${i}`} value={String(i)}>
+                        {s.nome || `Setor ${i + 1}`}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input value={cabecalho.setor_nome || ""} readOnly />
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Setores carregados automaticamente da AET em rascunho.
+              </p>
+            </div>
             <div className="md:col-span-2">
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs">Função avaliada *</Label>
