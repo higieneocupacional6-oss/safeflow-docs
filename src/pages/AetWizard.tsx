@@ -345,6 +345,18 @@ function FerramentasModal({
                       </div>
                     </>
                   )}
+                  <div className="rounded-md bg-muted/40 p-2 space-y-1">
+                    <p className="text-[11px]">
+                      <strong>Objetivo:</strong>{" "}
+                      <span className="text-muted-foreground">{f.objetivo || objetivoFerramenta(f.tipo)}</span>
+                    </p>
+                    <p className="text-[11px]">
+                      <strong>Interpretação:</strong>{" "}
+                      <span className="text-muted-foreground">{f.interpretacao || interpretarFerramentaAuto(f)}</span>
+                    </p>
+                    <p className="text-[10px] text-muted-foreground/70">Preenchimento automático pelo sistema.</p>
+                  </div>
+
                 </Card>
               );
             })}
