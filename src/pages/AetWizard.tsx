@@ -402,6 +402,7 @@ export default function AetWizard() {
   const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
   const [ferramentasOpen, setFerramentasOpen] = useState(false);
   const [toolModalTool, setToolModalTool] = useState<FerramentaTipo | null>(null);
+  const [toolSetorIdx, setToolSetorIdx] = useState(0);
   const [justificativaLoadingIdx, setJustificativaLoadingIdx] = useState<number | null>(null);
   const [psicoOpen, setPsicoOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
