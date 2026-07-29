@@ -2080,7 +2080,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             const vdvrExc = !isNaN(vdvrN) && !isNaN(vdvrLt) && vdvrLt > 0 && vdvrN > vdvrLt;
             const hasVibData = !isNaN(arenN) || !isNaN(vdvrN);
             const situacaoVib = hasVibData ? ((arenExc || vdvrExc) ? "Nocivo" : "Seguro") : "";
-            const situacao = res.situacao || situacaoVib || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+            // Calor: situação automática com base no IBUTG x Limite
+            const _ibN = getIbutgValor(res);
+            const _ibLtN = parseFloat(
+              String(res.ibutg_limite ?? res.limite_tolerancia_calor ?? res.limite_tolerancia ?? "").replace(",", "."),
+            );
+            const situacaoCalor =
+              isFinite(_ibN) && _ibN > 0 && isFinite(_ibLtN) && _ibLtN > 0
+                ? (_ibN <= _ibLtN ? "Seguro" : "Nocivo")
+                : "";
+            const situacao = res.situacao || situacaoVib || situacaoCalor || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
