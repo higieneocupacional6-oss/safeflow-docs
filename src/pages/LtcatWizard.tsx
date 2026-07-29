@@ -2554,6 +2554,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
       const _isF = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
       const _isB = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+      const _aQ = _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+      const _aF = _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+      const _aB = _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
+      const _isQual = String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ");
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
@@ -2564,16 +2568,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_quimico: _isQ,
         is_fisico: _isF,
         is_biologico: _isB,
-        is_agente_fisico: _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
-        is_agente_quimico: _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
-        is_agente_biologico: _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung"),
+        is_agente_fisico: _aF,
+        is_agente_quimico: _aQ,
+        is_agente_biologico: _aB,
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
-        is_calor: agenteNomeLower.includes("calor"),
+        is_calor: normalized_agente_nome.includes("calor") || (r.resultados_calor || []).length > 0,
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
         is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
-        is_qualitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ"),
+        is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+        is_qualitativo_quimico: _isQual && _aQ,
+        is_qualitativo_biologico: _isQual && _aB,
+        is_qualitativo_fisico: _isQual && _aF,
+        is_quimico_qualitativo: _isQual && _aQ,
+        is_biologico_qualitativo: _isQual && _aB,
+        is_fisico_qualitativo: _isQual && _aF,
         tipo_avaliacao: r.tipo_avaliacao || "",
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,
