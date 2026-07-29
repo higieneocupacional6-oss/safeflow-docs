@@ -20,6 +20,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
+import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
