@@ -2120,16 +2120,20 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_exposicao: res.tempo_exposicao || "",
               equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
-              ibutg_resultado: res.ibutg_resultado || "",
+              ibutg_resultado: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
+              ibutg_medido: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
+              ibutg_limite: res.ibutg_limite != null ? String(res.ibutg_limite) : "",
               ibutg_tipo: res.ibutg_tipo || "",
               ibutg_com_carga_solar: res.ibutg_tipo === "com_carga_solar",
               ibutg_sem_carga_solar: res.ibutg_tipo === "sem_carga_solar",
-              exposicao: res.ibutg_resultado || res.exposicao || res.resultado || "",
-              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
-              resultado_calor: res.ibutg_resultado || res.resultado_calor || res.exposicao || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
-              limite_tolerancia_calor: res.limite_tolerancia_calor || res.limite_tolerancia || "",
-              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || "",
+              exposicao: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.exposicao || res.resultado || "",
+              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              resultado_calor: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.resultado_calor || res.exposicao || res.resultado || "",
+              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              limite_tolerancia_calor: res.limite_tolerancia_calor || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || res.limite_tolerancia || "",
+              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
+              m_kcal_h: res.m_kcal_h != null ? String(res.m_kcal_h) : "",
+              descricao_atividade_calor: res.descricao_atividade || "",
             };
           };
 
