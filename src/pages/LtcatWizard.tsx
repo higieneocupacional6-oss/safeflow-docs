@@ -2775,10 +2775,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       })),
 
       // Setores com funções e riscos
-      setores: setoresData,
+      setores: setoresFiltrados,
+      // Agentes agrupados, cada um já com apenas os setores que possuem avaliação válida
+      riscos_agrupados: riscosAgrupados,
 
       // Loop de riscos consolidado (parecer por risco)
-      riscos: riscosConsolidados,
+      riscos: riscosConsolidados.filter(_riscoTemAvaliacao),
+
 
       // Loop GLOBAL de equipamentos (agregado de todas as avaliações de risco).
       // Permite uso de {{#equipamentos}}...{{/equipamentos}} no nível raiz do template.
