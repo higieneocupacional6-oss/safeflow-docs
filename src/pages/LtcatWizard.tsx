@@ -2527,14 +2527,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
             // ---- IBUTG (Calor) — média ponderada por tempo ----
             const allCalor = agentEntries.flatMap((r: any) => r.resultados_calor || []);
-            const calorComIbutg = allCalor.filter((r: any) => {
-              const ib = getIbutgValor(r);
-              return isFinite(ib) && ib > 0;
-            });
-
-            const _ibutgMedio = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
-            const ibutg_medio = _ibutgMedio == null ? "" : _ibutgMedio.toFixed(2);
-            const exibir_media_ibutg = !!ibutg_medio;
+            const { ibutg_medio, exibir_media_ibutg } = buildMediaIbutg(allCalor);
 
             return {
               nen_medio: _nenMedioFinal,
