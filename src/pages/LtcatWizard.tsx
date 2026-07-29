@@ -2621,10 +2621,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               ...contextoSetor,
               // Permite {{#riscos}}{{#is_calor}}{{#setores}} … apenas com
               // o setor que realmente possui a avaliação do agente.
-              setores: [{ ...contextoSetor, avaliacoes: avaliacoesValidas, riscos: [] }],
+              // As flags is_* são copiadas para o setor aninhado para que o
+              // escopo automático por agente reconheça o bloco.
+              setores: [{
+                ...contextoSetor,
+                ...Object.fromEntries(
+                  Object.entries(r).filter(([k, v]) => k.startsWith("is_") && v === true),
+                ),
+                avaliacoes: avaliacoesValidas,
+                riscos: [],
+              }],
             };
           });
-        return { ...s, inicio_setor: s.nome_setor, riscos: riscosValidos };
+        return { ...s, inicio_setor: "", fim_setor: "", riscos: riscosValidos };
       })
       // Setor sem nenhum agente avaliado não deve aparecer no documento.
       .filter((s: any) => (s.riscos || []).length > 0);
