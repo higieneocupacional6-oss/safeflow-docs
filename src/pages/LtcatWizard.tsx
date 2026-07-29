@@ -2157,18 +2157,40 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_exposicao: res.tempo_exposicao || "",
               equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
-              ibutg_resultado: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
-              ibutg_medido: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
-              ibutg_limite: res.ibutg_limite != null ? String(res.ibutg_limite) : "",
-              ibutg_tipo: res.ibutg_tipo || "",
-              ibutg_com_carga_solar: res.ibutg_tipo === "com_carga_solar",
-              ibutg_sem_carga_solar: res.ibutg_tipo === "sem_carga_solar",
-              exposicao: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.exposicao || res.resultado || "",
-              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
-              resultado_calor: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.resultado_calor || res.exposicao || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
-              limite_tolerancia_calor: res.limite_tolerancia_calor || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || res.limite_tolerancia || "",
-              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
+              // IBUTG por avaliação — aceita valor do cálculo IBUTG OU do campo
+              // "Exposição" do formulário (fallbacks encadeados).
+              ...(() => {
+                const ibutgStr = isFinite(_ibN) && _ibN > 0
+                  ? String(res.ibutg_resultado ?? res.ibutg_medido ?? res.exposicao ?? res.resultado_calor ?? res.resultado ?? "")
+                  : "";
+                const limiteStr = isFinite(_ibLtN) && _ibLtN > 0 ? String(_ibLtN) : "";
+                // Determina o tipo de IBUTG: usa o cadastro; se ausente, infere
+                // pelos valores de Tbs (com carga solar) e, por fim, assume
+                // "sem carga solar". Nunca os dois ao mesmo tempo.
+                const tipoIbutg = res.ibutg_tipo === "com_carga_solar" || res.ibutg_tipo === "sem_carga_solar"
+                  ? res.ibutg_tipo
+                  : (String(res.tbs_valores || "").trim() ? "com_carga_solar" : "sem_carga_solar");
+                const uniRes = unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (ibutgStr ? "°C" : "");
+                const uniLim = unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (limiteStr ? "°C" : "");
+                return {
+                  ibutg_resultado: ibutgStr,
+                  ibutg_medido: ibutgStr,
+                  ibutg_limite: limiteStr,
+                  ibutg_tipo: ibutgStr ? tipoIbutg : "",
+                  ibutg_com_carga_solar: !!ibutgStr && tipoIbutg === "com_carga_solar",
+                  ibutg_sem_carga_solar: !!ibutgStr && tipoIbutg === "sem_carga_solar",
+                  tbn_valores: res.tbn_valores || "",
+                  tg_valores: res.tg_valores || "",
+                  tbs_valores: res.tbs_valores || "",
+                  exposicao: ibutgStr || res.exposicao || res.resultado || "",
+                  unidade_exposicao: uniRes,
+                  resultado_calor: ibutgStr || res.resultado_calor || res.exposicao || res.resultado || "",
+                  unidade_resultado_calor: uniRes,
+                  limite_tolerancia_calor: limiteStr || res.limite_tolerancia_calor || res.limite_tolerancia || "",
+                  unidade_limite_calor: uniLim,
+                };
+              })(),
+
               m_kcal_h: res.m_kcal_h != null ? String(res.m_kcal_h) : "",
               descricao_atividade_calor: res.descricao_atividade || "",
             };
