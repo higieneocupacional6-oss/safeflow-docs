@@ -2602,6 +2602,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const _avaliacaoValida = (a: any) =>
       _temValor(a?.resultado) ||
       _temValor(a?.resultado_calor) ||
+      _temValor(a?.ibutg_resultado) ||
+      _temValor(a?.exposicao) ||
       _temValor(a?.aren_resultado) ||
       _temValor(a?.vdvr_resultado) ||
       _temValor(a?.dose_percentual) ||
@@ -2609,6 +2611,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       _temValor(a?.descricao_avaliacao) ||
       (Array.isArray(a?.componentes_amostra) &&
         a.componentes_amostra.some((c: any) => _temValor(c?.resultado)));
+
     const _riscoTemAvaliacao = (r: any) =>
       (Array.isArray(r?.avaliacoes) && r.avaliacoes.some(_avaliacaoValida)) ||
       _temValor(r?.resultado) ||
