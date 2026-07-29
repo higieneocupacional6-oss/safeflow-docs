@@ -325,6 +325,15 @@ export function LtcatTemplateHelper() {
       title: "Flags Condicionais (Tipo de Agente)",
       vars: ["{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}", "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}"],
     },
+    {
+      title: "Qualitativa por Tipo de Agente (novas)",
+      vars: [
+        "{{#is_qualitativo}}", "{{/is_qualitativo}}",
+        "{{#is_qualitativo_quimico}}", "{{/is_qualitativo_quimico}}",
+        "{{#is_qualitativo_biologico}}", "{{/is_qualitativo_biologico}}",
+        "{{#is_qualitativo_fisico}}", "{{/is_qualitativo_fisico}}",
+      ],
+    },
   ];
 
   return (
