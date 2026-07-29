@@ -411,20 +411,35 @@ export const calcIbutgSemCargaSolar = (
   return { tbn, tg, ibutg };
 };
 
-/** IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i */
+/** Valor de IBUTG de uma linha de calor (aceita fallbacks do formulário). */
+export const getIbutgValor = (r: any): number => {
+  const raw = r?.ibutg_resultado ?? r?.ibutg_medido ?? r?.exposicao ?? r?.resultado_calor ?? r?.resultado ?? "";
+  return parseFloat(String(raw).replace(",", "."));
+};
+
+/**
+ * IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i.
+ * Quando os tempos de exposição não estiverem informados, cai para a média
+ * aritmética simples dos IBUTG válidos (para não suprimir o bloco de média).
+ */
 export const calcIbutgMedio = (rows: any[]): number | null => {
   if (!rows || !rows.length) return null;
   let num = 0, den = 0;
+  const simples: number[] = [];
   for (const r of rows) {
-    const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+    const ib = getIbutgValor(r);
+    if (!isFinite(ib) || ib <= 0) continue;
+    simples.push(ib);
     const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
-    if (!isFinite(ib) || ib <= 0 || T <= 0) continue;
+    if (T <= 0) continue;
     num += ib * T;
     den += T;
   }
-  if (den <= 0) return null;
-  return num / den;
+  if (den > 0) return num / den;
+  if (simples.length) return simples.reduce((a, b) => a + b, 0) / simples.length;
+  return null;
 };
+
 
 // ---------------------------------------------------------------------------
 // Helpers de cálculo de variáveis derivadas (NEN, dose média, química)
@@ -1253,12 +1268,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               return Array.from(groups.values());
             })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-              resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
-              ...r,
-              id: r.id,
-              ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
-              equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
-            })),
+              resultados_calor: (calorByAv[av.id] || []).map(r => {
+              const _eqCat = (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id);
+              const _ibutg = (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : "");
+              const _limite = (r as any).ibutg_limite != null ? String((r as any).ibutg_limite) : "";
+              return hydrateRow({
+                ...r,
+                id: r.id,
+                ibutg_resultado: _ibutg,
+                // Repopula os campos do formulário (Exposição / Limite) a partir do banco
+                exposicao: (r as any).exposicao ?? _ibutg,
+                limite_tolerancia: (r as any).limite_tolerancia ?? _limite,
+                equipamento_nome: getEquipamentoDisplayName(_eqCat) || "",
+                numero_serie_equipamento:
+                  (r as any).numero_serie_equipamento ||
+                  _eqCat?.equipamentos_ho_registros?.[0]?.numero_serie || "",
+              });
+            }),
+
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
               // Back-populate equipamento_id e registro_id a partir do catálogo
               // 1) tenta match por nome do equipamento; 2) fallback por número de série
@@ -2053,7 +2080,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             const vdvrExc = !isNaN(vdvrN) && !isNaN(vdvrLt) && vdvrLt > 0 && vdvrN > vdvrLt;
             const hasVibData = !isNaN(arenN) || !isNaN(vdvrN);
             const situacaoVib = hasVibData ? ((arenExc || vdvrExc) ? "Nocivo" : "Seguro") : "";
-            const situacao = res.situacao || situacaoVib || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+            // Calor: situação automática com base no IBUTG x Limite
+            const _ibN = getIbutgValor(res);
+            const _ibLtN = parseFloat(
+              String(res.ibutg_limite ?? res.limite_tolerancia_calor ?? res.limite_tolerancia ?? "").replace(",", "."),
+            );
+            const situacaoCalor =
+              isFinite(_ibN) && _ibN > 0 && isFinite(_ibLtN) && _ibLtN > 0
+                ? (_ibN <= _ibLtN ? "Seguro" : "Nocivo")
+                : "";
+            const situacao = res.situacao || situacaoVib || situacaoCalor || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
+
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
             return {
               ...base,
@@ -2070,11 +2107,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
               componente: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
-              resultado: res.resultado || res.aren_resultado || res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || "",
-              unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
-              unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              resultado: res.resultado || res.aren_resultado || (isFinite(_ibN) && _ibN > 0 ? String(res.ibutg_resultado ?? res.ibutg_medido ?? res.exposicao ?? "") : "") || "",
+              unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((isFinite(_ibN) && _ibN > 0) ? "°C" : ""),
+              unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((isFinite(_ibN) && _ibN > 0) ? "°C" : ""),
               limite_tolerancia: res.limite_tolerancia || res.aren_limite || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || "",
-              unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
+              unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || ((isFinite(_ibLtN) && _ibLtN > 0) ? "°C" : ""),
+
               situacao,
               cod_gfip: res.cod_gfip || "",
               codigo_gfip: res.cod_gfip || "",
@@ -2087,11 +2125,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
               epc_nome,
-              // Nº Série do Equipamento (Cadastro de Resultados)
-              numero_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
-              serie_equipamento: res.serie_equipamento || res.numero_serie || "",
-              numero_serie: res.serie_equipamento || res.numero_serie || "",
-              n_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
+              // Nº Série do Equipamento (Cadastro de Resultados / Calor)
+              ...(() => {
+                const _eqCat = equipamentos.find((e: any) => e.id === res.equipamento_id);
+                const _serie =
+                  res.serie_equipamento || res.numero_serie || res.numero_serie_equipamento ||
+                  _eqCat?.equipamentos_ho_registros?.[0]?.numero_serie ||
+                  (_eqCat as any)?.certificado || "";
+                return {
+                  numero_serie_equipamento: _serie,
+                  serie_equipamento: _serie,
+                  numero_serie: _serie,
+                  n_serie_equipamento: _serie,
+                };
+              })(),
+
               // Vibração fields
               equipamento_avaliado: res.equipamento_avaliado || "",
               aren_resultado: res.aren_resultado || "",
@@ -2120,18 +2168,40 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_exposicao: res.tempo_exposicao || "",
               equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
-              ibutg_resultado: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
-              ibutg_medido: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
-              ibutg_limite: res.ibutg_limite != null ? String(res.ibutg_limite) : "",
-              ibutg_tipo: res.ibutg_tipo || "",
-              ibutg_com_carga_solar: res.ibutg_tipo === "com_carga_solar",
-              ibutg_sem_carga_solar: res.ibutg_tipo === "sem_carga_solar",
-              exposicao: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.exposicao || res.resultado || "",
-              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
-              resultado_calor: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.resultado_calor || res.exposicao || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
-              limite_tolerancia_calor: res.limite_tolerancia_calor || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || res.limite_tolerancia || "",
-              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
+              // IBUTG por avaliação — aceita valor do cálculo IBUTG OU do campo
+              // "Exposição" do formulário (fallbacks encadeados).
+              ...(() => {
+                const ibutgStr = isFinite(_ibN) && _ibN > 0
+                  ? String(res.ibutg_resultado ?? res.ibutg_medido ?? res.exposicao ?? res.resultado_calor ?? res.resultado ?? "")
+                  : "";
+                const limiteStr = isFinite(_ibLtN) && _ibLtN > 0 ? String(_ibLtN) : "";
+                // Determina o tipo de IBUTG: usa o cadastro; se ausente, infere
+                // pelos valores de Tbs (com carga solar) e, por fim, assume
+                // "sem carga solar". Nunca os dois ao mesmo tempo.
+                const tipoIbutg = res.ibutg_tipo === "com_carga_solar" || res.ibutg_tipo === "sem_carga_solar"
+                  ? res.ibutg_tipo
+                  : (String(res.tbs_valores || "").trim() ? "com_carga_solar" : "sem_carga_solar");
+                const uniRes = unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (ibutgStr ? "°C" : "");
+                const uniLim = unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (limiteStr ? "°C" : "");
+                return {
+                  ibutg_resultado: ibutgStr,
+                  ibutg_medido: ibutgStr,
+                  ibutg_limite: limiteStr,
+                  ibutg_tipo: ibutgStr ? tipoIbutg : "",
+                  ibutg_com_carga_solar: !!ibutgStr && tipoIbutg === "com_carga_solar",
+                  ibutg_sem_carga_solar: !!ibutgStr && tipoIbutg === "sem_carga_solar",
+                  tbn_valores: res.tbn_valores || "",
+                  tg_valores: res.tg_valores || "",
+                  tbs_valores: res.tbs_valores || "",
+                  exposicao: ibutgStr || res.exposicao || res.resultado || "",
+                  unidade_exposicao: uniRes,
+                  resultado_calor: ibutgStr || res.resultado_calor || res.exposicao || res.resultado || "",
+                  unidade_resultado_calor: uniRes,
+                  limite_tolerancia_calor: limiteStr || res.limite_tolerancia_calor || res.limite_tolerancia || "",
+                  unidade_limite_calor: uniLim,
+                };
+              })(),
+
               m_kcal_h: res.m_kcal_h != null ? String(res.m_kcal_h) : "",
               descricao_atividade_calor: res.descricao_atividade || "",
             };
@@ -2459,10 +2529,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             // ---- IBUTG (Calor) — média ponderada por tempo ----
             const allCalor = agentEntries.flatMap((r: any) => r.resultados_calor || []);
             const calorComIbutg = allCalor.filter((r: any) => {
-              const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
-              const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
-              return isFinite(ib) && ib > 0 && T > 0;
+              const ib = getIbutgValor(r);
+              return isFinite(ib) && ib > 0;
             });
+
             const _ibutgMedio = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
             const ibutg_medio = _ibutgMedio == null ? "" : _ibutgMedio.toFixed(2);
             const exibir_media_ibutg = !!ibutg_medio;
@@ -2532,6 +2602,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const _avaliacaoValida = (a: any) =>
       _temValor(a?.resultado) ||
       _temValor(a?.resultado_calor) ||
+      _temValor(a?.ibutg_resultado) ||
+      _temValor(a?.exposicao) ||
       _temValor(a?.aren_resultado) ||
       _temValor(a?.vdvr_resultado) ||
       _temValor(a?.dose_percentual) ||
@@ -2539,6 +2611,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       _temValor(a?.descricao_avaliacao) ||
       (Array.isArray(a?.componentes_amostra) &&
         a.componentes_amostra.some((c: any) => _temValor(c?.resultado)));
+
     const _riscoTemAvaliacao = (r: any) =>
       (Array.isArray(r?.avaliacoes) && r.avaliacoes.some(_avaliacaoValida)) ||
       _temValor(r?.resultado) ||
@@ -2705,10 +2778,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
           const allCalor = (r.resultados_calor || []) as any[];
           const calorComIbutg = allCalor.filter((x: any) => {
-            const ib = parseFloat(String(x?.ibutg_resultado ?? "").replace(",", "."));
-            const T = parseTempoExposicaoHoras(x?.tempo_exposicao);
-            return isFinite(ib) && ib > 0 && T > 0;
+            const ib = getIbutgValor(x);
+            return isFinite(ib) && ib > 0;
           });
+
           const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
           const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
           return {
@@ -3203,26 +3276,40 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             aposentadoria_especial: x.aposentadoria_especial || null,
             numero_serie_bomba: x.numero_serie_bomba || null,
           }));
-          const calorRows = mkRows(__calorArr, (x) => ({
-            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
-            data_avaliacao: x.data_avaliacao || null,
-            ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
-            ibutg_limite: x.ibutg_limite ? Number(x.ibutg_limite) : null,
-            m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
-            tipo_atividade: x.tipo_atividade || null,
-            taxa_metabolica: x.taxa_metabolica || null,
-            descricao_atividade: x.descricao_atividade || null,
-            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
-            parecer_tecnico: x.parecer_tecnico || null,
-            aposentadoria_especial: x.aposentadoria_especial || null,
-            local_atividade: x.local_atividade || null,
-            equipamento_id: x.equipamento_id || null,
-            tempo_exposicao: x.tempo_exposicao || null,
-            ibutg_tipo: x.ibutg_tipo || null,
-            tbn_valores: x.tbn_valores || null,
-            tg_valores: x.tg_valores || null,
-            tbs_valores: x.tbs_valores || null,
-          }));
+          const calorRows = mkRows(__calorArr, (x) => {
+            // O resultado do calor pode vir do Cálculo IBUTG OU do campo
+            // "Exposição" digitado manualmente. Sem esse fallback os valores
+            // digitados eram perdidos no salvamento (tabela não renderizava).
+            const _num = (v: any) => {
+              const n = parseFloat(String(v ?? "").replace(",", "."));
+              return isFinite(n) ? n : null;
+            };
+            const _ib = _num(x.ibutg_resultado) ?? _num(x.ibutg_medido) ?? _num(x.exposicao) ?? _num(x.resultado_calor);
+            const _lim = _num(x.ibutg_limite) ?? _num(x.limite_tolerancia) ?? _num(x.limite_tolerancia_calor);
+            const _tipo = x.ibutg_tipo || (String(x.tbs_valores || "").trim() ? "com_carga_solar" : (_ib != null ? "sem_carga_solar" : null));
+            return {
+              colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
+              data_avaliacao: x.data_avaliacao || null,
+              ibutg_medido: _ib,
+              ibutg_limite: _lim,
+              m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
+              tipo_atividade: x.tipo_atividade || null,
+              taxa_metabolica: x.taxa_metabolica || null,
+              descricao_atividade: x.descricao_atividade || null,
+              situacao: x.situacao || (_ib != null && _lim != null && _lim > 0 ? (_ib <= _lim ? "Seguro" : "Nocivo") : null),
+              cod_gfip: x.cod_gfip || null,
+              parecer_tecnico: x.parecer_tecnico || null,
+              aposentadoria_especial: x.aposentadoria_especial || null,
+              local_atividade: x.local_atividade || null,
+              equipamento_id: x.equipamento_id || null,
+              tempo_exposicao: x.tempo_exposicao || null,
+              ibutg_tipo: _tipo,
+              tbn_valores: x.tbn_valores || null,
+              tg_valores: x.tg_valores || null,
+              tbs_valores: x.tbs_valores || null,
+            };
+          });
+
           const vibRows = mkRows(__vibArr, (x) => ({
             tipo: x.tipo || null,
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
