@@ -149,7 +149,7 @@ const variableGroups = [
     ],
   },
   {
-    title: "Variáveis de Agente Qualitativo (LTCAT)",
+    title: "Variáveis de Agente Qualitativo (LTCAT / Insalubridade)",
     vars: [
       "{{#is_qualitativo}}", "{{agente_nome}}", "{{funcoes_ges}}", "{{tipo_avaliacao}}",
       "{{tipo_agente}}", "{{fonte_geradora}}", "{{propagacao}}", "{{tipo_exposicao}}",
@@ -158,6 +158,14 @@ const variableGroups = [
       "{{#epis}}", "{{epi_nome}}", "{{epi_eficaz}}", "{{/epis}}",
       "{{#epcs}}", "{{epc_nome}}", "{{epc_eficaz}}", "{{/epcs}}",
       "{{parecer_tecnico}}", "{{aposentadoria_especial}}", "{{/is_qualitativo}}",
+    ],
+  },
+  {
+    title: "Qualitativo por Tipo de Agente (LTCAT / Insalubridade)",
+    vars: [
+      "{{#is_qualitativo_quimico}}", "{{/is_qualitativo_quimico}}",
+      "{{#is_qualitativo_biologico}}", "{{/is_qualitativo_biologico}}",
+      "{{#is_qualitativo_fisico}}", "{{/is_qualitativo_fisico}}",
     ],
   },
   {

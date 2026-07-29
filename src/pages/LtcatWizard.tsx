@@ -2070,11 +2070,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
               componente: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
-              resultado: res.resultado || res.aren_resultado || "",
-              unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
-              unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || "",
-              limite_tolerancia: res.limite_tolerancia || res.aren_limite || "",
-              unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || "",
+              resultado: res.resultado || res.aren_resultado || res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || "",
+              unidade_resultado: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              unidade: unidades.find(u => u.id === (res.unidade_resultado_id || res.aren_unidade_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              limite_tolerancia: res.limite_tolerancia || res.aren_limite || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || "",
+              unidade_limite: unidades.find(u => u.id === (res.unidade_limite_id || res.aren_limite_unidade_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
               situacao,
               cod_gfip: res.cod_gfip || "",
               codigo_gfip: res.cod_gfip || "",
@@ -2120,16 +2120,20 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_exposicao: res.tempo_exposicao || "",
               equipamento_utilizado: (() => { const _e = equipamentos.find((e: any) => e.id === res.equipamento_id); return getEquipamentoDisplayName(_e) || (res.equipamento_nome || ""); })(),
               // IBUTG por avaliação
-              ibutg_resultado: res.ibutg_resultado || "",
+              ibutg_resultado: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
+              ibutg_medido: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : ""),
+              ibutg_limite: res.ibutg_limite != null ? String(res.ibutg_limite) : "",
               ibutg_tipo: res.ibutg_tipo || "",
               ibutg_com_carga_solar: res.ibutg_tipo === "com_carga_solar",
               ibutg_sem_carga_solar: res.ibutg_tipo === "sem_carga_solar",
-              exposicao: res.ibutg_resultado || res.exposicao || res.resultado || "",
-              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
-              resultado_calor: res.ibutg_resultado || res.resultado_calor || res.exposicao || res.resultado || "",
-              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (res.ibutg_resultado ? "°C" : ""),
-              limite_tolerancia_calor: res.limite_tolerancia_calor || res.limite_tolerancia || "",
-              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || "",
+              exposicao: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.exposicao || res.resultado || "",
+              unidade_exposicao: unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              resultado_calor: res.ibutg_resultado || (res.ibutg_medido != null ? String(res.ibutg_medido) : "") || res.resultado_calor || res.exposicao || res.resultado || "",
+              unidade_resultado_calor: unidades.find(u => u.id === (res.unidade_resultado_calor_id || res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || ((res.ibutg_resultado || res.ibutg_medido != null) ? "°C" : ""),
+              limite_tolerancia_calor: res.limite_tolerancia_calor || (res.ibutg_limite != null ? String(res.ibutg_limite) : "") || res.limite_tolerancia || "",
+              unidade_limite_calor: unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (res.ibutg_limite != null ? "°C" : ""),
+              m_kcal_h: res.m_kcal_h != null ? String(res.m_kcal_h) : "",
+              descricao_atividade_calor: res.descricao_atividade || "",
             };
           };
 
@@ -2321,13 +2325,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const is_agente_quimico = is_quimico || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
         const is_agente_biologico = is_biologico || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
-        const is_calor = agenteNomeLower.includes("calor");
+        const temDadosCalor = agentEntries.some((r: any) => (r.resultados_calor || []).length > 0);
+        const is_calor = normalized_agente_nome.includes("calor") || agenteNomeLower.includes("calor") || temDadosCalor;
         const is_vibracao = agenteNomeLower.includes("vibra");
         const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
         const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
+        // Blocos condicionais específicos: Qualitativa + tipo de agente
+        const is_qualitativo_quimico = is_qualitativo && (is_quimico || is_agente_quimico);
+        const is_qualitativo_biologico = is_qualitativo && (is_biologico || is_agente_biologico);
+        const is_qualitativo_fisico = is_qualitativo && (is_fisico || is_agente_fisico);
         console.log("🎨 [LTCAT] AGENTE NORMALIZADO:", normalized_agente_nome, { is_agente_fisico, is_agente_quimico, is_agente_biologico });
 
         // Enriquecer cada avaliação com is_nocivo/is_seguro para coloração condicional no template
@@ -2362,6 +2371,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao_maos_bracos,
           is_qualitativo,
           is_quantitativo,
+          // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
+          is_qualitativo_quimico,
+          is_qualitativo_biologico,
+          is_qualitativo_fisico,
+          // aliases
+          is_quimico_qualitativo: is_qualitativo_quimico,
+          is_biologico_qualitativo: is_qualitativo_biologico,
+          is_fisico_qualitativo: is_qualitativo_fisico,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
@@ -2537,6 +2554,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
       const _isF = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
       const _isB = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
+      const _aQ = _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+      const _aF = _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
+      const _aB = _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
+      const _isQual = String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ");
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
@@ -2547,16 +2568,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_quimico: _isQ,
         is_fisico: _isF,
         is_biologico: _isB,
-        is_agente_fisico: _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
-        is_agente_quimico: _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n)),
-        is_agente_biologico: _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung"),
+        is_agente_fisico: _aF,
+        is_agente_quimico: _aQ,
+        is_agente_biologico: _aB,
         is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
-        is_calor: agenteNomeLower.includes("calor"),
+        is_calor: normalized_agente_nome.includes("calor") || (r.resultados_calor || []).length > 0,
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
         is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
-        is_qualitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ"),
+        is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+        is_qualitativo_quimico: _isQual && _aQ,
+        is_qualitativo_biologico: _isQual && _aB,
+        is_qualitativo_fisico: _isQual && _aF,
+        is_quimico_qualitativo: _isQual && _aQ,
+        is_biologico_qualitativo: _isQual && _aB,
+        is_fisico_qualitativo: _isQual && _aF,
         tipo_avaliacao: r.tipo_avaliacao || "",
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
         parecer_tecnico,

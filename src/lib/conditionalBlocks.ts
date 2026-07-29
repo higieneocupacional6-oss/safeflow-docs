@@ -38,6 +38,7 @@ const BLOCK_KEYS = [
   "risco_quimico_quantitativo",
   "risco_quimico_qualitativo",
   "risco_biologico",
+  "risco_fisico_qualitativo",
 ] as const;
 
 export type ConditionalBlockKey = (typeof BLOCK_KEYS)[number];
@@ -69,10 +70,14 @@ export function computePresentBlocks(templateData: any): Set<string> {
       (nome.includes("radiac") && nome.includes("n.ion"));
 
     if (isFisico && isQuant && !!r?.is_ruido) present.add("risco_ruido");
-    if (isFisico && isQuant && !!r?.is_calor) present.add("risco_calor");
+    // Calor: mantém o bloco sempre que houver agente/avaliações de calor,
+    // independentemente da flag de quantitativa (bug: blocos sumiam com dados cadastrados).
+    if (!!r?.is_calor || nome.includes("calor") || (Array.isArray(r?.avaliacoes) && r.avaliacoes.some((a: any) => a?.resultado_calor || a?.ibutg_resultado)))
+      present.add("risco_calor");
     if (isFisico && isQuant && !!r?.is_vibracao_corpo_inteiro) present.add("risco_vci");
     if (isFisico && isQuant && !!r?.is_vibracao_maos_bracos) present.add("risco_vmb");
     if (isFisico && isRadNaoIon) present.add("risco_radiacao_nao_ionizante");
+    if (isFisico && isQual) present.add("risco_fisico_qualitativo");
 
     if (isQuimico && isQuant) {
       present.add("risco_quimico_quantitativo");
