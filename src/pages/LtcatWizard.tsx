@@ -3060,6 +3060,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // (ver src/lib/riscoContext.ts). Sem nullGetter, o Docxtemplater
       // imprimiria "undefined" nessas tags e quebraria a limpeza.
       nullGetter: () => "",
+      // Escopo automático dos loops por agente: cada bloco {{#setores}} do
+      // template recebe apenas os setores/riscos do agente usado dentro dele
+      // (ver src/lib/setorLoopScope.ts). Evita cabeçalhos de GHE repetidos e
+      // tabelas vazias em templates com uma seção por agente.
+      parser: createAgentScopedParser(),
     });
     return doc;
   };
