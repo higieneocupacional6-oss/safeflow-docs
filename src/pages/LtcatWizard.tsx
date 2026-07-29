@@ -19,6 +19,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
+import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
@@ -2598,25 +2599,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // Vale para qualquer agente (calor, ruído, químicos, biológicos…),
     // sem depender do nome do agente.
     // ─────────────────────────────────────────────────────────────
-    const _temValor = (v: any) => v != null && String(v).trim() !== "";
-    const _avaliacaoValida = (a: any) =>
-      _temValor(a?.resultado) ||
-      _temValor(a?.resultado_calor) ||
-      _temValor(a?.ibutg_resultado) ||
-      _temValor(a?.exposicao) ||
-      _temValor(a?.aren_resultado) ||
-      _temValor(a?.vdvr_resultado) ||
-      _temValor(a?.dose_percentual) ||
-      _temValor(a?.parecer_tecnico) ||
-      _temValor(a?.descricao_avaliacao) ||
-      (Array.isArray(a?.componentes_amostra) &&
-        a.componentes_amostra.some((c: any) => _temValor(c?.resultado)));
-
-    const _riscoTemAvaliacao = (r: any) =>
-      (Array.isArray(r?.avaliacoes) && r.avaliacoes.some(_avaliacaoValida)) ||
-      _temValor(r?.resultado) ||
-      _temValor(r?.parecer_tecnico) ||
-      _temValor(r?.descricao_avaliacao);
+    const _avaliacaoValida = _avaliacaoValidaLib;
+    const _riscoTemAvaliacao = _riscoExisteLib;
 
     const setoresFiltrados = setoresData
       .map((s: any) => {
@@ -2650,6 +2634,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       })
       // Setor sem nenhum agente avaliado não deve aparecer no documento.
       .filter((s: any) => (s.riscos || []).length > 0);
+
+    // Limpeza final: remove coleções vazias e blocos condicionais falsos,
+    // de modo que o template nunca receba estruturas sem dados.
+    const setoresLimpos = sanitizeSetores(setoresFiltrados);
 
     // Agrupamento por AGENTE → apenas setores com avaliação válida daquele agente.
     const riscosAgrupados = (() => {
@@ -2848,12 +2836,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       })),
 
       // Setores com funções e riscos
-      setores: setoresFiltrados,
+      setores: setoresLimpos,
       // Agentes agrupados, cada um já com apenas os setores que possuem avaliação válida
-      riscos_agrupados: riscosAgrupados,
+      riscos_agrupados: riscosAgrupados
+        .map((r: any) => sanitizeRisco(r))
+        .filter((r: any) => Array.isArray(r.setores) && r.setores.length > 0),
 
       // Loop de riscos consolidado (parecer por risco)
-      riscos: riscosConsolidados.filter(_riscoTemAvaliacao),
+      riscos: riscosConsolidados.filter(_riscoTemAvaliacao).map((r: any) => sanitizeRisco(r)),
 
 
       // Loop GLOBAL de equipamentos (agregado de todas as avaliações de risco).
