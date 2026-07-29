@@ -2521,6 +2521,80 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       };
     });
 
+    // ─────────────────────────────────────────────────────────────
+    // FILTRO GENÉRICO: só renderizar setores (GHE) que possuem
+    // avaliação válida do agente. Uma avaliação é válida quando há
+    // Resultado OU Avaliação/Parecer Técnico preenchidos.
+    // Vale para qualquer agente (calor, ruído, químicos, biológicos…),
+    // sem depender do nome do agente.
+    // ─────────────────────────────────────────────────────────────
+    const _temValor = (v: any) => v != null && String(v).trim() !== "";
+    const _avaliacaoValida = (a: any) =>
+      _temValor(a?.resultado) ||
+      _temValor(a?.resultado_calor) ||
+      _temValor(a?.aren_resultado) ||
+      _temValor(a?.vdvr_resultado) ||
+      _temValor(a?.dose_percentual) ||
+      _temValor(a?.parecer_tecnico) ||
+      _temValor(a?.descricao_avaliacao) ||
+      (Array.isArray(a?.componentes_amostra) &&
+        a.componentes_amostra.some((c: any) => _temValor(c?.resultado)));
+    const _riscoTemAvaliacao = (r: any) =>
+      (Array.isArray(r?.avaliacoes) && r.avaliacoes.some(_avaliacaoValida)) ||
+      _temValor(r?.resultado) ||
+      _temValor(r?.parecer_tecnico) ||
+      _temValor(r?.descricao_avaliacao);
+
+    const setoresFiltrados = setoresData
+      .map((s: any) => {
+        const riscosValidos = (s.riscos || [])
+          .filter(_riscoTemAvaliacao)
+          .map((r: any) => {
+            const avaliacoesValidas = Array.isArray(r.avaliacoes)
+              ? r.avaliacoes.filter(_avaliacaoValida)
+              : r.avaliacoes;
+            const contextoSetor = {
+              setor: s.setor,
+              nome_setor: s.nome_setor,
+              ghe_ges: s.ghe_ges,
+              descricao_ambiente: s.descricao_ambiente,
+              local_trabalho: s.local_trabalho,
+              jornada_trabalho: s.jornada_trabalho,
+              funcoes_ges: s.funcoes_ges,
+              funcoes: s.funcoes,
+              inicio_setor: s.nome_setor,
+            };
+            return {
+              ...r,
+              avaliacoes: avaliacoesValidas,
+              ...contextoSetor,
+              // Permite {{#riscos}}{{#is_calor}}{{#setores}} … apenas com
+              // o setor que realmente possui a avaliação do agente.
+              setores: [{ ...contextoSetor, avaliacoes: avaliacoesValidas, riscos: [] }],
+            };
+          });
+        return { ...s, inicio_setor: s.nome_setor, riscos: riscosValidos };
+      })
+      // Setor sem nenhum agente avaliado não deve aparecer no documento.
+      .filter((s: any) => (s.riscos || []).length > 0);
+
+    // Agrupamento por AGENTE → apenas setores com avaliação válida daquele agente.
+    const riscosAgrupados = (() => {
+      const byAgent = new Map<string, any>();
+      setoresFiltrados.forEach((s: any) => {
+        (s.riscos || []).forEach((r: any) => {
+          const key = String(r.agente_nome || "").toLowerCase().trim();
+          if (!byAgent.has(key)) {
+            byAgent.set(key, { ...r, setores: [] });
+          }
+          byAgent.get(key).setores.push(r.setores[0]);
+        });
+      });
+      return Array.from(byAgent.values());
+    })();
+
+
+
     // Loop de riscos consolidado (parecer por risco)
     // Busca parecer/aposentadoria em qualquer fonte: nível raiz, resultados ou cache do BD
     const riscosConsolidados = riscos.map(r => {
