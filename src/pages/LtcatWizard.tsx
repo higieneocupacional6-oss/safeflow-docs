@@ -2125,11 +2125,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               aposentadoria_especial: res.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
               epc_nome,
-              // Nº Série do Equipamento (Cadastro de Resultados)
-              numero_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
-              serie_equipamento: res.serie_equipamento || res.numero_serie || "",
-              numero_serie: res.serie_equipamento || res.numero_serie || "",
-              n_serie_equipamento: res.serie_equipamento || res.numero_serie || "",
+              // Nº Série do Equipamento (Cadastro de Resultados / Calor)
+              ...(() => {
+                const _eqCat = equipamentos.find((e: any) => e.id === res.equipamento_id);
+                const _serie =
+                  res.serie_equipamento || res.numero_serie || res.numero_serie_equipamento ||
+                  _eqCat?.equipamentos_ho_registros?.[0]?.numero_serie ||
+                  (_eqCat as any)?.certificado || "";
+                return {
+                  numero_serie_equipamento: _serie,
+                  serie_equipamento: _serie,
+                  numero_serie: _serie,
+                  n_serie_equipamento: _serie,
+                };
+              })(),
+
               // Vibração fields
               equipamento_avaliado: res.equipamento_avaliado || "",
               aren_resultado: res.aren_resultado || "",
