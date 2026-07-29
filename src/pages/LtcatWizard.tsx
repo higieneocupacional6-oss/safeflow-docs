@@ -21,6 +21,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
+import { createAgentScopedParser } from "@/lib/setorLoopScope";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
@@ -2610,7 +2611,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               jornada_trabalho: s.jornada_trabalho,
               funcoes_ges: s.funcoes_ges,
               funcoes: s.funcoes,
-              inicio_setor: s.nome_setor,
+              // Delimitadores visuais do template: não devem imprimir texto.
+              inicio_setor: "",
+              fim_setor: "",
             };
             return {
               ...r,
@@ -2618,10 +2621,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               ...contextoSetor,
               // Permite {{#riscos}}{{#is_calor}}{{#setores}} … apenas com
               // o setor que realmente possui a avaliação do agente.
-              setores: [{ ...contextoSetor, avaliacoes: avaliacoesValidas, riscos: [] }],
+              // As flags is_* são copiadas para o setor aninhado para que o
+              // escopo automático por agente reconheça o bloco.
+              setores: [{
+                ...contextoSetor,
+                ...Object.fromEntries(
+                  Object.entries(r).filter(([k, v]) => k.startsWith("is_") && v === true),
+                ),
+                avaliacoes: avaliacoesValidas,
+                riscos: [],
+              }],
             };
           });
-        return { ...s, inicio_setor: s.nome_setor, riscos: riscosValidos };
+        return { ...s, inicio_setor: "", fim_setor: "", riscos: riscosValidos };
       })
       // Setor sem nenhum agente avaliado não deve aparecer no documento.
       .filter((s: any) => (s.riscos || []).length > 0);
@@ -3059,6 +3071,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // (ver src/lib/riscoContext.ts). Sem nullGetter, o Docxtemplater
       // imprimiria "undefined" nessas tags e quebraria a limpeza.
       nullGetter: () => "",
+      // Escopo automático dos loops por agente: cada bloco {{#setores}} do
+      // template recebe apenas os setores/riscos do agente usado dentro dele
+      // (ver src/lib/setorLoopScope.ts). Evita cabeçalhos de GHE repetidos e
+      // tabelas vazias em templates com uma seção por agente.
+      parser: createAgentScopedParser(),
     });
     return doc;
   };
