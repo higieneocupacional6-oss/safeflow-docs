@@ -411,20 +411,35 @@ export const calcIbutgSemCargaSolar = (
   return { tbn, tg, ibutg };
 };
 
-/** IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i */
+/** Valor de IBUTG de uma linha de calor (aceita fallbacks do formulário). */
+export const getIbutgValor = (r: any): number => {
+  const raw = r?.ibutg_resultado ?? r?.ibutg_medido ?? r?.exposicao ?? r?.resultado_calor ?? r?.resultado ?? "";
+  return parseFloat(String(raw).replace(",", "."));
+};
+
+/**
+ * IBUTG médio ponderado pelo tempo de exposição: Σ(IBUTG_i * T_i) / ΣT_i.
+ * Quando os tempos de exposição não estiverem informados, cai para a média
+ * aritmética simples dos IBUTG válidos (para não suprimir o bloco de média).
+ */
 export const calcIbutgMedio = (rows: any[]): number | null => {
   if (!rows || !rows.length) return null;
   let num = 0, den = 0;
+  const simples: number[] = [];
   for (const r of rows) {
-    const ib = parseFloat(String(r?.ibutg_resultado ?? "").replace(",", "."));
+    const ib = getIbutgValor(r);
+    if (!isFinite(ib) || ib <= 0) continue;
+    simples.push(ib);
     const T = parseTempoExposicaoHoras(r?.tempo_exposicao);
-    if (!isFinite(ib) || ib <= 0 || T <= 0) continue;
+    if (T <= 0) continue;
     num += ib * T;
     den += T;
   }
-  if (den <= 0) return null;
-  return num / den;
+  if (den > 0) return num / den;
+  if (simples.length) return simples.reduce((a, b) => a + b, 0) / simples.length;
+  return null;
 };
+
 
 // ---------------------------------------------------------------------------
 // Helpers de cálculo de variáveis derivadas (NEN, dose média, química)
