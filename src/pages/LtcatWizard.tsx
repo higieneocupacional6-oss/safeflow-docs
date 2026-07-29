@@ -20,6 +20,7 @@ import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
+import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
@@ -2172,25 +2173,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               // IBUTG por avaliação — aceita valor do cálculo IBUTG OU do campo
               // "Exposição" do formulário (fallbacks encadeados).
               ...(() => {
-                const ibutgStr = isFinite(_ibN) && _ibN > 0
-                  ? String(res.ibutg_resultado ?? res.ibutg_medido ?? res.exposicao ?? res.resultado_calor ?? res.resultado ?? "")
-                  : "";
-                const limiteStr = isFinite(_ibLtN) && _ibLtN > 0 ? String(_ibLtN) : "";
-                // Determina o tipo de IBUTG: usa o cadastro; se ausente, infere
-                // pelos valores de Tbs (com carga solar) e, por fim, assume
-                // "sem carga solar". Nunca os dois ao mesmo tempo.
-                const tipoIbutg = res.ibutg_tipo === "com_carga_solar" || res.ibutg_tipo === "sem_carga_solar"
-                  ? res.ibutg_tipo
-                  : (String(res.tbs_valores || "").trim() ? "com_carga_solar" : "sem_carga_solar");
+                // Motor único de calor (src/lib/calorContext.ts) — garante que
+                // {{#ibutg_com_carga_solar}} / {{#ibutg_sem_carga_solar}},
+                // limite e situação sejam sempre derivados da mesma regra.
+                const flags = buildCalorFlags(res);
+                const ibutgStr = flags.ibutg_resultado;
+                const limiteStr = flags.ibutg_limite;
                 const uniRes = unidades.find(u => u.id === (res.unidade_exposicao_id || res.unidade_resultado_id))?.simbolo || (ibutgStr ? "°C" : "");
                 const uniLim = unidades.find(u => u.id === (res.unidade_limite_calor_id || res.unidade_limite_id))?.simbolo || (limiteStr ? "°C" : "");
                 return {
                   ibutg_resultado: ibutgStr,
                   ibutg_medido: ibutgStr,
                   ibutg_limite: limiteStr,
-                  ibutg_tipo: ibutgStr ? tipoIbutg : "",
-                  ibutg_com_carga_solar: !!ibutgStr && tipoIbutg === "com_carga_solar",
-                  ibutg_sem_carga_solar: !!ibutgStr && tipoIbutg === "sem_carga_solar",
+                  ibutg_tipo: flags.ibutg_tipo,
+                  ibutg_com_carga_solar: flags.ibutg_com_carga_solar,
+                  ibutg_sem_carga_solar: flags.ibutg_sem_carga_solar,
+                  ...(ibutgStr && flags.situacao ? { situacao: flags.situacao } : {}),
                   tbn_valores: res.tbn_valores || "",
                   tg_valores: res.tg_valores || "",
                   tbs_valores: res.tbs_valores || "",
@@ -2529,14 +2527,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
             // ---- IBUTG (Calor) — média ponderada por tempo ----
             const allCalor = agentEntries.flatMap((r: any) => r.resultados_calor || []);
-            const calorComIbutg = allCalor.filter((r: any) => {
-              const ib = getIbutgValor(r);
-              return isFinite(ib) && ib > 0;
-            });
-
-            const _ibutgMedio = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
-            const ibutg_medio = _ibutgMedio == null ? "" : _ibutgMedio.toFixed(2);
-            const exibir_media_ibutg = !!ibutg_medio;
+            const { ibutg_medio, exibir_media_ibutg } = buildMediaIbutg(allCalor);
 
             return {
               nen_medio: _nenMedioFinal,
@@ -2764,14 +2755,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
           const media_vmb_aren = isVMB ? fmtM(mAren) : "";
           // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
-          const allCalor = (r.resultados_calor || []) as any[];
-          const calorComIbutg = allCalor.filter((x: any) => {
-            const ib = getIbutgValor(x);
-            return isFinite(ib) && ib > 0;
-          });
-
-          const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
-          const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
+          const { ibutg_medio, exibir_media_ibutg } = buildMediaIbutg((r.resultados_calor || []) as any[]);
           return {
             media_vci_aren,
             media_vci_vdvr,
@@ -2779,7 +2763,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
             exibir_media_vibracao_vmb: !!media_vmb_aren,
             ibutg_medio,
-            exibir_media_ibutg: !!ibutg_medio,
+            exibir_media_ibutg,
           };
         })(),
       };
@@ -3071,6 +3055,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
+      // Regra global: o que não existe no cadastro é removido do contexto
+      // (ver src/lib/riscoContext.ts). Sem nullGetter, o Docxtemplater
+      // imprimiria "undefined" nessas tags e quebraria a limpeza.
+      nullGetter: () => "",
     });
     return doc;
   };
