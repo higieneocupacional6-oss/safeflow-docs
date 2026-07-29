@@ -3276,26 +3276,40 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             aposentadoria_especial: x.aposentadoria_especial || null,
             numero_serie_bomba: x.numero_serie_bomba || null,
           }));
-          const calorRows = mkRows(__calorArr, (x) => ({
-            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
-            data_avaliacao: x.data_avaliacao || null,
-            ibutg_medido: x.ibutg_resultado ? Number(String(x.ibutg_resultado).replace(",", ".")) : (x.ibutg_medido ? Number(x.ibutg_medido) : null),
-            ibutg_limite: x.ibutg_limite ? Number(x.ibutg_limite) : null,
-            m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
-            tipo_atividade: x.tipo_atividade || null,
-            taxa_metabolica: x.taxa_metabolica || null,
-            descricao_atividade: x.descricao_atividade || null,
-            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
-            parecer_tecnico: x.parecer_tecnico || null,
-            aposentadoria_especial: x.aposentadoria_especial || null,
-            local_atividade: x.local_atividade || null,
-            equipamento_id: x.equipamento_id || null,
-            tempo_exposicao: x.tempo_exposicao || null,
-            ibutg_tipo: x.ibutg_tipo || null,
-            tbn_valores: x.tbn_valores || null,
-            tg_valores: x.tg_valores || null,
-            tbs_valores: x.tbs_valores || null,
-          }));
+          const calorRows = mkRows(__calorArr, (x) => {
+            // O resultado do calor pode vir do Cálculo IBUTG OU do campo
+            // "Exposição" digitado manualmente. Sem esse fallback os valores
+            // digitados eram perdidos no salvamento (tabela não renderizava).
+            const _num = (v: any) => {
+              const n = parseFloat(String(v ?? "").replace(",", "."));
+              return isFinite(n) ? n : null;
+            };
+            const _ib = _num(x.ibutg_resultado) ?? _num(x.ibutg_medido) ?? _num(x.exposicao) ?? _num(x.resultado_calor);
+            const _lim = _num(x.ibutg_limite) ?? _num(x.limite_tolerancia) ?? _num(x.limite_tolerancia_calor);
+            const _tipo = x.ibutg_tipo || (String(x.tbs_valores || "").trim() ? "com_carga_solar" : (_ib != null ? "sem_carga_solar" : null));
+            return {
+              colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
+              data_avaliacao: x.data_avaliacao || null,
+              ibutg_medido: _ib,
+              ibutg_limite: _lim,
+              m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
+              tipo_atividade: x.tipo_atividade || null,
+              taxa_metabolica: x.taxa_metabolica || null,
+              descricao_atividade: x.descricao_atividade || null,
+              situacao: x.situacao || (_ib != null && _lim != null && _lim > 0 ? (_ib <= _lim ? "Seguro" : "Nocivo") : null),
+              cod_gfip: x.cod_gfip || null,
+              parecer_tecnico: x.parecer_tecnico || null,
+              aposentadoria_especial: x.aposentadoria_especial || null,
+              local_atividade: x.local_atividade || null,
+              equipamento_id: x.equipamento_id || null,
+              tempo_exposicao: x.tempo_exposicao || null,
+              ibutg_tipo: _tipo,
+              tbn_valores: x.tbn_valores || null,
+              tg_valores: x.tg_valores || null,
+              tbs_valores: x.tbs_valores || null,
+            };
+          });
+
           const vibRows = mkRows(__vibArr, (x) => ({
             tipo: x.tipo || null,
             colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
