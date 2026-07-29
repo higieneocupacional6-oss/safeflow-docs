@@ -3069,6 +3069,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
+      // Regra global: o que não existe no cadastro é removido do contexto
+      // (ver src/lib/riscoContext.ts). Sem nullGetter, o Docxtemplater
+      // imprimiria "undefined" nessas tags e quebraria a limpeza.
+      nullGetter: () => "",
     });
     return doc;
   };
