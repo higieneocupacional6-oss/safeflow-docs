@@ -2371,6 +2371,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao_maos_bracos,
           is_qualitativo,
           is_quantitativo,
+          // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
+          is_qualitativo_quimico,
+          is_qualitativo_biologico,
+          is_qualitativo_fisico,
+          // aliases
+          is_quimico_qualitativo: is_qualitativo_quimico,
+          is_biologico_qualitativo: is_qualitativo_biologico,
+          is_fisico_qualitativo: is_qualitativo_fisico,
           tipo_avaliacao: first.tipo_avaliacao || "qualitativa",
           descricao_tecnica: first.descricao_tecnica || "",
           propagacao: first.propagacao || "",
