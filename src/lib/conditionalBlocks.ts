@@ -38,6 +38,7 @@ const BLOCK_KEYS = [
   "risco_quimico_quantitativo",
   "risco_quimico_qualitativo",
   "risco_biologico",
+  "risco_fisico_qualitativo",
 ] as const;
 
 export type ConditionalBlockKey = (typeof BLOCK_KEYS)[number];
