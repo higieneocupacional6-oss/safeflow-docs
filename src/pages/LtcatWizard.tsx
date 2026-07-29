@@ -2611,7 +2611,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               jornada_trabalho: s.jornada_trabalho,
               funcoes_ges: s.funcoes_ges,
               funcoes: s.funcoes,
-              inicio_setor: s.nome_setor,
+              // Delimitadores visuais do template: não devem imprimir texto.
+              inicio_setor: "",
+              fim_setor: "",
             };
             return {
               ...r,
