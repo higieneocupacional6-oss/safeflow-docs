@@ -1268,12 +1268,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               return Array.from(groups.values());
             })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
-              resultados_calor: (calorByAv[av.id] || []).map(r => hydrateRow({
-              ...r,
-              id: r.id,
-              ibutg_resultado: (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : ""),
-              equipamento_nome: getEquipamentoDisplayName((equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id)) || "",
-            })),
+              resultados_calor: (calorByAv[av.id] || []).map(r => {
+              const _eqCat = (equipamentos as any[]).find((e: any) => e.id === (r as any).equipamento_id);
+              const _ibutg = (r as any).ibutg_resultado ?? ((r as any).ibutg_medido != null ? String((r as any).ibutg_medido) : "");
+              const _limite = (r as any).ibutg_limite != null ? String((r as any).ibutg_limite) : "";
+              return hydrateRow({
+                ...r,
+                id: r.id,
+                ibutg_resultado: _ibutg,
+                // Repopula os campos do formulário (Exposição / Limite) a partir do banco
+                exposicao: (r as any).exposicao ?? _ibutg,
+                limite_tolerancia: (r as any).limite_tolerancia ?? _limite,
+                equipamento_nome: getEquipamentoDisplayName(_eqCat) || "",
+                numero_serie_equipamento:
+                  (r as any).numero_serie_equipamento ||
+                  _eqCat?.equipamentos_ho_registros?.[0]?.numero_serie || "",
+              });
+            }),
+
             equipamentos_avaliacao: (eqByAv[av.id] || []).map(r => {
               // Back-populate equipamento_id e registro_id a partir do catálogo
               // 1) tenta match por nome do equipamento; 2) fallback por número de série
