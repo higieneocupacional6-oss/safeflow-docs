@@ -2755,14 +2755,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
           const media_vmb_aren = isVMB ? fmtM(mAren) : "";
           // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
-          const allCalor = (r.resultados_calor || []) as any[];
-          const calorComIbutg = allCalor.filter((x: any) => {
-            const ib = getIbutgValor(x);
-            return isFinite(ib) && ib > 0;
-          });
-
-          const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
-          const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
+          const { ibutg_medio, exibir_media_ibutg: _exibirMediaIbutg } = buildMediaIbutg((r.resultados_calor || []) as any[]);
           return {
             media_vci_aren,
             media_vci_vdvr,
