@@ -2755,7 +2755,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const media_vci_vdvr = isVCI ? fmtM(mVdvr) : "";
           const media_vmb_aren = isVMB ? fmtM(mAren) : "";
           // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
-          const { ibutg_medio, exibir_media_ibutg: _exibirMediaIbutg } = buildMediaIbutg((r.resultados_calor || []) as any[]);
+          const { ibutg_medio, exibir_media_ibutg } = buildMediaIbutg((r.resultados_calor || []) as any[]);
           return {
             media_vci_aren,
             media_vci_vdvr,
@@ -2763,7 +2763,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             exibir_media_vibracao_vci: !!(media_vci_aren || media_vci_vdvr),
             exibir_media_vibracao_vmb: !!media_vmb_aren,
             ibutg_medio,
-            exibir_media_ibutg: !!ibutg_medio,
+            exibir_media_ibutg,
           };
         })(),
       };
