@@ -84,9 +84,10 @@ export const sanitizeRisco = <T extends Record<string, any>>(r: T): T => {
   }
 
   for (const k of Object.keys(out)) {
-    const isBlockFlag =
-      k.startsWith("is_") || k.startsWith("exibir_") || k.startsWith("ibutg_") && typeof out[k] === "boolean";
-    if (isBlockFlag && out[k] === false) delete out[k];
+    if (typeof out[k] !== "boolean" || out[k] !== false) continue;
+    if (k.startsWith("is_") || k.startsWith("exibir_") || k.startsWith("ibutg_")) {
+      delete out[k];
+    }
   }
 
   return out as T;
