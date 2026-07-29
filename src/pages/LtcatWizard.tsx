@@ -2325,13 +2325,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const is_agente_quimico = is_quimico || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
         const is_agente_biologico = is_biologico || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
         const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
-        const is_calor = agenteNomeLower.includes("calor");
+        const temDadosCalor = agentEntries.some((r: any) => (r.resultados_calor || []).length > 0);
+        const is_calor = normalized_agente_nome.includes("calor") || agenteNomeLower.includes("calor") || temDadosCalor;
         const is_vibracao = agenteNomeLower.includes("vibra");
         const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
         const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
+        // Blocos condicionais específicos: Qualitativa + tipo de agente
+        const is_qualitativo_quimico = is_qualitativo && (is_quimico || is_agente_quimico);
+        const is_qualitativo_biologico = is_qualitativo && (is_biologico || is_agente_biologico);
+        const is_qualitativo_fisico = is_qualitativo && (is_fisico || is_agente_fisico);
         console.log("🎨 [LTCAT] AGENTE NORMALIZADO:", normalized_agente_nome, { is_agente_fisico, is_agente_quimico, is_agente_biologico });
 
         // Enriquecer cada avaliação com is_nocivo/is_seguro para coloração condicional no template
