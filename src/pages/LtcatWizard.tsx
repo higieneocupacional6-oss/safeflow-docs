@@ -2778,10 +2778,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           // ---- IBUTG (Calor) — média ponderada por tempo (consolidado por risco) ----
           const allCalor = (r.resultados_calor || []) as any[];
           const calorComIbutg = allCalor.filter((x: any) => {
-            const ib = parseFloat(String(x?.ibutg_resultado ?? "").replace(",", "."));
-            const T = parseTempoExposicaoHoras(x?.tempo_exposicao);
-            return isFinite(ib) && ib > 0 && T > 0;
+            const ib = getIbutgValor(x);
+            return isFinite(ib) && ib > 0;
           });
+
           const _ibutgMed = calorComIbutg.length > 1 ? calcIbutgMedio(calorComIbutg) : null;
           const ibutg_medio = _ibutgMed == null ? "" : _ibutgMed.toFixed(2);
           return {
