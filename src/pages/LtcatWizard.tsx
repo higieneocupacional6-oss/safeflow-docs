@@ -1297,6 +1297,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 const compLT = r.limite_tolerancia;
                 // Skip linhas-fantasma legadas (sem nome, sem resultado, sem LT)
                 if (!compNome && (compRes == null || compRes === "") && (compLT == null || compLT === "")) return;
+                // 🛡️ ANTI-DUPLICAÇÃO: ignora linhas legadas idênticas já carregadas
+                const __dupKey = `${compNome}|${compRes ?? ""}|${compLT ?? ""}|${r.cas || ""}|${r.tempo_coleta || ""}`;
+                g.__keys ||= new Set<string>();
+                if (g.__keys.has(__dupKey)) return;
+                g.__keys.add(__dupKey);
                 g.componentes.push({
                   id: r.id || crypto.randomUUID(),
                   componente: compNome,
