@@ -314,6 +314,10 @@ export function LtcatTemplateHelper() {
       vars: ["{{tecnica_amostragem}}", "{{tempo_coleta}}", "{{unidade_tempo_coleta}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_calibracao}}"],
     },
     {
+      title: "Equipamento & Amostrador (todos os agentes)",
+      vars: ["{{nome_equipamento}}", "{{amostrador}}"],
+    },
+    {
       title: "Equipamentos da Avaliação (loop)",
       vars: ["{{#equipamentos}}", "{{nome}}", "{{numero_serie}}", "{{marca_modelo}}", "{{data_calibracao}}", "{{data_avaliacao}}", "{{/equipamentos}}", "{{#equipamentos_avaliacao}}", "{{nome_equipamento}}", "{{modelo_equipamento}}", "{{serie_equipamento}}", "{{data_avaliacao}}", "{{data_calibracao}}", "{{/equipamentos_avaliacao}}"],
     },
