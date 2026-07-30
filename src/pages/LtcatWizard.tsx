@@ -116,6 +116,39 @@ const dedupeRows = <T,>(rows: T[], getKey: (row: T) => string) => {
   });
 };
 
+// 🛡️ ANTI-DUPLICAÇÃO (listagem/gravação): remove entradas de risco IDÊNTICAS em
+// conteúdo (mesmo setor, agente, tipos, resultados, funções/colaboradores).
+// Só descarta cópias exatas — riscos distintos (resultados/colaboradores diferentes)
+// são sempre preservados.
+const buildRiscoFingerprint = (r: any) => {
+  const itens = (r?.items || [])
+    .map((i: any) => buildPessoaFuncaoKey(i))
+    .sort()
+    .join(",");
+  return JSON.stringify({
+    setor_id: r?.setor_id || "",
+    agente_id: r?.agente_id || "",
+    tipo_avaliacao: r?.tipo_avaliacao || "",
+    tipo_agente: r?.tipo_agente || "",
+    resultado: r?.resultado ?? "",
+    limite_tolerancia: r?.limite_tolerancia ?? "",
+    data_avaliacao: r?.data_avaliacao || "",
+    tecnica_id: r?.tecnica_id || "",
+    equipamento_id: r?.equipamento_id || "",
+    parecer_tecnico: r?.parecer_tecnico || "",
+    itens,
+    nRes: (r?.resultados_detalhados || []).length,
+    nComp: (r?.resultados_componentes || []).length,
+    nCalor: (r?.resultados_calor || []).length,
+    nVib: (r?.resultados_vibracao || []).length,
+  });
+};
+
+const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
+  dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
+
+
+
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
   const grouped = new Map<string, RiscoEntry>();
 
@@ -954,6 +987,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
   // e demais subdados, pois o delete-then-insert não é atômico entre processos.
   const isPersistingRef = useRef(false);
+  // 🔒 Fila serial de persistência: garante que dois `persistAvaliacoes` nunca
+  // rodem em paralelo (delete-then-insert não é atômico → duplicava riscos).
+  const persistQueueRef = useRef<Promise<any>>(Promise.resolve());
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
@@ -1072,7 +1108,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
             if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
             if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
+              setRiscos(dedupeRiscosIdenticos(draftSnapshot.riscos as RiscoEntry[]));
               markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
@@ -1261,6 +1297,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 const compLT = r.limite_tolerancia;
                 // Skip linhas-fantasma legadas (sem nome, sem resultado, sem LT)
                 if (!compNome && (compRes == null || compRes === "") && (compLT == null || compLT === "")) return;
+                // 🛡️ ANTI-DUPLICAÇÃO: ignora linhas legadas idênticas já carregadas
+                const __dupKey = `${compNome}|${compRes ?? ""}|${compLT ?? ""}|${r.cas || ""}|${r.tempo_coleta || ""}`;
+                g.__keys ||= new Set<string>();
+                if (g.__keys.has(__dupKey)) return;
+                g.__keys.add(__dupKey);
                 g.componentes.push({
                   id: r.id || crypto.randomUUID(),
                   componente: compNome,
@@ -1277,7 +1318,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   amostrador: r.amostrador || "",
                 });
               });
-              return Array.from(groups.values());
+              return Array.from(groups.values()).map(({ __keys, ...g }: any) => g);
             })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
               resultados_calor: (calorByAv[av.id] || []).map(r => {
@@ -1789,7 +1830,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const propagated = novoGes
           ? riscos.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
           : riscos;
-        nextRiscos = [...propagated, newRisk];
+        // Se um risco idêntico já existe na listagem (duplo clique / save concorrente),
+        // não cria uma segunda linha.
+        nextRiscos = dedupeRiscosIdenticos([...propagated, newRisk]);
         setRiscos(nextRiscos);
       }
       await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
@@ -3115,8 +3158,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
   // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
-  const persistAvaliacoes = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
+  // 🔒 Serializado: chamadas concorrentes (autosave + salvar + validar) são enfileiradas,
+  // pois o ciclo delete→insert não é atômico e gerava riscos duplicados no banco.
+  const persistAvaliacoes = (docId: string, riscosSource: RiscoEntry[] = riscos) => {
+    const next = persistQueueRef.current
+      .catch(() => {})
+      .then(() => persistAvaliacoesInner(docId, riscosSource));
+    persistQueueRef.current = next.catch(() => {});
+    return next;
+  };
+
+  const persistAvaliacoesInner = async (docId: string, riscosSourceRaw: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
+    // Suprime re-hidratação por realtime durante a gravação (evita estado parcial).
+    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
+    // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
+    // antes de gravar, evitando múltiplas linhas para o mesmo risco.
+    const riscosSource = dedupeRiscosIdenticos(riscosSourceRaw || []);
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
       // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
@@ -3126,6 +3184,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
       const totalExistentes = existentes?.length || 0;
       const totalARecriar = (riscosSource || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
+
 
       if (totalExistentes > 0 && totalARecriar === 0) {
         console.warn(
@@ -3388,11 +3447,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             return true;
           });
 
+          // 🛡️ ANTI-DUPLICAÇÃO: descarta linhas idênticas em conteúdo (ignorando `ordem`)
+          // antes de gravar — causa raiz das duplicações vistas na listagem de riscos.
+          const dedupeByContent = (rows: any[]) => {
+            const seen = new Set<string>();
+            return rows.filter((row) => {
+              const { ordem, ...rest } = row || {};
+              const k = JSON.stringify(rest);
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return true;
+            }).map((row, i) => ({ ...row, ordem: i }));
+          };
+
           const tasks: any[] = [];
-          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
-          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
-          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
-          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
+          const compRowsU  = dedupeByContent(compRows);
+          const calorRowsU = dedupeByContent(calorRows);
+          const vibRowsU   = dedupeByContent(vibRows);
+          const resRowsU   = dedupeByContent(resRows);
+          if (compRowsU.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRowsU).then());
+          if (calorRowsU.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRowsU).then());
+          if (vibRowsU.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRowsU).then());
+          if (resRowsU.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRowsU).then());
           if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
@@ -3405,6 +3481,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           }
           await Promise.all(tasks);
         }
+      }
+      // 🧹 Limpeza final anti-duplicação: se um save concorrente (ou legado) deixou
+      // linhas repetidas para a mesma combinação setor+função+agente+colaborador,
+      // mantém apenas a mais recente (que carrega os subdados recém-inseridos).
+      try {
+        const { data: finais } = await supabase
+          .from("ltcat_avaliacoes")
+          .select("id, setor_id, funcao_id, agente_id, colaborador, tipo_avaliacao, tipo_agente, created_at")
+          .eq("documento_id", docId)
+          .order("created_at", { ascending: false });
+        const vistos = new Set<string>();
+        const idsDuplicados: string[] = [];
+        (finais || []).forEach((row: any) => {
+          const k = [
+            row.setor_id || "", row.funcao_id || "", row.agente_id || "",
+            (row.colaborador || "").trim().toLowerCase(),
+            row.tipo_avaliacao || "", row.tipo_agente || "",
+          ].join("|");
+          if (vistos.has(k)) idsDuplicados.push(row.id);
+          else vistos.add(k);
+        });
+        if (idsDuplicados.length) {
+          await supabase.from("ltcat_avaliacoes").delete().in("id", idsDuplicados);
+          console.warn("🧹 [LTCAT] Avaliações duplicadas removidas:", idsDuplicados.length);
+        }
+      } catch (cleanupErr) {
+        console.warn("[persistAvaliacoes] limpeza de duplicados falhou:", cleanupErr);
       }
       console.log("💾 [LTCAT] Avaliações persistidas para documento:", docId);
     } catch (e) {
