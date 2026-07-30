@@ -1825,7 +1825,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const propagated = novoGes
           ? riscos.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
           : riscos;
-        nextRiscos = [...propagated, newRisk];
+        // Se um risco idêntico já existe na listagem (duplo clique / save concorrente),
+        // não cria uma segunda linha.
+        nextRiscos = dedupeRiscosIdenticos([...propagated, newRisk]);
         setRiscos(nextRiscos);
       }
       await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
