@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
+
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
@@ -129,6 +131,49 @@ export default function PcmsoWizard() {
       return data || [];
     },
   });
+
+  // ===== Sincronização automática com o módulo Setores e Funções =====
+  useSetoresFuncoesSync();
+
+  // Atualiza/remova setores e funções no snapshot do PCMSO sem perder exames preenchidos
+  useEffect(() => {
+    if (!empresaId) return;
+    if ((setoresEmpresa as any[]).length === 0) return;
+    const map = new Map((setoresEmpresa as any[]).map((s: any) => [s.id, s]));
+    const funcMap: Record<string, string[]> = {};
+    (funcoesEmpresa as any[]).forEach((f: any) => {
+      (funcMap[f.setor_id] = funcMap[f.setor_id] || []).push(f.nome_funcao);
+    });
+    setSetores((prev) => {
+      const next = prev
+        .filter((s) => !s.setor_id || map.has(s.setor_id))
+        .map((s) => {
+          const db: any = s.setor_id ? map.get(s.setor_id) : null;
+          if (!db) return s;
+          const nomes = (funcMap[s.setor_id!] || []).join(", ");
+          const funcoes = (funcoesEmpresa as any[]).length > 0 ? nomes : s.funcoes;
+          if (s.nome_setor === db.nome_setor && s.funcoes === funcoes) return s;
+          return { ...s, nome_setor: db.nome_setor, funcoes };
+        });
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [setoresEmpresa, funcoesEmpresa, empresaId]);
+
+  // Remove funções excluídas dos blocos de EPI e Treinamentos
+  useEffect(() => {
+    if ((funcoesEmpresa as any[]).length === 0) return;
+    const validas = new Set((funcoesEmpresa as any[]).map((f: any) => f.id));
+    const prune = <T extends { funcao_ids: string[] }>(arr: T[]) => {
+      const next = arr.map((b) => {
+        const ids = (b.funcao_ids || []).filter((id) => validas.has(id));
+        return ids.length === (b.funcao_ids || []).length ? b : { ...b, funcao_ids: ids };
+      });
+      return JSON.stringify(next) === JSON.stringify(arr) ? arr : next;
+    };
+    setEpiBlocos((prev) => prune(prev));
+    setTreinBlocos((prev) => prune(prev));
+  }, [funcoesEmpresa]);
+
 
   const { data: catTreinamentos = [] } = useQuery({
     queryKey: ["treinamentos_cadastro"],

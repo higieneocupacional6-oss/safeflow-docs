@@ -19,6 +19,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
+
 import { sortByGes } from "@/lib/sortGes";
 import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
@@ -207,6 +209,49 @@ export default function PgrWizard() {
       return data;
     },
   });
+
+  // ===== Sincronização automática com o módulo Setores e Funções =====
+  useSetoresFuncoesSync();
+
+  // Remove setores excluídos do snapshot, preservando os dados dos setores válidos
+  useEffect(() => {
+    if (!empresaId) return;
+    if ((setores as any[]).length === 0) return;
+    const validos = new Set((setores as any[]).map((s: any) => s.id));
+    setSnapshot((prev) => {
+      const keys = Object.keys(prev.setores || {});
+      const orfaos = keys.filter((k) => !validos.has(k));
+      if (orfaos.length === 0) return prev;
+      const next = { ...prev.setores };
+      orfaos.forEach((k) => delete next[k]);
+      return { ...prev, setores: next };
+    });
+  }, [setores, empresaId]);
+
+  // Remove funções excluídas dos blocos de EPI e Treinamentos
+  useEffect(() => {
+    if ((funcoesEmpresa as any[]).length === 0) return;
+    const validas = new Set((funcoesEmpresa as any[]).map((f: any) => f.id));
+    setSnapshot((prev) => {
+      const prune = <T extends { funcao_ids: string[] }>(arr?: T[]) =>
+        (arr || []).map((b) => {
+          const ids = (b.funcao_ids || []).filter((id) => validas.has(id));
+          return ids.length === (b.funcao_ids || []).length ? b : { ...b, funcao_ids: ids };
+        });
+      const epi = prune(prev.epi_blocos);
+      const trein = prune(prev.treinamento_blocos);
+      const changed =
+        JSON.stringify(epi) !== JSON.stringify(prev.epi_blocos || []) ||
+        JSON.stringify(trein) !== JSON.stringify(prev.treinamento_blocos || []);
+      if (!changed) return prev;
+      return {
+        ...prev,
+        ...(prev.epi_blocos ? { epi_blocos: epi as EpiBloco[] } : {}),
+        ...(prev.treinamento_blocos ? { treinamento_blocos: trein as TreinBloco[] } : {}),
+      };
+    });
+  }, [funcoesEmpresa]);
+
 
   const { data: catEpis = [] } = useQuery({
     queryKey: ["epi-epc-cadastro"],
