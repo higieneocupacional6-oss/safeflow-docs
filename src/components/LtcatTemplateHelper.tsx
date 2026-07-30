@@ -330,6 +330,10 @@ export function LtcatTemplateHelper() {
       vars: ["{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}", "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}"],
     },
     {
+      title: "Agente Específico — Hidróxido de Sódio",
+      vars: ["{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}", "{{#epis}}", "{{/epis}}", "{{parecer_tecnico}}", "{{aposentadoria_especial}}", "{{/is_hidroxido_sodio}}"],
+    },
+    {
       title: "Qualitativa por Tipo de Agente (novas)",
       vars: [
         "{{#is_qualitativo}}", "{{/is_qualitativo}}",
