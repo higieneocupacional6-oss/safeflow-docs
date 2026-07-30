@@ -2424,6 +2424,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const is_vibracao = agenteNomeLower.includes("vibra");
         const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
         const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
+        const is_hidroxido_sodio = normalized_agente_nome.includes("hidroxido de sodio")
+          || normalized_agente_nome.includes("hidroxido sodio")
+          || normalized_agente_nome.includes("soda caustica")
+          || normalized_agente_nome.replace(/\s/g, "").includes("naoh");
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
