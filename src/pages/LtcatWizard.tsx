@@ -3118,8 +3118,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
   // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
-  const persistAvaliacoes = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
+  // 🔒 Serializado: chamadas concorrentes (autosave + salvar + validar) são enfileiradas,
+  // pois o ciclo delete→insert não é atômico e gerava riscos duplicados no banco.
+  const persistAvaliacoes = (docId: string, riscosSource: RiscoEntry[] = riscos) => {
+    const next = persistQueueRef.current
+      .catch(() => {})
+      .then(() => persistAvaliacoesInner(docId, riscosSource));
+    persistQueueRef.current = next.catch(() => {});
+    return next;
+  };
+
+  const persistAvaliacoesInner = async (docId: string, riscosSourceRaw: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
+    // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
+    // antes de gravar, evitando múltiplas linhas para o mesmo risco.
+    const riscosSource = mergeLoadedRiscos(riscosSourceRaw || []);
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
       // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
@@ -3129,6 +3142,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
       const totalExistentes = existentes?.length || 0;
       const totalARecriar = (riscosSource || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
+
 
       if (totalExistentes > 0 && totalARecriar === 0) {
         console.warn(
