@@ -157,9 +157,20 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
             <div>
               <Label>Tabela eSocial</Label>
               <div className="mt-1">
-                <EsocialAutocomplete
-                  value={codigoEsocial ? `${codigoEsocial} - ${descricaoEsocial}` : ""}
-                  onSelect={(a) => { setCodigoEsocial(a.codigo); setDescricaoEsocial(a.descricao); }}
+                <Input
+                  value={codigoEsocial ? `${codigoEsocial} - ${descricaoEsocial}` : descricaoEsocial}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const sep = val.indexOf(" - ");
+                    if (sep >= 0) {
+                      setCodigoEsocial(val.slice(0, sep).trim());
+                      setDescricaoEsocial(val.slice(sep + 3).trim());
+                    } else {
+                      setCodigoEsocial("");
+                      setDescricaoEsocial(val.trim());
+                    }
+                  }}
+                  placeholder="Ex: 01.01.001 - Arsênio e seus compostos"
                 />
               </div>
             </div>
