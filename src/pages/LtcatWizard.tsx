@@ -116,6 +116,39 @@ const dedupeRows = <T,>(rows: T[], getKey: (row: T) => string) => {
   });
 };
 
+// 🛡️ ANTI-DUPLICAÇÃO (listagem/gravação): remove entradas de risco IDÊNTICAS em
+// conteúdo (mesmo setor, agente, tipos, resultados, funções/colaboradores).
+// Só descarta cópias exatas — riscos distintos (resultados/colaboradores diferentes)
+// são sempre preservados.
+const buildRiscoFingerprint = (r: any) => {
+  const itens = (r?.items || [])
+    .map((i: any) => buildPessoaFuncaoKey(i))
+    .sort()
+    .join(",");
+  return JSON.stringify({
+    setor_id: r?.setor_id || "",
+    agente_id: r?.agente_id || "",
+    tipo_avaliacao: r?.tipo_avaliacao || "",
+    tipo_agente: r?.tipo_agente || "",
+    resultado: r?.resultado ?? "",
+    limite_tolerancia: r?.limite_tolerancia ?? "",
+    data_avaliacao: r?.data_avaliacao || "",
+    tecnica_id: r?.tecnica_id || "",
+    equipamento_id: r?.equipamento_id || "",
+    parecer_tecnico: r?.parecer_tecnico || "",
+    itens,
+    nRes: (r?.resultados_detalhados || []).length,
+    nComp: (r?.resultados_componentes || []).length,
+    nCalor: (r?.resultados_calor || []).length,
+    nVib: (r?.resultados_vibracao || []).length,
+  });
+};
+
+const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
+  dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
+
+
+
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
   const grouped = new Map<string, RiscoEntry>();
 
