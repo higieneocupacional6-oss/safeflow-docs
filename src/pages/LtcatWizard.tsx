@@ -2424,6 +2424,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const is_vibracao = agenteNomeLower.includes("vibra");
         const is_vibracao_corpo_inteiro = isAgentVCI(first.agente_nome || "");
         const is_vibracao_maos_bracos = isAgentVMB(first.agente_nome || "");
+        const is_hidroxido_sodio = normalized_agente_nome.includes("hidroxido de sodio")
+          || normalized_agente_nome.includes("hidroxido sodio")
+          || normalized_agente_nome.includes("soda caustica")
+          || normalized_agente_nome.replace(/\s/g, "").includes("naoh");
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
         const is_qualitativo = tipoAvalLower.includes("qualitativ");
         const is_quantitativo = tipoAvalLower.includes("quantitativ");
@@ -2463,6 +2467,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao,
           is_vibracao_corpo_inteiro,
           is_vibracao_maos_bracos,
+          is_hidroxido_sodio,
           is_qualitativo,
           is_quantitativo,
           // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
@@ -2738,6 +2743,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
         is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
+        is_hidroxido_sodio: normalized_agente_nome.includes("hidroxido de sodio")
+          || normalized_agente_nome.includes("hidroxido sodio")
+          || normalized_agente_nome.includes("soda caustica")
+          || normalized_agente_nome.replace(/\s/g, "").includes("naoh"),
         is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
         is_qualitativo_quimico: _isQual && _aQ,
