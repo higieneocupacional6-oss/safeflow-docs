@@ -1108,7 +1108,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
             if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
             if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
+              setRiscos(dedupeRiscosIdenticos(draftSnapshot.riscos as RiscoEntry[]));
               markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
