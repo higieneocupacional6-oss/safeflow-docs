@@ -3442,11 +3442,28 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             return true;
           });
 
+          // 🛡️ ANTI-DUPLICAÇÃO: descarta linhas idênticas em conteúdo (ignorando `ordem`)
+          // antes de gravar — causa raiz das duplicações vistas na listagem de riscos.
+          const dedupeByContent = (rows: any[]) => {
+            const seen = new Set<string>();
+            return rows.filter((row) => {
+              const { ordem, ...rest } = row || {};
+              const k = JSON.stringify(rest);
+              if (seen.has(k)) return false;
+              seen.add(k);
+              return true;
+            }).map((row, i) => ({ ...row, ordem: i }));
+          };
+
           const tasks: any[] = [];
-          if (compRows.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRows).then());
-          if (calorRows.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRows).then());
-          if (vibRows.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRows).then());
-          if (resRows.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRows).then());
+          const compRowsU  = dedupeByContent(compRows);
+          const calorRowsU = dedupeByContent(calorRows);
+          const vibRowsU   = dedupeByContent(vibRows);
+          const resRowsU   = dedupeByContent(resRows);
+          if (compRowsU.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRowsU).then());
+          if (calorRowsU.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRowsU).then());
+          if (vibRowsU.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRowsU).then());
+          if (resRowsU.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRowsU).then());
           if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
           if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
             tasks.push(supabase.from("ltcat_av_epi_epc").insert({
