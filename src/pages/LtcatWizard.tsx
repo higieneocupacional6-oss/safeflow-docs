@@ -1242,11 +1242,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     data_avaliacao: r.data_avaliacao || "",
                     cod_gfip: r.cod_gfip || "",
                     numero_serie_bomba: r.numero_serie_bomba || "",
+                    amostrador: r.amostrador || "",
                     componentes: [] as any[],
                   };
                   groups.set(k, g);
-                } else if (!g.numero_serie_bomba && r.numero_serie_bomba) {
-                  g.numero_serie_bomba = r.numero_serie_bomba;
+                } else {
+                  if (!g.numero_serie_bomba && r.numero_serie_bomba) g.numero_serie_bomba = r.numero_serie_bomba;
+                  if (!g.amostrador && r.amostrador) g.amostrador = r.amostrador;
                 }
                 const compNome = (r.componente || "").toString();
                 const compRes = r.resultado;
@@ -1266,6 +1268,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   dose_percentual: r.dose_percentual ?? "",
                   situacao: r.situacao || "",
                   cod_gfip: r.cod_gfip || "",
+                  amostrador: r.amostrador || "",
                 });
               });
               return Array.from(groups.values());
@@ -2065,6 +2068,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             tipo_agente: r.tipo_agente || "",
             // Equipamento vinculado ao risco (modal "Avaliação de Risco por Setor")
             equipamento: equipamentoNomeRiscoBase,
+            // Nome do equipamento — disponível em qualquer bloco de agente ({{#is_ruido}}, {{#is_calor}}, ...)
+            nome_equipamento: equipamentoNomeRiscoBase || equipamentosAvaliacaoLoop[0]?.nome_equipamento || "",
           };
 
           const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
@@ -2095,8 +2100,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             const situacao = res.situacao || situacaoVib || situacaoCalor || (hasBoth ? (resNum <= ltNum ? "Segura" : "Nocivo") : "");
 
             const f = funcoes.find((x: any) => x.id === res.funcao_id);
+            const _eqRow: any = res.equipamento_id
+              ? equipamentos.find((e: any) => e.id === res.equipamento_id)
+              : null;
+            const _nomeEqRow =
+              (_eqRow ? getEquipamentoDisplayName(_eqRow) : "") ||
+              res.equipamento_nome ||
+              res.nome_equipamento ||
+              (base as any).nome_equipamento ||
+              "";
             return {
               ...base,
+              nome_equipamento: _nomeEqRow,
+              equipamento: _nomeEqRow || (base as any).equipamento || "",
               colaborador: res.colaborador || "",
               funcao: res.funcao_nome || f?.nome_funcao || "",
               nome_funcao: res.funcao_nome || f?.nome_funcao || "",
@@ -2237,6 +2253,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   situacao,
                   codigo_gfip: c.cod_gfip || rc.cod_gfip || "",
                   cod_gfip: c.cod_gfip || rc.cod_gfip || "",
+                  amostrador: c.amostrador || rc.amostrador || "",
                 };
               });
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
@@ -2266,6 +2283,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 aposentadoria_especial: rc.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
                 numero_serie_bomba_amostragem: rc.numero_serie_bomba || "",
                 numero_serie_bomba: rc.numero_serie_bomba || "",
+                amostrador: rc.amostrador || (rc.componentes || []).find((c: any) => c?.amostrador)?.amostrador || "",
                 epi_nome,
                 epc_nome,
                 equipamento_avaliado: "",
@@ -2975,7 +2993,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const knownVars = [
             "descricao_atividades", "cbo_codigo", "cbo_descricao", "nome_funcao", "funcao",
             "agente_nome", "parecer_tecnico", "aposentadoria_especial",
-            "nome_equipamento", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
+            "nome_equipamento", "amostrador", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
             "razao_social", "cnpj", "cnae_principal", "grau_risco", "endereco",
             "setor", "ghe_ges", "descricao_ambiente", "local_trabalho", "jornada_trabalho",
             "codigo_esocial", "descricao_esocial", "fonte_geradora", "danos_saude", "medidas_controle",
@@ -3204,6 +3222,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 aposentadoria_especial: row.aposentadoria_especial || null,
                 descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
                 numero_serie_bomba: row.numero_serie_bomba || null,
+                amostrador: row.amostrador || null,
               };
               // Determina lista de componentes desta linha.
               // Importante: se a linha for um GRUPO (tem funcao_id/colaborador) sem componentes,
@@ -3236,6 +3255,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   dose_percentual: c.dose_percentual ?? row.dose_percentual ?? null,
                   situacao: c.situacao || row.situacao || null,
                   cod_gfip: c.cod_gfip || row.cod_gfip || base.cod_gfip,
+                  amostrador: c.amostrador || row.amostrador || base.amostrador,
                 });
               });
             });
@@ -3270,6 +3290,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             parecer_tecnico: x.parecer_tecnico || null,
             aposentadoria_especial: x.aposentadoria_especial || null,
             numero_serie_bomba: x.numero_serie_bomba || null,
+            amostrador: x.amostrador || null,
           }));
           const calorRows = mkRows(__calorArr, (x) => {
             // O resultado do calor pode vir do Cálculo IBUTG OU do campo
@@ -5493,6 +5514,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               </DialogHeader>
 
               <div className="space-y-3 py-4">
+                <div className="bg-muted/10 p-3 rounded-lg border">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amostrador</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: SKC AirChek XR5000, GilAir Plus, Quest EVM-7"
+                    value={(currentAmostraIndex >= 0 ? tempFuncaoRows[currentAmostraIndex]?.amostrador : "") || ""}
+                    onChange={e => {
+                      if (currentAmostraIndex < 0) return;
+                      const v = e.target.value;
+                      const updated = [...tempFuncaoRows];
+                      updated[currentAmostraIndex] = { ...updated[currentAmostraIndex], amostrador: v };
+                      setTempFuncaoRows(updated);
+                      setRiskForm(prev => ({ ...prev, resultados_componentes: updated }));
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Disponível nos templates pela variável <code>{"{{amostrador}}"}</code>.</p>
+                </div>
                 {tempComponentes.map((comp, ci) => (
                   <div key={comp.id} className="grid grid-cols-12 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
                     <div className="col-span-12 sm:col-span-4">

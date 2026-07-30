@@ -12,7 +12,7 @@ export type TemplateIssue = {
 const KNOWN_VARS = [
   "descricao_atividades", "cbo_codigo", "cbo_descricao", "nome_funcao", "funcao",
   "agente_nome", "parecer_tecnico", "aposentadoria_especial",
-  "nome_equipamento", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
+  "nome_equipamento", "amostrador", "modelo_equipamento", "serie_equipamento", "data_avaliacao", "data_calibracao",
   "razao_social", "cnpj", "cnae_principal", "grau_risco", "endereco",
   "setor", "ghe_ges", "descricao_ambiente", "local_trabalho", "jornada_trabalho",
   "codigo_esocial", "descricao_esocial", "fonte_geradora", "danos_saude", "medidas_controle",
