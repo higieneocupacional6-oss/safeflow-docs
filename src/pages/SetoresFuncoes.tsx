@@ -434,8 +434,6 @@ export default function SetoresFuncoes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
-  );
 
       {/* Delete Setor Confirmation */}
       <AlertDialog open={!!deleteSetor} onOpenChange={(o) => !o && setDeleteSetor(null)}>
