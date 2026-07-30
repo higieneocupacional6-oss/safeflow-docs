@@ -845,6 +845,7 @@ export type Database = {
       }
       ltcat_av_componentes: {
         Row: {
+          amostrador: string | null
           aposentadoria_especial: string | null
           avaliacao_id: string
           cas: string | null
@@ -870,6 +871,7 @@ export type Database = {
           unidade_tempo_coleta: string | null
         }
         Insert: {
+          amostrador?: string | null
           aposentadoria_especial?: string | null
           avaliacao_id: string
           cas?: string | null
@@ -895,6 +897,7 @@ export type Database = {
           unidade_tempo_coleta?: string | null
         }
         Update: {
+          amostrador?: string | null
           aposentadoria_especial?: string | null
           avaliacao_id?: string
           cas?: string | null
