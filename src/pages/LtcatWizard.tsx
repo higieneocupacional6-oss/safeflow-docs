@@ -1318,7 +1318,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   amostrador: r.amostrador || "",
                 });
               });
-              return Array.from(groups.values());
+              return Array.from(groups.values()).map(({ __keys, ...g }: any) => g);
             })(),
             resultados_vibracao: (vibByAv[av.id] || []).map(r => hydrateRow({ ...r, id: r.id })),
               resultados_calor: (calorByAv[av.id] || []).map(r => {
