@@ -1494,7 +1494,15 @@ export type Database = {
           situacao?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "pareceres_tecnicos_risco_id_fkey"
+            columns: ["risco_id"]
+            isOneToOne: false
+            referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       pcmso_documentos: {
         Row: {
