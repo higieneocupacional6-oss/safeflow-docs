@@ -3423,6 +3423,33 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           await Promise.all(tasks);
         }
       }
+      // 🧹 Limpeza final anti-duplicação: se um save concorrente (ou legado) deixou
+      // linhas repetidas para a mesma combinação setor+função+agente+colaborador,
+      // mantém apenas a mais recente (que carrega os subdados recém-inseridos).
+      try {
+        const { data: finais } = await supabase
+          .from("ltcat_avaliacoes")
+          .select("id, setor_id, funcao_id, agente_id, colaborador, tipo_avaliacao, tipo_agente, created_at")
+          .eq("documento_id", docId)
+          .order("created_at", { ascending: false });
+        const vistos = new Set<string>();
+        const idsDuplicados: string[] = [];
+        (finais || []).forEach((row: any) => {
+          const k = [
+            row.setor_id || "", row.funcao_id || "", row.agente_id || "",
+            (row.colaborador || "").trim().toLowerCase(),
+            row.tipo_avaliacao || "", row.tipo_agente || "",
+          ].join("|");
+          if (vistos.has(k)) idsDuplicados.push(row.id);
+          else vistos.add(k);
+        });
+        if (idsDuplicados.length) {
+          await supabase.from("ltcat_avaliacoes").delete().in("id", idsDuplicados);
+          console.warn("🧹 [LTCAT] Avaliações duplicadas removidas:", idsDuplicados.length);
+        }
+      } catch (cleanupErr) {
+        console.warn("[persistAvaliacoes] limpeza de duplicados falhou:", cleanupErr);
+      }
       console.log("💾 [LTCAT] Avaliações persistidas para documento:", docId);
     } catch (e) {
       console.error("[persistAvaliacoes] erro:", e);
