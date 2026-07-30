@@ -1268,6 +1268,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   dose_percentual: r.dose_percentual ?? "",
                   situacao: r.situacao || "",
                   cod_gfip: r.cod_gfip || "",
+                  amostrador: r.amostrador || "",
                 });
               });
               return Array.from(groups.values());
@@ -5513,6 +5514,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               </DialogHeader>
 
               <div className="space-y-3 py-4">
+                <div className="bg-muted/10 p-3 rounded-lg border">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Amostrador</Label>
+                  <Input
+                    className="mt-1"
+                    placeholder="Ex: SKC AirChek XR5000, GilAir Plus, Quest EVM-7"
+                    value={(currentAmostraIndex >= 0 ? tempFuncaoRows[currentAmostraIndex]?.amostrador : "") || ""}
+                    onChange={e => {
+                      if (currentAmostraIndex < 0) return;
+                      const v = e.target.value;
+                      const updated = [...tempFuncaoRows];
+                      updated[currentAmostraIndex] = { ...updated[currentAmostraIndex], amostrador: v };
+                      setTempFuncaoRows(updated);
+                      setRiskForm(prev => ({ ...prev, resultados_componentes: updated }));
+                    }}
+                  />
+                  <p className="text-[11px] text-muted-foreground mt-1">Disponível nos templates pela variável <code>{"{{amostrador}}"}</code>.</p>
+                </div>
                 {tempComponentes.map((comp, ci) => (
                   <div key={comp.id} className="grid grid-cols-12 gap-2 items-end bg-muted/10 p-3 rounded-lg border">
                     <div className="col-span-12 sm:col-span-4">
