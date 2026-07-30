@@ -22,7 +22,7 @@ const KNOWN_VARS = [
   "is_quimico", "is_fisico", "is_biologico", "is_ruido", "is_calor", "is_vibracao",
   "is_qualitativo", "is_quantitativo", "descricao_avaliacao",
   "is_agente_fisico", "is_agente_quimico", "is_agente_biologico", "normalized_agente_nome",
-  "is_nocivo", "is_seguro",
+  "is_nocivo", "is_seguro", "is_hidroxido_sodio",
 ];
 
 export function parseDocxErrors(err: any): TemplateIssue[] {
