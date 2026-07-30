@@ -2743,6 +2743,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
         is_vibracao_maos_bracos: isAgentVMB(r.agente_nome || ""),
+        is_hidroxido_sodio: normalized_agente_nome.includes("hidroxido de sodio")
+          || normalized_agente_nome.includes("hidroxido sodio")
+          || normalized_agente_nome.includes("soda caustica")
+          || normalized_agente_nome.replace(/\s/g, "").includes("naoh"),
         is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
         is_qualitativo_quimico: _isQual && _aQ,
