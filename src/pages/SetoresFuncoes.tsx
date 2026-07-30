@@ -70,6 +70,23 @@ export default function SetoresFuncoes() {
     handleSaved();
   };
 
+  // Delete setor state
+  const [deleteSetor, setDeleteSetor] = useState<any>(null);
+  const [deletingSetor, setDeletingSetor] = useState(false);
+
+  const handleDeleteSetor = async () => {
+    if (!deleteSetor) return;
+    setDeletingSetor(true);
+    const { error: fErr } = await supabase.from("funcoes").delete().eq("setor_id", deleteSetor.id);
+    if (fErr) { setDeletingSetor(false); toast.error("Erro ao excluir funções do setor: " + fErr.message); return; }
+    const { error } = await supabase.from("setores").delete().eq("id", deleteSetor.id);
+    setDeletingSetor(false);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    toast.success("Setor excluído!");
+    setDeleteSetor(null);
+    handleSaved();
+  };
+
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
     queryFn: async () => {
