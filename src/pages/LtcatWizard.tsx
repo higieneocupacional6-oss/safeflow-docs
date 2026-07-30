@@ -954,6 +954,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
   // e demais subdados, pois o delete-then-insert não é atômico entre processos.
   const isPersistingRef = useRef(false);
+  // 🔒 Fila serial de persistência: garante que dois `persistAvaliacoes` nunca
+  // rodem em paralelo (delete-then-insert não é atômico → duplicava riscos).
+  const persistQueueRef = useRef<Promise<any>>(Promise.resolve());
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
