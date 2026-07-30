@@ -2467,6 +2467,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao,
           is_vibracao_corpo_inteiro,
           is_vibracao_maos_bracos,
+          is_hidroxido_sodio,
           is_qualitativo,
           is_quantitativo,
           // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
