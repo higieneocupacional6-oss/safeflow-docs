@@ -550,6 +550,48 @@ export default function AetWizard() {
     enabled: setoresAet.length > 0,
   });
 
+  // ===== Sincronização automática com o módulo Setores e Funções =====
+  useSetoresFuncoesSync();
+
+  // Remove vínculos órfãos e atualiza nomes/GES sem apagar o que já foi preenchido
+  useEffect(() => {
+    if (!empresaId) return;
+    if ((setoresEmpresa as any[]).length === 0) return;
+    const map = new Map((setoresEmpresa as any[]).map((s: any) => [s.id, s]));
+    setSetoresAet((prev) => {
+      const next = prev
+        .filter((s) => !s.setor_id || map.has(s.setor_id))
+        .map((s) => {
+          const db: any = s.setor_id ? map.get(s.setor_id) : null;
+          if (!db) return s;
+          if (s.setor_nome === (db.nome_setor || "") && s.ges === (db.ghe_ges || "")) return s;
+          return { ...s, setor_nome: db.nome_setor || "", ges: db.ghe_ges || "" };
+        });
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [setoresEmpresa, empresaId]);
+
+  // Remove funções excluídas das seleções de cada setor da AET
+  useEffect(() => {
+    if ((funcoesAll as any[]).length === 0) return;
+    const validas = new Set((funcoesAll as any[]).map((f: any) => f.id));
+    setSetoresAet((prev) => {
+      const next = prev.map((s) => {
+        const sel = (s.funcoes_selecionadas || []).filter((f) => validas.has(f.id));
+        const funcaoOk = !s.funcao_id || validas.has(s.funcao_id);
+        if (sel.length === (s.funcoes_selecionadas || []).length && funcaoOk) return s;
+        return {
+          ...s,
+          funcoes_selecionadas: sel,
+          funcao_id: funcaoOk ? s.funcao_id : "",
+          funcao_nome: funcaoOk ? s.funcao_nome : "",
+        };
+      });
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [funcoesAll]);
+
+
   // Templates AET
   const { data: templates = [] } = useQuery({
     queryKey: ["templates-aet"],
