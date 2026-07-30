@@ -3130,6 +3130,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   const persistAvaliacoesInner = async (docId: string, riscosSourceRaw: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
+    // Suprime re-hidratação por realtime durante a gravação (evita estado parcial).
+    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
     // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
     // antes de gravar, evitando múltiplas linhas para o mesmo risco.
     const riscosSource = mergeLoadedRiscos(riscosSourceRaw || []);
