@@ -3167,7 +3167,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
     // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
     // antes de gravar, evitando múltiplas linhas para o mesmo risco.
-    const riscosSource = mergeLoadedRiscos(riscosSourceRaw || []);
+    const riscosSource = dedupeRiscosIdenticos(riscosSourceRaw || []);
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
       // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
