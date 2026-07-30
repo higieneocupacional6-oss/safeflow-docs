@@ -70,6 +70,23 @@ export default function SetoresFuncoes() {
     handleSaved();
   };
 
+  // Delete setor state
+  const [deleteSetor, setDeleteSetor] = useState<any>(null);
+  const [deletingSetor, setDeletingSetor] = useState(false);
+
+  const handleDeleteSetor = async () => {
+    if (!deleteSetor) return;
+    setDeletingSetor(true);
+    const { error: fErr } = await supabase.from("funcoes").delete().eq("setor_id", deleteSetor.id);
+    if (fErr) { setDeletingSetor(false); toast.error("Erro ao excluir funções do setor: " + fErr.message); return; }
+    const { error } = await supabase.from("setores").delete().eq("id", deleteSetor.id);
+    setDeletingSetor(false);
+    if (error) { toast.error("Erro ao excluir: " + error.message); return; }
+    toast.success("Setor excluído!");
+    setDeleteSetor(null);
+    handleSaved();
+  };
+
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
     queryFn: async () => {
@@ -281,8 +298,11 @@ export default function SetoresFuncoes() {
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="font-heading text-lg font-bold text-foreground uppercase">{setor.nome_setor}</h3>
                     {setor.ghe_ges && <Badge variant="secondary" className="text-xs">{setor.ghe_ges}</Badge>}
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditSetor(setor)}>
+                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => handleEditSetor(setor)} title="Editar Setor">
                       <Pencil className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10" onClick={() => setDeleteSetor(setor)} title="Excluir Setor">
+                      <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
                   {setor.descricao_ambiente && <p className="text-sm text-muted-foreground">{setor.descricao_ambiente}</p>}
@@ -410,6 +430,24 @@ export default function SetoresFuncoes() {
             <AlertDialogCancel disabled={deletingFuncao}>Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleDeleteFuncao} disabled={deletingFuncao} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deletingFuncao && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Setor Confirmation */}
+      <AlertDialog open={!!deleteSetor} onOpenChange={(o) => !o && setDeleteSetor(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir setor?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir <strong>{deleteSetor?.nome_setor}</strong>? Todas as funções vinculadas também serão excluídas. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingSetor}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteSetor} disabled={deletingSetor} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              {deletingSetor && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
