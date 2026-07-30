@@ -169,6 +169,14 @@ const variableGroups = [
     ],
   },
   {
+    title: "Agente Específico — Hidróxido de Sódio (LTCAT / Insalubridade)",
+    vars: [
+      "{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}",
+      "{{#epis}}", "{{/epis}}", "{{parecer_tecnico}}", "{{aposentadoria_especial}}",
+      "{{/is_hidroxido_sodio}}",
+    ],
+  },
+  {
     title: "Variáveis de Revisão (LTCAT)",
     vars: [
       "{{#revisoes}}", "{{revisao}}", "{{data_revisao}}", "{{motivo}}", "{{responsavel}}", "{{/revisoes}}",
