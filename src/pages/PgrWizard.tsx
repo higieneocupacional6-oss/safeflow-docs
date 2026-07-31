@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 
 import { sortByGes } from "@/lib/sortGes";
+import { buildAgentFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
 type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
