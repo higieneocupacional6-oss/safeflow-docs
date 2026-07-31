@@ -330,6 +330,17 @@ export function LtcatTemplateHelper() {
       vars: ["{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}", "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}"],
     },
     {
+      title: "Flags Automáticas por Agente (GHE/Setor)",
+      vars: [
+        "{{#is_poeirarespiravel_silicalivre}}", "{{/is_poeirarespiravel_silicalivre}}",
+        "{{#is_vaporesorganicos}}", "{{/is_vaporesorganicos}}",
+        "{{#is_solventesorganicos}}", "{{/is_solventesorganicos}}",
+        "{{#is_acidosulfurico}}", "{{/is_acidosulfurico}}",
+        "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
+        "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
+      ],
+    },
+    {
       title: "Agente Específico — Hidróxido de Sódio",
       vars: ["{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}", "{{#epis}}", "{{/epis}}", "{{parecer_tecnico}}", "{{aposentadoria_especial}}", "{{/is_hidroxido_sodio}}"],
     },
