@@ -2793,6 +2793,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           || normalized_agente_nome.includes("hidroxido sodio")
           || normalized_agente_nome.includes("soda caustica")
           || normalized_agente_nome.replace(/\s/g, "").includes("naoh"),
+        ...buildAgentFlags(r.agente_nome),
         is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
         is_qualitativo_quimico: _isQual && _aQ,
