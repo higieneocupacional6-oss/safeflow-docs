@@ -3267,6 +3267,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // em vez de ficar vazio (causa raiz do desaparecimento de riscos).
       const idsAntigos = (existentes || []).map(e => e.id);
       const idsInseridos: string[] = [];
+      let totalEsperado = 0;
 
       for (const r of riscosSource) {
         // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
@@ -3278,6 +3279,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           seenItems.add(k);
           return true;
         });
+        totalEsperado += uniqueItems.length;
         let __itemIdx = 0;
         for (const it of uniqueItems) {
           const __isFirstItem = __itemIdx === 0;
