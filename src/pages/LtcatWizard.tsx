@@ -2512,6 +2512,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao_corpo_inteiro,
           is_vibracao_maos_bracos,
           is_hidroxido_sodio,
+          // Flags automáticas por agente (escalável — ver src/lib/agentFlags.ts)
+          ...buildAgentFlags(first.agente_nome),
           is_qualitativo,
           is_quantitativo,
           // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
