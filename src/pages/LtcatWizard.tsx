@@ -3529,6 +3529,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           await Promise.all(tasks);
         }
       }
+
+      // ✅ CONFIRMAÇÃO DE GRAVAÇÃO: só removemos as linhas antigas depois de
+      // confirmar que o conjunto novo foi realmente inserido no banco.
+      if (idsInseridos.length < totalARecriar) {
+        console.error(
+          `🛑 [LTCAT] Gravação incompleta: esperado ${totalARecriar} avaliação(ões), inseridas ${idsInseridos.length}. Dados anteriores PRESERVADOS.`,
+        );
+        toast.error("Falha ao gravar todos os riscos. Os dados anteriores foram preservados — tente salvar novamente.");
+        // Remove o conjunto parcial recém-criado para não duplicar com o antigo.
+        if (idsInseridos.length) {
+          await supabase.from("ltcat_avaliacoes").delete().in("id", idsInseridos);
+        }
+        return;
+      }
+      if (idsAntigos.length) {
+        const { error: delErr } = await supabase
+          .from("ltcat_avaliacoes").delete().in("id", idsAntigos);
+        if (delErr) console.warn("[persistAvaliacoes] falha ao remover versão anterior:", delErr);
+      }
+      console.log(
+        `📝 [LTCAT AUDIT] doc=${docId} riscos=${riscosSource.length} avaliacoes_inseridas=${idsInseridos.length} avaliacoes_removidas=${idsAntigos.length}`,
+      );
+
       // 🧹 Limpeza final anti-duplicação: se um save concorrente (ou legado) deixou
       // linhas repetidas para a mesma combinação setor+função+agente+colaborador,
       // mantém apenas a mais recente (que carrega os subdados recém-inseridos).
