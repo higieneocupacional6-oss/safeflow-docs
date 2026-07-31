@@ -27,8 +27,9 @@
  */
 
 import PizZip from "pizzip";
+import { AGENT_FLAG_MAP, buildAgentFlags } from "@/lib/agentFlags";
 
-const BLOCK_KEYS = [
+const BASE_BLOCK_KEYS = [
   "risco_ruido",
   "risco_calor",
   "risco_vci",
@@ -41,7 +42,19 @@ const BLOCK_KEYS = [
   "risco_fisico_qualitativo",
 ] as const;
 
-export type ConditionalBlockKey = (typeof BLOCK_KEYS)[number];
+/**
+ * Blocos quantitativos por agente químico específico:
+ *   #inicio_texto_<agente>_quantitativo ... #fim_texto_<agente>_quantitativo
+ * (agente = flag is_* sem o prefixo "is_")
+ */
+export const AGENT_QUANT_BLOCK_KEYS = AGENT_FLAG_MAP.map(
+  (d) => `${d.flag.replace(/^is_/, "")}_quantitativo`,
+);
+
+const BLOCK_KEYS: string[] = [...BASE_BLOCK_KEYS, ...AGENT_QUANT_BLOCK_KEYS];
+
+export type ConditionalBlockKey = string;
+
 
 function norm(s: any): string {
   return String(s || "")
@@ -87,6 +100,20 @@ export function computePresentBlocks(templateData: any): Set<string> {
     }
     if (isQuimico && isQual) present.add("risco_quimico_qualitativo");
     if (isBiologico && isQual) present.add("risco_biologico");
+
+    // Blocos quantitativos por agente químico específico (escaláveis via AGENT_FLAG_MAP)
+    const agentFlags = buildAgentFlags(r?.agente_nome);
+    const temResultado =
+      Array.isArray(r?.avaliacoes) &&
+      r.avaliacoes.some((a: any) => a?.resultado != null && String(a.resultado).trim() !== "");
+    if (isQuant || temResultado) {
+      for (const def of AGENT_FLAG_MAP) {
+        if (agentFlags[def.flag] || r?.[def.flag] === true) {
+          present.add(`${def.flag.replace(/^is_/, "")}_quantitativo`);
+        }
+      }
+    }
+
   }
 
   return present;
