@@ -3317,6 +3317,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             }).select("id").single();
           if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
           const avId = avRow.id;
+          idsInseridos.push(avId);
 
           // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
           // Se o subdado não tiver colaborador/funcao_id (legado), só atribui ao primeiro item do risco.
