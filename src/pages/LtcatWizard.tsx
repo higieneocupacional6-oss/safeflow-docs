@@ -148,6 +148,33 @@ const buildRiscoFingerprint = (r: any) => {
 const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
   dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
 
+// O DOCX é um pacote de arquivos XML 1.0. Caracteres de controle e os
+// não-caracteres U+FFFE/U+FFFF podem vir de textos colados no cadastro e
+// tornam o document.xml inválido, fazendo o Word recusar o arquivo inteiro.
+const sanitizeXmlText = (value: string): string =>
+  value.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "");
+
+const sanitizeTemplateData = (value: any, seen = new WeakMap<object, any>()): any => {
+  if (typeof value === "string") return sanitizeXmlText(value);
+  if (value == null || typeof value !== "object") return value;
+  if (value instanceof Date) return value;
+  if (seen.has(value)) return seen.get(value);
+
+  if (Array.isArray(value)) {
+    const clean: any[] = [];
+    seen.set(value, clean);
+    value.forEach((item) => clean.push(sanitizeTemplateData(item, seen)));
+    return clean;
+  }
+
+  const clean: Record<string, any> = {};
+  seen.set(value, clean);
+  Object.entries(value).forEach(([key, item]) => {
+    clean[key] = sanitizeTemplateData(item, seen);
+  });
+  return clean;
+};
+
 
 
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
@@ -3696,7 +3723,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
 
       // ETAPA 2: Build template data from DB
-      const templateData = buildTemplateData();
+      const templateData = sanitizeTemplateData(buildTemplateData());
 
       // ETAPA 3: Validate data completeness
       const dataIssues = validateDataCompleteness(templateData);
