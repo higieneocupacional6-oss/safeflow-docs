@@ -40,6 +40,14 @@ export const AGENT_FLAG_MAP: AgentFlagDef[] = [
   { flag: "is_acidosulfurico", matchers: ["acido sulfurico", "h2so4"] },
   { flag: "is_poeirademadeira", matchers: ["poeira de madeira", "poeira madeira", "po de madeira"] },
   { flag: "is_dioxidodetitanio", matchers: ["dioxido de titanio", "dioxido titanio", "tio2"] },
+  {
+    flag: "is_fumosmetalicos",
+    matchers: ["fumos metalicos", "fumo metalico", "fumos metalico", "fumos de solda", "fumos metalurgicos"],
+  },
+  {
+    flag: "is_poeirasmetalicas",
+    matchers: ["poeiras metalicas", "poeira metalica", "poeiras metalica", "particulados metalicos", "po metalico"],
+  },
 ];
 
 export const AGENT_FLAG_KEYS = AGENT_FLAG_MAP.map((d) => d.flag);

@@ -177,6 +177,8 @@ const variableGroups = [
       "{{#is_acidosulfurico}}", "{{/is_acidosulfurico}}",
       "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
       "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
+      "{{#is_fumosmetalicos}}", "{{/is_fumosmetalicos}}",
+      "{{#is_poeirasmetalicas}}", "{{/is_poeirasmetalicas}}",
     ],
   },
   {
@@ -188,6 +190,8 @@ const variableGroups = [
       "#inicio_texto_acidosulfurico_quantitativo", "#fim_texto_acidosulfurico_quantitativo",
       "#inicio_texto_poeirademadeira_quantitativo", "#fim_texto_poeirademadeira_quantitativo",
       "#inicio_texto_dioxidodetitanio_quantitativo", "#fim_texto_dioxidodetitanio_quantitativo",
+      "#inicio_texto_fumosmetalicos_quantitativo", "#fim_texto_fumosmetalicos_quantitativo",
+      "#inicio_texto_poeirasmetalicas_quantitativo", "#fim_texto_poeirasmetalicas_quantitativo",
     ],
   },
   {
