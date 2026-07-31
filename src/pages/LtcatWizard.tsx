@@ -1447,7 +1447,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           setDocLoaded(true);
           return;
         }
-        setRiscos(loadedRiscos);
+        const loadedRiscosLimpos = dropShellDuplicates(loadedRiscos);
+        setRiscos(loadedRiscosLimpos);
+
         markSnapshotAsSaved(buildDraftSnapshot({
           empresaId: doc.empresa_id || "",
           contratoId: (doc as any).contrato_id || "",
