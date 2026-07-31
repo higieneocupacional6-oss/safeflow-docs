@@ -273,13 +273,19 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
   // Aplica remoções para blocos NÃO presentes.
   for (const { key, start, end } of pairs) {
     if (present.has(key)) continue;
+    // Nós já removidos numa passagem anterior (blocos aninhados) são ignorados.
+    if (!start.parentNode || !end.parentNode) continue;
     if (start === end) {
       start.parentNode?.removeChild(start);
       continue;
     }
     const common = ascendToCommonBlock(start, end);
     if (!common) continue;
-    removeSiblingsRange(common[0], common[1]);
+    // Nunca remover o próprio <w:body> ou o elemento raiz.
+    const [a, b] = common;
+    const aEl = a as Element;
+    if (aEl.nodeType === 1 && (aEl.localName === "body" || aEl.localName === "document")) continue;
+    removeSiblingsRange(a, b);
   }
 
   // Para os blocos que permaneceram, remove apenas os marcadores.
@@ -308,7 +314,27 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
     }
   }
 
-  return new XMLSerializer().serializeToString(doc);
+  let out = new XMLSerializer().serializeToString(doc);
+
+  // O DOMParser/XMLSerializer do navegador descarta a declaração XML.
+  // Sem ela o Word acusa "Erro ao tentar abrir o arquivo".
+  const decl = xml.match(/^\s*<\?xml[^>]*\?>/);
+  if (decl && !/^\s*<\?xml/.test(out)) {
+    out = `${decl[0]}\r\n${out}`;
+  }
+  return out;
+}
+
+/** Verificação mínima de sanidade do XML resultante. */
+function xmlLooksValid(original: string, next: string): boolean {
+  if (!next || next.length < 200) return false;
+  const rootMatch = original.match(/<(?:\w+:)?(document|hdr|ftr)[\s>]/);
+  const root = rootMatch?.[1];
+  if (root && !next.includes(`${root}`)) return false;
+  if (original.includes("<w:body") && !next.includes("<w:body")) return false;
+  // Rejeita XML mal formado após a reescrita.
+  const check = new DOMParser().parseFromString(next, "text/xml");
+  return check.getElementsByTagName("parsererror").length === 0;
 }
 
 /** Recebe um Blob .docx renderizado e devolve outro Blob com blocos removidos. */
@@ -320,23 +346,28 @@ export async function stripConditionalBlocksDocx(
     const buf = await docxBlob.arrayBuffer();
     const zip = new PizZip(buf);
 
-    const targets = [
-      "word/document.xml",
-      "word/header1.xml", "word/header2.xml", "word/header3.xml",
-      "word/footer1.xml", "word/footer2.xml", "word/footer3.xml",
-    ];
+    // Processa TODOS os headers/footers existentes, não apenas 1..3.
+    const targets = Object.keys(zip.files).filter((n) =>
+      /^word\/(document|header\d+|footer\d+)\.xml$/.test(n),
+    );
     for (const name of targets) {
       const file = zip.file(name);
       if (!file) continue;
       const xml = file.asText();
       const newXml = stripConditionalBlocksInXml(xml, present);
-      if (newXml !== xml) zip.file(name, newXml);
+      if (newXml !== xml) {
+        if (!xmlLooksValid(xml, newXml)) {
+          console.warn(`[conditionalBlocks] XML inválido em ${name}; mantendo original.`);
+          continue;
+        }
+        zip.file(name, newXml);
+      }
     }
 
     const out = zip.generate({
       type: "blob",
+      compression: "DEFLATE",
       mimeType:
-        docxBlob.type ||
         "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
     });
     return out;
@@ -345,3 +376,4 @@ export async function stripConditionalBlocksDocx(
     return docxBlob;
   }
 }
+
