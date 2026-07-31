@@ -1532,6 +1532,8 @@ export default function PgrWizard() {
             nivel_risco: m?.nivel || "",
             classificacao_risco: m?.classificacao || "",
             resultado_matriz_risco: m?.resultado ?? "",
+            // Flags automáticas por agente (ver src/lib/agentFlags.ts)
+            ...buildAgentFlags(r.agente_nome),
           };
         });
         return {
@@ -1539,6 +1541,8 @@ export default function PgrWizard() {
           nome_setor: s.nome_setor || "",
           descricao_ambiente: s.descricao_ambiente || "",
           funcoes_ghe,
+          // Flags de agentes existentes no GHE/Setor
+          ...aggregateAgentFlags(riscos_ghe),
           riscos_ghe,
           // legado / compat com loop {{#riscos}}
           riscos: riscos_ghe,
