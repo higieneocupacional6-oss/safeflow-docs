@@ -2918,6 +2918,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         responsavel: r.responsavel || ""
       })),
 
+      // Flags globais de agentes presentes no documento
+      ...aggregateAgentFlags(setoresFiltrados.flatMap((s: any) => s.riscos || [])),
+
       // Setores com funções e riscos
       setores: setoresLimpos,
       // Agentes agrupados, cada um já com apenas os setores que possuem avaliação válida
