@@ -1755,6 +1755,8 @@ export default function PgrWizard() {
           };
         }),
         // legado
+        // Flags globais de agentes presentes no documento
+        ...aggregateAgentFlags(setoresArr.flatMap((s: any) => s.riscos_ghe || [])),
         setores: setoresArr,
         epis,
         epis_tabela,
