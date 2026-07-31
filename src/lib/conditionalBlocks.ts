@@ -64,6 +64,11 @@ function norm(s: any): string {
     .trim();
 }
 
+/** Remove caracteres proibidos pela especificação XML 1.0. */
+function sanitizeXml10(xml: string): string {
+  return xml.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "");
+}
+
 /** Determina quais blocos devem permanecer no documento. */
 export function computePresentBlocks(templateData: any): Set<string> {
   const present = new Set<string>();
@@ -233,9 +238,13 @@ function ascendToCommonBlock(startPara: Element, endPara: Element): [Node, Node]
 
 /** Aplica remoção de blocos e limpeza de marcadores em um XML de documento. */
 function stripConditionalBlocksInXml(xml: string, present: Set<string>): string {
+  // O Docxtemplater pode deixar U+FFFE como sentinela de quebra de linha em
+  // textos repetidos. Esse caractere é proibido em XML 1.0 e faz o Word
+  // rejeitar o pacote, além de impedir que o DOMParser processe os blocos.
+  const safeXml = sanitizeXml10(xml);
   const parser = new DOMParser();
-  const doc = parser.parseFromString(xml, "text/xml");
-  if (doc.getElementsByTagName("parsererror").length > 0) return xml;
+  const doc = parser.parseFromString(safeXml, "text/xml");
+  if (doc.getElementsByTagName("parsererror").length > 0) return safeXml;
 
   const startRe = /#inicio_texto_([a-z0-9_]+)/i;
   const endRe = /#fim_texto_([a-z0-9_]+)/i;
@@ -318,7 +327,7 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
 
   // O DOMParser/XMLSerializer do navegador descarta a declaração XML.
   // Sem ela o Word acusa "Erro ao tentar abrir o arquivo".
-  const decl = xml.match(/^\s*<\?xml[^>]*\?>/);
+  const decl = safeXml.match(/^\s*<\?xml[^>]*\?>/);
   if (decl && !/^\s*<\?xml/.test(out)) {
     out = `${decl[0]}\r\n${out}`;
   }
