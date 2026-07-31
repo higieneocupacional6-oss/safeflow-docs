@@ -148,6 +148,39 @@ const buildRiscoFingerprint = (r: any) => {
 const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
   dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
 
+// 🛡️ ANTI-DUPLICAÇÃO (casca vazia): quando existe mais de uma entrada para o
+// mesmo Setor/GHE + Agente e uma delas é apenas uma "casca" (sem resultados,
+// sem técnica/equipamento/EPI e sem resultado global), essa casca é descartada
+// em favor da entrada que realmente possui a avaliação. Foi a causa das
+// duplicações com "resultado em branco" reportadas no LTCAT.
+const riscoTemDados = (r: any) =>
+  !!(
+    (r?.resultados_detalhados || []).length ||
+    (r?.resultados_componentes || []).length ||
+    (r?.resultados_calor || []).length ||
+    (r?.resultados_vibracao || []).length ||
+    (r?.equipamentos_avaliacao || []).length ||
+    String(r?.resultado ?? "").trim() ||
+    r?.tecnica_id ||
+    r?.equipamento_id ||
+    r?.epi_id ||
+    r?.epc_id
+  );
+
+const dropShellDuplicates = <T,>(rows: T[]): T[] => {
+  const comDados = new Set<string>();
+  (rows || []).forEach((r: any) => {
+    if (riscoTemDados(r)) comDados.add(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
+  });
+  return (rows || []).filter((r: any) => {
+    if (riscoTemDados(r)) return true;
+    return !comDados.has(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
+  });
+};
+
+const normalizarRiscos = <T,>(rows: T[]): T[] => dropShellDuplicates(dedupeRiscosIdenticos(rows));
+
+
 
 
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
