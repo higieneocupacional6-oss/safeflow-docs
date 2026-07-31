@@ -341,6 +341,17 @@ export function LtcatTemplateHelper() {
       ],
     },
     {
+      title: "Blocos de Texto Quantitativo por Agente (marcadores de texto simples)",
+      vars: [
+        "#inicio_texto_poeirarespiravel_silicalivre_quantitativo", "#fim_texto_poeirarespiravel_silicalivre_quantitativo",
+        "#inicio_texto_vaporesorganicos_quantitativo", "#fim_texto_vaporesorganicos_quantitativo",
+        "#inicio_texto_solventesorganicos_quantitativo", "#fim_texto_solventesorganicos_quantitativo",
+        "#inicio_texto_acidosulfurico_quantitativo", "#fim_texto_acidosulfurico_quantitativo",
+        "#inicio_texto_poeirademadeira_quantitativo", "#fim_texto_poeirademadeira_quantitativo",
+        "#inicio_texto_dioxidodetitanio_quantitativo", "#fim_texto_dioxidodetitanio_quantitativo",
+      ],
+    },
+    {
       title: "Agente Específico — Hidróxido de Sódio",
       vars: ["{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}", "{{#epis}}", "{{/epis}}", "{{parecer_tecnico}}", "{{aposentadoria_especial}}", "{{/is_hidroxido_sodio}}"],
     },
