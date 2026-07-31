@@ -15,6 +15,8 @@ const groups = [
       "{{#is_acidosulfurico}}", "{{/is_acidosulfurico}}",
       "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
       "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
+      "{{#is_fumosmetalicos}}", "{{/is_fumosmetalicos}}",
+      "{{#is_poeirasmetalicas}}", "{{/is_poeirasmetalicas}}",
     ],
   },
   {
