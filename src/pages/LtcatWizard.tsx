@@ -1134,7 +1134,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             .from("ltcat_avaliacoes").select("*")
             .eq("empresa_id", doc.empresa_id)
             .eq("tipo_documento", escopo);
-          avaliacoes = avEmp || [];
+          // 🛡️ ISOLAMENTO POR CONTRATO: o pool da empresa só pode alimentar este
+          // documento com avaliações cujos setores pertençam ao MESMO contrato.
+          // Sem isso, documentos de contratos diferentes misturavam riscos entre si.
+          const contratoAtual = (doc as any).contrato_id || "";
+          if (contratoAtual) {
+            const { data: setoresContrato } = await supabase
+              .from("setores").select("id").eq("contrato_id", contratoAtual);
+            const permitidos = new Set((setoresContrato || []).map((s: any) => s.id));
+            avaliacoes = (avEmp || []).filter((a: any) => !a.setor_id || permitidos.has(a.setor_id));
+          } else {
+            avaliacoes = avEmp || [];
+          }
         }
 
         if (avaliacoes.length === 0) {
