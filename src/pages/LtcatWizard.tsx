@@ -148,6 +148,39 @@ const buildRiscoFingerprint = (r: any) => {
 const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
   dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
 
+// 🛡️ ANTI-DUPLICAÇÃO (casca vazia): quando existe mais de uma entrada para o
+// mesmo Setor/GHE + Agente e uma delas é apenas uma "casca" (sem resultados,
+// sem técnica/equipamento/EPI e sem resultado global), essa casca é descartada
+// em favor da entrada que realmente possui a avaliação. Foi a causa das
+// duplicações com "resultado em branco" reportadas no LTCAT.
+const riscoTemDados = (r: any) =>
+  !!(
+    (r?.resultados_detalhados || []).length ||
+    (r?.resultados_componentes || []).length ||
+    (r?.resultados_calor || []).length ||
+    (r?.resultados_vibracao || []).length ||
+    (r?.equipamentos_avaliacao || []).length ||
+    String(r?.resultado ?? "").trim() ||
+    r?.tecnica_id ||
+    r?.equipamento_id ||
+    r?.epi_id ||
+    r?.epc_id
+  );
+
+const dropShellDuplicates = <T,>(rows: T[]): T[] => {
+  const comDados = new Set<string>();
+  (rows || []).forEach((r: any) => {
+    if (riscoTemDados(r)) comDados.add(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
+  });
+  return (rows || []).filter((r: any) => {
+    if (riscoTemDados(r)) return true;
+    return !comDados.has(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
+  });
+};
+
+const normalizarRiscos = <T,>(rows: T[]): T[] => dropShellDuplicates(dedupeRiscosIdenticos(rows));
+
+
 
 
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
@@ -1114,7 +1147,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
             if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
             if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(dedupeRiscosIdenticos(draftSnapshot.riscos as RiscoEntry[]));
+              setRiscos(normalizarRiscos(draftSnapshot.riscos as RiscoEntry[]));
               markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
@@ -1414,7 +1447,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           setDocLoaded(true);
           return;
         }
-        setRiscos(loadedRiscos);
+        const loadedRiscosLimpos = dropShellDuplicates(loadedRiscos);
+        setRiscos(loadedRiscosLimpos);
+
         markSnapshotAsSaved(buildDraftSnapshot({
           empresaId: doc.empresa_id || "",
           contratoId: (doc as any).contrato_id || "",
@@ -1426,7 +1461,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           alteracoesDoc: (doc as any).alteracoes_documento || "",
           revisoes: (doc as any).revisoes || [],
           step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
-          riscos: loadedRiscos,
+          riscos: loadedRiscosLimpos,
         }), "load");
         setDocLoaded(true);
         if (isReload) {
@@ -3216,7 +3251,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
     // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
     // antes de gravar, evitando múltiplas linhas para o mesmo risco.
-    const riscosSource = dedupeRiscosIdenticos(riscosSourceRaw || []);
+    const riscosSource = normalizarRiscos(riscosSourceRaw || []);
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
       // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
@@ -3594,7 +3629,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     force = false,
   ) => {
     const snapshot = buildDraftSnapshot(overrides);
+    // 🛡️ Nunca gravar cascas duplicadas (mesmo setor+agente sem nenhum dado)
+    snapshot.riscos = normalizarRiscos(snapshot.riscos || []);
     const fingerprint = JSON.stringify(snapshot);
+
+    if (!silent) {
+      const semResultado = (snapshot.riscos || []).filter(
+        (r: any) => String(r?.tipo_avaliacao || "").toLowerCase() === "quantitativa" && !riscoTemDados(r),
+      );
+      if (semResultado.length) {
+        toast.warning(
+          `${semResultado.length} avaliação(ões) quantitativa(s) sem resultado preenchido: ${semResultado
+            .map((r: any) => `${r.setor_nome || "Setor"} – ${r.agente_nome || "Agente"}`)
+            .slice(0, 3)
+            .join("; ")}`,
+        );
+      }
+    }
+
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
