@@ -994,6 +994,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
+  // 🛡️ Espelho síncrono do estado `riscos` — usado pela re-hidratação para
+  // detectar leituras truncadas (save concorrente em andamento) e recusar
+  // sobrescrever o estado local com menos riscos do que já existem.
+  const riscosRef = useRef<RiscoEntry[]>([]);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
