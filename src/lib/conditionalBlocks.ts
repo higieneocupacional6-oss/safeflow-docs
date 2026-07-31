@@ -100,6 +100,20 @@ export function computePresentBlocks(templateData: any): Set<string> {
     }
     if (isQuimico && isQual) present.add("risco_quimico_qualitativo");
     if (isBiologico && isQual) present.add("risco_biologico");
+
+    // Blocos quantitativos por agente químico específico (escaláveis via AGENT_FLAG_MAP)
+    const agentFlags = buildAgentFlags(r?.agente_nome);
+    const temResultado =
+      Array.isArray(r?.avaliacoes) &&
+      r.avaliacoes.some((a: any) => a?.resultado != null && String(a.resultado).trim() !== "");
+    if (isQuant || temResultado) {
+      for (const def of AGENT_FLAG_MAP) {
+        if (agentFlags[def.flag] || r?.[def.flag] === true) {
+          present.add(`${def.flag.replace(/^is_/, "")}_quantitativo`);
+        }
+      }
+    }
+
   }
 
   return present;
