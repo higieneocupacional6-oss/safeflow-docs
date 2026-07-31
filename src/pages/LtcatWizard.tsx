@@ -3260,10 +3260,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
-      if (existentes && existentes.length > 0) {
-        await supabase.from("ltcat_avaliacoes")
-          .delete().in("id", existentes.map(e => e.id));
-      }
+      // 🔒 GRAVAÇÃO QUASE-ATÔMICA: as linhas antigas NÃO são apagadas antes dos
+      // inserts. Primeiro inserimos o conjunto novo; só depois de confirmado
+      // removemos as antigas. Se o navegador fechar, a rede cair ou o insert
+      // falhar no meio do caminho, o documento continua com os dados anteriores
+      // em vez de ficar vazio (causa raiz do desaparecimento de riscos).
+      const idsAntigos = (existentes || []).map(e => e.id);
+      const idsInseridos: string[] = [];
 
       for (const r of riscosSource) {
         // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
