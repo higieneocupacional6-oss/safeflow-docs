@@ -169,6 +169,17 @@ const variableGroups = [
     ],
   },
   {
+    title: "Flags Automáticas por Agente (GHE/Setor)",
+    vars: [
+      "{{#is_poeirarespiravel_silicalivre}}", "{{/is_poeirarespiravel_silicalivre}}",
+      "{{#is_vaporesorganicos}}", "{{/is_vaporesorganicos}}",
+      "{{#is_solventesorganicos}}", "{{/is_solventesorganicos}}",
+      "{{#is_acidosulfurico}}", "{{/is_acidosulfurico}}",
+      "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
+      "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
+    ],
+  },
+  {
     title: "Agente Específico — Hidróxido de Sódio (LTCAT / Insalubridade)",
     vars: [
       "{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}",

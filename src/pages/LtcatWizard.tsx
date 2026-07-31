@@ -23,6 +23,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
+import { buildAgentFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import { createAgentScopedParser } from "@/lib/setorLoopScope";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
@@ -2511,6 +2512,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_vibracao_corpo_inteiro,
           is_vibracao_maos_bracos,
           is_hidroxido_sodio,
+          // Flags automáticas por agente (escalável — ver src/lib/agentFlags.ts)
+          ...buildAgentFlags(first.agente_nome),
           is_qualitativo,
           is_quantitativo,
           // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
@@ -2705,7 +2708,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               }],
             };
           });
-        return { ...s, inicio_setor: "", fim_setor: "", riscos: riscosValidos };
+        return {
+          ...s,
+          inicio_setor: "",
+          fim_setor: "",
+          // Flags de agentes existentes no GHE/Setor (true/false)
+          ...aggregateAgentFlags(riscosValidos),
+          riscos: riscosValidos,
+        };
       })
       // Setor sem nenhum agente avaliado não deve aparecer no documento.
       .filter((s: any) => (s.riscos || []).length > 0);
@@ -2790,6 +2800,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           || normalized_agente_nome.includes("hidroxido sodio")
           || normalized_agente_nome.includes("soda caustica")
           || normalized_agente_nome.replace(/\s/g, "").includes("naoh"),
+        ...buildAgentFlags(r.agente_nome),
         is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
         is_qualitativo_quimico: _isQual && _aQ,
@@ -2906,6 +2917,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         motivo: r.motivo || "",
         responsavel: r.responsavel || ""
       })),
+
+      // Flags globais de agentes presentes no documento
+      ...aggregateAgentFlags(setoresFiltrados.flatMap((s: any) => s.riscos || [])),
 
       // Setores com funções e riscos
       setores: setoresLimpos,

@@ -22,6 +22,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 
 import { sortByGes } from "@/lib/sortGes";
+import { buildAgentFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
 type Revisao = { revisao: string; data: string; motivo: string; responsavel: string };
@@ -1531,6 +1532,8 @@ export default function PgrWizard() {
             nivel_risco: m?.nivel || "",
             classificacao_risco: m?.classificacao || "",
             resultado_matriz_risco: m?.resultado ?? "",
+            // Flags automáticas por agente (ver src/lib/agentFlags.ts)
+            ...buildAgentFlags(r.agente_nome),
           };
         });
         return {
@@ -1538,6 +1541,8 @@ export default function PgrWizard() {
           nome_setor: s.nome_setor || "",
           descricao_ambiente: s.descricao_ambiente || "",
           funcoes_ghe,
+          // Flags de agentes existentes no GHE/Setor
+          ...aggregateAgentFlags(riscos_ghe),
           riscos_ghe,
           // legado / compat com loop {{#riscos}}
           riscos: riscos_ghe,
@@ -1750,6 +1755,8 @@ export default function PgrWizard() {
           };
         }),
         // legado
+        // Flags globais de agentes presentes no documento
+        ...aggregateAgentFlags(setoresArr.flatMap((s: any) => s.riscos_ghe || [])),
         setores: setoresArr,
         epis,
         epis_tabela,

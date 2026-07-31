@@ -1,5 +1,6 @@
 import PizZip from "pizzip";
 import Docxtemplater from "docxtemplater";
+import { AGENT_FLAG_KEYS } from "@/lib/agentFlags";
 
 export type TemplateIssue = {
   tipo: string;
@@ -23,6 +24,7 @@ const KNOWN_VARS = [
   "is_qualitativo", "is_quantitativo", "descricao_avaliacao",
   "is_agente_fisico", "is_agente_quimico", "is_agente_biologico", "normalized_agente_nome",
   "is_nocivo", "is_seguro", "is_hidroxido_sodio",
+  ...AGENT_FLAG_KEYS,
 ];
 
 export function parseDocxErrors(err: any): TemplateIssue[] {
