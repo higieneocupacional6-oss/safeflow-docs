@@ -2708,7 +2708,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               }],
             };
           });
-        return { ...s, inicio_setor: "", fim_setor: "", riscos: riscosValidos };
+        return {
+          ...s,
+          inicio_setor: "",
+          fim_setor: "",
+          // Flags de agentes existentes no GHE/Setor (true/false)
+          ...aggregateAgentFlags(riscosValidos),
+          riscos: riscosValidos,
+        };
       })
       // Setor sem nenhum agente avaliado não deve aparecer no documento.
       .filter((s: any) => (s.riscos || []).length > 0);
