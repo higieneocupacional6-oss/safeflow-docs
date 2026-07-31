@@ -1461,7 +1461,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           alteracoesDoc: (doc as any).alteracoes_documento || "",
           revisoes: (doc as any).revisoes || [],
           step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
-          riscos: loadedRiscos,
+          riscos: loadedRiscosLimpos,
         }), "load");
         setDocLoaded(true);
         if (isReload) {
