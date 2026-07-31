@@ -1390,6 +1390,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             funcoes: r.items.map(i => ({ funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
           })),
         });
+        // 🛡️ PROTEÇÃO ANTI-PERDA: nunca substituir o estado local por uma leitura
+        // truncada. Se um save concorrente (deste ou de outro dispositivo) estiver
+        // no meio do ciclo, a leitura pode trazer menos riscos do que já temos em
+        // memória — sobrescrever aqui era a causa raiz do sumiço de riscos, pois o
+        // próximo save gravava o conjunto reduzido.
+        const __localCount = riscosRef.current?.length || 0;
+        if (isReload && __localCount > loadedRiscos.length) {
+          console.warn(
+            `🛡️ [LTCAT] Re-hidratação IGNORADA: banco retornou ${loadedRiscos.length} risco(s) mas o estado local tem ${__localCount}. Leitura possivelmente truncada por save concorrente.`,
+          );
+          setDocLoaded(true);
+          return;
+        }
         setRiscos(loadedRiscos);
         markSnapshotAsSaved(buildDraftSnapshot({
           empresaId: doc.empresa_id || "",
