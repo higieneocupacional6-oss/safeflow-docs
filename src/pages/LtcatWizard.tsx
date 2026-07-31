@@ -1750,7 +1750,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         toast.error("Preencha todos os colaboradores e funções na Seção 1");
         return;
       }
-      finalResultados = [];
+      // NUNCA descartar medições já cadastradas só porque a avaliação está
+      // marcada como qualitativa (causa raiz da perda de resultados de
+      // Ruído/Calor). Só limpa quando de fato não existe nenhum resultado.
+      const resultadosExistentes = (inlineResults && inlineResults.length ? inlineResults : finalResultados) || [];
+      finalResultados = resultadosExistentes.filter(
+        (r: any) => String(r?.resultado ?? "").trim() !== "" || String(r?.dose_percentual ?? "").trim() !== "",
+      );
     } else {
       if (isFisico) {
         if (inlineResults) {
