@@ -1464,17 +1464,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
     // Realtime: qualquer mudança nas avaliações da empresa força refetch
     const channel = supabase.channel(`ltcat-listagem-sync-${documentoId}`);
-    [
-      "ltcat_avaliacoes",
-      "ltcat_av_componentes",
-      "ltcat_av_calor",
-      "ltcat_av_vibracao",
-      "ltcat_av_resultados",
-      "ltcat_av_equipamentos",
-      "ltcat_av_epi_epc",
-      "setores",
-      "funcoes",
-    ].forEach(table => {
+    // 🛡️ ESCOPO: só reagir a mudanças DESTE documento (antes qualquer save de
+    // qualquer documento da conta disparava re-hidratação aqui, podendo trazer
+    // uma leitura truncada e apagar riscos do estado local) e ao cadastro de
+    // Setores/Funções, que legitimamente afeta todos os documentos.
+    (channel as any).on(
+      "postgres_changes",
+      { event: "*", schema: "public", table: "ltcat_avaliacoes", filter: `documento_id=eq.${documentoId}` },
+      () => trigger()
+    );
+    ["setores", "funcoes"].forEach(table => {
       (channel as any).on(
         "postgres_changes",
         { event: "*", schema: "public", table },
