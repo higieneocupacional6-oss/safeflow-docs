@@ -148,39 +148,6 @@ const buildRiscoFingerprint = (r: any) => {
 const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
   dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
 
-// 🛡️ ANTI-DUPLICAÇÃO (casca vazia): quando existe mais de uma entrada para o
-// mesmo Setor/GHE + Agente e uma delas é apenas uma "casca" (sem resultados,
-// sem técnica/equipamento/EPI e sem resultado global), essa casca é descartada
-// em favor da entrada que realmente possui a avaliação. Foi a causa das
-// duplicações com "resultado em branco" reportadas no LTCAT.
-const riscoTemDados = (r: any) =>
-  !!(
-    (r?.resultados_detalhados || []).length ||
-    (r?.resultados_componentes || []).length ||
-    (r?.resultados_calor || []).length ||
-    (r?.resultados_vibracao || []).length ||
-    (r?.equipamentos_avaliacao || []).length ||
-    String(r?.resultado ?? "").trim() ||
-    r?.tecnica_id ||
-    r?.equipamento_id ||
-    r?.epi_id ||
-    r?.epc_id
-  );
-
-const dropShellDuplicates = <T,>(rows: T[]): T[] => {
-  const comDados = new Set<string>();
-  (rows || []).forEach((r: any) => {
-    if (riscoTemDados(r)) comDados.add(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
-  });
-  return (rows || []).filter((r: any) => {
-    if (riscoTemDados(r)) return true;
-    return !comDados.has(`${r?.setor_id || ""}|${r?.agente_id || ""}`);
-  });
-};
-
-const normalizarRiscos = <T,>(rows: T[]): T[] => dropShellDuplicates(dedupeRiscosIdenticos(rows));
-
-
 
 
 const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
@@ -1027,11 +994,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
-  // 🛡️ Espelho síncrono do estado `riscos` — usado pela re-hidratação para
-  // detectar leituras truncadas (save concorrente em andamento) e recusar
-  // sobrescrever o estado local com menos riscos do que já existem.
-  const riscosRef = useRef<RiscoEntry[]>([]);
-  riscosRef.current = riscos;
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
@@ -1147,7 +1109,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
             if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
             if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(normalizarRiscos(draftSnapshot.riscos as RiscoEntry[]));
+              setRiscos(dedupeRiscosIdenticos(draftSnapshot.riscos as RiscoEntry[]));
               markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
@@ -1167,18 +1129,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             .from("ltcat_avaliacoes").select("*")
             .eq("empresa_id", doc.empresa_id)
             .eq("tipo_documento", escopo);
-          // 🛡️ ISOLAMENTO POR CONTRATO: o pool da empresa só pode alimentar este
-          // documento com avaliações cujos setores pertençam ao MESMO contrato.
-          // Sem isso, documentos de contratos diferentes misturavam riscos entre si.
-          const contratoAtual = (doc as any).contrato_id || "";
-          if (contratoAtual) {
-            const { data: setoresContrato } = await supabase
-              .from("setores").select("id").eq("contrato_id", contratoAtual);
-            const permitidos = new Set((setoresContrato || []).map((s: any) => s.id));
-            avaliacoes = (avEmp || []).filter((a: any) => !a.setor_id || permitidos.has(a.setor_id));
-          } else {
-            avaliacoes = avEmp || [];
-          }
+          avaliacoes = avEmp || [];
         }
 
         if (avaliacoes.length === 0) {
@@ -1434,22 +1385,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             funcoes: r.items.map(i => ({ funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
           })),
         });
-        // 🛡️ PROTEÇÃO ANTI-PERDA: nunca substituir o estado local por uma leitura
-        // truncada. Se um save concorrente (deste ou de outro dispositivo) estiver
-        // no meio do ciclo, a leitura pode trazer menos riscos do que já temos em
-        // memória — sobrescrever aqui era a causa raiz do sumiço de riscos, pois o
-        // próximo save gravava o conjunto reduzido.
-        const __localCount = riscosRef.current?.length || 0;
-        if (isReload && __localCount > loadedRiscos.length) {
-          console.warn(
-            `🛡️ [LTCAT] Re-hidratação IGNORADA: banco retornou ${loadedRiscos.length} risco(s) mas o estado local tem ${__localCount}. Leitura possivelmente truncada por save concorrente.`,
-          );
-          setDocLoaded(true);
-          return;
-        }
-        const loadedRiscosLimpos = dropShellDuplicates(loadedRiscos);
-        setRiscos(loadedRiscosLimpos);
-
+        setRiscos(loadedRiscos);
         markSnapshotAsSaved(buildDraftSnapshot({
           empresaId: doc.empresa_id || "",
           contratoId: (doc as any).contrato_id || "",
@@ -1461,7 +1397,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           alteracoesDoc: (doc as any).alteracoes_documento || "",
           revisoes: (doc as any).revisoes || [],
           step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
-          riscos: loadedRiscosLimpos,
+          riscos: loadedRiscos,
         }), "load");
         setDocLoaded(true);
         if (isReload) {
@@ -1499,16 +1435,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
     // Realtime: qualquer mudança nas avaliações da empresa força refetch
     const channel = supabase.channel(`ltcat-listagem-sync-${documentoId}`);
-    // 🛡️ ESCOPO: só reagir a mudanças DESTE documento (antes qualquer save de
-    // qualquer documento da conta disparava re-hidratação aqui, podendo trazer
-    // uma leitura truncada e apagar riscos do estado local) e ao cadastro de
-    // Setores/Funções, que legitimamente afeta todos os documentos.
-    (channel as any).on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "ltcat_avaliacoes", filter: `documento_id=eq.${documentoId}` },
-      () => trigger()
-    );
-    ["setores", "funcoes"].forEach(table => {
+    [
+      "ltcat_avaliacoes",
+      "ltcat_av_componentes",
+      "ltcat_av_calor",
+      "ltcat_av_vibracao",
+      "ltcat_av_resultados",
+      "ltcat_av_equipamentos",
+      "ltcat_av_epi_epc",
+      "setores",
+      "funcoes",
+    ].forEach(table => {
       (channel as any).on(
         "postgres_changes",
         { event: "*", schema: "public", table },
@@ -1750,13 +1687,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         toast.error("Preencha todos os colaboradores e funções na Seção 1");
         return;
       }
-      // NUNCA descartar medições já cadastradas só porque a avaliação está
-      // marcada como qualitativa (causa raiz da perda de resultados de
-      // Ruído/Calor). Só limpa quando de fato não existe nenhum resultado.
-      const resultadosExistentes = (inlineResults && inlineResults.length ? inlineResults : finalResultados) || [];
-      finalResultados = resultadosExistentes.filter(
-        (r: any) => String(r?.resultado ?? "").trim() !== "" || String(r?.dose_percentual ?? "").trim() !== "",
-      );
+      finalResultados = [];
     } else {
       if (isFisico) {
         if (inlineResults) {
@@ -3257,7 +3188,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
     // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
     // antes de gravar, evitando múltiplas linhas para o mesmo risco.
-    const riscosSource = normalizarRiscos(riscosSourceRaw || []);
+    const riscosSource = dedupeRiscosIdenticos(riscosSourceRaw || []);
     try {
       // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
       // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
@@ -3300,14 +3231,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
-      // 🔒 GRAVAÇÃO QUASE-ATÔMICA: as linhas antigas NÃO são apagadas antes dos
-      // inserts. Primeiro inserimos o conjunto novo; só depois de confirmado
-      // removemos as antigas. Se o navegador fechar, a rede cair ou o insert
-      // falhar no meio do caminho, o documento continua com os dados anteriores
-      // em vez de ficar vazio (causa raiz do desaparecimento de riscos).
-      const idsAntigos = (existentes || []).map(e => e.id);
-      const idsInseridos: string[] = [];
-      let totalEsperado = 0;
+      if (existentes && existentes.length > 0) {
+        await supabase.from("ltcat_avaliacoes")
+          .delete().in("id", existentes.map(e => e.id));
+      }
 
       for (const r of riscosSource) {
         // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
@@ -3319,7 +3246,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           seenItems.add(k);
           return true;
         });
-        totalEsperado += uniqueItems.length;
         let __itemIdx = 0;
         for (const it of uniqueItems) {
           const __isFirstItem = __itemIdx === 0;
@@ -3359,7 +3285,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             }).select("id").single();
           if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
           const avId = avRow.id;
-          idsInseridos.push(avId);
 
           // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
           // Se o subdado não tiver colaborador/funcao_id (legado), só atribui ao primeiro item do risco.
@@ -3571,29 +3496,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           await Promise.all(tasks);
         }
       }
-
-      // ✅ CONFIRMAÇÃO DE GRAVAÇÃO: só removemos as linhas antigas depois de
-      // confirmar que o conjunto novo foi realmente inserido no banco.
-      if (idsInseridos.length < totalEsperado) {
-        console.error(
-          `🛑 [LTCAT] Gravação incompleta: esperado ${totalEsperado} avaliação(ões), inseridas ${idsInseridos.length}. Dados anteriores PRESERVADOS.`,
-        );
-        toast.error("Falha ao gravar todos os riscos. Os dados anteriores foram preservados — tente salvar novamente.");
-        // Remove o conjunto parcial recém-criado para não duplicar com o antigo.
-        if (idsInseridos.length) {
-          await supabase.from("ltcat_avaliacoes").delete().in("id", idsInseridos);
-        }
-        return;
-      }
-      if (idsAntigos.length) {
-        const { error: delErr } = await supabase
-          .from("ltcat_avaliacoes").delete().in("id", idsAntigos);
-        if (delErr) console.warn("[persistAvaliacoes] falha ao remover versão anterior:", delErr);
-      }
-      console.log(
-        `📝 [LTCAT AUDIT] doc=${docId} riscos=${riscosSource.length} avaliacoes_inseridas=${idsInseridos.length} avaliacoes_removidas=${idsAntigos.length}`,
-      );
-
       // 🧹 Limpeza final anti-duplicação: se um save concorrente (ou legado) deixou
       // linhas repetidas para a mesma combinação setor+função+agente+colaborador,
       // mantém apenas a mais recente (que carrega os subdados recém-inseridos).
@@ -3635,24 +3537,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     force = false,
   ) => {
     const snapshot = buildDraftSnapshot(overrides);
-    // 🛡️ Nunca gravar cascas duplicadas (mesmo setor+agente sem nenhum dado)
-    snapshot.riscos = normalizarRiscos(snapshot.riscos || []);
     const fingerprint = JSON.stringify(snapshot);
-
-    if (!silent) {
-      const semResultado = (snapshot.riscos || []).filter(
-        (r: any) => String(r?.tipo_avaliacao || "").toLowerCase() === "quantitativa" && !riscoTemDados(r),
-      );
-      if (semResultado.length) {
-        toast.warning(
-          `${semResultado.length} avaliação(ões) quantitativa(s) sem resultado preenchido: ${semResultado
-            .map((r: any) => `${r.setor_nome || "Setor"} – ${r.agente_nome || "Agente"}`)
-            .slice(0, 3)
-            .join("; ")}`,
-        );
-      }
-    }
-
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
@@ -3982,29 +3867,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (!selectedTemplate) {
       toast.error("Selecione um template");
       return;
-    }
-
-    // 🛡️ VALIDAÇÃO DE INTEGRIDADE PRÉ-GERAÇÃO: confere se o banco tem todos os
-    // riscos que estão na tela. Se houver divergência, avisa antes de gerar um
-    // documento incompleto.
-    if (documentoId) {
-      try {
-        const { data: avBanco } = await supabase
-          .from("ltcat_avaliacoes").select("setor_id, agente_id").eq("documento_id", documentoId);
-        const chavesBanco = new Set((avBanco || []).map((a: any) => `${a.setor_id || ""}|${a.agente_id || ""}`));
-        const faltantes = (riscos || []).filter(
-          (r) => !chavesBanco.has(`${r.setor_id || ""}|${r.agente_id || ""}`)
-        );
-        if (faltantes.length) {
-          console.error("🛑 [LTCAT] Riscos ausentes no banco:", faltantes.map(f => `${f.setor_nome}/${f.agente_nome}`));
-          toast.error(
-            `${faltantes.length} risco(s) ainda não estão gravados no banco (ex.: ${faltantes[0].setor_nome} – ${faltantes[0].agente_nome}). Salve o documento antes de gerar.`,
-          );
-          return;
-        }
-      } catch (intErr) {
-        console.warn("[LTCAT] Validação de integridade falhou:", intErr);
-      }
     }
 
     setGenerating(true);
@@ -5064,16 +4926,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante") ||
                     tipoAgenteStr.includes("frio"));
 
-                  // Se a avaliação já possui medições salvas (Ruído/Calor/Vibração),
-                  // a Seção 6 deve ser exibida mesmo marcada como qualitativa —
-                  // caso contrário os resultados ficam invisíveis e são perdidos.
-                  const temMedicoesSalvas =
-                    (riskForm.resultados_detalhados || []).length > 0 ||
-                    (riskForm.resultados_calor || []).length > 0 ||
-                    (riskForm.resultados_vibracao || []).length > 0 ||
-                    (riskForm.resultados_componentes || []).length > 0;
-
-                  if (isQualitative && !temMedicoesSalvas) return null;
+                  if (isQualitative) return null;
 
                   return (
                     <section className="space-y-4 animate-in fade-in slide-in-from-top-2">
