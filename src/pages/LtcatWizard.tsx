@@ -998,6 +998,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // detectar leituras truncadas (save concorrente em andamento) e recusar
   // sobrescrever o estado local com menos riscos do que já existem.
   const riscosRef = useRef<RiscoEntry[]>([]);
+  riscosRef.current = riscos;
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
