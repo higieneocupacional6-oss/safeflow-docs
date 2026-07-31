@@ -3534,9 +3534,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       // ✅ CONFIRMAÇÃO DE GRAVAÇÃO: só removemos as linhas antigas depois de
       // confirmar que o conjunto novo foi realmente inserido no banco.
-      if (idsInseridos.length < totalARecriar) {
+      if (idsInseridos.length < totalEsperado) {
         console.error(
-          `🛑 [LTCAT] Gravação incompleta: esperado ${totalARecriar} avaliação(ões), inseridas ${idsInseridos.length}. Dados anteriores PRESERVADOS.`,
+          `🛑 [LTCAT] Gravação incompleta: esperado ${totalEsperado} avaliação(ões), inseridas ${idsInseridos.length}. Dados anteriores PRESERVADOS.`,
         );
         toast.error("Falha ao gravar todos os riscos. Os dados anteriores foram preservados — tente salvar novamente.");
         // Remove o conjunto parcial recém-criado para não duplicar com o antigo.
