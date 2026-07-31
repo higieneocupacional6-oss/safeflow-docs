@@ -3926,6 +3926,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
 
+    // 🛡️ VALIDAÇÃO DE INTEGRIDADE PRÉ-GERAÇÃO: confere se o banco tem todos os
+    // riscos que estão na tela. Se houver divergência, avisa antes de gerar um
+    // documento incompleto.
+    if (documentoId) {
+      try {
+        const { data: avBanco } = await supabase
+          .from("ltcat_avaliacoes").select("setor_id, agente_id").eq("documento_id", documentoId);
+        const chavesBanco = new Set((avBanco || []).map((a: any) => `${a.setor_id || ""}|${a.agente_id || ""}`));
+        const faltantes = (riscos || []).filter(
+          (r) => !chavesBanco.has(`${r.setor_id || ""}|${r.agente_id || ""}`)
+        );
+        if (faltantes.length) {
+          console.error("🛑 [LTCAT] Riscos ausentes no banco:", faltantes.map(f => `${f.setor_nome}/${f.agente_nome}`));
+          toast.error(
+            `${faltantes.length} risco(s) ainda não estão gravados no banco (ex.: ${faltantes[0].setor_nome} – ${faltantes[0].agente_nome}). Salve o documento antes de gerar.`,
+          );
+          return;
+        }
+      } catch (intErr) {
+        console.warn("[LTCAT] Validação de integridade falhou:", intErr);
+      }
+    }
+
     setGenerating(true);
     try {
       const doc = await loadTemplateDoc();
