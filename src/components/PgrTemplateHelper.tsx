@@ -7,6 +7,17 @@ import { toast } from "sonner";
 
 const groups = [
   {
+    title: "Flags Automáticas por Agente (GHE/Setor)",
+    vars: [
+      "{{#is_poeirarespiravel_silicalivre}}", "{{/is_poeirarespiravel_silicalivre}}",
+      "{{#is_vaporesorganicos}}", "{{/is_vaporesorganicos}}",
+      "{{#is_solventesorganicos}}", "{{/is_solventesorganicos}}",
+      "{{#is_acidosulfurico}}", "{{/is_acidosulfurico}}",
+      "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
+      "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
+    ],
+  },
+  {
     title: "Empresa",
     vars: [
       "{{empresa}}", "{{razao_social}}", "{{nome_fantasia}}", "{{cnpj}}", "{{cnpj_empresa}}",
