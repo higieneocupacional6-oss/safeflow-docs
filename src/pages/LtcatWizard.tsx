@@ -3629,7 +3629,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     force = false,
   ) => {
     const snapshot = buildDraftSnapshot(overrides);
+    // 🛡️ Nunca gravar cascas duplicadas (mesmo setor+agente sem nenhum dado)
+    snapshot.riscos = normalizarRiscos(snapshot.riscos || []);
     const fingerprint = JSON.stringify(snapshot);
+
+    if (!silent) {
+      const semResultado = (snapshot.riscos || []).filter(
+        (r: any) => String(r?.tipo_avaliacao || "").toLowerCase() === "quantitativa" && !riscoTemDados(r),
+      );
+      if (semResultado.length) {
+        toast.warning(
+          `${semResultado.length} avaliação(ões) quantitativa(s) sem resultado preenchido: ${semResultado
+            .map((r: any) => `${r.setor_nome || "Setor"} – ${r.agente_nome || "Agente"}`)
+            .slice(0, 3)
+            .join("; ")}`,
+        );
+      }
+    }
+
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
