@@ -180,6 +180,17 @@ const variableGroups = [
     ],
   },
   {
+    title: "Blocos de Texto Quantitativo por Agente (marcadores simples, sem chaves)",
+    vars: [
+      "#inicio_texto_poeirarespiravel_silicalivre_quantitativo", "#fim_texto_poeirarespiravel_silicalivre_quantitativo",
+      "#inicio_texto_vaporesorganicos_quantitativo", "#fim_texto_vaporesorganicos_quantitativo",
+      "#inicio_texto_solventesorganicos_quantitativo", "#fim_texto_solventesorganicos_quantitativo",
+      "#inicio_texto_acidosulfurico_quantitativo", "#fim_texto_acidosulfurico_quantitativo",
+      "#inicio_texto_poeirademadeira_quantitativo", "#fim_texto_poeirademadeira_quantitativo",
+      "#inicio_texto_dioxidodetitanio_quantitativo", "#fim_texto_dioxidodetitanio_quantitativo",
+    ],
+  },
+  {
     title: "Agente Específico — Hidróxido de Sódio (LTCAT / Insalubridade)",
     vars: [
       "{{#is_hidroxido_sodio}}", "{{agente_nome}}", "{{#avaliacoes}}", "{{/avaliacoes}}",
