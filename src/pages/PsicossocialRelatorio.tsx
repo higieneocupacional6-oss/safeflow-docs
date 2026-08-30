@@ -236,12 +236,81 @@ export default function PsicossocialRelatorio() {
     );
 
     setConclusao(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa"));
+    setIntroPlano(s.introPlano || planoAcaoTexto(gs, empresa?.razao_social || "a empresa avaliada"));
     setRegistros({ aplicador: "", responsavel_empresa: "", data: "", versao: salvo?.versao || "1.0", ...(s.registros || {}) });
 
-    if (!s.metInfo?.periodo) setMetOpen(true);
+    abrirMetRef.current = !s.metInfo?.periodo;
+    if (!usarIa && abrirMetRef.current) setMetOpen(true);
     setPronto(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [avaliacao, gruposBase, salvoFetched]);
+
+  // ---------- IA: gera os textos técnicos antes do modal de metodologia ----------
+  useEffect(() => {
+    if (!pronto || !usarIa || iaFeitaRef.current) return;
+    iaFeitaRef.current = true;
+    (async () => {
+      setIaRodando(true);
+      try {
+        const contexto = montarContexto({
+          empresa, contrato, avaliacao, setores, indicadores,
+          respondentes: respostas.length, grupos, medidas, metInfo,
+        });
+        const out = await gerarTextosIa(contexto);
+        if (out.metodologia) setMetodologia(out.metodologia);
+        if (out.conclusao) setConclusao(out.conclusao);
+        if (out.intro_plano_acao) setIntroPlano(out.intro_plano_acao);
+        setLacunasIa(out.lacunas || []);
+        if (out.grupos?.length) {
+          setGrupos((prev) => prev.map((g) => {
+            const ia = out.grupos.find((x) => x.grupo_id === g.id);
+            if (!ia) return g;
+            return {
+              ...g,
+              atividades: ia.atividades || g.atividades,
+              organizacao: ia.organizacao || g.organizacao,
+              fatores: g.fatores.map((f) => {
+                const fi = ia.fatores?.find((x) => x.fator_key === f.key);
+                if (!fi) return f;
+                return {
+                  ...f,
+                  descricao: fi.descricao || f.descricao,
+                  fonte: fi.fonte || f.fonte,
+                  situacao: fi.situacao || f.situacao,
+                  interpretacao: fi.interpretacao || f.interpretacao,
+                  consequencias: fi.consequencias || f.consequencias,
+                  controles: fi.controles || f.controles,
+                };
+              }),
+            };
+          }));
+        }
+        if (out.medidas?.length) {
+          setMedidas((prev) => prev.map((m) => {
+            const mi = out.medidas.find((x) => x.medida_key === m.key);
+            return mi
+              ? {
+                  ...m,
+                  medida: mi.medida || m.medida,
+                  tipo: mi.tipo || m.tipo,
+                  responsavel: mi.responsavel || m.responsavel,
+                  prazo: mi.prazo || m.prazo,
+                  prioridade: mi.prioridade || m.prioridade,
+                }
+              : m;
+          }));
+        }
+        toast.success("Textos técnicos gerados com IA. Revise antes da emissão.");
+      } catch (e: any) {
+        toast.error(e?.message || "Não foi possível gerar os textos com IA.");
+      } finally {
+        setIaRodando(false);
+        if (abrirMetRef.current) setMetOpen(true);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pronto, usarIa]);
+
 
   // Evolução histórica
   useEffect(() => {
