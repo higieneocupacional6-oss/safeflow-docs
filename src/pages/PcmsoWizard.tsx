@@ -93,6 +93,50 @@ export default function PcmsoWizard() {
   const [cronoLoading, setCronoLoading] = useState(false);
   const [cronoSelId, setCronoSelId] = useState<string>("");
 
+  const examesOrigem: PcmsoExame[] =
+    vincularOrigemIdx === "" ? [] : (setores[Number(vincularOrigemIdx)]?.exames || []);
+
+  const abrirBuscarCronograma = async () => {
+    setBuscarCronoOpen(true);
+    setCronoSelId("");
+    setCronoLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("pcmso_documentos")
+        .select("id,cronograma,updated_at,empresa_id,empresas(razao_social)")
+        .order("updated_at", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      const lista = (data || [])
+        .filter((d: any) => d.id !== documentoId)
+        .map((d: any) => ({
+          id: d.id,
+          empresa_nome: d.empresas?.razao_social || "(Sem nome)",
+          itens: (Array.isArray(d.cronograma) ? d.cronograma : []) as PcmsoCronoItem[],
+          updated_at: d.updated_at,
+        }))
+        .filter((x: any) => x.itens.length > 0);
+      setCronoModelos(lista);
+    } catch (e: any) {
+      toast.error("Erro ao carregar cronogramas: " + (e.message || ""));
+    } finally {
+      setCronoLoading(false);
+    }
+  };
+
+  const copiarCronogramaModelo = (modo: "add" | "replace") => {
+    const modelo = cronoModelos.find(m => m.id === cronoSelId);
+    if (!modelo) { toast.error("Selecione uma empresa"); return; }
+    // Cópia independente: novos ids e clone profundo
+    const copia = modelo.itens.map((c) => ({
+      ...(JSON.parse(JSON.stringify(c)) as PcmsoCronoItem),
+      id: crypto.randomUUID(),
+    }));
+    setCronograma(arr => (modo === "replace" ? copia : [...arr, ...copia]));
+    setBuscarCronoOpen(false);
+    toast.success(`${copia.length} ação(ões) copiada(s) de ${modelo.empresa_nome}`);
+  };
+
 
   // Gerar Documento
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
