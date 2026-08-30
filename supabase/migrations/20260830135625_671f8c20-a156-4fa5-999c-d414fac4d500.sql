@@ -1,0 +1,1 @@
+ALTER TABLE public.psico_respostas ALTER COLUMN link_id DROP NOT NULL;

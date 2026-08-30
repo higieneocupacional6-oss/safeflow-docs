@@ -1761,7 +1761,7 @@ export type Database = {
           funcao_id: string | null
           funcao_nome: string
           id: string
-          link_id: string
+          link_id: string | null
           respostas: Json
           resultado_psicossocial: string | null
           riscos_psicossociais: string | null
@@ -1783,7 +1783,7 @@ export type Database = {
           funcao_id?: string | null
           funcao_nome: string
           id?: string
-          link_id: string
+          link_id?: string | null
           respostas?: Json
           resultado_psicossocial?: string | null
           riscos_psicossociais?: string | null
@@ -1805,7 +1805,7 @@ export type Database = {
           funcao_id?: string | null
           funcao_nome?: string
           id?: string
-          link_id?: string
+          link_id?: string | null
           respostas?: Json
           resultado_psicossocial?: string | null
           riscos_psicossociais?: string | null
