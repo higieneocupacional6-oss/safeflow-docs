@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList,
+  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -22,6 +22,8 @@ import { parseTexto } from "@/components/PsicossocialTextInputModal";
 import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import { ESCALA_COPSOQ } from "@/components/PsicossocialModal";
 import { publicPsicoUrl, corClassificacao } from "@/lib/psicoLink";
+import { FuncoesNaoVinculadasModal } from "@/components/psico/FuncoesNaoVinculadasModal";
+import { INDICADORES_CAMPOS, normalizarFuncao } from "@/lib/psicoRelatorio";
 
 const labelEscala = (v: number) =>
   ESCALA_COPSOQ.find((e) => e.value === v)?.label || "—";
