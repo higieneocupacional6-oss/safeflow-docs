@@ -306,6 +306,33 @@ Seu trabalho exige prazos muito curtos?
         </p>
       </Card>
 
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-heading font-semibold">Indicadores</h2>
+          <Button variant="outline" size="sm" onClick={salvarIndicadores} disabled={salvandoInd}>
+            {salvandoInd ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+            Salvar indicadores
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Preencha os indicadores organizacionais. Eles são utilizados automaticamente na geração do
+          relatório técnico, de forma agregada e sem identificar trabalhadores.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {INDICADORES_CAMPOS.map((c) => (
+            <div key={c.key} className="grid gap-1.5">
+              <Label className="text-xs">{c.label}</Label>
+              <Input
+                value={indicadores[c.key] || ""}
+                onChange={(e) => setIndicadores({ ...indicadores, [c.key]: e.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+
+
       <div className="space-y-3">
         <h2 className="font-heading font-semibold">Funções avaliadas</h2>
         {cards.length === 0 ? (
