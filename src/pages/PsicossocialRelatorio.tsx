@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Save, Settings2, Sparkles } from "lucide-react";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Download, Loader2, Save, Settings2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   construirGrupos, medidasDosGrupos, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
