@@ -178,6 +178,7 @@ export default function PsicossocialRelatorio() {
   const [grupos, setGrupos] = useState<GrupoRelatorio[]>([]);
   const [medidas, setMedidas] = useState<MedidaControle[]>([]);
   const [conclusao, setConclusao] = useState("");
+  const [introPlano, setIntroPlano] = useState("");
   const [historico, setHistorico] = useState("");
   const [registros, setRegistros] = useState<Record<string, string>>({
     aplicador: "", responsavel_empresa: "", data: "", versao: "1.0",
