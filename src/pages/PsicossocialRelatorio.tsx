@@ -370,7 +370,7 @@ export default function PsicossocialRelatorio() {
 
   const salvar = async () => {
     setSalvando(true);
-    const dados = { ident, metInfo, metodologia, grupos, medidas, conclusao, historico, registros };
+    const dados = { ident, metInfo, metodologia, grupos, medidas, conclusao, introPlano, historico, registros };
     const { error } = await supabase.from("psico_relatorios").upsert({
       avaliacao_id: avaliacaoId!,
       empresa_id: empresaId!,
