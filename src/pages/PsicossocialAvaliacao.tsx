@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save,
+  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save, Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -23,6 +23,8 @@ import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import { ESCALA_COPSOQ } from "@/components/PsicossocialModal";
 import { publicPsicoUrl, corClassificacao } from "@/lib/psicoLink";
 import { FuncoesNaoVinculadasModal } from "@/components/psico/FuncoesNaoVinculadasModal";
+import { IaBaseTecnicaModal } from "@/components/psico/IaBaseTecnicaModal";
+import { IaEscolhaModal } from "@/components/psico/IaEscolhaModal";
 import { INDICADORES_CAMPOS, normalizarFuncao } from "@/lib/psicoRelatorio";
 
 const labelEscala = (v: number) =>
