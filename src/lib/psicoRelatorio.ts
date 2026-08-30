@@ -583,7 +583,7 @@ export function metodologiaTexto(opts: {
     `Observação das atividades: ${opts.observacao || "não informada"}.`,
     "Análise da organização do trabalho: foram consideradas as informações cadastrais de setores, GHE/GES, funções, descrição das atividades e jornada, além dos indicadores organizacionais informados.",
     `Participação dos trabalhadores: ${opts.participacao || "não informada"}.`,
-    "Critérios de classificação: cada dimensão foi convertida em índice de risco de 0 a 100, considerando a polaridade de cada questão. Somente dimensões com índice igual ou superior a 50 foram consideradas fatores de risco aplicáveis, evitando a listagem automática de itens não sustentados pelas respostas.",
+    "Critérios de classificação: cada dimensão foi convertida em índice de risco de 0 a 100, considerando a polaridade de cada questão. Todas as dimensões investigadas são registradas no relatório, assegurando a rastreabilidade da avaliação: dimensões com índice igual ou superior a 50 são caracterizadas como fatores de risco psicossocial, enquanto as dimensões com índice inferior a esse limiar são registradas como investigadas e classificadas em nível Baixo, por ausência de evidências suficientes de agravamento. Fator investigado não se confunde com fator de risco caracterizado.",
     "Escala de probabilidade e severidade: probabilidade de 1 (improvável) a 4 (muito provável), definida pelo índice de risco da dimensão; severidade de 1 (leve) a 4 (muito grave), definida pela natureza do agravo potencial. O nível de risco resulta do produto Probabilidade × Severidade (Baixo ≤ 4; Médio ≤ 8; Alto ≤ 12; Crítico > 12).",
     `Período da coleta: ${opts.periodo || "não informado"}.`,
   ].join("\n\n");
