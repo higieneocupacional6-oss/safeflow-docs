@@ -34,10 +34,10 @@ const NIVEL_BG: Record<NivelRisco, string> = {
 
 function Secao({ n, titulo, children, acao }: any) {
   return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-center justify-between gap-3 border-b pb-3">
-        <h2 className="font-heading font-semibold flex items-center gap-2">
-          <span className="w-6 h-6 rounded bg-primary text-primary-foreground text-xs grid place-items-center">{n}</span>
+    <Card className="p-6 md:p-8 space-y-5">
+      <div className="flex items-center justify-between gap-3 border-b pb-4">
+        <h2 className="font-heading font-semibold text-base flex items-center gap-2.5">
+          <span className="w-7 h-7 rounded bg-primary text-primary-foreground text-xs grid place-items-center shrink-0">{n}</span>
           {titulo}
         </h2>
         {acao}
@@ -200,7 +200,21 @@ export default function PsicossocialRelatorio() {
 
     const info: MetodologiaInfo = { periodo: "", participacao: "", observacao: "", ...(s.metInfo || {}) };
     setMetInfo(info);
-    setMetodologia(s.metodologia || metodologiaTexto({ ...info, respondentes: respostas.length }));
+    const gsBase = (s.grupos as GrupoRelatorio[] | undefined)?.length
+      ? gruposBase.map((g) => {
+          const old = (s.grupos as GrupoRelatorio[]).find((x) => x.id === g.id);
+          return old ? { ...g, ...old, fatores: old.fatores?.length ? old.fatores : g.fatores } : g;
+        })
+      : gruposBase;
+    setMetodologia(
+      s.metodologia ||
+        metodologiaTexto({
+          ...info,
+          respondentes: respostas.length,
+          empresaNome: empresa?.razao_social || "a empresa avaliada",
+          grupos: gsBase,
+        }),
+    );
 
     const gs = (s.grupos as GrupoRelatorio[] | undefined)?.length
       ? gruposBase.map((g) => {
@@ -262,7 +276,12 @@ export default function PsicossocialRelatorio() {
 
   const aplicarMetodologia = (v: MetodologiaInfo) => {
     setMetInfo(v);
-    setMetodologia(metodologiaTexto({ ...v, respondentes: respostas.length }));
+    setMetodologia(metodologiaTexto({
+      ...v,
+      respondentes: respostas.length,
+      empresaNome: empresa?.razao_social || "a empresa avaliada",
+      grupos,
+    }));
     toast.success("Texto da metodologia atualizado.");
   };
 
