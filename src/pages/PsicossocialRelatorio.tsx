@@ -455,46 +455,79 @@ export default function PsicossocialRelatorio() {
         titulo="Metodologia utilizada"
         acao={<Button variant="outline" size="sm" onClick={() => setMetOpen(true)}><Settings2 className="w-4 h-4 mr-1.5" />Informações</Button>}
       >
-        <Textarea className="min-h-[260px] text-sm" value={metodologia} onChange={(e) => setMetodologia(e.target.value)} />
+        <Textarea className="min-h-[320px] text-sm leading-relaxed" value={metodologia} onChange={(e) => setMetodologia(e.target.value)} />
       </Secao>
 
       {/* 4 - Fatores */}
       <Secao n="4" titulo="Fatores de risco psicossocial investigados">
-        <p className="text-xs text-muted-foreground">
-          Todas as dimensões investigadas no questionário são apresentadas. Quando não há evidências
-          suficientes de agravamento, o fator é registrado como investigado e classificado em nível Baixo.
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Todas as dimensões investigadas no questionário são apresentadas, independentemente do
+          resultado. Quando não há evidências suficientes de agravamento, o fator permanece registrado
+          como investigado e classificado em nível Baixo ou como não identificado.
         </p>
         {grupos.filter((g) => g.fatores.length).map((g) => (
-          <div key={g.id} className="space-y-2">
-            <h3 className="font-semibold text-sm">{g.setor} — {g.ghe}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px] border">
-                <thead className="bg-muted">
-                  <tr>
-                    {["Fator", "Descrição", "Fonte/Causa", "Situação de exposição", "Expostos", "Freq.", "P", "S", "Nível", "Interpretação", "Consequências", "Controles existentes"].map((h) => (
-                      <th key={h} className="border p-1.5 text-left font-semibold">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.fatores.map((f) => (
-                    <tr key={f.key} className="align-top">
-                      <td className="border p-1 font-medium">{f.fator}</td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} /></td>
-                      <td className="border p-1 w-16"><Input className="h-8 text-[11px]" type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} /></td>
-                      <td className="border p-1 w-24"><Input className="h-8 text-[11px]" value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} /></td>
-                      <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
-                      <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
-                      <td className="border p-1"><Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div key={g.id} className="space-y-4">
+            <h3 className="font-semibold text-sm border-l-4 border-primary pl-3">{g.setor} — {g.ghe}</h3>
+            <div className="space-y-4">
+              {g.fatores.map((f) => (
+                <Card key={f.key} className="p-5 space-y-4 bg-muted/20">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="font-semibold text-sm">{f.fator}</h4>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge>
+                      <Badge variant="outline">
+                        {f.sustentado === false ? "Não identificado" : "Fator caracterizado"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Descrição</Label>
+                      <Textarea value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Fonte / Causa</Label>
+                      <Textarea value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Situação de exposição</Label>
+                      <Textarea value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Interpretação técnica</Label>
+                      <Textarea value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Consequências potenciais</Label>
+                      <Textarea value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Controles existentes</Label>
+                      <Textarea value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Trabalhadores expostos</Label>
+                      <Input type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Frequência</Label>
+                      <Input value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Probabilidade (1-4)</Label>
+                      <Input type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Severidade (1-4)</Label>
+                      <Input type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         ))}
