@@ -289,7 +289,7 @@ export default function ControleDocumentos() {
             >
               <span className="font-semibold">Documento original emitido pelo sistema</span>
               <p className="text-xs text-muted-foreground mt-0.5">
-                {downloadModal?.file_path ? "Arquivo gerado pelo SafeDoc" : "Indisponível — documento ainda não foi gerado"}
+                {downloadModal?.file_path ? "Arquivo gerado pelo SegDoc" : "Indisponível — documento ainda não foi gerado"}
               </p>
             </button>
             <button

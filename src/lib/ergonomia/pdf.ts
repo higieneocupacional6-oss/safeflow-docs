@@ -242,7 +242,7 @@ export function gerarPdfErgonomia(av: AvaliacaoErgonomica): Blob {
     doc.setPage(i);
     doc.setFontSize(8); doc.setTextColor(120);
     doc.text(
-      `SafeDocs • ${NOMES[av.ferramenta] || av.ferramenta} • Página ${i}/${total}`,
+      `SegDocs • ${NOMES[av.ferramenta] || av.ferramenta} • Página ${i}/${total}`,
       W / 2, 290, { align: "center" }
     );
   }
