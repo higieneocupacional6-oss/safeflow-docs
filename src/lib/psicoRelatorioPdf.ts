@@ -198,10 +198,11 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
         "Interpretação", "Consequências", "Controles",
       ].map(textoPdf)],
       columnStyles: {
-        0: { cellWidth: 52 }, 1: { cellWidth: 62 }, 2: { cellWidth: 62 }, 3: { cellWidth: 58 },
-        4: { cellWidth: 20, halign: "center" }, 5: { cellWidth: 34 },
-        6: { cellWidth: 14, halign: "center" }, 7: { cellWidth: 14, halign: "center" },
-        8: { cellWidth: 34, halign: "center" }, 9: { cellWidth: 68 }, 10: { cellWidth: 62 },
+        0: { cellWidth: 46 }, 1: { cellWidth: 58 }, 2: { cellWidth: 58 }, 3: { cellWidth: 54 },
+        4: { cellWidth: 18, halign: "center" }, 5: { cellWidth: 30 },
+        6: { cellWidth: 13, halign: "center" }, 7: { cellWidth: 13, halign: "center" },
+        8: { cellWidth: 30, halign: "center" }, 9: { cellWidth: 64 }, 10: { cellWidth: 64 },
+        11: { cellWidth: 60 },
       },
       body: g.fatores.map((f) => [
         cel(f.fator), cel(f.descricao), cel(f.fonte), cel(f.situacao), String(f.expostos || "—"),
@@ -304,9 +305,9 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     headStyles: { fillColor: AZUL, textColor: 255, fontSize: 6.8, halign: "left" },
     head: [["Setor / GHE", "Risco", "Medida recomendada", "Tipo", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 70 }, 1: { cellWidth: 62 }, 2: { cellWidth: 138 }, 3: { cellWidth: 56 },
-      4: { cellWidth: 54 }, 5: { cellWidth: 60 }, 6: { cellWidth: 46 }, 7: { cellWidth: 46 },
-      8: { cellWidth: CONT - 532 },
+      0: { cellWidth: 56 }, 1: { cellWidth: 52 }, 2: { cellWidth: 120 }, 3: { cellWidth: 50 },
+      4: { cellWidth: 48 }, 5: { cellWidth: 50 }, 6: { cellWidth: 42 }, 7: { cellWidth: 42 },
+      8: { cellWidth: 50 },
     },
     body: p.medidas.length
       ? p.medidas.map((m) => [cel(m.grupo), cel(m.risco), cel(m.medida), cel(m.tipo), cel(m.responsavel), cel(m.prazo), cel(m.prioridade), cel(m.status), cel(m.evidencia)])
@@ -399,8 +400,8 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     headStyles: { fillColor: AZUL, textColor: 255, fontSize: 7, halign: "left" },
     head: [["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 110 }, 1: { cellWidth: 168 }, 2: { cellWidth: 62 }, 3: { cellWidth: 70 },
-      4: { cellWidth: 50 }, 5: { cellWidth: 54 }, 6: { cellWidth: CONT - 514 },
+      0: { cellWidth: 100 }, 1: { cellWidth: 150 }, 2: { cellWidth: 60 }, 3: { cellWidth: 64 },
+      4: { cellWidth: 46 }, 5: { cellWidth: 44 }, 6: { cellWidth: 46 },
     },
     body: p.medidas.length
       ? p.medidas.map((m) => [cel(`${m.grupo} — ${m.risco}`), cel(m.medida), cel(m.responsavel), cel(m.prazo), cel(m.prioridade), cel(m.status), cel(m.evidencia)])
