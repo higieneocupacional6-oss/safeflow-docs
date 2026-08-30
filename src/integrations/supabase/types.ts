@@ -1636,9 +1636,62 @@ export type Database = {
         }
         Relationships: []
       }
+      psico_avaliacoes: {
+        Row: {
+          contrato_id: string | null
+          created_at: string
+          created_by: string | null
+          data_avaliacao: string
+          empresa_id: string
+          id: string
+          status: string
+          titulo: string
+          updated_at: string
+        }
+        Insert: {
+          contrato_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_avaliacao?: string
+          empresa_id: string
+          id?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Update: {
+          contrato_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          data_avaliacao?: string
+          empresa_id?: string
+          id?: string
+          status?: string
+          titulo?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psico_avaliacoes_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psico_avaliacoes_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       psico_links: {
         Row: {
           ativo: boolean
+          avaliacao_id: string | null
+          contrato_id: string | null
           created_at: string
           created_by: string | null
           empresa_id: string
@@ -1648,6 +1701,8 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          avaliacao_id?: string | null
+          contrato_id?: string | null
           created_at?: string
           created_by?: string | null
           empresa_id: string
@@ -1657,6 +1712,8 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          avaliacao_id?: string | null
+          contrato_id?: string | null
           created_at?: string
           created_by?: string | null
           empresa_id?: string
@@ -1665,6 +1722,20 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "psico_links_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "psico_avaliacoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "psico_links_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "psico_links_empresa_id_fkey"
             columns: ["empresa_id"]
@@ -1677,6 +1748,7 @@ export type Database = {
       psico_respostas: {
         Row: {
           alertas: Json
+          avaliacao_id: string | null
           blocos: Json
           colaborador_nome: string | null
           contrato_id: string | null
@@ -1698,6 +1770,7 @@ export type Database = {
         }
         Insert: {
           alertas?: Json
+          avaliacao_id?: string | null
           blocos?: Json
           colaborador_nome?: string | null
           contrato_id?: string | null
@@ -1719,6 +1792,7 @@ export type Database = {
         }
         Update: {
           alertas?: Json
+          avaliacao_id?: string | null
           blocos?: Json
           colaborador_nome?: string | null
           contrato_id?: string | null
@@ -1739,6 +1813,13 @@ export type Database = {
           total_positivas?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "psico_respostas_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: false
+            referencedRelation: "psico_avaliacoes"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "psico_respostas_contrato_id_fkey"
             columns: ["contrato_id"]
