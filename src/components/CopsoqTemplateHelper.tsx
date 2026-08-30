@@ -189,7 +189,7 @@ export function CopsoqTemplateHelper() {
       doc.setPage(i);
       doc.setFontSize(8);
       doc.setTextColor(120);
-      doc.text(`Página ${i} de ${total}  •  COPSOQ – SAFEDOC`, pageW / 2, pageH - 8, { align: "center" });
+      doc.text(`Página ${i} de ${total}  •  COPSOQ – SEGDOC`, pageW / 2, pageH - 8, { align: "center" });
     }
 
     const nome = (colaborador || "colaborador").replace(/[^a-zA-Z0-9]+/g, "_");

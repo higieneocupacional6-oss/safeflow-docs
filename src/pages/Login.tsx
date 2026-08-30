@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import safedocLogo from "@/assets/safedoc-logo.png";
 
 export default function Login() {
   const { signIn, user, loading: authLoading } = useAuth();
@@ -46,9 +45,9 @@ export default function Login() {
         <div className="absolute inset-0 opacity-30"
           style={{ backgroundImage: "radial-gradient(circle at 20% 30%, hsl(0 0% 100% / 0.3), transparent 40%), radial-gradient(circle at 80% 70%, hsl(165 100% 53% / 0.4), transparent 40%)" }} />
         <div className="relative z-10 flex items-center gap-3">
-          <img src={safedocLogo} alt="SAFEDOC" className="h-14 w-14 rounded-2xl bg-white p-2 ring-1 ring-white/30 shadow-lg" />
+          <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm ring-1 ring-white/30 shadow-lg grid place-items-center"><ShieldCheck className="h-7 w-7 text-white" /></div>
           <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">SAFEDOC</h1>
+            <h1 className="text-2xl font-bold text-white tracking-tight">SEGDOC</h1>
             <p className="text-xs text-white/80 uppercase tracking-[0.22em]">Gestão SST</p>
           </div>
         </div>
@@ -74,16 +73,16 @@ export default function Login() {
           </div>
         </div>
 
-        <p className="relative z-10 text-xs text-white/60">© {new Date().getFullYear()} SAFEDOC · Todos os direitos reservados</p>
+        <p className="relative z-10 text-xs text-white/60">© {new Date().getFullYear()} SegDoc · Todos os direitos reservados</p>
       </div>
 
       {/* Right form */}
       <div className="flex items-center justify-center p-6 sm:p-12 bg-background">
         <div className="w-full max-w-md">
           <div className="lg:hidden flex items-center gap-3 mb-8">
-            <img src={safedocLogo} alt="SAFEDOC" className="h-12 w-12 rounded-xl bg-white p-1.5 ring-1 ring-border shadow-sm" />
+            <div className="h-12 w-12 rounded-xl bg-gradient-brand grid place-items-center shadow-sm"><ShieldCheck className="h-6 w-6 text-primary-foreground" /></div>
             <div>
-              <h1 className="font-heading text-xl font-bold">SAFE<span className="text-gradient-brand">DOC</span></h1>
+              <h1 className="font-heading text-xl font-bold">SEG<span className="text-gradient-brand">DOC</span></h1>
               <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Gestão SST</p>
             </div>
           </div>
