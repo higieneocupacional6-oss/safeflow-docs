@@ -15,10 +15,15 @@ import { toast } from "sonner";
 import {
   construirGrupos, medidasDosGrupos, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
-  INDICADORES_CAMPOS, type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
+  INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
+  indicadoresPreenchidos, interpretarIndicadores,
+  type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial } from "@/lib/psicoRelatorioPdf";
 import { MetodologiaModal, type MetodologiaInfo } from "@/components/psico/MetodologiaModal";
+import {
+  Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 
 const NIVEL_BG: Record<NivelRisco, string> = {
   "Baixo": "bg-emerald-500",
@@ -29,10 +34,10 @@ const NIVEL_BG: Record<NivelRisco, string> = {
 
 function Secao({ n, titulo, children, acao }: any) {
   return (
-    <Card className="p-5 space-y-4">
-      <div className="flex items-center justify-between gap-3 border-b pb-3">
-        <h2 className="font-heading font-semibold flex items-center gap-2">
-          <span className="w-6 h-6 rounded bg-primary text-primary-foreground text-xs grid place-items-center">{n}</span>
+    <Card className="p-6 md:p-8 space-y-5">
+      <div className="flex items-center justify-between gap-3 border-b pb-4">
+        <h2 className="font-heading font-semibold text-base flex items-center gap-2.5">
+          <span className="w-7 h-7 rounded bg-primary text-primary-foreground text-xs grid place-items-center shrink-0">{n}</span>
           {titulo}
         </h2>
         {acao}
@@ -195,14 +200,23 @@ export default function PsicossocialRelatorio() {
 
     const info: MetodologiaInfo = { periodo: "", participacao: "", observacao: "", ...(s.metInfo || {}) };
     setMetInfo(info);
-    setMetodologia(s.metodologia || metodologiaTexto({ ...info, respondentes: respostas.length }));
-
-    const gs = (s.grupos as GrupoRelatorio[] | undefined)?.length
+    const gsBase = (s.grupos as GrupoRelatorio[] | undefined)?.length
       ? gruposBase.map((g) => {
           const old = (s.grupos as GrupoRelatorio[]).find((x) => x.id === g.id);
           return old ? { ...g, ...old, fatores: old.fatores?.length ? old.fatores : g.fatores } : g;
         })
       : gruposBase;
+    setMetodologia(
+      s.metodologia ||
+        metodologiaTexto({
+          ...info,
+          respondentes: respostas.length,
+          empresaNome: empresa?.razao_social || "a empresa avaliada",
+          grupos: gsBase,
+        }),
+    );
+
+    const gs = gsBase;
     setGrupos(gs);
 
     const baseMed = medidasDosGrupos(gs);
@@ -257,7 +271,12 @@ export default function PsicossocialRelatorio() {
 
   const aplicarMetodologia = (v: MetodologiaInfo) => {
     setMetInfo(v);
-    setMetodologia(metodologiaTexto({ ...v, respondentes: respostas.length }));
+    setMetodologia(metodologiaTexto({
+      ...v,
+      respondentes: respostas.length,
+      empresaNome: empresa?.razao_social || "a empresa avaliada",
+      grupos,
+    }));
     toast.success("Texto da metodologia atualizado.");
   };
 
@@ -291,6 +310,8 @@ export default function PsicossocialRelatorio() {
       gerarPdfPsicossocial({
         empresa, contrato, identificacao: ident, metodologia, grupos, medidas,
         conclusao, indicadores, historico, registros,
+        interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
+        introPlanoAcao: planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
         titulo: avaliacao?.titulo || "Avaliação Psicossocial",
       });
     } catch (e: any) {
@@ -308,16 +329,23 @@ export default function PsicossocialRelatorio() {
     setMedidas((p) => p.map((m) => (m.key === key ? { ...m, ...patch } : m)));
 
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0) || 1;
-  const ocup = useMemo(() => {
-    const m: Record<string, number> = {};
-    grupos.forEach((g) => g.fatores.forEach((f) => { const k = `${f.probabilidade}-${f.severidade}`; m[k] = (m[k] || 0) + 1; }));
-    return m;
-  }, [grupos]);
+  // A matriz representa apenas os riscos caracterizados (exclui Baixo e não identificados).
+  const ocup = useMemo(() => matrizOcupada(grupos), [grupos]);
+  const totalMatriz = useMemo(
+    () => grupos.flatMap((g) => g.fatores).filter(fatorCaracterizado).length,
+    [grupos],
+  );
   const pgr = useMemo(() => riscosParaPgr(grupos), [grupos]);
+  const indicadoresGraf = useMemo(() => indicadoresPreenchidos(indicadores), [indicadores]);
+  const textoIndicadores = useMemo(() => interpretarIndicadores(indicadores, grupos), [indicadores, grupos]);
+  const textoPlano = useMemo(
+    () => planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    [grupos, empresa],
+  );
 
   if (!pronto) {
     return (
-      <div className="max-w-6xl mx-auto p-10 text-center text-muted-foreground">
+      <div className="max-w-7xl mx-auto p-10 text-center text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
         Consolidando dados da avaliação…
       </div>
@@ -325,7 +353,7 @@ export default function PsicossocialRelatorio() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6 print:p-0">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-8 space-y-8 print:p-0">
       <div className="flex items-center justify-between gap-2">
         <Link to={`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}`}>
           <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
@@ -427,46 +455,79 @@ export default function PsicossocialRelatorio() {
         titulo="Metodologia utilizada"
         acao={<Button variant="outline" size="sm" onClick={() => setMetOpen(true)}><Settings2 className="w-4 h-4 mr-1.5" />Informações</Button>}
       >
-        <Textarea className="min-h-[260px] text-sm" value={metodologia} onChange={(e) => setMetodologia(e.target.value)} />
+        <Textarea className="min-h-[320px] text-sm leading-relaxed" value={metodologia} onChange={(e) => setMetodologia(e.target.value)} />
       </Secao>
 
       {/* 4 - Fatores */}
       <Secao n="4" titulo="Fatores de risco psicossocial investigados">
-        <p className="text-xs text-muted-foreground">
-          Todas as dimensões investigadas no questionário são apresentadas. Quando não há evidências
-          suficientes de agravamento, o fator é registrado como investigado e classificado em nível Baixo.
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          Todas as dimensões investigadas no questionário são apresentadas, independentemente do
+          resultado. Quando não há evidências suficientes de agravamento, o fator permanece registrado
+          como investigado e classificado em nível Baixo ou como não identificado.
         </p>
         {grupos.filter((g) => g.fatores.length).map((g) => (
-          <div key={g.id} className="space-y-2">
-            <h3 className="font-semibold text-sm">{g.setor} — {g.ghe}</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-[11px] border">
-                <thead className="bg-muted">
-                  <tr>
-                    {["Fator", "Descrição", "Fonte/Causa", "Situação de exposição", "Expostos", "Freq.", "P", "S", "Nível", "Interpretação", "Consequências", "Controles existentes"].map((h) => (
-                      <th key={h} className="border p-1.5 text-left font-semibold">{h}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {g.fatores.map((f) => (
-                    <tr key={f.key} className="align-top">
-                      <td className="border p-1 font-medium">{f.fator}</td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} /></td>
-                      <td className="border p-1 w-16"><Input className="h-8 text-[11px]" type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} /></td>
-                      <td className="border p-1 w-24"><Input className="h-8 text-[11px]" value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} /></td>
-                      <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
-                      <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
-                      <td className="border p-1"><Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} /></td>
-                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} /></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div key={g.id} className="space-y-4">
+            <h3 className="font-semibold text-sm border-l-4 border-primary pl-3">{g.setor} — {g.ghe}</h3>
+            <div className="space-y-4">
+              {g.fatores.map((f) => (
+                <Card key={f.key} className="p-5 space-y-4 bg-muted/20">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <h4 className="font-semibold text-sm">{f.fator}</h4>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge>
+                      <Badge variant="outline">
+                        {f.sustentado === false ? "Não identificado" : "Fator caracterizado"}
+                      </Badge>
+                    </div>
+                  </div>
+
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Descrição</Label>
+                      <Textarea value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Fonte / Causa</Label>
+                      <Textarea value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Situação de exposição</Label>
+                      <Textarea value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Interpretação técnica</Label>
+                      <Textarea value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Consequências potenciais</Label>
+                      <Textarea value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Controles existentes</Label>
+                      <Textarea value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} />
+                    </div>
+                  </div>
+
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Trabalhadores expostos</Label>
+                      <Input type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Frequência</Label>
+                      <Input value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Probabilidade (1-4)</Label>
+                      <Input type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                    </div>
+                    <div className="grid gap-1.5">
+                      <Label className="text-xs">Severidade (1-4)</Label>
+                      <Input type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                    </div>
+                  </div>
+                </Card>
+              ))}
             </div>
           </div>
         ))}
@@ -475,17 +536,19 @@ export default function PsicossocialRelatorio() {
 
       {/* 5 - Resultado */}
       <Secao n="5" titulo="Resultado da avaliação">
-        <div className="grid gap-3 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {grupos.map((g) => {
             const r = resumoPorGrupo(g);
             return (
-              <Card key={g.id} className="p-4 space-y-2">
+              <Card key={g.id} className="p-5 space-y-2.5">
                 <p className="font-semibold text-sm">{g.setor} — {g.ghe}</p>
-                <div className="grid grid-cols-2 gap-2 text-xs">
-                  <span>Fatores investigados: <b>{g.fatores.length}</b> · caracterizados: <b>{g.fatores.filter((f) => f.sustentado !== false).length}</b></span>
-                  <span>Risco predominante: <b>{r.predominante}</b></span>
-                  <span>Baixo: {r.cont.Baixo} · Médio: {r.cont["Médio"]}</span>
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  <span>Fatores investigados: <b>{r.investigados}</b></span>
+                  <span>Caracterizados: <b>{r.caracterizados}</b></span>
+                  <span>Baixo: {r.cont.Baixo} · Não identificado: {r.naoIdentificado}</span>
+                  <span>Médio: {r.cont["Médio"]}</span>
                   <span>Alto: {r.cont.Alto} · Crítico: {r.cont["Crítico"]}</span>
+                  <span>Predominante: <b>{r.predominante}</b></span>
                   <span className="col-span-2">Trabalhadores envolvidos: <b>{Math.round(((g.trabalhadores || 0) / totalTrab) * 100)}%</b> ({g.trabalhadores})</span>
                   <span className="col-span-2">Prioritários: {r.criticos.join("; ") || "—"}</span>
                 </div>
@@ -497,164 +560,270 @@ export default function PsicossocialRelatorio() {
 
       {/* 6 - Matriz */}
       <Secao n="6" titulo="Matriz de risco (Probabilidade × Severidade)">
-        <div className="overflow-x-auto">
-          <table className="border-collapse text-xs">
-            <tbody>
-              {[4, 3, 2, 1].map((s) => (
-                <tr key={s}>
-                  <td className="pr-2 text-right font-medium whitespace-nowrap">{SEV_LABELS[s - 1]}</td>
-                  {[1, 2, 3, 4].map((p) => {
-                    const n = nivelDeRisco(p, s);
-                    const qtd = ocup[`${p}-${s}`] || 0;
-                    return (
-                      <td key={p} className="p-0.5">
-                        <div className={`w-20 h-14 grid place-items-center rounded text-white font-bold ${NIVEL_BG[n]} ${qtd ? "" : "opacity-25"}`}>
-                          {qtd || ""}
-                        </div>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-              <tr>
-                <td />
-                {PROB_LABELS.map((l) => (
-                  <td key={l} className="text-center pt-1 font-medium">{l}</td>
+        <p className="text-sm text-muted-foreground leading-relaxed">
+          A matriz representa somente os riscos caracterizados que demandam representação metodológica.
+          Fatores classificados como Baixo e fatores não identificados não são plotados, permanecendo
+          registrados nas seções 4 e 6.1 para fins de rastreabilidade.
+        </p>
+        {totalMatriz === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum risco caracterizado a representar na matriz conforme os critérios da metodologia adotada.
+          </p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="border-collapse text-sm">
+              <tbody>
+                {[4, 3, 2, 1].map((s) => (
+                  <tr key={s}>
+                    <td className="pr-3 text-right font-medium whitespace-nowrap">{SEV_LABELS[s - 1]}</td>
+                    {[1, 2, 3, 4].map((p) => {
+                      const n = nivelDeRisco(p, s);
+                      const qtd = ocup[`${p}-${s}`] || 0;
+                      return (
+                        <td key={p} className="p-1">
+                          <div className={`w-24 h-16 grid place-items-center rounded text-primary-foreground font-bold ${NIVEL_BG[n]} ${qtd ? "" : "opacity-25"}`}>
+                            {qtd || ""}
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div>
-          <h3 className="font-semibold text-sm mt-4 mb-2">Riscos recomendados para gerenciamento no PGR</h3>
-          {pgr.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              Conforme os resultados obtidos, nenhum risco demanda gerenciamento adicional no PGR.
-            </p>
-          ) : (
-            <ul className="space-y-1.5 text-sm">
-              {pgr.map((r, i) => (
-                <li key={i} className="flex gap-2">
-                  <Badge variant="outline" className={corNivel(r.nivel)}>{r.nivel}</Badge>
-                  <span><b>{r.setor} — {r.ghe}:</b> {r.fator}. {r.justificativa}</span>
-                </li>
-              ))}
-            </ul>
-          )}
+                <tr>
+                  <td />
+                  {PROB_LABELS.map((l) => (
+                    <td key={l} className="text-center pt-2 font-medium">{l}</td>
+                  ))}
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        )}
+        <div className="space-y-3 pt-2">
+          <h3 className="font-semibold text-sm">6.1 Riscos recomendados para gerenciamento no PGR</h3>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Constam todos os fatores investigados, com distinção entre o resultado da avaliação e a
+            necessidade de intervenção, assegurando a rastreabilidade completa.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm border">
+              <thead className="bg-muted">
+                <tr>
+                  {["Setor", "GHE/GES", "Fator investigado", "Resultado da avaliação", "Intervenção", "Justificativa técnica"].map((h) => (
+                    <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {pgr.map((r, i) => (
+                  <tr key={i} className="align-top">
+                    <td className="border p-2.5">{r.setor}</td>
+                    <td className="border p-2.5">{r.ghe}</td>
+                    <td className="border p-2.5 font-medium">{r.fator}</td>
+                    <td className="border p-2.5">
+                      <Badge variant="outline" className={corNivel(r.nivel)}>{r.nivel}</Badge>
+                      <span className="block mt-1 text-xs text-muted-foreground">{r.resultado}</span>
+                    </td>
+                    <td className="border p-2.5">{r.intervencao}</td>
+                    <td className="border p-2.5 leading-relaxed">{r.justificativa}</td>
+                  </tr>
+                ))}
+                {!pgr.length && (
+                  <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">Nenhum fator investigado registrado.</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </Secao>
 
       {/* 7 - Medidas */}
       <Secao n="7" titulo="Medidas de prevenção e controle">
-        <div className="overflow-x-auto">
-          <table className="w-full text-[11px] border">
-            <thead className="bg-muted">
-              <tr>{["Setor/GHE", "Risco", "Medida recomendada", "Tipo", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map((h) => <th key={h} className="border p-1.5 text-left">{h}</th>)}</tr>
-            </thead>
-            <tbody>
-              {medidas.map((m) => (
-                <tr key={m.key} className="align-top">
-                  <td className="border p-1">{m.grupo}</td>
-                  <td className="border p-1">{m.risco}</td>
-                  <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.tipo} onChange={(e) => setMedida(m.key, { tipo: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
-                  <td className="border p-1 w-32">
-                    <Select value={m.status} onValueChange={(v) => setMedida(m.key, { status: v })}>
-                      <SelectTrigger className="h-8 text-[11px]"><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Pendente">Pendente</SelectItem>
-                        <SelectItem value="Em andamento">Em andamento</SelectItem>
-                        <SelectItem value="Concluída">Concluída</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} /></td>
-                </tr>
-              ))}
-              {!medidas.length && <tr><td colSpan={9} className="p-3 text-center text-muted-foreground">Nenhuma medida aplicável.</td></tr>}
-            </tbody>
-          </table>
+        <div className="space-y-4">
+          {medidas.map((m) => (
+            <Card key={m.key} className="p-5 space-y-4 bg-muted/20">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="font-semibold text-sm">{m.grupo} — {m.risco}</p>
+                <Badge variant="outline">{m.prioridade}</Badge>
+              </div>
+              <div className="grid gap-1.5">
+                <Label className="text-xs">Medida recomendada</Label>
+                <Textarea value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Tipo de controle</Label>
+                  <Input value={m.tipo} onChange={(e) => setMedida(m.key, { tipo: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Responsável</Label>
+                  <Input value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Prazo</Label>
+                  <Input value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Prioridade</Label>
+                  <Input value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} />
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Status</Label>
+                  <Select value={m.status} onValueChange={(v) => setMedida(m.key, { status: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Pendente">Pendente</SelectItem>
+                      <SelectItem value="Em andamento">Em andamento</SelectItem>
+                      <SelectItem value="Monitorado">Monitorado</SelectItem>
+                      <SelectItem value="Concluída">Concluída</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-1.5">
+                  <Label className="text-xs">Evidência</Label>
+                  <Input value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} />
+                </div>
+              </div>
+            </Card>
+          ))}
+          {!medidas.length && <p className="text-sm text-muted-foreground">Nenhuma medida aplicável.</p>}
         </div>
       </Secao>
 
       {/* 8 - Indicadores */}
       <Secao n="8" titulo="Indicadores organizacionais">
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {INDICADORES_CAMPOS.map((c) => (
-            <Card key={c.key} className="p-3">
-              <p className="text-[10px] uppercase tracking-wide text-muted-foreground font-medium">{c.label}</p>
-              <p className="text-lg font-heading font-bold">{indicadores[c.key] || "—"}</p>
-            </Card>
-          ))}
+        {!indicadoresGraf.numericos.length && !indicadoresGraf.qualitativos.length ? (
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Não foram informados indicadores organizacionais para esta avaliação.
+          </p>
+        ) : (
+          <>
+            {!!indicadoresGraf.numericos.length && (
+              <div className="grid gap-5 lg:grid-cols-2">
+                <Card className="p-5">
+                  <p className="text-sm font-semibold mb-4">Indicadores quantitativos informados</p>
+                  <ResponsiveContainer width="100%" height={Math.max(240, indicadoresGraf.numericos.length * 52)}>
+                    <BarChart
+                      data={indicadoresGraf.numericos}
+                      layout="vertical"
+                      margin={{ top: 8, right: 40, bottom: 8, left: 8 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="hsl(var(--border))" />
+                      <XAxis type="number" tick={{ fontSize: 12 }} stroke="hsl(var(--muted-foreground))" />
+                      <YAxis
+                        type="category"
+                        dataKey="label"
+                        width={180}
+                        tick={{ fontSize: 11 }}
+                        stroke="hsl(var(--muted-foreground))"
+                      />
+                      <Tooltip cursor={{ fill: "hsl(var(--muted))" }} />
+                      <Bar dataKey="valor" radius={[0, 4, 4, 0]} barSize={22}>
+                        <LabelList dataKey="valor" position="right" style={{ fontSize: 12 }} />
+                        {indicadoresGraf.numericos.map((n) => <Cell key={n.key} fill={n.cor} />)}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Card>
+                <div className="grid gap-4 sm:grid-cols-2 content-start">
+                  {indicadoresGraf.numericos.map((n) => (
+                    <Card key={n.key} className="p-4 border-l-4" style={{ borderLeftColor: n.cor }}>
+                      <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{n.label}</p>
+                      <p className="text-2xl font-heading font-bold" style={{ color: n.cor }}>{n.texto}</p>
+                    </Card>
+                  ))}
+                </div>
+              </div>
+            )}
+            {!!indicadoresGraf.qualitativos.length && (
+              <div className="grid gap-4 md:grid-cols-2">
+                {indicadoresGraf.qualitativos.map((q) => (
+                  <Card key={q.key} className="p-4">
+                    <p className="text-[11px] uppercase tracking-wide text-muted-foreground font-medium">{q.label}</p>
+                    <p className="text-sm leading-relaxed mt-1">{q.texto}</p>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </>
+        )}
+        <div className="grid gap-1.5">
+          <Label>Análise técnica dos indicadores</Label>
+          <p className="text-sm leading-relaxed whitespace-pre-wrap text-muted-foreground border rounded-md p-4 bg-muted/20">
+            {textoIndicadores}
+          </p>
         </div>
-        <p className="text-xs text-muted-foreground">
-          Preenchidos na página da avaliação. Dados apresentados de forma agregada, preservando a
-          confidencialidade dos trabalhadores.
-        </p>
       </Secao>
 
       {/* 9 - Comparativo e histórico */}
       <Secao n="9" titulo="Comparativo entre setores e evolução histórica">
         <div className="overflow-x-auto">
-          <table className="w-full text-xs border">
+          <table className="w-full text-sm border">
             <thead className="bg-muted">
-              <tr>{["Setor", "Nº de riscos", "Baixo", "Médio", "Alto", "Crítico", "Trabalhadores expostos"].map((h) => <th key={h} className="border p-1.5 text-left">{h}</th>)}</tr>
+              <tr>
+                {["Setor / GHE", "Nº de fatores investigados", "Baixo", "Não identificado", "Médio", "Alto", "Crítico", "Trabalhadores envolvidos"].map((h) => (
+                  <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>
+                ))}
+              </tr>
             </thead>
             <tbody>
               {grupos.map((g) => {
                 const r = resumoPorGrupo(g);
                 return (
                   <tr key={g.id}>
-                    <td className="border p-1.5">{g.setor} — {g.ghe}</td>
-                    <td className="border p-1.5">{g.fatores.length}</td>
-                    <td className="border p-1.5">{r.cont.Baixo}</td>
-                    <td className="border p-1.5">{r.cont["Médio"]}</td>
-                    <td className="border p-1.5">{r.cont.Alto}</td>
-                    <td className="border p-1.5">{r.cont["Crítico"]}</td>
-                    <td className="border p-1.5">{g.trabalhadores}</td>
+                    <td className="border p-2.5">{g.setor} — {g.ghe}</td>
+                    <td className="border p-2.5">{r.investigados}</td>
+                    <td className="border p-2.5">{r.cont.Baixo}</td>
+                    <td className="border p-2.5">{r.naoIdentificado}</td>
+                    <td className="border p-2.5">{r.cont["Médio"]}</td>
+                    <td className="border p-2.5">{r.cont.Alto}</td>
+                    <td className="border p-2.5">{r.cont["Crítico"]}</td>
+                    <td className="border p-2.5">{g.trabalhadores}</td>
                   </tr>
                 );
               })}
+              {!grupos.length && (
+                <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">Nenhum setor avaliado.</td></tr>
+              )}
             </tbody>
           </table>
         </div>
         <div className="grid gap-1.5">
           <Label>Evolução histórica</Label>
-          <Textarea className="min-h-[120px]" value={historico} onChange={(e) => setHistorico(e.target.value)} />
+          <Textarea className="min-h-[140px]" value={historico} onChange={(e) => setHistorico(e.target.value)} />
         </div>
       </Secao>
 
       {/* 10 - Conclusão */}
       <Secao n="10" titulo="Conclusão técnica">
-        <Textarea className="min-h-[200px] text-sm" value={conclusao} onChange={(e) => setConclusao(e.target.value)} />
+        <Textarea className="min-h-[300px] text-sm leading-relaxed" value={conclusao} onChange={(e) => setConclusao(e.target.value)} />
       </Secao>
 
       {/* 11 - Plano de ação */}
       <Secao n="11" titulo="Plano de ação">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-sm leading-relaxed border rounded-md p-4 bg-muted/20">{textoPlano}</p>
+        <p className="text-sm text-muted-foreground">
           O plano de ação reflete as medidas de prevenção e controle; edite os campos na seção 7 ou diretamente abaixo.
         </p>
+
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px] border">
+          <table className="w-full text-sm border">
             <thead className="bg-muted">
-              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map((h) => <th key={h} className="border p-1.5 text-left">{h}</th>)}</tr>
+              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map((h) => <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>)}</tr>
             </thead>
             <tbody>
               {medidas.map((m) => (
                 <tr key={m.key} className="align-top">
-                  <td className="border p-1">{m.grupo} — {m.risco}</td>
-                  <td className="border p-1"><Textarea className="text-[11px] min-h-14" value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.status} onChange={(e) => setMedida(m.key, { status: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} /></td>
+                  <td className="border p-2.5 min-w-[180px]">{m.grupo} — {m.risco}</td>
+                  <td className="border p-2 min-w-[320px]"><Textarea value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[140px]"><Input value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[130px]"><Input value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[120px]"><Input value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[130px]"><Input value={m.status} onChange={(e) => setMedida(m.key, { status: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[140px]"><Input value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} /></td>
                 </tr>
               ))}
-              {!medidas.length && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">—</td></tr>}
+              {!medidas.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">—</td></tr>}
             </tbody>
           </table>
         </div>
