@@ -37,7 +37,7 @@ const NIVEL_BG: Record<NivelRisco, string> = {
 function Secao({ n, titulo, children, acao }: any) {
   return (
     <Card className="p-6 md:p-8 space-y-5">
-      <div className="flex items-center justify-between gap-3 border-b pb-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-4">
         <h2 className="font-heading font-semibold text-base flex items-center gap-2.5">
           <span className="w-7 h-7 rounded bg-primary text-primary-foreground text-xs grid place-items-center shrink-0">{n}</span>
           {titulo}
@@ -48,6 +48,16 @@ function Secao({ n, titulo, children, acao }: any) {
     </Card>
   );
 }
+
+function Chip({ label, valor, className }: { label: string; valor: number; className?: string }) {
+  return (
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-medium ${className || ""}`}>
+      {label}<b>{valor}</b>
+    </span>
+  );
+}
+
+
 
 export default function PsicossocialRelatorio() {
   const { empresaId, contratoId, avaliacaoId } = useParams();
