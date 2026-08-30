@@ -704,8 +704,12 @@ export default function PcmsoWizard() {
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="font-heading font-semibold flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-accent" /> Cronograma PCMSO</h3>
-            <p className="text-xs text-muted-foreground">Ações, responsáveis e prazos do PCMSO (independente do PGR)</p>
+            <p className="text-xs text-muted-foreground flex-1">Ações, responsáveis e prazos do PCMSO (independente do PGR)</p>
+            <Button variant="outline" size="sm" onClick={abrirBuscarCronograma} title="Buscar modelo de cronograma">
+              <FolderOpen className="w-4 h-4 mr-1" /> Buscar modelo
+            </Button>
           </div>
+
 
           <Card className="p-4">
             <div className="overflow-x-auto">
