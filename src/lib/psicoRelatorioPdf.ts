@@ -198,11 +198,11 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
         "Interpretação", "Consequências", "Controles",
       ].map(textoPdf)],
       columnStyles: {
-        0: { cellWidth: 46 }, 1: { cellWidth: 58 }, 2: { cellWidth: 58 }, 3: { cellWidth: 54 },
-        4: { cellWidth: 18, halign: "center" }, 5: { cellWidth: 30 },
+        0: { cellWidth: 56 }, 1: { cellWidth: 56 }, 2: { cellWidth: 56 }, 3: { cellWidth: 52 },
+        4: { cellWidth: 18, halign: "center" }, 5: { cellWidth: 34 },
         6: { cellWidth: 13, halign: "center" }, 7: { cellWidth: 13, halign: "center" },
-        8: { cellWidth: 30, halign: "center" }, 9: { cellWidth: 64 }, 10: { cellWidth: 64 },
-        11: { cellWidth: 60 },
+        8: { cellWidth: 30, halign: "center" }, 9: { cellWidth: 62 }, 10: { cellWidth: 60 },
+        11: { cellWidth: 56 },
       },
       body: g.fatores.map((f) => [
         cel(f.fator), cel(f.descricao), cel(f.fonte), cel(f.situacao), String(f.expostos || "—"),
