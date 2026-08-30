@@ -431,12 +431,11 @@ export default function PsicossocialRelatorio() {
       </Secao>
 
       {/* 4 - Fatores */}
-      <Secao n="4" titulo="Fatores de risco psicossocial">
-        {grupos.every((g) => !g.fatores.length) && (
-          <p className="text-sm text-muted-foreground">
-            Nenhum fator de risco foi sustentado pelas respostas coletadas.
-          </p>
-        )}
+      <Secao n="4" titulo="Fatores de risco psicossocial investigados">
+        <p className="text-xs text-muted-foreground">
+          Todas as dimensões investigadas no questionário são apresentadas. Quando não há evidências
+          suficientes de agravamento, o fator é registrado como investigado e classificado em nível Baixo.
+        </p>
         {grupos.filter((g) => g.fatores.length).map((g) => (
           <div key={g.id} className="space-y-2">
             <h3 className="font-semibold text-sm">{g.setor} — {g.ghe}</h3>
@@ -444,7 +443,7 @@ export default function PsicossocialRelatorio() {
               <table className="w-full text-[11px] border">
                 <thead className="bg-muted">
                   <tr>
-                    {["Fator", "Descrição", "Fonte/Causa", "Situação de exposição", "Expostos", "Freq.", "P", "S", "Nível", "Consequências", "Controles existentes"].map((h) => (
+                    {["Fator", "Descrição", "Fonte/Causa", "Situação de exposição", "Expostos", "Freq.", "P", "S", "Nível", "Interpretação", "Consequências", "Controles existentes"].map((h) => (
                       <th key={h} className="border p-1.5 text-left font-semibold">{h}</th>
                     ))}
                   </tr>
@@ -461,6 +460,7 @@ export default function PsicossocialRelatorio() {
                       <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
                       <td className="border p-1 w-14"><Input className="h-8 text-[11px]" type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} /></td>
                       <td className="border p-1"><Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge></td>
+                      <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} /></td>
                       <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} /></td>
                       <td className="border p-1"><Textarea className="text-[11px] min-h-16" value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} /></td>
                     </tr>
@@ -471,6 +471,7 @@ export default function PsicossocialRelatorio() {
           </div>
         ))}
       </Secao>
+
 
       {/* 5 - Resultado */}
       <Secao n="5" titulo="Resultado da avaliação">
