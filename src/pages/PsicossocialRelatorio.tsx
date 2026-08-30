@@ -426,6 +426,7 @@ export default function PsicossocialRelatorio() {
     [grupos],
   );
   const pgr = useMemo(() => riscosParaPgr(grupos), [grupos]);
+  const gruposComFatores = useMemo(() => grupos.filter((g) => g.fatores.length), [grupos]);
   const indicadoresGraf = useMemo(() => indicadoresPreenchidos(indicadores), [indicadores]);
   const textoIndicadores = useMemo(() => interpretarIndicadores(indicadores, grupos), [indicadores, grupos]);
   const textoPlanoFallback = useMemo(
