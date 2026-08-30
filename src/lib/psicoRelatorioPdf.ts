@@ -436,7 +436,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   y = tabela({
     startY: y,
     styles: { fontSize: 7.6, cellPadding: 4, overflow: "linebreak", valign: "top", lineWidth: 0.4, lineColor: BORDA },
-    headStyles: { fillColor: AZUL, textColor: 255, fontSize: 7.6, halign: "left", valign: "middle" },
+    headStyles: { fillColor: AZUL, textColor: 255, fontSize: 6.8, halign: "left", valign: "middle" },
     head: [["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
     columnStyles: {
       0: { cellWidth: 96 }, 1: { cellWidth: 148 }, 2: { cellWidth: 52 }, 3: { cellWidth: 54 },
