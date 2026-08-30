@@ -437,14 +437,14 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     startY: y,
     styles: { fontSize: 7.6, cellPadding: 4, overflow: "linebreak", valign: "top", lineWidth: 0.4, lineColor: BORDA },
     headStyles: { fillColor: AZUL, textColor: 255, fontSize: 6.8, halign: "left", valign: "middle" },
-    head: [["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
+    head: [["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 96 }, 1: { cellWidth: 148 }, 2: { cellWidth: 52 }, 3: { cellWidth: 54 },
-      4: { cellWidth: 52 }, 5: { cellWidth: 48 }, 6: { cellWidth: 41 },
+      0: { cellWidth: 104 }, 1: { cellWidth: 175 }, 2: { cellWidth: 62 }, 3: { cellWidth: 60 },
+      4: { cellWidth: 56 }, 5: { cellWidth: 34 },
     },
     body: p.medidas.length
-      ? p.medidas.map((m) => [cel(`${m.grupo} — ${m.risco}`), cel(m.medida), cel(m.responsavel), cel(m.prazo), cel(m.prioridade), cel(m.status), cel(m.evidencia)])
-      : [["—", textoPdf("Não aplicável"), "—", "—", "—", "—", "—"]],
+      ? p.medidas.map((m) => [cel(`${m.grupo} — ${m.risco}`), cel(m.medida), cel(m.responsavel), cel(m.prazo), cel(m.prioridade), cel(m.status)])
+      : [["—", textoPdf("Não aplicável"), "—", "—", "—", "—"]],
   });
 
   // ---------- 10. Responsáveis ----------
