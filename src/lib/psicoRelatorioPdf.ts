@@ -66,7 +66,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   doc.setTextColor(255, 255, 255);
   doc.setFont("helvetica", "bold");
   doc.setFontSize(24);
-  doc.text("RELATORIO TECNICO DE".normalize(), M, 96);
+  doc.text(textoPdf("RELATÓRIO TÉCNICO DE"), M, 96);
   doc.text(textoPdf("AVALIAÇÃO PSICOSSOCIAL"), M, 126);
   doc.setFont("helvetica", "normal");
   doc.setFontSize(11);
