@@ -943,7 +943,13 @@ function SetorDetail({
   const updateExame = (i: number, patch: Partial<PcmsoExame>) =>
     onChange({ exames: setor.exames.map((e, idx) => (idx === i ? { ...e, ...patch } : e)) });
   const removeExame = (i: number) => onChange({ exames: setor.exames.filter((_, idx) => idx !== i) });
-  const addExame = () => onChange({ exames: [...setor.exames, emptyExame()] });
+  const fimExamesRef = useRef<HTMLDivElement | null>(null);
+  const addExame = () => {
+    onChange({ exames: [...setor.exames, emptyExame()] });
+    // Mantém o usuário no fim da lista, pronto para o próximo cadastro
+    setTimeout(() => fimExamesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
+  };
+
 
   return (
     <div>
