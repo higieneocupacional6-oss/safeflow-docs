@@ -492,33 +492,83 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
 }
 
 
+/** Fator caracterizado como risco (investigado + sustentado + acima de Baixo). */
+export const fatorCaracterizado = (f: FatorRisco) => f.sustentado !== false && f.nivel !== "Baixo";
+
 export function resumoPorGrupo(g: GrupoRelatorio) {
   const cont: Record<NivelRisco, number> = { Baixo: 0, "Médio": 0, Alto: 0, "Crítico": 0 };
-  g.fatores.forEach((f) => { cont[f.nivel] += 1; });
-  const predominante = (Object.entries(cont).sort((a, b) => b[1] - a[1])[0]?.[1] ? Object.entries(cont).sort((a, b) => b[1] - a[1])[0][0] : "—") as string;
+  let naoIdentificado = 0;
+  g.fatores.forEach((f) => {
+    if (f.sustentado === false) { naoIdentificado += 1; return; }
+    cont[f.nivel] += 1;
+  });
+  const ordenado = Object.entries(cont).sort((a, b) => b[1] - a[1]);
+  const predominante = (ordenado[0]?.[1] ? ordenado[0][0] : "Não identificado") as string;
   const criticos = g.fatores.filter((f) => f.nivel === "Alto" || f.nivel === "Crítico").map((f) => f.fator);
-  return { cont, predominante: g.fatores.length ? predominante : "—", criticos };
+  return {
+    cont,
+    naoIdentificado,
+    investigados: g.fatores.length,
+    caracterizados: g.fatores.filter(fatorCaracterizado).length,
+    predominante: g.fatores.length ? predominante : "—",
+    criticos,
+  };
 }
 
+/**
+ * Ocupação da matriz de risco. Por definição metodológica, a matriz representa
+ * apenas os riscos que demandam representação: fatores não identificados
+ * (não sustentados) e fatores de nível Baixo são excluídos.
+ */
 export function matrizOcupada(grupos: GrupoRelatorio[]) {
   const m: Record<string, number> = {};
   for (const g of grupos) for (const f of g.fatores) {
+    if (!fatorCaracterizado(f)) continue;
     const k = `${f.probabilidade}-${f.severidade}`;
     m[k] = (m[k] || 0) + 1;
   }
   return m;
 }
 
-export function riscosParaPgr(grupos: GrupoRelatorio[]) {
-  const out: { setor: string; ghe: string; fator: string; nivel: NivelRisco; justificativa: string }[] = [];
+export type LinhaPgr = {
+  setor: string;
+  ghe: string;
+  fator: string;
+  nivel: NivelRisco;
+  resultado: string;
+  intervencao: string;
+  justificativa: string;
+};
+
+/**
+ * Rastreabilidade completa: todos os fatores investigados são listados,
+ * diferenciando resultado da avaliação e necessidade de intervenção.
+ */
+export function riscosParaPgr(grupos: GrupoRelatorio[]): LinhaPgr[] {
+  const out: LinhaPgr[] = [];
   for (const g of grupos) for (const f of g.fatores) {
-    if (f.nivel === "Baixo") continue; // apenas os que demandam gerenciamento
+    const naoIdentificado = f.sustentado === false;
+    const caracterizado = fatorCaracterizado(f);
+    const resultado = naoIdentificado
+      ? "Não identificado (investigado, sem evidência suficiente)"
+      : f.nivel === "Baixo"
+        ? "Baixo (fator caracterizado em nível não prioritário)"
+        : `${f.nivel} (P${f.probabilidade} x S${f.severidade})`;
+    const intervencao = caracterizado
+      ? (f.nivel === "Crítico" || f.nivel === "Alto"
+        ? "Sim — intervenção prioritária"
+        : "Sim — medidas de melhoria contínua")
+      : "Não — manutenção e monitoramento";
     out.push({
       setor: g.setor,
       ghe: g.ghe,
       fator: f.fator,
       nivel: f.nivel,
-      justificativa: `Nível ${f.nivel} (P${f.probabilidade} × S${f.severidade}) sustentado pelas respostas da avaliação; requer inclusão no inventário de riscos e no plano de ação do PGR (NR-01, item 1.5.3.2) e adequação da organização do trabalho (NR-17).`,
+      resultado,
+      intervencao,
+      justificativa: caracterizado
+        ? `Nível ${f.nivel} (P${f.probabilidade} × S${f.severidade}) sustentado pelas respostas da avaliação; requer inclusão no inventário de riscos e no plano de ação do PGR (NR-01, item 1.5.3.2) e adequação da organização do trabalho (NR-17).`
+        : `Dimensão investigada e registrada no inventário para fins de rastreabilidade, sem caracterização de exposição psicossocial que demande medida corretiva específica; mantém-se o monitoramento periódico previsto na NR-01.`,
     });
   }
   return out;
@@ -526,49 +576,122 @@ export function riscosParaPgr(grupos: GrupoRelatorio[]) {
 
 export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) {
   if (!grupos.length) return "Não foram identificados grupos homogêneos com avaliações válidas para análise.";
+
   const investigados = grupos.flatMap((g) => g.fatores);
-  const todos = investigados.filter((f) => f.sustentado !== false);
-  const investigadosSemRisco = investigados.filter((f) => f.sustentado === false);
-  const dimensoesInvestigadas = Array.from(new Set(investigados.map((f) => f.fator)));
-  if (!todos.length) {
-    return `A avaliação psicossocial realizada em ${empresaNome} investigou ${dimensoesInvestigadas.length} dimensão(ões) do questionário aplicado (${dimensoesInvestigadas.join("; ")}) em ${grupos.length} grupo(s) homogêneo(s) de exposição. Todas as dimensões foram investigadas e classificadas em nível Baixo, não tendo sido caracterizado fator de risco psicossocial relevante conforme os critérios da metodologia adotada. Recomenda-se a manutenção das medidas organizacionais existentes, o monitoramento periódico das condições de trabalho e a reavaliação conforme a NR-01.`;
-  }
-  const criticos = todos.filter((f) => f.nivel === "Crítico");
-  const altos = todos.filter((f) => f.nivel === "Alto");
-  const prioritarios = grupos
-    .filter((g) => g.fatores.some((f) => f.nivel === "Alto" || f.nivel === "Crítico"))
-    .map((g) => `${g.setor} (${g.ghe})`);
-  const dimensoes = Array.from(new Set(todos.map((f) => f.fator)));
+  const caracterizados = investigados.filter(fatorCaracterizado);
+  const baixos = investigados.filter((f) => f.sustentado !== false && f.nivel === "Baixo");
+  const naoIdentificados = investigados.filter((f) => f.sustentado === false);
+  const dimensoes = Array.from(new Set(investigados.map((f) => f.fator)));
+  const criticos = caracterizados.filter((f) => f.nivel === "Crítico");
+  const altos = caracterizados.filter((f) => f.nivel === "Alto");
+  const medios = caracterizados.filter((f) => f.nivel === "Médio");
+  const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0);
+  const nomeGrupo = (g: GrupoRelatorio) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (${g.ghe})` : ""}`;
 
   const partes: string[] = [];
-  partes.push(
-    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição e investigou ${dimensoesInvestigadas.length} dimensão(ões) do instrumento aplicado, resultando na caracterização de ${todos.length} fator(es) de risco sustentado(s) pelas respostas coletadas.`,
-  );
-  partes.push(`As dimensões efetivamente afetadas foram: ${dimensoes.join("; ")}.`);
-  if (investigadosSemRisco.length) {
-    partes.push(
-      `As demais dimensões foram igualmente investigadas e classificadas em nível Baixo, por ausência de evidências suficientes para caracterização de exposição psicossocial relevante, permanecendo registradas no relatório para fins de rastreabilidade da avaliação.`,
-    );
-  }
 
+  // Situação geral
+  partes.push(
+    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição, ${totalTrab || "os"} trabalhador(es) envolvido(s) e ${dimensoes.length} dimensão(ões) do instrumento aplicado (${dimensoes.join("; ")}). Do total de ${investigados.length} fator(es) investigado(s), ${caracterizados.length} foi(ram) caracterizado(s) como risco psicossocial demandando gestão, ${baixos.length} foi(ram) classificado(s) em nível Baixo e ${naoIdentificados.length} não foi(ram) identificado(s) por ausência de evidências suficientes nas respostas coletadas.`,
+  );
+
+  // Principais resultados
   if (criticos.length || altos.length) {
+    const dimAlt = Array.from(new Set([...criticos, ...altos].map((f) => f.fator)));
     partes.push(
-      `Foram classificados ${criticos.length} fator(es) em nível Crítico e ${altos.length} em nível Alto, o que caracteriza a necessidade de adoção de medidas de prevenção e controle com prioridade, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
+      `Os principais resultados concentram-se em ${dimAlt.join("; ")}, com ${criticos.length} fator(es) em nível Crítico e ${altos.length} em nível Alto, o que caracteriza necessidade de adoção de medidas de prevenção e controle com prioridade, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
+    );
+  } else if (medios.length) {
+    partes.push(
+      `Os fatores caracterizados situam-se em nível Médio (${Array.from(new Set(medios.map((f) => f.fator))).join("; ")}), demandando medidas de melhoria contínua da organização do trabalho e acompanhamento sistemático, sem configurar situação de prioridade imediata.`,
     );
   } else {
     partes.push(
-      "Os fatores identificados situam-se em níveis Baixo/Médio, demandando medidas de monitoramento e melhoria contínua da organização do trabalho.",
+      "Não foi caracterizado fator de risco psicossocial que demande medidas corretivas específicas no momento, prevalecendo condições organizacionais avaliadas como adequadas nos grupos analisados.",
     );
   }
+
+  // Baixos e não identificados
+  if (baixos.length) {
+    partes.push(
+      `Os fatores classificados em nível Baixo (${Array.from(new Set(baixos.map((f) => f.fator))).join("; ")}) permanecem registrados no relatório, indicando condições atualmente controladas cuja manutenção depende da preservação das práticas organizacionais vigentes.`,
+    );
+  }
+  if (naoIdentificados.length) {
+    partes.push(
+      `Os fatores não identificados (${Array.from(new Set(naoIdentificados.map((f) => f.fator))).join("; ")}) foram efetivamente investigados; a ausência de caracterização não equivale à ausência de avaliação, sendo mantidos no inventário para assegurar a rastreabilidade metodológica.`,
+    );
+  }
+
+  // Análise por setor/GHE
+  const linhas = grupos.map((g) => {
+    const r = resumoPorGrupo(g);
+    const pri = g.fatores.filter((f) => f.nivel === "Alto" || f.nivel === "Crítico").map((f) => f.fator);
+    if (pri.length) {
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), destacam-se ${pri.join(" e ")} em nível de maior atenção`;
+    }
+    if (r.caracterizados) {
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), os fatores caracterizados situam-se em níveis intermediários, com predominância ${r.predominante}`;
+    }
+    return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), não houve caracterização de fator que demande intervenção corretiva`;
+  });
+  partes.push(`Na análise por grupo homogêneo, ${linhas.join("; ")}.`);
+
+  // Setores prioritários e comparação
+  const prioritarios = grupos.filter((g) => g.fatores.some((f) => f.nivel === "Alto" || f.nivel === "Crítico"));
+  if (prioritarios.length) {
+    partes.push(
+      `Constituem setores prioritários para intervenção: ${prioritarios.map(nomeGrupo).join("; ")}. Na comparação entre os grupos avaliados, esses setores apresentam maior concentração de fatores caracterizados em relação aos demais, o que orienta a sequência de execução do plano de ação.`,
+    );
+  } else if (grupos.length > 1) {
+    partes.push(
+      "Na comparação entre os grupos avaliados não se observa concentração de fatores em setor específico, indicando homogeneidade das condições psicossociais entre os grupos analisados.",
+    );
+  }
+
+  // Controles, acompanhamento e reavaliação
   partes.push(
-    prioritarios.length
-      ? `Constituem setores prioritários para intervenção: ${prioritarios.join("; ")}.`
-      : "Não foram identificados setores em condição prioritária de intervenção.",
+    caracterizados.length
+      ? "Verifica-se a necessidade de implementação dos controles previstos no plano de ação deste relatório, com registro das evidências de execução, além da manutenção dos controles organizacionais já existentes que se mostraram eficazes."
+      : "Verifica-se a necessidade de manutenção dos controles organizacionais existentes, responsáveis pelos resultados favoráveis observados, sem demanda de implantação de novas medidas corretivas no momento.",
   );
   partes.push(
-    `Recomenda-se a implementação do plano de ação apresentado neste relatório, o acompanhamento dos indicadores organizacionais e a reavaliação em prazo não superior a ${criticos.length ? "6 (seis)" : "12 (doze)"} meses ou sempre que houver alteração relevante na organização do trabalho.`,
+    `Recomenda-se o acompanhamento contínuo dos indicadores organizacionais (absenteísmo, afastamentos, rotatividade, horas extras e queixas), a verificação periódica da eficácia das medidas adotadas e a reavaliação dos fatores psicossociais em prazo não superior a ${criticos.length ? "6 (seis)" : altos.length ? "9 (nove)" : "12 (doze)"} meses, ou sempre que houver alteração relevante na organização do trabalho, nos processos ou no quadro de pessoal.`,
   );
+
   return partes.join(" ");
+}
+
+/** Texto técnico do plano de ação, adaptado aos resultados reais da avaliação. */
+export function planoAcaoTexto(grupos: GrupoRelatorio[], empresaNome: string) {
+  const fatores = grupos.flatMap((g) => g.fatores);
+  const caracterizados = fatores.filter(fatorCaracterizado);
+  const nomeGrupo = (g: GrupoRelatorio) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (${g.ghe})` : ""}`;
+
+  if (caracterizados.length) {
+    const prio = grupos.filter((g) => g.fatores.some((f) => f.nivel === "Alto" || f.nivel === "Crítico"));
+    return [
+      `O plano de ação a seguir consolida as medidas de prevenção e controle decorrentes dos ${caracterizados.length} fator(es) caracterizado(s) na avaliação de ${empresaNome}, com definição de responsável, prazo, prioridade, status e evidência de execução.`,
+      prio.length
+        ? `A execução deve ser priorizada nos grupos ${prio.map(nomeGrupo).join("; ")}, em razão do nível de risco identificado.`
+        : "As medidas possuem caráter de melhoria contínua, sem prioridade imediata entre os grupos avaliados.",
+      "Para os fatores classificados em nível Baixo ou não identificados, o plano registra ações de manutenção e monitoramento, de modo a preservar as condições favoráveis verificadas e detectar precocemente eventual alteração.",
+    ].join(" ");
+  }
+
+  const grupoTxt = grupos.length === 1
+    ? `no grupo ${nomeGrupo(grupos[0])}`
+    : `nos ${grupos.length} grupos homogêneos avaliados (${grupos.map(nomeGrupo).join("; ")})`;
+  const dims = Array.from(new Set(fatores.filter((f) => f.sustentado !== false).map((f) => f.fator)));
+
+  return [
+    `Considerando os resultados obtidos ${grupoTxt} em ${empresaNome}, não foram identificados fatores psicossociais que demandem medidas corretivas específicas no momento.`,
+    dims.length
+      ? `As dimensões com resultado favorável — ${dims.join("; ")} — indicam condições organizacionais adequadas quanto à carga de trabalho, à autonomia, ao apoio social e às relações interpessoais.`
+      : "As dimensões investigadas não apresentaram evidências de exposição psicossocial relevante.",
+    "Recomenda-se, portanto, a manutenção das condições organizacionais favoráveis identificadas, o acompanhamento periódico dos fatores avaliados por meio de indicadores organizacionais e de reavaliações programadas, e a continuidade das práticas de gestão existentes, de modo a prevenir alterações futuras nas condições de trabalho.",
+    "As ações de manutenção e monitoramento detalhadas na tabela a seguir integram o gerenciamento de riscos ocupacionais previsto na NR-01 e devem ser registradas com evidência de execução.",
+  ].join(" ");
 }
 
 export function metodologiaTexto(opts: {
@@ -576,26 +699,165 @@ export function metodologiaTexto(opts: {
   participacao: string;
   observacao: string;
   respondentes: number;
+  empresaNome?: string;
+  grupos?: GrupoRelatorio[];
 }) {
-  return [
-    "Método e instrumento: a avaliação dos fatores de risco psicossocial foi conduzida com base no questionário COPSOQ (Copenhagen Psychosocial Questionnaire), na versão adotada pelo sistema, contemplando as dimensões de exigências no trabalho, controle e autonomia, apoio social, reconhecimento, segurança e estabilidade, conflitos e conduta, sintomas de estresse e fadiga e qualidade da liderança.",
-    `Entrevistas e questionários: as respostas foram coletadas de forma individual e anônima, por meio de questionário estruturado em escala de frequência (Nunca a Sempre), convertida em escala numérica de 0 a 100 para tratamento estatístico.`,
-    `Observação das atividades: ${opts.observacao || "não informada"}.`,
-    "Análise da organização do trabalho: foram consideradas as informações cadastrais de setores, GHE/GES, funções, descrição das atividades e jornada, além dos indicadores organizacionais informados.",
-    `Participação dos trabalhadores: ${opts.participacao || "não informada"}.`,
-    "Critérios de classificação: cada dimensão foi convertida em índice de risco de 0 a 100, considerando a polaridade de cada questão. Todas as dimensões investigadas são registradas no relatório, assegurando a rastreabilidade da avaliação: dimensões com índice igual ou superior a 50 são caracterizadas como fatores de risco psicossocial, enquanto as dimensões com índice inferior a esse limiar são registradas como investigadas e classificadas em nível Baixo, por ausência de evidências suficientes de agravamento. Fator investigado não se confunde com fator de risco caracterizado.",
-    "Escala de probabilidade e severidade: probabilidade de 1 (improvável) a 4 (muito provável), definida pelo índice de risco da dimensão; severidade de 1 (leve) a 4 (muito grave), definida pela natureza do agravo potencial. O nível de risco resulta do produto Probabilidade × Severidade (Baixo ≤ 4; Médio ≤ 8; Alto ≤ 12; Crítico > 12).",
-    `Período da coleta: ${opts.periodo || "não informado"}.`,
-  ].join("\n\n");
+  const grupos = opts.grupos || [];
+  const empresa = opts.empresaNome || "a empresa avaliada";
+  const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0);
+  const funcoes = Array.from(new Set(grupos.flatMap((g) => g.funcoes)));
+  const listaGrupos = grupos
+    .map((g) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (GHE/GES ${g.ghe})` : ""}`)
+    .join("; ");
+  const dimensoes = Array.from(new Set(grupos.flatMap((g) => g.fatores.map((f) => f.fator))));
+  const dimensoesTxt = dimensoes.length
+    ? dimensoes.join("; ")
+    : "Exigências do Trabalho; Controle e Autonomia; Apoio Social; Reconhecimento e Recompensa; Segurança; Conflitos e Assédio; Saúde e Bem-Estar; Qualidade da Liderança";
+
+  const p1 =
+    `A avaliação dos fatores de risco psicossocial de ${empresa} foi realizada mediante aplicação do questionário COPSOQ (Copenhagen Psychosocial Questionnaire), instrumento validado para a investigação de fatores psicossociais no trabalho, complementada por entrevistas com os trabalhadores, observação direta das atividades nos postos de trabalho e análise documental das informações cadastrais de setores, grupos homogêneos, funções, descrição das atividades e jornada praticada. ` +
+    (opts.observacao ? `A observação das atividades foi conduzida da seguinte forma: ${opts.observacao}. ` : "") +
+    (opts.participacao ? `Quanto à participação dos trabalhadores: ${opts.participacao}. ` : "");
+
+  const p2 =
+    (grupos.length
+      ? `A abrangência da avaliação compreendeu ${grupos.length} grupo(s) homogêneo(s) de exposição, correspondente(s) a ${listaGrupos}, envolvendo ${funcoes.length} função(ões) — ${funcoes.join(", ")}. `
+      : "A abrangência da avaliação compreendeu os setores e grupos homogêneos de exposição registrados no cadastro da empresa. ") +
+    (totalTrab
+      ? `A população avaliada totaliza ${totalTrab} trabalhador(es) envolvido(s) nas funções analisadas. `
+      : "A população avaliada corresponde aos trabalhadores das funções analisadas. ") +
+    `A coleta de respostas ocorreu de forma individual, voluntária e anônima${opts.periodo ? `, no período de ${opts.periodo}` : ""}, sendo os dados tratados exclusivamente de forma agregada por grupo homogêneo, preservando a confidencialidade dos participantes.`;
+
+  const p3 =
+    "Os critérios de avaliação adotam matriz de risco que combina Probabilidade × Severidade, resultando no nível de risco de cada fator. As respostas de cada dimensão foram convertidas em índice de risco de 0 a 100, considerando a polaridade de cada questão; a probabilidade decorre do índice consolidado da dimensão e a severidade decorre da natureza do agravo potencial associado, obtendo-se os níveis Baixo, Médio, Alto e Crítico. " +
+    `Dimensões com índice igual ou superior a ${LIMIAR_FATOR} são caracterizadas como fatores de risco psicossocial; abaixo desse limiar, o fator é registrado como investigado e classificado em nível Baixo ou como não identificado, assegurando a rastreabilidade integral da avaliação. Fator investigado não se confunde com fator de risco caracterizado, nem a ausência de caracterização equivale à ausência de avaliação.`;
+
+  const p4 =
+    `Foram investigadas as seguintes categorias de fatores psicossociais: ${dimensoesTxt}. Cada categoria foi analisada à luz das condições de organização do trabalho de cada grupo homogêneo, considerando jornada, ritmo, autonomia, apoio social, relações interpessoais e liderança, em conformidade com a NR-01 (Gerenciamento de Riscos Ocupacionais) e a NR-17 (Ergonomia).`;
+
+  return [p1.trim(), p2, p3, p4].join("\n\n");
 }
 
 export const INDICADORES_CAMPOS = [
-  { key: "absenteismo", label: "Absenteísmo (%)" },
-  { key: "afastamentos", label: "Afastamentos relacionados ao trabalho" },
-  { key: "rotatividade", label: "Rotatividade (%)" },
-  { key: "horas_extras", label: "Horas extras (h/mês)" },
-  { key: "queixas", label: "Queixas / reclamações" },
-  { key: "acidentes", label: "Acidentes/incidentes ligados a fatores organizacionais" },
-  { key: "pesquisas", label: "Resultados de pesquisas/questionários" },
-  { key: "outros", label: "Outros indicadores relevantes" },
+  { key: "absenteismo", label: "Absenteísmo (%)", cor: "#2563eb" },
+  { key: "afastamentos", label: "Afastamentos relacionados ao trabalho", cor: "#dc2626" },
+  { key: "rotatividade", label: "Rotatividade (%)", cor: "#7c3aed" },
+  { key: "horas_extras", label: "Horas extras (h/mês)", cor: "#ea580c" },
+  { key: "queixas", label: "Queixas / reclamações", cor: "#0891b2" },
+  { key: "acidentes", label: "Acidentes/incidentes ligados a fatores organizacionais", cor: "#b91c1c" },
+  { key: "pesquisas", label: "Resultados de pesquisas/questionários", cor: "#059669" },
+  { key: "outros", label: "Outros indicadores relevantes", cor: "#475569" },
 ];
+
+export type IndicadorGrafico = { key: string; label: string; valor: number; cor: string; texto: string };
+
+/** Somente indicadores preenchidos; separa os numéricos (graficáveis) dos qualitativos. */
+export function indicadoresPreenchidos(dados: Record<string, string> | undefined) {
+  const numericos: IndicadorGrafico[] = [];
+  const qualitativos: { key: string; label: string; texto: string }[] = [];
+  for (const c of INDICADORES_CAMPOS) {
+    const bruto = (dados?.[c.key] || "").trim();
+    if (!bruto) continue;
+    const m = bruto.replace(/\./g, "").match(/-?\d+(?:[.,]\d+)?/);
+    const v = m ? parseFloat(m[0].replace(",", ".")) : NaN;
+    if (Number.isFinite(v)) numericos.push({ key: c.key, label: c.label, valor: v, cor: c.cor, texto: bruto });
+    else qualitativos.push({ key: c.key, label: c.label, texto: bruto });
+  }
+  return { numericos, qualitativos };
+}
+
+/** Texto técnico interpretativo dos indicadores organizacionais informados. */
+export function interpretarIndicadores(
+  dados: Record<string, string> | undefined,
+  grupos: GrupoRelatorio[],
+): string {
+  const { numericos, qualitativos } = indicadoresPreenchidos(dados);
+  if (!numericos.length && !qualitativos.length) {
+    return "Não foram informados indicadores organizacionais para esta avaliação. A ausência desses dados limita a análise de tendências e a correlação entre a organização do trabalho e os desfechos de saúde e de gestão de pessoas, recomendando-se seu registro sistemático para as próximas avaliações.";
+  }
+
+  const val = (k: string) => numericos.find((n) => n.key === k)?.valor;
+  const partes: string[] = [];
+
+  partes.push(
+    `Foram considerados ${numericos.length + qualitativos.length} indicador(es) organizacional(is) informado(s) pela empresa, apresentados de forma agregada: ${[...numericos.map((n) => `${n.label}: ${n.texto}`), ...qualitativos.map((q) => `${q.label}: ${q.texto}`)].join("; ")}.`,
+  );
+
+  const atencao: string[] = [];
+  const favoraveis: string[] = [];
+  const abs = val("absenteismo");
+  if (abs !== undefined) {
+    (abs >= 4 ? atencao : favoraveis).push(
+      abs >= 4
+        ? `o absenteísmo de ${abs}% situa-se em patamar elevado para fins de gestão ocupacional, constituindo ponto de atenção`
+        : `o absenteísmo de ${abs}% mantém-se em patamar administrável`,
+    );
+  }
+  const rot = val("rotatividade");
+  if (rot !== undefined) {
+    (rot >= 15 ? atencao : favoraveis).push(
+      rot >= 15
+        ? `a rotatividade de ${rot}% indica baixa retenção, o que pode estar associado a condições de organização do trabalho`
+        : `a rotatividade de ${rot}% sugere estabilidade do quadro de pessoal`,
+    );
+  }
+  const he = val("horas_extras");
+  if (he !== undefined) {
+    (he >= 20 ? atencao : favoraveis).push(
+      he >= 20
+        ? `a média de ${he} hora(s) extra(s) por mês sinaliza prolongamento habitual da jornada`
+        : `a média de ${he} hora(s) extra(s) por mês indica jornada predominantemente regular`,
+    );
+  }
+  const afa = val("afastamentos");
+  if (afa !== undefined) {
+    (afa > 0 ? atencao : favoraveis).push(
+      afa > 0
+        ? `registram-se ${afa} afastamento(s) relacionado(s) ao trabalho no período`
+        : "não há registro de afastamentos relacionados ao trabalho no período",
+    );
+  }
+  const qx = val("queixas");
+  if (qx !== undefined) {
+    (qx > 0 ? atencao : favoraveis).push(
+      qx > 0 ? `foram registradas ${qx} queixa(s)/reclamação(ões)` : "não foram registradas queixas ou reclamações",
+    );
+  }
+  const ac = val("acidentes");
+  if (ac !== undefined) {
+    (ac > 0 ? atencao : favoraveis).push(
+      ac > 0
+        ? `há ${ac} acidente(s)/incidente(s) associado(s) a fatores organizacionais`
+        : "não há acidentes ou incidentes associados a fatores organizacionais",
+    );
+  }
+
+  if (favoraveis.length) partes.push(`Entre os resultados favoráveis, ${favoraveis.join("; ")}.`);
+  if (atencao.length) partes.push(`Constituem pontos de atenção: ${atencao.join("; ")}.`);
+
+  const caracterizados = grupos.flatMap((g) => g.fatores).filter(fatorCaracterizado);
+  if (atencao.length && caracterizados.length) {
+    partes.push(
+      `Os indicadores acima são convergentes com os fatores caracterizados na avaliação psicossocial (${Array.from(new Set(caracterizados.map((f) => f.fator))).join("; ")}), sugerindo relação com aspectos da organização do trabalho. A convergência observada é indicativa e não estabelece relação causal, cuja verificação depende de investigação específica dos casos.`,
+    );
+  } else if (atencao.length) {
+    partes.push(
+      "Os indicadores em atenção não encontram, nesta avaliação, correspondência em fatores psicossociais caracterizados, não sendo possível estabelecer relação com a organização do trabalho a partir dos dados disponíveis.",
+    );
+  } else if (caracterizados.length) {
+    partes.push(
+      "Os indicadores informados não evidenciam desfechos desfavoráveis no período, ainda que tenham sido caracterizados fatores psicossociais na avaliação; recomenda-se o acompanhamento da sua evolução para verificar eventual agravamento.",
+    );
+  } else {
+    partes.push(
+      "Os indicadores informados são coerentes com o resultado da avaliação psicossocial, que não caracterizou fatores demandantes de medidas corretivas específicas.",
+    );
+  }
+
+  partes.push(
+    "Recomenda-se o monitoramento contínuo destes indicadores, com apuração periódica e comparação entre ciclos de avaliação, de modo a identificar tendências antes da ocorrência de agravos.",
+  );
+
+  return partes.join(" ");
+}
+
