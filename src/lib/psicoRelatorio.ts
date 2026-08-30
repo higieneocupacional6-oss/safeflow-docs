@@ -101,6 +101,32 @@ const META: Record<string, {
   },
 };
 
+/** Texto de manutenção/monitoramento específico por dimensão (usado quando o nível é Baixo). */
+const MANUTENCAO: Record<string, string> = {
+  exigencias:
+    "Manter o dimensionamento atual de efetivo, metas e prazos, monitorando periodicamente o volume de demandas e o cumprimento das pausas previstas na NR-17, de modo a preservar o equilíbrio de carga verificado nesta avaliação.",
+  controle:
+    "Preservar a autonomia atualmente concedida quanto a método, ritmo e pausas, acompanhando eventuais mudanças de processo que possam reduzir a margem de decisão dos trabalhadores.",
+  apoio:
+    "Manter as práticas de cooperação entre pares e o suporte da chefia imediata, acompanhando periodicamente a percepção de apoio social por meio de reavaliações e do canal de comunicação interno.",
+  reconhecimento:
+    "Manter as rotinas de retorno de desempenho e os critérios de reconhecimento existentes, monitorando sua regularidade para que o resultado favorável observado se sustente ao longo do tempo.",
+  seguranca:
+    "Manter a comunicação antecipada de mudanças organizacionais e a previsibilidade quanto às funções, acompanhando a percepção de estabilidade em reavaliações periódicas.",
+  conflitos:
+    "Manter a política de convivência e de prevenção ao assédio, com divulgação periódica do canal de denúncia e acompanhamento de registros, preservando o clima organizacional identificado.",
+  sintomas:
+    "Manter o acompanhamento de saúde no âmbito do PCMSO e o monitoramento de indicadores de absenteísmo e fadiga, de forma a detectar precocemente qualquer alteração do quadro favorável observado.",
+  lideranca:
+    "Manter as práticas atuais de liderança e a capacitação periódica dos gestores em comunicação e fatores psicossociais, acompanhando a percepção da equipe em reavaliações.",
+};
+
+/** Interpretação técnica de fator investigado sem evidência de agravamento. */
+const investigadoTexto = (titulo: string, media: number, houveResposta: boolean) =>
+  houveResposta
+    ? `Fator investigado por meio das respostas coletadas (índice consolidado de risco de ${media}/100, inferior ao limiar técnico de ${LIMIAR_FATOR}/100), sem evidências suficientes para caracterização de exposição psicossocial relevante no grupo avaliado.`
+    : `Fator investigado no questionário aplicado, sem respostas válidas suficientes no grupo avaliado que sustentem a caracterização de exposição psicossocial relevante em ${titulo.toLowerCase()}.`;
+
 export type FatorRisco = {
   key: string;
   fator: string;
@@ -115,7 +141,12 @@ export type FatorRisco = {
   consequencias: string;
   controles: string;
   media: number;
+  /** true quando as respostas sustentam a caracterização do fator como risco. */
+  sustentado: boolean;
+  /** Interpretação técnica do resultado do fator. */
+  interpretacao: string;
 };
+
 
 export type GrupoRelatorio = {
   id: string;
