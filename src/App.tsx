@@ -24,6 +24,7 @@ import ControleDocumentos from "./pages/ControleDocumentos";
 import Psicossocial from "./pages/Psicossocial";
 import PsicossocialEmpresa from "./pages/PsicossocialEmpresa";
 import PsicossocialAvaliacao from "./pages/PsicossocialAvaliacao";
+import PsicossocialRelatorio from "./pages/PsicossocialRelatorio";
 import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
 import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
 
@@ -63,6 +64,8 @@ const App = () => (
             <Route path="/psicossocial" element={<Protected><Psicossocial /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId" element={<Protected><PsicossocialEmpresa /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId" element={<Protected><PsicossocialAvaliacao /></Protected>} />
+            <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId/relatorio" element={<Protected><PsicossocialRelatorio /></Protected>} />
+
             <Route path="/documentos/ltcat/novo" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
             <Route path="/documentos/ltcat/editar/:documentoId" element={<Protected><LtcatWizard modo="ltcat" /></Protected>} />
             <Route path="/documentos/insalubridade/novo" element={<Protected><LtcatWizard modo="insalubridade" /></Protected>} />

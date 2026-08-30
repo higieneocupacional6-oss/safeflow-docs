@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
-import { Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap, Stethoscope } from "lucide-react";
+import { UserCheck, Plus, FlaskConical, Ruler, Wrench, AlertTriangle, ShieldCheck, X, Check, Edit, Trash2, ClipboardList, FileText, Sparkles, Wand2, GraduationCap, Stethoscope } from "lucide-react";
 import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugestoes";
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
@@ -28,7 +28,7 @@ const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
 // Mock data removed in favor of real database queries
 
 
-type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos" | "exames";
+type TabKey = "riscos" | "tecnicas" | "equipamentos" | "unidades" | "epi_epc" | "pareceres" | "treinamentos" | "exames" | "responsaveis";
 
 export default function Cadastros() {
   const [tab, setTab] = useState<TabKey>("riscos");
@@ -56,6 +56,9 @@ export default function Cadastros() {
   const [exameModalOpen, setExameModalOpen] = useState(false);
   const [exameForm, setExameForm] = useState({ nome: "", codigo_esocial: "", descricao_esocial: "" });
   const [exameSaving, setExameSaving] = useState(false);
+  const [responsavelModalOpen, setResponsavelModalOpen] = useState(false);
+  const [responsavelForm, setResponsavelForm] = useState({ nome: "", funcao: "", registro_profissional: "" });
+  const [responsavelSaving, setResponsavelSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState({ open: false, id: "", type: "" as TabKey | "epi_epc" });
   const [dedupRunning, setDedupRunning] = useState(false);
   const [dedupConfirm, setDedupConfirm] = useState(false);
@@ -89,6 +92,7 @@ export default function Cadastros() {
     { table: "epi_epc_riscos", queryKey: ["epi_epc"] },
     { table: "treinamentos_cadastro", queryKey: ["treinamentos_cadastro"] },
     { table: "exames_cadastro", queryKey: ["exames_cadastro"] },
+    { table: "responsaveis", queryKey: ["responsaveis"] },
   ]);
 
   const { data: riscos = [] } = useQuery({
@@ -171,6 +175,40 @@ export default function Cadastros() {
       return data || [];
     },
   });
+
+  const { data: responsaveisCad = [] } = useQuery({
+    queryKey: ["responsaveis"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("responsaveis").select("*").order("nome");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const handleSaveResponsavel = async () => {
+    if (!responsavelForm.nome.trim()) { toast.error("Informe o nome do responsável"); return; }
+    setResponsavelSaving(true);
+    try {
+      const payload = {
+        nome: responsavelForm.nome.trim(),
+        funcao: responsavelForm.funcao.trim() || null,
+        registro_profissional: responsavelForm.registro_profissional.trim() || null,
+      };
+      const { error } = editingId
+        ? await supabase.from("responsaveis").update(payload as any).eq("id", editingId)
+        : await supabase.from("responsaveis").insert(payload as any);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ["responsaveis"] });
+      toast.success(editingId ? "Responsável atualizado" : "Responsável cadastrado");
+      setResponsavelModalOpen(false);
+      setEditingId(null);
+      setResponsavelForm({ nome: "", funcao: "", registro_profissional: "" });
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + (e.message || ""));
+    } finally {
+      setResponsavelSaving(false);
+    }
+  };
 
   const handleSaveEpiEpc = async () => {
     if (!epiEpcForm.nome.trim()) {
@@ -266,6 +304,9 @@ export default function Cadastros() {
     } else if (tab === "exames") {
       setExameForm({ nome: "", codigo_esocial: "", descricao_esocial: "" });
       setExameModalOpen(true);
+    } else if (tab === "responsaveis") {
+      setResponsavelForm({ nome: "", funcao: "", registro_profissional: "" });
+      setResponsavelModalOpen(true);
     }
   };
 
@@ -527,6 +568,7 @@ export default function Cadastros() {
             <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
             <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
             <TabsTrigger value="exames" className="gap-2"><Stethoscope className="w-3.5 h-3.5" />Exames</TabsTrigger>
+            <TabsTrigger value="responsaveis" className="gap-2"><UserCheck className="w-3.5 h-3.5" />Responsáveis</TabsTrigger>
           </TabsList>
           <div className="flex items-center gap-2">
             {tab === "equipamentos" && (
@@ -930,8 +972,78 @@ export default function Cadastros() {
               </TableBody>
             </Table>
           </TabsContent>
+
+          <TabsContent value="responsaveis" className="m-0">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nome</TableHead>
+                  <TableHead>Função</TableHead>
+                  <TableHead>Registro profissional</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {(responsaveisCad as any[]).length === 0 ? (
+                  <TableRow><TableCell colSpan={4} className="text-center py-8 text-muted-foreground">Nenhum responsável cadastrado. Clique em "+ Novo" para começar.</TableCell></TableRow>
+                ) : (
+                  (responsaveisCad as any[]).map((r: any) => (
+                    <TableRow key={r.id}>
+                      <TableCell className="font-medium">{r.nome}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.funcao || "—"}</TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{r.registro_profissional || "—"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent"
+                            onClick={() => {
+                              setEditingId(r.id);
+                              setResponsavelForm({ nome: r.nome || "", funcao: r.funcao || "", registro_profissional: r.registro_profissional || "" });
+                              setResponsavelModalOpen(true);
+                            }}><Edit className="h-4 w-4" /></Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            onClick={async () => {
+                              const { error } = await supabase.from("responsaveis").delete().eq("id", r.id);
+                              if (error) { toast.error(error.message); return; }
+                              queryClient.invalidateQueries({ queryKey: ["responsaveis"] });
+                              toast.success("Responsável excluído");
+                            }}><Trash2 className="h-4 w-4" /></Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          </TabsContent>
         </div>
       </Tabs>
+
+      {/* Modal Responsável */}
+      <Dialog open={responsavelModalOpen} onOpenChange={(v) => { setResponsavelModalOpen(v); if (!v) setEditingId(null); }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-heading">{editingId ? "Editar" : "Novo"} Responsável</DialogTitle>
+          </DialogHeader>
+          <div className="grid gap-3">
+            <div className="grid gap-1.5">
+              <Label>Nome</Label>
+              <Input value={responsavelForm.nome} onChange={(e) => setResponsavelForm({ ...responsavelForm, nome: e.target.value })} placeholder="Ex.: Maria Souza" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Função</Label>
+              <Input value={responsavelForm.funcao} onChange={(e) => setResponsavelForm({ ...responsavelForm, funcao: e.target.value })} placeholder="Ex.: Engenheira de Segurança do Trabalho" />
+            </div>
+            <div className="grid gap-1.5">
+              <Label>Registro profissional</Label>
+              <Input value={responsavelForm.registro_profissional} onChange={(e) => setResponsavelForm({ ...responsavelForm, registro_profissional: e.target.value })} placeholder="Ex.: CREA-SP 123456" />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setResponsavelModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleSaveResponsavel} disabled={responsavelSaving}>{responsavelSaving ? "Salvando..." : "Salvar"}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Modal Parecer Técnico */}
       <Dialog open={parecerModalOpen} onOpenChange={setParecerModalOpen}>

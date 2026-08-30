@@ -1687,6 +1687,44 @@ export type Database = {
           },
         ]
       }
+      psico_indicadores: {
+        Row: {
+          avaliacao_id: string
+          contrato_id: string | null
+          created_at: string
+          dados: Json
+          empresa_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          avaliacao_id: string
+          contrato_id?: string | null
+          created_at?: string
+          dados?: Json
+          empresa_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          avaliacao_id?: string
+          contrato_id?: string | null
+          created_at?: string
+          dados?: Json
+          empresa_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psico_indicadores_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: true
+            referencedRelation: "psico_avaliacoes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       psico_links: {
         Row: {
           ativo: boolean
@@ -1741,6 +1779,47 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      psico_relatorios: {
+        Row: {
+          avaliacao_id: string
+          contrato_id: string | null
+          created_at: string
+          dados: Json
+          empresa_id: string
+          id: string
+          updated_at: string
+          versao: string
+        }
+        Insert: {
+          avaliacao_id: string
+          contrato_id?: string | null
+          created_at?: string
+          dados?: Json
+          empresa_id: string
+          id?: string
+          updated_at?: string
+          versao?: string
+        }
+        Update: {
+          avaliacao_id?: string
+          contrato_id?: string | null
+          created_at?: string
+          dados?: Json
+          empresa_id?: string
+          id?: string
+          updated_at?: string
+          versao?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "psico_relatorios_avaliacao_id_fkey"
+            columns: ["avaliacao_id"]
+            isOneToOne: true
+            referencedRelation: "psico_avaliacoes"
             referencedColumns: ["id"]
           },
         ]
@@ -1849,6 +1928,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      responsaveis: {
+        Row: {
+          created_at: string
+          funcao: string | null
+          id: string
+          nome: string
+          registro_profissional: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome: string
+          registro_profissional?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          funcao?: string | null
+          id?: string
+          nome?: string
+          registro_profissional?: string | null
+          updated_at?: string
+        }
+        Relationships: []
       }
       riscos: {
         Row: {

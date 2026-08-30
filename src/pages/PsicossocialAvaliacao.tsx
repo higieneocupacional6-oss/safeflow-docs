@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useParams, Link, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList,
+  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -22,6 +22,8 @@ import { parseTexto } from "@/components/PsicossocialTextInputModal";
 import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import { ESCALA_COPSOQ } from "@/components/PsicossocialModal";
 import { publicPsicoUrl, corClassificacao } from "@/lib/psicoLink";
+import { FuncoesNaoVinculadasModal } from "@/components/psico/FuncoesNaoVinculadasModal";
+import { INDICADORES_CAMPOS, normalizarFuncao } from "@/lib/psicoRelatorio";
 
 const labelEscala = (v: number) =>
   ESCALA_COPSOQ.find((e) => e.value === v)?.label || "—";
@@ -29,6 +31,7 @@ const labelEscala = (v: number) =>
 export default function PsicossocialAvaliacao() {
   const { empresaId, contratoId, avaliacaoId } = useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [texto, setTexto] = useState("");
   const [funcaoManual, setFuncaoManual] = useState("");
@@ -36,6 +39,11 @@ export default function PsicossocialAvaliacao() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [detalhe, setDetalhe] = useState<any | null>(null);
+  const [naoVinculadas, setNaoVinculadas] = useState<string[]>([]);
+  const [avisoOpen, setAvisoOpen] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+  const [indicadores, setIndicadores] = useState<Record<string, string>>({});
+  const [salvandoInd, setSalvandoInd] = useState(false);
 
   useRealtimeSync(
     [{ table: "psico_respostas", queryKey: ["psico-av-resp", avaliacaoId] }],
@@ -171,6 +179,65 @@ export default function PsicossocialAvaliacao() {
     setDetalhe(null);
   };
 
+  /** Indicadores organizacionais desta avaliação. */
+  const { data: indDb } = useQuery({
+    queryKey: ["psico-av-ind", avaliacaoId],
+    enabled: !!avaliacaoId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("psico_indicadores").select("dados").eq("avaliacao_id", avaliacaoId!).maybeSingle();
+      return ((data as any)?.dados || {}) as Record<string, string>;
+    },
+  });
+  useEffect(() => { if (indDb) setIndicadores(indDb); }, [indDb]);
+
+  const salvarIndicadores = async () => {
+    setSalvandoInd(true);
+    const { error } = await supabase.from("psico_indicadores").upsert({
+      avaliacao_id: avaliacaoId!,
+      empresa_id: empresaId!,
+      contrato_id: contratoId!,
+      dados: indicadores as any,
+    } as any, { onConflict: "avaliacao_id" });
+    setSalvandoInd(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["psico-av-ind", avaliacaoId] });
+    toast.success("Indicadores salvos.");
+  };
+
+  /** Verifica vínculo Setor/GHE de todas as funções avaliadas e segue para o relatório. */
+  const gerarRelatorio = async () => {
+    setVerificando(true);
+    try {
+      const { data: setores, error } = await supabase
+        .from("setores")
+        .select("nome_setor, ghe_ges, funcoes(nome_funcao)")
+        .eq("empresa_id", empresaId!);
+      if (error) throw error;
+      const cadastradas = new Set<string>();
+      for (const s of (setores as any[]) || []) {
+        for (const f of s.funcoes || []) cadastradas.add(normalizarFuncao(f.nome_funcao));
+      }
+      const faltantes = Array.from(
+        new Set(
+          respostas
+            .map((r) => (r.funcao_nome || "").trim())
+            .filter((f) => f && !cadastradas.has(normalizarFuncao(f))),
+        ),
+      );
+      if (faltantes.length) {
+        setNaoVinculadas(faltantes);
+        setAvisoOpen(true);
+        return;
+      }
+      navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao verificar vínculos.");
+    } finally {
+      setVerificando(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex gap-2">
@@ -183,11 +250,22 @@ export default function PsicossocialAvaliacao() {
         title={avaliacao?.titulo || "Nova Avaliação"}
         description={`${avaliacao?.empresas?.razao_social || ""} — Contrato ${avaliacao?.contratos?.numero_contrato || "—"}`}
         actions={
-          <Button variant="outline" onClick={abrirLink}>
-            <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
-          </Button>
+          <>
+            <Button variant="outline" onClick={abrirLink}>
+              <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
+            </Button>
+            {cards.length > 0 && (
+              <Button onClick={gerarRelatorio} disabled={verificando}>
+                {verificando
+                  ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <FileBarChart2 className="w-4 h-4 mr-1.5" />}
+                Gerar Relatório
+              </Button>
+            )}
+          </>
         }
       />
+
 
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-2">
@@ -227,6 +305,33 @@ Seu trabalho exige prazos muito curtos?
           Escala aceita: Nunca, Raramente, Às vezes, Frequentemente e Sempre.
         </p>
       </Card>
+
+      <Card className="p-5 space-y-3">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="font-heading font-semibold">Indicadores</h2>
+          <Button variant="outline" size="sm" onClick={salvarIndicadores} disabled={salvandoInd}>
+            {salvandoInd ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />}
+            Salvar indicadores
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          Preencha os indicadores organizacionais. Eles são utilizados automaticamente na geração do
+          relatório técnico, de forma agregada e sem identificar trabalhadores.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {INDICADORES_CAMPOS.map((c) => (
+            <div key={c.key} className="grid gap-1.5">
+              <Label className="text-xs">{c.label}</Label>
+              <Input
+                value={indicadores[c.key] || ""}
+                onChange={(e) => setIndicadores({ ...indicadores, [c.key]: e.target.value })}
+              />
+            </div>
+          ))}
+        </div>
+      </Card>
+
+
 
       <div className="space-y-3">
         <h2 className="font-heading font-semibold">Funções avaliadas</h2>
@@ -349,6 +454,16 @@ Seu trabalho exige prazos muito curtos?
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FuncoesNaoVinculadasModal
+        open={avisoOpen}
+        onOpenChange={setAvisoOpen}
+        funcoes={naoVinculadas}
+        empresaId={empresaId!}
+        contratoId={contratoId!}
+        onCadastrado={() => { setNaoVinculadas([]); gerarRelatorio(); }}
+      />
     </div>
+
   );
 }
