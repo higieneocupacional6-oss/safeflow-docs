@@ -96,6 +96,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     startY: y,
     margin: { left: M, right: M, top: TOPO, bottom: 58 },
     theme: "grid",
+    rowPageBreak: "avoid",
     styles: { fontSize: 9, cellPadding: 5, overflow: "linebreak", valign: "top" },
     headStyles: { fillColor: AZUL, textColor: 255 },
     head: [[textoPdf("Identificação da empresa"), ""]],
@@ -150,6 +151,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     autoTable(doc, {
       margin: { left: M, right: M, top: TOPO, bottom: 58 },
       theme: "grid",
+    rowPageBreak: "avoid",
       tableWidth: CONT,
       rowPageBreak: "auto",
       styles: { fontSize: 7.5, cellPadding: 3.5, overflow: "linebreak", valign: "top", lineWidth: 0.3 },
