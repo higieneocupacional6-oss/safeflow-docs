@@ -470,7 +470,7 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
         ? "Manutenção"
         : f.nivel === "Crítico" ? "Imediata" : f.nivel === "Alto" ? "Alta" : "Média";
       const prazo = manutencao
-        ? "Acompanhamento contínuo — reavaliação em até 12 meses"
+        ? "Contínuo (12 meses)"
         : f.nivel === "Crítico" ? "30 dias" : f.nivel === "Alto" ? "60 dias" : "90 dias";
       out.push({
         key: `${g.id}::${f.key}`,
@@ -479,11 +479,11 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
         medida: manutencao
           ? (MANUTENCAO[f.key] || "Manter as medidas organizacionais existentes e realizar acompanhamento periódico das condições de trabalho, visando preservar os resultados favoráveis identificados na avaliação.")
           : meta.medida,
-        tipo: manutencao ? "Manutenção/monitoramento" : meta.tipoControle,
+        tipo: manutencao ? "Monitoramento" : meta.tipoControle,
         responsavel: "",
         prazo,
         prioridade,
-        status: manutencao ? "Em acompanhamento" : "Pendente",
+        status: manutencao ? "Monitorado" : "Pendente",
         evidencia: "",
       });
     }
