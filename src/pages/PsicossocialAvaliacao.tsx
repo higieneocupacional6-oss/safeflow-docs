@@ -266,6 +266,9 @@ export default function PsicossocialAvaliacao() {
             <Button variant="outline" onClick={abrirLink}>
               <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
             </Button>
+            <Button variant="outline" onClick={() => setBaseIaOpen(true)}>
+              <Bot className="w-4 h-4 mr-1.5" /> IA
+            </Button>
             {cards.length > 0 && (
               <Button onClick={gerarRelatorio} disabled={verificando}>
                 {verificando
