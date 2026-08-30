@@ -454,6 +454,16 @@ Seu trabalho exige prazos muito curtos?
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <FuncoesNaoVinculadasModal
+        open={avisoOpen}
+        onOpenChange={setAvisoOpen}
+        funcoes={naoVinculadas}
+        empresaId={empresaId!}
+        contratoId={contratoId!}
+        onCadastrado={() => { setNaoVinculadas([]); gerarRelatorio(); }}
+      />
     </div>
+
   );
 }
