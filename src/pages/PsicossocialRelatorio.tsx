@@ -70,6 +70,7 @@ export default function PsicossocialRelatorio() {
   const [lacunasIa, setLacunasIa] = useState<string[]>([]);
   const iaFeitaRef = useRef(false);
   const abrirMetRef = useRef(false);
+  const [fatoresAbertos, setFatoresAbertos] = useState<string[]>([]);
 
 
   // ---------- Dados ----------
