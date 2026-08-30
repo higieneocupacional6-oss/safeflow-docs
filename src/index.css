@@ -57,9 +57,10 @@
     --gradient-mint: linear-gradient(135deg, hsl(152 58% 46%), hsl(45 94% 52%));
     --gradient-brand: linear-gradient(135deg, hsl(154 62% 34%) 0%, hsl(152 58% 46%) 55%, hsl(45 94% 52%) 100%);
     --gradient-hero:
-      radial-gradient(1200px 600px at 8% -10%, hsl(154 62% 34% / 0.10), transparent 60%),
-      radial-gradient(900px 500px at 100% 0%, hsl(45 94% 52% / 0.08), transparent 60%),
-      radial-gradient(700px 400px at 50% 110%, hsl(152 58% 46% / 0.07), transparent 60%);
+      linear-gradient(135deg, hsl(0 0% 100%) 0%, hsl(150 16% 97%) 45%, hsl(55 14% 97%) 100%),
+      radial-gradient(1200px 700px at 0% 0%, hsl(154 45% 48% / 0.07), transparent 60%),
+      radial-gradient(1000px 600px at 100% 0%, hsl(45 80% 55% / 0.05), transparent 55%),
+      radial-gradient(900px 600px at 50% 100%, hsl(152 40% 55% / 0.05), transparent 60%);
 
     --shadow-xs: 0 1px 2px hsl(200 15% 15% / 0.04);
     --shadow-sm: 0 1px 3px hsl(200 15% 15% / 0.06), 0 1px 2px hsl(200 15% 15% / 0.04);
