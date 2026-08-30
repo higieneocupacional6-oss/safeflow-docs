@@ -482,7 +482,7 @@ export default function PsicossocialRelatorio() {
               <Card key={g.id} className="p-4 space-y-2">
                 <p className="font-semibold text-sm">{g.setor} — {g.ghe}</p>
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <span>Fatores identificados: <b>{g.fatores.length}</b></span>
+                  <span>Fatores investigados: <b>{g.fatores.length}</b> · caracterizados: <b>{g.fatores.filter((f) => f.sustentado !== false).length}</b></span>
                   <span>Risco predominante: <b>{r.predominante}</b></span>
                   <span>Baixo: {r.cont.Baixo} · Médio: {r.cont["Médio"]}</span>
                   <span>Alto: {r.cont.Alto} · Crítico: {r.cont["Crítico"]}</span>
