@@ -179,6 +179,65 @@ export default function PsicossocialAvaliacao() {
     setDetalhe(null);
   };
 
+  /** Indicadores organizacionais desta avaliação. */
+  const { data: indDb } = useQuery({
+    queryKey: ["psico-av-ind", avaliacaoId],
+    enabled: !!avaliacaoId,
+    queryFn: async () => {
+      const { data } = await supabase
+        .from("psico_indicadores").select("dados").eq("avaliacao_id", avaliacaoId!).maybeSingle();
+      return ((data as any)?.dados || {}) as Record<string, string>;
+    },
+  });
+  useEffect(() => { if (indDb) setIndicadores(indDb); }, [indDb]);
+
+  const salvarIndicadores = async () => {
+    setSalvandoInd(true);
+    const { error } = await supabase.from("psico_indicadores").upsert({
+      avaliacao_id: avaliacaoId!,
+      empresa_id: empresaId!,
+      contrato_id: contratoId!,
+      dados: indicadores as any,
+    } as any, { onConflict: "avaliacao_id" });
+    setSalvandoInd(false);
+    if (error) { toast.error(error.message); return; }
+    qc.invalidateQueries({ queryKey: ["psico-av-ind", avaliacaoId] });
+    toast.success("Indicadores salvos.");
+  };
+
+  /** Verifica vínculo Setor/GHE de todas as funções avaliadas e segue para o relatório. */
+  const gerarRelatorio = async () => {
+    setVerificando(true);
+    try {
+      const { data: setores, error } = await supabase
+        .from("setores")
+        .select("nome_setor, ghe_ges, funcoes(nome_funcao)")
+        .eq("empresa_id", empresaId!);
+      if (error) throw error;
+      const cadastradas = new Set<string>();
+      for (const s of (setores as any[]) || []) {
+        for (const f of s.funcoes || []) cadastradas.add(normalizarFuncao(f.nome_funcao));
+      }
+      const faltantes = Array.from(
+        new Set(
+          respostas
+            .map((r) => (r.funcao_nome || "").trim())
+            .filter((f) => f && !cadastradas.has(normalizarFuncao(f))),
+        ),
+      );
+      if (faltantes.length) {
+        setNaoVinculadas(faltantes);
+        setAvisoOpen(true);
+        return;
+      }
+      navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`);
+    } catch (e: any) {
+      toast.error(e?.message || "Erro ao verificar vínculos.");
+    } finally {
+      setVerificando(false);
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
       <div className="flex gap-2">
@@ -191,11 +250,22 @@ export default function PsicossocialAvaliacao() {
         title={avaliacao?.titulo || "Nova Avaliação"}
         description={`${avaliacao?.empresas?.razao_social || ""} — Contrato ${avaliacao?.contratos?.numero_contrato || "—"}`}
         actions={
-          <Button variant="outline" onClick={abrirLink}>
-            <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
-          </Button>
+          <>
+            <Button variant="outline" onClick={abrirLink}>
+              <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
+            </Button>
+            {cards.length > 0 && (
+              <Button onClick={gerarRelatorio} disabled={verificando}>
+                {verificando
+                  ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <FileBarChart2 className="w-4 h-4 mr-1.5" />}
+                Gerar Relatório
+              </Button>
+            )}
+          </>
         }
       />
+
 
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-2">
