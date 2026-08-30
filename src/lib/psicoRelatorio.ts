@@ -405,7 +405,7 @@ export function construirGrupos(
         ? Math.min(2, meta.severidadeBase)
         : Math.min(4, meta.severidadeBase + (media >= 75 ? 1 : 0));
       const frequencia = !sustentado
-        ? "Não caracterizada"
+        ? "Não caract."
         : media >= 75 ? "Habitual e permanente" : media >= 62 ? "Frequente" : "Intermitente";
       const interpretacao = sustentado
         ? `Fator caracterizado como risco psicossocial a partir das respostas coletadas (índice consolidado de ${media}/100), classificado no nível ${nivelDeRisco(probabilidade, severidade)}.`
