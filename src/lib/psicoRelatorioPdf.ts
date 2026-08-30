@@ -303,9 +303,9 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     startY: y,
     styles: { fontSize: 6.8, cellPadding: 3, overflow: "linebreak", valign: "top", lineWidth: 0.3 },
     headStyles: { fillColor: AZUL, textColor: 255, fontSize: 6.8, halign: "left" },
-    head: [["Setor / GHE", "Risco", "Medida recomendada", "Tipo", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
+    head: [["Setor / GHE", "Risco", "Medida recomendada", "Tipo", "Resp.", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 56 }, 1: { cellWidth: 52 }, 2: { cellWidth: 112 }, 3: { cellWidth: 54 },
+      0: { cellWidth: 56 }, 1: { cellWidth: 58 }, 2: { cellWidth: 106 }, 3: { cellWidth: 54 },
       4: { cellWidth: 46 }, 5: { cellWidth: 54 }, 6: { cellWidth: 46 }, 7: { cellWidth: 46 },
       8: { cellWidth: 44 },
     },
