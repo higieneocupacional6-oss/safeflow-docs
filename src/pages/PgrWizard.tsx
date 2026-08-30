@@ -501,25 +501,35 @@ export default function PgrWizard() {
   const [linkModal, setLinkModal] = useState<{ destinoId: string; destinoNome: string } | null>(null);
   const [linkOrigemId, setLinkOrigemId] = useState("");
   const [linkConfirm, setLinkConfirm] = useState<"add" | "replace" | null>(null);
+  const [linkSelecionados, setLinkSelecionados] = useState<string[]>([]);
   const [linking, setLinking] = useState(false);
+
+  const linkOrigemRiscos: RiscoPgr[] = linkOrigemId ? (snapshot.setores[linkOrigemId]?.riscos || []) : [];
 
   const openLinkModal = (e: any, setor: any) => {
     e.stopPropagation();
     setLinkOrigemId("");
     setLinkConfirm(null);
+    setLinkSelecionados([]);
     setLinkModal({ destinoId: setor.id, destinoNome: setor.nome_setor });
   };
+
+  const toggleLinkRisco = (id: string) =>
+    setLinkSelecionados(sel => sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]);
 
   const aplicarVinculacao = async (modo: "add" | "replace") => {
     if (!linkModal || !linkOrigemId) { toast.error("Selecione o setor origem"); return; }
     const origem = (setores as any[]).find(s => s.id === linkOrigemId);
-    const origemRiscos = snapshot.setores[linkOrigemId]?.riscos || [];
+    const origemRiscos = linkOrigemRiscos;
     if (origemRiscos.length === 0) { toast.error("O setor origem não possui riscos cadastrados"); return; }
+    const escolhidos = origemRiscos.filter(r => linkSelecionados.includes(r.id));
+    if (escolhidos.length === 0) { toast.error("Selecione ao menos um risco para copiar"); return; }
 
     setLinking(true);
     const destinoId = linkModal.destinoId;
     const atuais = snapshot.setores[destinoId]?.riscos || [];
-    const copiados = origemRiscos.map(r => ({ ...r, id: crypto.randomUUID() }));
+    // Cópia profunda e independente da origem
+    const copiados = escolhidos.map(r => ({ ...JSON.parse(JSON.stringify(r)), id: crypto.randomUUID() }));
     const novosRiscos = modo === "replace" ? copiados : [...atuais, ...copiados];
 
     const novoSnap: PgrSnapshot = {
@@ -534,6 +544,7 @@ export default function PgrWizard() {
     setLinking(false);
     setLinkModal(null);
     toast.success(`${copiados.length} risco(s) vinculado(s) de ${origem?.nome_setor}`);
+
   };
 
   // ============ EPI / Treinamentos helpers ============
