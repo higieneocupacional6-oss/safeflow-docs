@@ -377,8 +377,21 @@ export default function PsicossocialRelatorio() {
       responsavel_id: id,
       responsavel_nome: r?.nome || p.responsavel_nome,
       responsavel_registro: r?.registro_profissional || p.responsavel_registro,
+      responsavel_funcao: r?.funcao || p.responsavel_funcao,
     }));
   };
+
+  const escolherAplicador = (id: string) => {
+    const r = responsaveis.find((x) => x.id === id);
+    setRegistros((p) => ({
+      ...p,
+      aplicador_id: id,
+      aplicador: r?.nome || p.aplicador,
+      aplicador_registro: r?.registro_profissional || "",
+      aplicador_funcao: r?.funcao || "",
+    }));
+  };
+
 
   const salvar = async () => {
     setSalvando(true);
