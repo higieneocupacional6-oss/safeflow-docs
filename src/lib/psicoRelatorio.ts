@@ -526,9 +526,12 @@ export function riscosParaPgr(grupos: GrupoRelatorio[]) {
 
 export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) {
   if (!grupos.length) return "Não foram identificados grupos homogêneos com avaliações válidas para análise.";
-  const todos = grupos.flatMap((g) => g.fatores);
+  const investigados = grupos.flatMap((g) => g.fatores);
+  const todos = investigados.filter((f) => f.sustentado !== false);
+  const investigadosSemRisco = investigados.filter((f) => f.sustentado === false);
+  const dimensoesInvestigadas = Array.from(new Set(investigados.map((f) => f.fator)));
   if (!todos.length) {
-    return `A avaliação psicossocial realizada em ${empresaNome} não identificou fatores de risco psicossocial sustentados pelas respostas obtidas. Recomenda-se a manutenção das condições atuais de organização do trabalho e a reavaliação periódica conforme NR-01.`;
+    return `A avaliação psicossocial realizada em ${empresaNome} investigou ${dimensoesInvestigadas.length} dimensão(ões) do questionário aplicado (${dimensoesInvestigadas.join("; ")}) em ${grupos.length} grupo(s) homogêneo(s) de exposição. Todas as dimensões foram investigadas e classificadas em nível Baixo, não tendo sido caracterizado fator de risco psicossocial relevante conforme os critérios da metodologia adotada. Recomenda-se a manutenção das medidas organizacionais existentes, o monitoramento periódico das condições de trabalho e a reavaliação conforme a NR-01.`;
   }
   const criticos = todos.filter((f) => f.nivel === "Crítico");
   const altos = todos.filter((f) => f.nivel === "Alto");
@@ -539,9 +542,15 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
 
   const partes: string[] = [];
   partes.push(
-    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição, resultando na identificação de ${todos.length} fator(es) de risco sustentado(s) pelas respostas coletadas.`,
+    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição e investigou ${dimensoesInvestigadas.length} dimensão(ões) do instrumento aplicado, resultando na caracterização de ${todos.length} fator(es) de risco sustentado(s) pelas respostas coletadas.`,
   );
   partes.push(`As dimensões efetivamente afetadas foram: ${dimensoes.join("; ")}.`);
+  if (investigadosSemRisco.length) {
+    partes.push(
+      `As demais dimensões foram igualmente investigadas e classificadas em nível Baixo, por ausência de evidências suficientes para caracterização de exposição psicossocial relevante, permanecendo registradas no relatório para fins de rastreabilidade da avaliação.`,
+    );
+  }
+
   if (criticos.length || altos.length) {
     partes.push(
       `Foram classificados ${criticos.length} fator(es) em nível Crítico e ${altos.length} em nível Alto, o que caracteriza a necessidade de adoção de medidas de prevenção e controle com prioridade, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
