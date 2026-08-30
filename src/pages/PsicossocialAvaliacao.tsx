@@ -46,6 +46,9 @@ export default function PsicossocialAvaliacao() {
   const [verificando, setVerificando] = useState(false);
   const [indicadores, setIndicadores] = useState<Record<string, string>>({});
   const [salvandoInd, setSalvandoInd] = useState(false);
+  const [baseIaOpen, setBaseIaOpen] = useState(false);
+  const [iaEscolhaOpen, setIaEscolhaOpen] = useState(false);
+
 
   useRealtimeSync(
     [{ table: "psico_respostas", queryKey: ["psico-av-resp", avaliacaoId] }],
