@@ -213,7 +213,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     for (const f of g.fatores) {
       const nivelTxt = f.sustentado === false ? `${f.nivel} — não identificado` : f.nivel;
       y = tabela({
-        startY: garantir(y, 120),
+        startY: garantir(y, 180),
         columnStyles: { 0: { cellWidth: 140, fontStyle: "bold", fillColor: CINZA }, 1: { cellWidth: CONT - 140 } },
         headStyles: {
           fillColor: hexNivel(f.nivel), textColor: 255, fontSize: 8.5, halign: "left", valign: "middle",
@@ -439,8 +439,8 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     headStyles: { fillColor: AZUL, textColor: 255, fontSize: 7.6, halign: "left", valign: "middle" },
     head: [["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 104 }, 1: { cellWidth: 146 }, 2: { cellWidth: 58 }, 3: { cellWidth: 55 },
-      4: { cellWidth: 48 }, 5: { cellWidth: 44 }, 6: { cellWidth: 36 },
+      0: { cellWidth: 96 }, 1: { cellWidth: 148 }, 2: { cellWidth: 52 }, 3: { cellWidth: 54 },
+      4: { cellWidth: 52 }, 5: { cellWidth: 48 }, 6: { cellWidth: 41 },
     },
     body: p.medidas.length
       ? p.medidas.map((m) => [cel(`${m.grupo} — ${m.risco}`), cel(m.medida), cel(m.responsavel), cel(m.prazo), cel(m.prioridade), cel(m.status), cel(m.evidencia)])
