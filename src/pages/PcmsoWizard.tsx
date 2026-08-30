@@ -746,7 +746,7 @@ export default function PcmsoWizard() {
         title="Deseja copiar os treinamentos cadastrados no PGR?"
         onYes={() => confirmTreinCopy(true)} onNo={() => confirmTreinCopy(false)} />
 
-      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); } }}>
+      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); setExamesSelecionados([]); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Copiar exames de outro setor</DialogTitle>
@@ -758,7 +758,7 @@ export default function PcmsoWizard() {
             </div>
             <div>
               <Label className="text-xs">Setor Origem *</Label>
-              <Select value={vincularOrigemIdx} onValueChange={setVincularOrigemIdx}>
+              <Select value={vincularOrigemIdx} onValueChange={(v) => { setVincularOrigemIdx(v); setExamesSelecionados([]); }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o setor origem" /></SelectTrigger>
                 <SelectContent>
                   {setores.map((s, i) => (
@@ -769,20 +769,50 @@ export default function PcmsoWizard() {
                 </SelectContent>
               </Select>
             </div>
+
+            {vincularOrigemIdx !== "" && (
+              examesOrigem.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Este setor não possui exames cadastrados.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Selecione os exames que deseja copiar</Label>
+                    <Button variant="ghost" size="sm" onClick={() =>
+                      setExamesSelecionados(sel => sel.length === examesOrigem.length ? [] : examesOrigem.map((_, i) => i))}>
+                      {examesSelecionados.length === examesOrigem.length ? "Limpar seleção" : "Selecionar todos"}
+                    </Button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y">
+                    {examesOrigem.map((ex, i) => (
+                      <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/50">
+                        <Checkbox checked={examesSelecionados.includes(i)}
+                          onCheckedChange={() => setExamesSelecionados(sel => sel.includes(i) ? sel.filter(x => x !== i) : [...sel, i])} />
+                        <span className="text-sm leading-tight">
+                          {ex.tipo_exame || "(Sem tipo)"}
+                          {ex.cod_esocial && <span className="block text-xs text-muted-foreground">{ex.cod_esocial}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{examesSelecionados.length} exame(s) selecionado(s).</p>
+                </div>
+              )
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); }}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); setExamesSelecionados([]); }}>Cancelar</Button>
               <Button onClick={() => {
-                if (vincularExamesIdx === null || !vincularOrigemIdx) return;
-                const origemIdx = Number(vincularOrigemIdx);
+                if (vincularExamesIdx === null || vincularOrigemIdx === "") return;
                 const destinoIdx = vincularExamesIdx;
-                const origem = setores[origemIdx];
                 const destino = setores[destinoIdx];
-                if (!origem || !destino) return;
+                if (!destino) return;
+                const escolhidos = examesOrigem.filter((_, i) => examesSelecionados.includes(i));
+                if (escolhidos.length === 0) { toast.error("Selecione ao menos um exame para copiar"); return; }
                 const existentes = new Set((destino.exames || []).map(e => (e.tipo_exame || "").trim().toLowerCase()).filter(Boolean));
-                const novos = (origem.exames || []).filter(e => {
+                const novos = escolhidos.filter(e => {
                   const k = (e.tipo_exame || "").trim().toLowerCase();
-                  return k && !existentes.has(k);
-                }).map(e => ({ ...e }));
+                  return !k || !existentes.has(k);
+                }).map(e => JSON.parse(JSON.stringify(e)) as PcmsoExame);
                 if (novos.length === 0) {
                   toast.info("Nenhum exame novo para copiar (todos já existem).");
                 } else {
@@ -791,11 +821,13 @@ export default function PcmsoWizard() {
                 }
                 setVincularExamesIdx(null);
                 setVincularOrigemIdx("");
-              }} disabled={!vincularOrigemIdx}>Copiar Exames</Button>
+                setExamesSelecionados([]);
+              }} disabled={vincularOrigemIdx === "" || examesSelecionados.length === 0}>Copiar Exames</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
     </div>
   );
 }
