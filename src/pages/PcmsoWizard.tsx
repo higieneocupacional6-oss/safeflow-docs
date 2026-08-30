@@ -991,7 +991,11 @@ function SetorDetail({
             ))}
           </div>
         )}
+        <div ref={fimExamesRef} className="pt-2">
+          <Button size="sm" variant="outline" onClick={addExame}><Plus className="w-4 h-4 mr-1" />Adicionar Exame</Button>
+        </div>
       </CardContent></Card>
+
     </div>
   );
 }
