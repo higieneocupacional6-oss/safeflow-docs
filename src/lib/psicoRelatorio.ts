@@ -484,8 +484,7 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
         responsavel: "",
         prazo,
         prioridade,
-        status: manutencao ? "Monitorado" : "Pendente",
-        evidencia: "",
+        status: "",
       });
     }
   }
