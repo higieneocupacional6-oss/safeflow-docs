@@ -327,16 +327,23 @@ export default function PsicossocialRelatorio() {
     setMedidas((p) => p.map((m) => (m.key === key ? { ...m, ...patch } : m)));
 
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0) || 1;
-  const ocup = useMemo(() => {
-    const m: Record<string, number> = {};
-    grupos.forEach((g) => g.fatores.forEach((f) => { const k = `${f.probabilidade}-${f.severidade}`; m[k] = (m[k] || 0) + 1; }));
-    return m;
-  }, [grupos]);
+  // A matriz representa apenas os riscos caracterizados (exclui Baixo e não identificados).
+  const ocup = useMemo(() => matrizOcupada(grupos), [grupos]);
+  const totalMatriz = useMemo(
+    () => grupos.flatMap((g) => g.fatores).filter(fatorCaracterizado).length,
+    [grupos],
+  );
   const pgr = useMemo(() => riscosParaPgr(grupos), [grupos]);
+  const indicadoresGraf = useMemo(() => indicadoresPreenchidos(indicadores), [indicadores]);
+  const textoIndicadores = useMemo(() => interpretarIndicadores(indicadores, grupos), [indicadores, grupos]);
+  const textoPlano = useMemo(
+    () => planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    [grupos, empresa],
+  );
 
   if (!pronto) {
     return (
-      <div className="max-w-6xl mx-auto p-10 text-center text-muted-foreground">
+      <div className="max-w-7xl mx-auto p-10 text-center text-muted-foreground">
         <Loader2 className="w-6 h-6 animate-spin mx-auto mb-3" />
         Consolidando dados da avaliação…
       </div>
@@ -344,7 +351,7 @@ export default function PsicossocialRelatorio() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto p-6 space-y-6 print:p-0">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-8 space-y-8 print:p-0">
       <div className="flex items-center justify-between gap-2">
         <Link to={`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}`}>
           <Button variant="ghost" size="sm"><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
