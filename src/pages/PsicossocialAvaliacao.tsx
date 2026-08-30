@@ -235,13 +235,20 @@ export default function PsicossocialAvaliacao() {
         setAvisoOpen(true);
         return;
       }
-      navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`);
+      setIaEscolhaOpen(true);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao verificar vínculos.");
     } finally {
       setVerificando(false);
     }
   };
+
+  /** Abre o relatório informando se os textos devem ser elaborados com IA. */
+  const irParaRelatorio = (usarIa: boolean) =>
+    navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`, {
+      state: { usarIa },
+    });
+
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
