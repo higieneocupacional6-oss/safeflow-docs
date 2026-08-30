@@ -170,8 +170,9 @@ export type MedidaControle = {
   responsavel: string;
   prazo: string;
   prioridade: string;
+  /** Preenchido manualmente pelo profissional após a emissão — inicia em branco. */
   status: string;
-  evidencia: string;
+  evidencia?: string;
 };
 
 export type VinculoFuncao = {
