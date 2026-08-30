@@ -14,7 +14,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog";
 import {
-  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save,
+  ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save, Bot,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
@@ -23,6 +23,8 @@ import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import { ESCALA_COPSOQ } from "@/components/PsicossocialModal";
 import { publicPsicoUrl, corClassificacao } from "@/lib/psicoLink";
 import { FuncoesNaoVinculadasModal } from "@/components/psico/FuncoesNaoVinculadasModal";
+import { IaBaseTecnicaModal } from "@/components/psico/IaBaseTecnicaModal";
+import { IaEscolhaModal } from "@/components/psico/IaEscolhaModal";
 import { INDICADORES_CAMPOS, normalizarFuncao } from "@/lib/psicoRelatorio";
 
 const labelEscala = (v: number) =>
@@ -44,6 +46,9 @@ export default function PsicossocialAvaliacao() {
   const [verificando, setVerificando] = useState(false);
   const [indicadores, setIndicadores] = useState<Record<string, string>>({});
   const [salvandoInd, setSalvandoInd] = useState(false);
+  const [baseIaOpen, setBaseIaOpen] = useState(false);
+  const [iaEscolhaOpen, setIaEscolhaOpen] = useState(false);
+
 
   useRealtimeSync(
     [{ table: "psico_respostas", queryKey: ["psico-av-resp", avaliacaoId] }],
@@ -230,13 +235,20 @@ export default function PsicossocialAvaliacao() {
         setAvisoOpen(true);
         return;
       }
-      navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`);
+      setIaEscolhaOpen(true);
     } catch (e: any) {
       toast.error(e?.message || "Erro ao verificar vínculos.");
     } finally {
       setVerificando(false);
     }
   };
+
+  /** Abre o relatório informando se os textos devem ser elaborados com IA. */
+  const irParaRelatorio = (usarIa: boolean) =>
+    navigate(`/psicossocial/${empresaId}/${contratoId}/avaliacao/${avaliacaoId}/relatorio`, {
+      state: { usarIa },
+    });
+
 
   return (
     <div className="max-w-7xl mx-auto p-6 space-y-6">
@@ -253,6 +265,9 @@ export default function PsicossocialAvaliacao() {
           <>
             <Button variant="outline" onClick={abrirLink}>
               <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
+            </Button>
+            <Button variant="outline" onClick={() => setBaseIaOpen(true)}>
+              <Bot className="w-4 h-4 mr-1.5" /> IA
             </Button>
             {cards.length > 0 && (
               <Button onClick={gerarRelatorio} disabled={verificando}>
@@ -463,6 +478,14 @@ Seu trabalho exige prazos muito curtos?
         contratoId={contratoId!}
         onCadastrado={() => { setNaoVinculadas([]); gerarRelatorio(); }}
       />
+
+      <IaEscolhaModal
+        open={iaEscolhaOpen}
+        onOpenChange={setIaEscolhaOpen}
+        onEscolher={irParaRelatorio}
+      />
+
+      <IaBaseTecnicaModal open={baseIaOpen} onOpenChange={setBaseIaOpen} />
     </div>
 
   );

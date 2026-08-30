@@ -1687,6 +1687,33 @@ export type Database = {
           },
         ]
       }
+      psico_base_tecnica: {
+        Row: {
+          caminho: string
+          created_at: string
+          id: string
+          nome: string
+          tamanho: number | null
+          user_id: string
+        }
+        Insert: {
+          caminho: string
+          created_at?: string
+          id?: string
+          nome: string
+          tamanho?: number | null
+          user_id?: string
+        }
+        Update: {
+          caminho?: string
+          created_at?: string
+          id?: string
+          nome?: string
+          tamanho?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       psico_indicadores: {
         Row: {
           avaliacao_id: string

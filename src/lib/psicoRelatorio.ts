@@ -170,8 +170,9 @@ export type MedidaControle = {
   responsavel: string;
   prazo: string;
   prioridade: string;
+  /** Preenchido manualmente pelo profissional após a emissão — inicia em branco. */
   status: string;
-  evidencia: string;
+  evidencia?: string;
 };
 
 export type VinculoFuncao = {
@@ -483,8 +484,7 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
         responsavel: "",
         prazo,
         prioridade,
-        status: manutencao ? "Monitorado" : "Pendente",
-        evidencia: "",
+        status: "",
       });
     }
   }
@@ -671,7 +671,7 @@ export function planoAcaoTexto(grupos: GrupoRelatorio[], empresaNome: string) {
   if (caracterizados.length) {
     const prio = grupos.filter((g) => g.fatores.some((f) => f.nivel === "Alto" || f.nivel === "Crítico"));
     return [
-      `O plano de ação a seguir consolida as medidas de prevenção e controle decorrentes dos ${caracterizados.length} fator(es) caracterizado(s) na avaliação de ${empresaNome}, com definição de responsável, prazo, prioridade, status e evidência de execução.`,
+      `O plano de ação a seguir consolida as medidas de prevenção e controle decorrentes dos ${caracterizados.length} fator(es) caracterizado(s) na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
       prio.length
         ? `A execução deve ser priorizada nos grupos ${prio.map(nomeGrupo).join("; ")}, em razão do nível de risco identificado.`
         : "As medidas possuem caráter de melhoria contínua, sem prioridade imediata entre os grupos avaliados.",
