@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
@@ -8,7 +8,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import {
   ArrowLeft, ArrowRight, Loader2, Plus, Save, Trash2, ChevronRight,
-  ShieldCheck, GraduationCap, Users, Calendar as CalendarIcon, FileDown, Link2, FileCheck2,
+  ShieldCheck, GraduationCap, Users, Calendar as CalendarIcon, FileDown, Link2, FileCheck2, FolderOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -85,6 +85,58 @@ export default function PcmsoWizard() {
   const [askTrein, setAskTrein] = useState(false);
   const [vincularExamesIdx, setVincularExamesIdx] = useState<number | null>(null);
   const [vincularOrigemIdx, setVincularOrigemIdx] = useState<string>("");
+  const [examesSelecionados, setExamesSelecionados] = useState<number[]>([]);
+
+  // Buscar modelo de cronograma de outras empresas
+  const [buscarCronoOpen, setBuscarCronoOpen] = useState(false);
+  const [cronoModelos, setCronoModelos] = useState<{ id: string; empresa_nome: string; itens: PcmsoCronoItem[]; updated_at: string }[]>([]);
+  const [cronoLoading, setCronoLoading] = useState(false);
+  const [cronoSelId, setCronoSelId] = useState<string>("");
+
+  const examesOrigem: PcmsoExame[] =
+    vincularOrigemIdx === "" ? [] : (setores[Number(vincularOrigemIdx)]?.exames || []);
+
+  const abrirBuscarCronograma = async () => {
+    setBuscarCronoOpen(true);
+    setCronoSelId("");
+    setCronoLoading(true);
+    try {
+      const { data, error } = await (supabase as any)
+        .from("pcmso_documentos")
+        .select("id,cronograma,updated_at,empresa_id,empresas(razao_social)")
+        .order("updated_at", { ascending: false })
+        .limit(80);
+      if (error) throw error;
+      const lista = (data || [])
+        .filter((d: any) => d.id !== documentoId)
+        .map((d: any) => ({
+          id: d.id,
+          empresa_nome: d.empresas?.razao_social || "(Sem nome)",
+          itens: (Array.isArray(d.cronograma) ? d.cronograma : []) as PcmsoCronoItem[],
+          updated_at: d.updated_at,
+        }))
+        .filter((x: any) => x.itens.length > 0);
+      setCronoModelos(lista);
+    } catch (e: any) {
+      toast.error("Erro ao carregar cronogramas: " + (e.message || ""));
+    } finally {
+      setCronoLoading(false);
+    }
+  };
+
+  const copiarCronogramaModelo = (modo: "add" | "replace") => {
+    const modelo = cronoModelos.find(m => m.id === cronoSelId);
+    if (!modelo) { toast.error("Selecione uma empresa"); return; }
+    // Cópia independente: novos ids e clone profundo
+    const copia = modelo.itens.map((c) => ({
+      ...(JSON.parse(JSON.stringify(c)) as PcmsoCronoItem),
+      id: crypto.randomUUID(),
+    }));
+    setCronograma(arr => (modo === "replace" ? copia : [...arr, ...copia]));
+    setBuscarCronoOpen(false);
+    toast.success(`${copia.length} ação(ões) copiada(s) de ${modelo.empresa_nome}`);
+  };
+
 
   // Gerar Documento
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
@@ -652,8 +704,12 @@ export default function PcmsoWizard() {
         <div className="space-y-4">
           <div className="flex items-center gap-3 mb-2">
             <h3 className="font-heading font-semibold flex items-center gap-2"><CalendarIcon className="w-5 h-5 text-accent" /> Cronograma PCMSO</h3>
-            <p className="text-xs text-muted-foreground">Ações, responsáveis e prazos do PCMSO (independente do PGR)</p>
+            <p className="text-xs text-muted-foreground flex-1">Ações, responsáveis e prazos do PCMSO (independente do PGR)</p>
+            <Button variant="outline" size="sm" onClick={abrirBuscarCronograma} title="Buscar modelo de cronograma">
+              <FolderOpen className="w-4 h-4 mr-1" /> Buscar modelo
+            </Button>
           </div>
+
 
           <Card className="p-4">
             <div className="overflow-x-auto">
@@ -746,7 +802,7 @@ export default function PcmsoWizard() {
         title="Deseja copiar os treinamentos cadastrados no PGR?"
         onYes={() => confirmTreinCopy(true)} onNo={() => confirmTreinCopy(false)} />
 
-      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); } }}>
+      <Dialog open={vincularExamesIdx !== null} onOpenChange={(o) => { if (!o) { setVincularExamesIdx(null); setVincularOrigemIdx(""); setExamesSelecionados([]); } }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Copiar exames de outro setor</DialogTitle>
@@ -758,7 +814,7 @@ export default function PcmsoWizard() {
             </div>
             <div>
               <Label className="text-xs">Setor Origem *</Label>
-              <Select value={vincularOrigemIdx} onValueChange={setVincularOrigemIdx}>
+              <Select value={vincularOrigemIdx} onValueChange={(v) => { setVincularOrigemIdx(v); setExamesSelecionados([]); }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione o setor origem" /></SelectTrigger>
                 <SelectContent>
                   {setores.map((s, i) => (
@@ -769,20 +825,50 @@ export default function PcmsoWizard() {
                 </SelectContent>
               </Select>
             </div>
+
+            {vincularOrigemIdx !== "" && (
+              examesOrigem.length === 0 ? (
+                <p className="text-sm text-muted-foreground">Este setor não possui exames cadastrados.</p>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-xs">Selecione os exames que deseja copiar</Label>
+                    <Button variant="ghost" size="sm" onClick={() =>
+                      setExamesSelecionados(sel => sel.length === examesOrigem.length ? [] : examesOrigem.map((_, i) => i))}>
+                      {examesSelecionados.length === examesOrigem.length ? "Limpar seleção" : "Selecionar todos"}
+                    </Button>
+                  </div>
+                  <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y">
+                    {examesOrigem.map((ex, i) => (
+                      <label key={i} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/50">
+                        <Checkbox checked={examesSelecionados.includes(i)}
+                          onCheckedChange={() => setExamesSelecionados(sel => sel.includes(i) ? sel.filter(x => x !== i) : [...sel, i])} />
+                        <span className="text-sm leading-tight">
+                          {ex.tipo_exame || "(Sem tipo)"}
+                          {ex.cod_esocial && <span className="block text-xs text-muted-foreground">{ex.cod_esocial}</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">{examesSelecionados.length} exame(s) selecionado(s).</p>
+                </div>
+              )
+            )}
+
             <div className="flex justify-end gap-2 pt-2">
-              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); }}>Cancelar</Button>
+              <Button variant="outline" onClick={() => { setVincularExamesIdx(null); setVincularOrigemIdx(""); setExamesSelecionados([]); }}>Cancelar</Button>
               <Button onClick={() => {
-                if (vincularExamesIdx === null || !vincularOrigemIdx) return;
-                const origemIdx = Number(vincularOrigemIdx);
+                if (vincularExamesIdx === null || vincularOrigemIdx === "") return;
                 const destinoIdx = vincularExamesIdx;
-                const origem = setores[origemIdx];
                 const destino = setores[destinoIdx];
-                if (!origem || !destino) return;
+                if (!destino) return;
+                const escolhidos = examesOrigem.filter((_, i) => examesSelecionados.includes(i));
+                if (escolhidos.length === 0) { toast.error("Selecione ao menos um exame para copiar"); return; }
                 const existentes = new Set((destino.exames || []).map(e => (e.tipo_exame || "").trim().toLowerCase()).filter(Boolean));
-                const novos = (origem.exames || []).filter(e => {
+                const novos = escolhidos.filter(e => {
                   const k = (e.tipo_exame || "").trim().toLowerCase();
-                  return k && !existentes.has(k);
-                }).map(e => ({ ...e }));
+                  return !k || !existentes.has(k);
+                }).map(e => JSON.parse(JSON.stringify(e)) as PcmsoExame);
                 if (novos.length === 0) {
                   toast.info("Nenhum exame novo para copiar (todos já existem).");
                 } else {
@@ -791,11 +877,55 @@ export default function PcmsoWizard() {
                 }
                 setVincularExamesIdx(null);
                 setVincularOrigemIdx("");
-              }} disabled={!vincularOrigemIdx}>Copiar Exames</Button>
+                setExamesSelecionados([]);
+              }} disabled={vincularOrigemIdx === "" || examesSelecionados.length === 0}>Copiar Exames</Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Buscar modelo de cronograma */}
+      <Dialog open={buscarCronoOpen} onOpenChange={setBuscarCronoOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Buscar modelo de cronograma</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {cronoLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando cronogramas...
+              </div>
+            ) : cronoModelos.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">Nenhuma empresa com cronograma de PCMSO encontrado.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {cronoModelos.map((m) => (
+                  <label key={m.id}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-md border cursor-pointer hover:bg-muted/50 ${cronoSelId === m.id ? "border-primary bg-muted/40" : "border-border"}`}
+                    onClick={() => setCronoSelId(m.id)}>
+                    <div>
+                      <p className="font-medium text-sm">{m.empresa_nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <Badge variant="secondary" className="mr-2">{m.itens.length} ação(ões)</Badge>
+                        {m.updated_at ? new Date(m.updated_at).toLocaleDateString("pt-BR") : ""}
+                      </p>
+                    </div>
+                    <Checkbox checked={cronoSelId === m.id} onCheckedChange={() => setCronoSelId(m.id)} />
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2 flex-wrap">
+              <Button variant="outline" onClick={() => setBuscarCronoOpen(false)}>Cancelar</Button>
+              <Button variant="outline" disabled={!cronoSelId} onClick={() => copiarCronogramaModelo("add")}>Adicionar ao atual</Button>
+              <Button disabled={!cronoSelId} onClick={() => copiarCronogramaModelo("replace")}>Substituir cronograma</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+
     </div>
   );
 }
@@ -813,7 +943,13 @@ function SetorDetail({
   const updateExame = (i: number, patch: Partial<PcmsoExame>) =>
     onChange({ exames: setor.exames.map((e, idx) => (idx === i ? { ...e, ...patch } : e)) });
   const removeExame = (i: number) => onChange({ exames: setor.exames.filter((_, idx) => idx !== i) });
-  const addExame = () => onChange({ exames: [...setor.exames, emptyExame()] });
+  const fimExamesRef = useRef<HTMLDivElement | null>(null);
+  const addExame = () => {
+    onChange({ exames: [...setor.exames, emptyExame()] });
+    // Mantém o usuário no fim da lista, pronto para o próximo cadastro
+    setTimeout(() => fimExamesRef.current?.scrollIntoView({ behavior: "smooth", block: "end" }), 60);
+  };
+
 
   return (
     <div>
@@ -855,7 +991,11 @@ function SetorDetail({
             ))}
           </div>
         )}
+        <div ref={fimExamesRef} className="pt-2">
+          <Button size="sm" variant="outline" onClick={addExame}><Plus className="w-4 h-4 mr-1" />Adicionar Exame</Button>
+        </div>
       </CardContent></Card>
+
     </div>
   );
 }
