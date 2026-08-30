@@ -15,10 +15,15 @@ import { toast } from "sonner";
 import {
   construirGrupos, medidasDosGrupos, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
-  INDICADORES_CAMPOS, type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
+  INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
+  indicadoresPreenchidos, interpretarIndicadores,
+  type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial } from "@/lib/psicoRelatorioPdf";
 import { MetodologiaModal, type MetodologiaInfo } from "@/components/psico/MetodologiaModal";
+import {
+  Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from "recharts";
 
 const NIVEL_BG: Record<NivelRisco, string> = {
   "Baixo": "bg-emerald-500",
