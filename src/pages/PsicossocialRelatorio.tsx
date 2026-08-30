@@ -1010,26 +1010,49 @@ export default function PsicossocialRelatorio() {
 
       {/* 12 - Responsáveis */}
       <Secao n="12" titulo="Responsáveis e registros">
-        <div className="grid gap-3 md:grid-cols-3">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="grid gap-1.5">
             <Label>Profissional responsável</Label>
-            <Input value={ident.responsavel_nome || ""} onChange={(e) => setIdent({ ...ident, responsavel_nome: e.target.value })} />
+            <Select value={ident.responsavel_id || ""} onValueChange={escolherResponsavel}>
+              <SelectTrigger><SelectValue placeholder="Selecionar do cadastro de Responsáveis" /></SelectTrigger>
+              <SelectContent>
+                {responsaveis.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.nome}{r.funcao ? ` — ${r.funcao}` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Input
+              value={ident.responsavel_nome || ""}
+              placeholder="Nome do profissional"
+              onChange={(e) => setIdent({ ...ident, responsavel_nome: e.target.value })}
+            />
           </div>
           <div className="grid gap-1.5">
             <Label>Registro profissional</Label>
-            <Input value={ident.responsavel_registro || ""} onChange={(e) => setIdent({ ...ident, responsavel_registro: e.target.value })} />
+            <Input
+              value={ident.responsavel_registro || ""}
+              placeholder="Preenchido automaticamente pelo cadastro"
+              onChange={(e) => setIdent({ ...ident, responsavel_registro: e.target.value })}
+            />
+            <p className="text-[11px] text-muted-foreground">
+              Função: {ident.responsavel_funcao || "—"}
+            </p>
           </div>
           <div className="grid gap-1.5">
             <Label>Aplicador da avaliação</Label>
-            <Input
-              list="lista-responsaveis"
-              value={registros.aplicador}
-              onChange={(e) => setRegistros({ ...registros, aplicador: e.target.value })}
-            />
-            <datalist id="lista-responsaveis">
-              {responsaveis.map((r) => <option key={r.id} value={r.nome} />)}
-            </datalist>
+            <Select value={registros.aplicador_id || ""} onValueChange={escolherAplicador}>
+              <SelectTrigger><SelectValue placeholder="Selecionar do cadastro de Responsáveis" /></SelectTrigger>
+              <SelectContent>
+                {responsaveis.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.nome}{r.funcao ? ` — ${r.funcao}` : ""}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[11px] text-muted-foreground">
+              {registros.aplicador ? `${registros.aplicador}${registros.aplicador_registro ? ` · ${registros.aplicador_registro}` : ""}` : "Nenhum aplicador selecionado"}
+            </p>
           </div>
+
           <div className="grid gap-1.5">
             <Label>Responsável da empresa</Label>
             <Input value={registros.responsavel_empresa} onChange={(e) => setRegistros({ ...registros, responsavel_empresa: e.target.value })} />
