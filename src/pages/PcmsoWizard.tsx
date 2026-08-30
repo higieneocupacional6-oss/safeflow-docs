@@ -8,7 +8,7 @@ import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import {
   ArrowLeft, ArrowRight, Loader2, Plus, Save, Trash2, ChevronRight,
-  ShieldCheck, GraduationCap, Users, Calendar as CalendarIcon, FileDown, Link2, FileCheck2,
+  ShieldCheck, GraduationCap, Users, Calendar as CalendarIcon, FileDown, Link2, FileCheck2, FolderOpen,
 } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
