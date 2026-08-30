@@ -11,7 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
-import { calcStatus, gerarNotificacoes } from "@/lib/notificacoes";
+import { calcStatus } from "@/lib/notificacoes";
 
 const statusBadge = (s: string | null) => {
   if (s === "vencido") return <Badge className="bg-red-100 text-red-700 border border-red-300">Vencido</Badge>;
@@ -55,8 +55,6 @@ export default function ControleDocumentos() {
     queryKey: ["ctrl-docs"],
     queryFn: async () => {
       const { data } = await supabase.from("documentos").select("*").order("created_at", { ascending: false });
-      // run async, fire-and-forget
-      gerarNotificacoes().catch(() => {});
       return data || [];
     },
   });
