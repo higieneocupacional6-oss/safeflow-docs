@@ -1,7 +1,5 @@
-import { Building2, FileText, LayoutTemplate, Database, Shield, Users, FolderTree, Bell } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Shield, Users, FolderTree, Brain } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 import {
   Sidebar,
   SidebarContent,
@@ -13,14 +11,13 @@ import {
   SidebarHeader,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 const menuItems = [
   { title: "Empresas", url: "/empresas", icon: Building2 },
   { title: "Setores e Funções", url: "/setores-funcoes", icon: Users },
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Controle de Documentos", url: "/documentos/controle", icon: FolderTree },
-  { title: "Notificações", url: "/notificacoes", icon: Bell, badgeKey: "notif" as const },
+  { title: "Psicossocial", url: "/psicossocial", icon: Brain },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },
   
@@ -29,16 +26,6 @@ const menuItems = [
 export function AppSidebar() {
   const { state } = useSidebar();
   const collapsed = state === "collapsed";
-
-  useRealtimeSync([{ table: "notificacoes", queryKey: ["notif-count"] }], "sidebar-notif-sync");
-
-  const { data: notifCount = 0 } = useQuery({
-    queryKey: ["notif-count"],
-    queryFn: async () => {
-      const { count } = await supabase.from("notificacoes").select("*", { count: "exact", head: true }).eq("lida", false);
-      return count || 0;
-    },
-  });
 
   return (
     <Sidebar collapsible="icon">
@@ -70,14 +57,7 @@ export function AppSidebar() {
                     >
                       <item.icon className="mr-3 h-4 w-4 shrink-0" />
                       {!collapsed && (
-                        <span className="flex-1 flex items-center justify-between">
-                          {item.title}
-                          {item.badgeKey === "notif" && notifCount > 0 && (
-                            <span className="ml-2 inline-flex items-center justify-center text-[10px] font-semibold min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white">
-                              {notifCount > 99 ? "99+" : notifCount}
-                            </span>
-                          )}
-                        </span>
+                        <span className="flex-1">{item.title}</span>
                       )}
                     </NavLink>
                   </SidebarMenuButton>
