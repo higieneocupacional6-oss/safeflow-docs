@@ -50,9 +50,16 @@ function Secao({ n, titulo, children, acao }: any) {
 
 export default function PsicossocialRelatorio() {
   const { empresaId, contratoId, avaliacaoId } = useParams();
+  const location = useLocation();
+  const usarIa = Boolean((location.state as any)?.usarIa);
   const [salvando, setSalvando] = useState(false);
   const [metOpen, setMetOpen] = useState(false);
   const [pronto, setPronto] = useState(false);
+  const [iaRodando, setIaRodando] = useState(false);
+  const [lacunasIa, setLacunasIa] = useState<string[]>([]);
+  const iaFeitaRef = useRef(false);
+  const abrirMetRef = useRef(false);
+
 
   // ---------- Dados ----------
   const { data: avaliacao } = useQuery({
