@@ -85,6 +85,14 @@ export default function PcmsoWizard() {
   const [askTrein, setAskTrein] = useState(false);
   const [vincularExamesIdx, setVincularExamesIdx] = useState<number | null>(null);
   const [vincularOrigemIdx, setVincularOrigemIdx] = useState<string>("");
+  const [examesSelecionados, setExamesSelecionados] = useState<number[]>([]);
+
+  // Buscar modelo de cronograma de outras empresas
+  const [buscarCronoOpen, setBuscarCronoOpen] = useState(false);
+  const [cronoModelos, setCronoModelos] = useState<{ id: string; empresa_nome: string; itens: PcmsoCronoItem[]; updated_at: string }[]>([]);
+  const [cronoLoading, setCronoLoading] = useState(false);
+  const [cronoSelId, setCronoSelId] = useState<string>("");
+
 
   // Gerar Documento
   const [selectedTemplate, setSelectedTemplate] = useState<string>("");
