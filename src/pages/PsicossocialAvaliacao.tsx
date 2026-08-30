@@ -478,6 +478,14 @@ Seu trabalho exige prazos muito curtos?
         contratoId={contratoId!}
         onCadastrado={() => { setNaoVinculadas([]); gerarRelatorio(); }}
       />
+
+      <IaEscolhaModal
+        open={iaEscolhaOpen}
+        onOpenChange={setIaEscolhaOpen}
+        onEscolher={irParaRelatorio}
+      />
+
+      <IaBaseTecnicaModal open={baseIaOpen} onOpenChange={setBaseIaOpen} />
     </div>
 
   );
