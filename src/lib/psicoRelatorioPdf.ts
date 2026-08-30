@@ -151,9 +151,9 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     autoTable(doc, {
       margin: { left: M, right: M, top: TOPO, bottom: 58 },
       theme: "grid",
-    rowPageBreak: "avoid",
       tableWidth: CONT,
-      rowPageBreak: "auto",
+      rowPageBreak: "avoid",
+
       styles: { fontSize: 7.5, cellPadding: 3.5, overflow: "linebreak", valign: "top", lineWidth: 0.3 },
       headStyles: { fillColor: AZUL, textColor: 255, fontSize: 7.5, halign: "left" },
       ...opts,
