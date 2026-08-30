@@ -216,12 +216,7 @@ export default function PsicossocialRelatorio() {
         }),
     );
 
-    const gs = (s.grupos as GrupoRelatorio[] | undefined)?.length
-      ? gruposBase.map((g) => {
-          const old = (s.grupos as GrupoRelatorio[]).find((x) => x.id === g.id);
-          return old ? { ...g, ...old, fatores: old.fatores?.length ? old.fatores : g.fatores } : g;
-        })
-      : gruposBase;
+    const gs = gsBase;
     setGrupos(gs);
 
     const baseMed = medidasDosGrupos(gs);
