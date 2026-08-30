@@ -465,24 +465,32 @@ export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
   for (const g of grupos) {
     for (const f of g.fatores) {
       const meta = META[f.key];
-      const prioridade = f.nivel === "Crítico" ? "Imediata" : f.nivel === "Alto" ? "Alta" : f.nivel === "Médio" ? "Média" : "Baixa";
-      const prazo = f.nivel === "Crítico" ? "30 dias" : f.nivel === "Alto" ? "60 dias" : f.nivel === "Médio" ? "90 dias" : "180 dias";
+      const manutencao = !f.sustentado || f.nivel === "Baixo";
+      const prioridade = manutencao
+        ? "Manutenção"
+        : f.nivel === "Crítico" ? "Imediata" : f.nivel === "Alto" ? "Alta" : "Média";
+      const prazo = manutencao
+        ? "Acompanhamento contínuo — reavaliação em até 12 meses"
+        : f.nivel === "Crítico" ? "30 dias" : f.nivel === "Alto" ? "60 dias" : "90 dias";
       out.push({
         key: `${g.id}::${f.key}`,
         grupo: `${g.setor} — ${g.ghe}`,
         risco: f.fator,
-        medida: meta.medida,
-        tipo: meta.tipoControle,
+        medida: manutencao
+          ? (MANUTENCAO[f.key] || "Manter as medidas organizacionais existentes e realizar acompanhamento periódico das condições de trabalho, visando preservar os resultados favoráveis identificados na avaliação.")
+          : meta.medida,
+        tipo: manutencao ? "Manutenção/monitoramento" : meta.tipoControle,
         responsavel: "",
         prazo,
         prioridade,
-        status: "Pendente",
+        status: manutencao ? "Em acompanhamento" : "Pendente",
         evidencia: "",
       });
     }
   }
   return out;
 }
+
 
 export function resumoPorGrupo(g: GrupoRelatorio) {
   const cont: Record<NivelRisco, number> = { Baixo: 0, "Médio": 0, Alto: 0, "Crítico": 0 };
