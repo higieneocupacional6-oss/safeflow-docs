@@ -884,6 +884,48 @@ export default function PcmsoWizard() {
         </DialogContent>
       </Dialog>
 
+      {/* Buscar modelo de cronograma */}
+      <Dialog open={buscarCronoOpen} onOpenChange={setBuscarCronoOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Buscar modelo de cronograma</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            {cronoLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground py-6 justify-center">
+                <Loader2 className="w-4 h-4 animate-spin" /> Carregando cronogramas...
+              </div>
+            ) : cronoModelos.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-4">Nenhuma empresa com cronograma de PCMSO encontrado.</p>
+            ) : (
+              <div className="space-y-2 max-h-80 overflow-y-auto">
+                {cronoModelos.map((m) => (
+                  <label key={m.id}
+                    className={`flex items-center justify-between gap-3 p-3 rounded-md border cursor-pointer hover:bg-muted/50 ${cronoSelId === m.id ? "border-primary bg-muted/40" : "border-border"}`}
+                    onClick={() => setCronoSelId(m.id)}>
+                    <div>
+                      <p className="font-medium text-sm">{m.empresa_nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        <Badge variant="secondary" className="mr-2">{m.itens.length} ação(ões)</Badge>
+                        {m.updated_at ? new Date(m.updated_at).toLocaleDateString("pt-BR") : ""}
+                      </p>
+                    </div>
+                    <Checkbox checked={cronoSelId === m.id} onCheckedChange={() => setCronoSelId(m.id)} />
+                  </label>
+                ))}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2 flex-wrap">
+              <Button variant="outline" onClick={() => setBuscarCronoOpen(false)}>Cancelar</Button>
+              <Button variant="outline" disabled={!cronoSelId} onClick={() => copiarCronogramaModelo("add")}>Adicionar ao atual</Button>
+              <Button disabled={!cronoSelId} onClick={() => copiarCronogramaModelo("replace")}>Substituir cronograma</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+
+
     </div>
   );
 }
