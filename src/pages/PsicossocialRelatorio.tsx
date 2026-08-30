@@ -389,7 +389,7 @@ export default function PsicossocialRelatorio() {
         empresa, contrato, identificacao: ident, metodologia, grupos, medidas,
         conclusao, indicadores, historico, registros,
         interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-        introPlanoAcao: planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+        introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
         titulo: avaliacao?.titulo || "Avaliação Psicossocial",
       });
     } catch (e: any) {
