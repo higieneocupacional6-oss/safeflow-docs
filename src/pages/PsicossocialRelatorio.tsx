@@ -766,9 +766,9 @@ export default function PsicossocialRelatorio() {
                   <Input value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-xs">Status</Label>
-                  <Select value={m.status} onValueChange={(v) => setMedida(m.key, { status: v })}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Label className="text-xs">Status (preenchimento posterior)</Label>
+                  <Select value={m.status || undefined} onValueChange={(v) => setMedida(m.key, { status: v })}>
+                    <SelectTrigger><SelectValue placeholder="A preencher" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Pendente">Pendente</SelectItem>
                       <SelectItem value="Em andamento">Em andamento</SelectItem>
@@ -776,10 +776,6 @@ export default function PsicossocialRelatorio() {
                       <SelectItem value="Concluída">Concluída</SelectItem>
                     </SelectContent>
                   </Select>
-                </div>
-                <div className="grid gap-1.5">
-                  <Label className="text-xs">Evidência</Label>
-                  <Input value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} />
                 </div>
               </div>
             </Card>
