@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useParams, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { ArrowLeft, Download, Loader2, Save, Settings2 } from "lucide-react";
+import { ArrowLeft, Download, Loader2, Save, Settings2, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import {
   construirGrupos, medidasDosGrupos, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial } from "@/lib/psicoRelatorioPdf";
 import { MetodologiaModal, type MetodologiaInfo } from "@/components/psico/MetodologiaModal";
+import { montarContexto, gerarTextosIa } from "@/lib/psicoIa";
 import {
   Bar, BarChart, CartesianGrid, Cell, LabelList, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts";
