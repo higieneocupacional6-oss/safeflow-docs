@@ -177,7 +177,7 @@ export type ParseResult = {
  *     (mesma linha ao final, próxima linha, ou próximas ignorando vazias),
  *     interrompendo se encontrar nova pergunta reconhecível.
  */
-function parseTexto(texto: string, funcaoPadrao?: string): ParseResult {
+export function parseTexto(texto: string, funcaoPadrao?: string): ParseResult {
   // Limpeza inicial: remove tabs, normaliza CRLF, remove BOM
   const bruto = String(texto || "").replace(/\uFEFF/g, "").replace(/\t+/g, " ");
   const linhasBrutas = bruto.split(/\r?\n/).map((l) => l.replace(/\s+$/g, ""));

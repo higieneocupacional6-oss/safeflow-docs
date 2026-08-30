@@ -1,12 +1,9 @@
-import { Building2, FileText, LayoutTemplate, Database, Users, Menu, X, LogOut, UserCircle2, ShieldCheck, FolderTree, Bell } from "lucide-react";
+import { Building2, FileText, LayoutTemplate, Database, Users, Menu, X, LogOut, UserCircle2, ShieldCheck, FolderTree, Brain } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/useAuth";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import safedocLogo from "@/assets/safedoc-logo.png";
 
 const baseMenu = [
@@ -14,7 +11,7 @@ const baseMenu = [
   { title: "Setores e Funções", url: "/setores-funcoes", icon: Users },
   { title: "Documentos", url: "/documentos", icon: FileText },
   { title: "Controle de Docs", url: "/documentos/controle", icon: FolderTree },
-  { title: "Notificações", url: "/notificacoes", icon: Bell, badgeKey: "notif" as const },
+  { title: "Psicossocial", url: "/psicossocial", icon: Brain },
   { title: "Templates", url: "/templates", icon: LayoutTemplate },
   { title: "Cadastros", url: "/cadastros", icon: Database },
 ];
@@ -24,15 +21,6 @@ export function TopNav() {
   const [profileOpen, setProfileOpen] = useState(false);
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
-
-  useRealtimeSync([{ table: "notificacoes", queryKey: ["notif-count"] }], "topnav-notif-sync");
-  const { data: notifCount = 0 } = useQuery({
-    queryKey: ["notif-count"],
-    queryFn: async () => {
-      const { count } = await supabase.from("notificacoes").select("*", { count: "exact", head: true }).eq("lida", false);
-      return count || 0;
-    },
-  });
 
   const menuItems = isAdmin
     ? [...baseMenu, { title: "Usuários", url: "/usuarios", icon: ShieldCheck }]
@@ -65,11 +53,6 @@ export function TopNav() {
                 activeClassName="!text-primary !bg-primary/10">
                 <item.icon className="h-4 w-4 shrink-0" />
                 <span>{item.title}</span>
-                {item.badgeKey === "notif" && notifCount > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center text-[10px] font-semibold min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white">
-                    {notifCount > 99 ? "99+" : notifCount}
-                  </span>
-                )}
               </NavLink>
             ))}
           </nav>
