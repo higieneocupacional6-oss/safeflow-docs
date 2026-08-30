@@ -557,79 +557,131 @@ export default function PsicossocialRelatorio() {
       </Secao>
 
       {/* 4 - Fatores */}
-      <Secao n="4" titulo="Fatores de risco psicossocial investigados">
+      <Secao
+        n="4"
+        titulo="Fatores de risco psicossocial investigados"
+        acao={
+          <div className="flex gap-2">
+            <Button variant="outline" size="sm" onClick={() => setFatoresAbertos(gruposComFatores.map((g) => g.id))}>
+              <ChevronsUpDown className="w-4 h-4 mr-1.5" />Expandir todos
+            </Button>
+            <Button variant="outline" size="sm" onClick={() => setFatoresAbertos([])}>
+              <ChevronsDownUp className="w-4 h-4 mr-1.5" />Recolher todos
+            </Button>
+          </div>
+        }
+      >
         <p className="text-sm text-muted-foreground leading-relaxed">
           Todas as dimensões investigadas no questionário são apresentadas, independentemente do
           resultado. Quando não há evidências suficientes de agravamento, o fator permanece registrado
           como investigado e classificado em nível Baixo ou como não identificado.
         </p>
-        {grupos.filter((g) => g.fatores.length).map((g) => (
-          <div key={g.id} className="space-y-4">
-            <h3 className="font-semibold text-sm border-l-4 border-primary pl-3">{g.setor} — {g.ghe}</h3>
-            <div className="space-y-4">
-              {g.fatores.map((f) => (
-                <Card key={f.key} className="p-5 space-y-4 bg-muted/20">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h4 className="font-semibold text-sm">{f.fator}</h4>
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge>
-                      <Badge variant="outline">
-                        {f.sustentado === false ? "Não identificado" : "Fator caracterizado"}
+
+        <Accordion type="multiple" value={fatoresAbertos} onValueChange={setFatoresAbertos} className="space-y-3">
+          {gruposComFatores.map((g) => {
+            const r = resumoPorGrupo(g);
+            return (
+              <AccordionItem
+                key={g.id}
+                value={g.id}
+                className="border rounded-xl bg-card overflow-hidden data-[state=open]:border-primary/40"
+              >
+                <AccordionTrigger className="px-4 py-3 hover:no-underline hover:bg-muted/50">
+                  <div className="flex-1 text-left space-y-2 pr-3">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge className="bg-primary">{g.setor}</Badge>
+                      <Badge variant="outline">GHE/GES: {g.ghe}</Badge>
+                      <Badge variant="outline" className="font-normal">
+                        {g.trabalhadores || 0} trabalhador(es)
                       </Badge>
                     </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2">
+                      {g.funcoes.join(", ") || "Funções não informadas"}
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      <Chip label="Investigados" valor={r.investigados} className="bg-muted text-foreground" />
+                      <Chip label="Baixos" valor={r.cont.Baixo} className="bg-emerald-500/15 text-emerald-700" />
+                      <Chip label="Não identificados" valor={r.naoIdentificado} className="bg-muted text-muted-foreground" />
+                      <Chip label="Médios" valor={r.cont["Médio"]} className="bg-yellow-500/20 text-yellow-800" />
+                      <Chip label="Altos" valor={r.cont.Alto} className="bg-orange-500/20 text-orange-800" />
+                      <Chip label="Críticos" valor={r.cont["Crítico"]} className="bg-red-500/15 text-red-700" />
+                    </div>
                   </div>
+                  <span className="text-xs font-medium text-primary shrink-0 mr-2 hidden sm:inline">Ver avaliação</span>
+                </AccordionTrigger>
 
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Descrição</Label>
-                      <Textarea value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Fonte / Causa</Label>
-                      <Textarea value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Situação de exposição</Label>
-                      <Textarea value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Interpretação técnica</Label>
-                      <Textarea value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Consequências potenciais</Label>
-                      <Textarea value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Controles existentes</Label>
-                      <Textarea value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} />
-                    </div>
-                  </div>
+                <AccordionContent className="px-4 pb-4 pt-1">
+                  <div className="space-y-4">
+                    {g.fatores.map((f) => (
+                      <Card key={f.key} className="p-5 space-y-4 bg-muted/20">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <h4 className="font-semibold text-sm">{f.fator}</h4>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge>
+                            <Badge variant="outline">
+                              {f.sustentado === false ? "Não identificado" : "Fator caracterizado"}
+                            </Badge>
+                          </div>
+                        </div>
 
-                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Trabalhadores expostos</Label>
-                      <Input type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Frequência</Label>
-                      <Input value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Probabilidade (1-4)</Label>
-                      <Input type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-xs">Severidade (1-4)</Label>
-                      <Input type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
-                    </div>
+                        <div className="grid gap-4 lg:grid-cols-2">
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Descrição</Label>
+                            <Textarea value={f.descricao} onChange={(e) => setFator(g.id, f.key, { descricao: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Fonte / Causa</Label>
+                            <Textarea value={f.fonte} onChange={(e) => setFator(g.id, f.key, { fonte: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Situação de exposição</Label>
+                            <Textarea value={f.situacao} onChange={(e) => setFator(g.id, f.key, { situacao: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Interpretação técnica</Label>
+                            <Textarea value={f.interpretacao || ""} onChange={(e) => setFator(g.id, f.key, { interpretacao: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Consequências potenciais</Label>
+                            <Textarea value={f.consequencias} onChange={(e) => setFator(g.id, f.key, { consequencias: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Controles existentes</Label>
+                            <Textarea value={f.controles} onChange={(e) => setFator(g.id, f.key, { controles: e.target.value })} />
+                          </div>
+                        </div>
+
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Trabalhadores expostos</Label>
+                            <Input type="number" value={f.expostos} onChange={(e) => setFator(g.id, f.key, { expostos: Number(e.target.value) })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Frequência</Label>
+                            <Input value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Probabilidade (1-4)</Label>
+                            <Input type="number" min={1} max={4} value={f.probabilidade} onChange={(e) => setFator(g.id, f.key, { probabilidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                          </div>
+                          <div className="grid gap-1.5">
+                            <Label className="text-xs">Severidade (1-4)</Label>
+                            <Input type="number" min={1} max={4} value={f.severidade} onChange={(e) => setFator(g.id, f.key, { severidade: Math.min(4, Math.max(1, Number(e.target.value))) })} />
+                          </div>
+                        </div>
+                      </Card>
+                    ))}
                   </div>
-                </Card>
-              ))}
-            </div>
-          </div>
-        ))}
+                </AccordionContent>
+              </AccordionItem>
+            );
+          })}
+        </Accordion>
+        {!gruposComFatores.length && (
+          <p className="text-sm text-muted-foreground">Nenhum setor/GHE com fatores investigados.</p>
+        )}
       </Secao>
+
 
 
       {/* 5 - Resultado */}
