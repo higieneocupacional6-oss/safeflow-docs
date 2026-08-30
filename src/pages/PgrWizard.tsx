@@ -1227,7 +1227,7 @@ export default function PgrWizard() {
               </p>
               <div>
                 <Label>Selecionar setor origem</Label>
-                <Select value={linkOrigemId} onValueChange={(v) => { setLinkOrigemId(v); setLinkConfirm(null); }}>
+                <Select value={linkOrigemId} onValueChange={(v) => { setLinkOrigemId(v); setLinkConfirm(null); setLinkSelecionados([]); }}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Escolha o setor" /></SelectTrigger>
                   <SelectContent>
                     {(setores as any[])
@@ -1240,19 +1240,42 @@ export default function PgrWizard() {
                 </Select>
               </div>
               {linkOrigemId && (
-                <div className="rounded-md border border-amber-300/50 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
-                  ⚠️ Deseja copiar todos os riscos deste setor? Os riscos atuais do setor destino poderão ser mantidos ou substituídos.
-                </div>
+                linkOrigemRiscos.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">Este setor não possui riscos cadastrados.</p>
+                ) : (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Selecione os riscos que deseja copiar</Label>
+                      <Button variant="ghost" size="sm" onClick={() =>
+                        setLinkSelecionados(sel => sel.length === linkOrigemRiscos.length ? [] : linkOrigemRiscos.map(r => r.id))}>
+                        {linkSelecionados.length === linkOrigemRiscos.length ? "Limpar seleção" : "Selecionar todos"}
+                      </Button>
+                    </div>
+                    <div className="max-h-64 overflow-y-auto rounded-md border border-border divide-y">
+                      {linkOrigemRiscos.map(r => (
+                        <label key={r.id} className="flex items-start gap-2 p-2 cursor-pointer hover:bg-muted/50">
+                          <Checkbox checked={linkSelecionados.includes(r.id)} onCheckedChange={() => toggleLinkRisco(r.id)} />
+                          <span className="text-sm leading-tight">
+                            {r.agente_nome || "(Sem nome)"}
+                            {r.tipo_agente && <span className="block text-xs text-muted-foreground">{r.tipo_agente}</span>}
+                          </span>
+                        </label>
+                      ))}
+                    </div>
+                    <p className="text-xs text-muted-foreground">{linkSelecionados.length} risco(s) selecionado(s).</p>
+                  </div>
+                )
               )}
             </div>
             <DialogFooter className="gap-2 flex-wrap">
               <Button variant="outline" onClick={() => setLinkModal(null)} disabled={linking}>Cancelar</Button>
-              <Button variant="outline" onClick={() => aplicarVinculacao("add")} disabled={!linkOrigemId || linking}>
+              <Button variant="outline" onClick={() => aplicarVinculacao("add")} disabled={!linkOrigemId || linkSelecionados.length === 0 || linking}>
                 {linking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Adicionar aos existentes
               </Button>
-              <Button onClick={() => aplicarVinculacao("replace")} disabled={!linkOrigemId || linking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              <Button onClick={() => aplicarVinculacao("replace")} disabled={!linkOrigemId || linkSelecionados.length === 0 || linking} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 {linking && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}Substituir existentes
               </Button>
+
             </DialogFooter>
           </DialogContent>
         </Dialog>
