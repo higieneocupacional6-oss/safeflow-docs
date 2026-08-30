@@ -31,6 +31,7 @@ const labelEscala = (v: number) =>
 export default function PsicossocialAvaliacao() {
   const { empresaId, contratoId, avaliacaoId } = useParams();
   const qc = useQueryClient();
+  const navigate = useNavigate();
 
   const [texto, setTexto] = useState("");
   const [funcaoManual, setFuncaoManual] = useState("");
@@ -38,6 +39,11 @@ export default function PsicossocialAvaliacao() {
   const [linkOpen, setLinkOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
   const [detalhe, setDetalhe] = useState<any | null>(null);
+  const [naoVinculadas, setNaoVinculadas] = useState<string[]>([]);
+  const [avisoOpen, setAvisoOpen] = useState(false);
+  const [verificando, setVerificando] = useState(false);
+  const [indicadores, setIndicadores] = useState<Record<string, string>>({});
+  const [salvandoInd, setSalvandoInd] = useState(false);
 
   useRealtimeSync(
     [{ table: "psico_respostas", queryKey: ["psico-av-resp", avaliacaoId] }],
