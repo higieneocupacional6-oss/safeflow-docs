@@ -807,23 +807,23 @@ export default function PsicossocialRelatorio() {
         </p>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px] border">
+          <table className="w-full text-sm border">
             <thead className="bg-muted">
-              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map((h) => <th key={h} className="border p-1.5 text-left">{h}</th>)}</tr>
+              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Evidência"].map((h) => <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>)}</tr>
             </thead>
             <tbody>
               {medidas.map((m) => (
                 <tr key={m.key} className="align-top">
-                  <td className="border p-1">{m.grupo} — {m.risco}</td>
-                  <td className="border p-1"><Textarea className="text-[11px] min-h-14" value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.status} onChange={(e) => setMedida(m.key, { status: e.target.value })} /></td>
-                  <td className="border p-1"><Input className="h-8 text-[11px]" value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} /></td>
+                  <td className="border p-2.5 min-w-[180px]">{m.grupo} — {m.risco}</td>
+                  <td className="border p-2 min-w-[320px]"><Textarea value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[140px]"><Input value={m.responsavel} onChange={(e) => setMedida(m.key, { responsavel: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[130px]"><Input value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[120px]"><Input value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[130px]"><Input value={m.status} onChange={(e) => setMedida(m.key, { status: e.target.value })} /></td>
+                  <td className="border p-2 min-w-[140px]"><Input value={m.evidencia} onChange={(e) => setMedida(m.key, { evidencia: e.target.value })} /></td>
                 </tr>
               ))}
-              {!medidas.length && <tr><td colSpan={7} className="p-3 text-center text-muted-foreground">—</td></tr>}
+              {!medidas.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">—</td></tr>}
             </tbody>
           </table>
         </div>
