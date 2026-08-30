@@ -450,6 +450,26 @@ export default function PsicossocialRelatorio() {
         description="NR-01 · NR-17 — todos os textos gerados são editáveis antes da emissão do PDF."
       />
 
+      {iaRodando && (
+        <Card className="p-4 flex items-center gap-3 border-primary/40 bg-primary/5">
+          <Loader2 className="w-4 h-4 animate-spin text-primary" />
+          <p className="text-sm">
+            A IA está analisando os dados da empresa, dos setores/GHE, das funções, das avaliações e a
+            base técnica cadastrada para elaborar os textos do relatório…
+          </p>
+        </Card>
+      )}
+
+      {!!lacunasIa.length && (
+        <Card className="p-5 space-y-2 border-amber-500/50 bg-amber-500/5">
+          <p className="text-sm font-semibold">Informações não disponíveis identificadas pela IA</p>
+          <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+            {lacunasIa.map((l, i) => <li key={i}>{l}</li>)}
+          </ul>
+        </Card>
+      )}
+
+
       {/* 1 - Identificação */}
       <Secao n="1" titulo="Identificação da empresa">
         <div className="grid gap-3 md:grid-cols-3">
