@@ -33,10 +33,14 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
+      refetchOnMount: "always",
       staleTime: 0,
+      gcTime: 60_000,
+      retry: 1,
     },
   },
 });
+
 
 const Protected = ({ children, admin }: { children: React.ReactNode; admin?: boolean }) => (
   <ProtectedRoute requireAdmin={admin}><AppLayout>{children}</AppLayout></ProtectedRoute>
