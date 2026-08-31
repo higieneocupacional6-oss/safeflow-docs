@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { GlobalRealtimeSync } from "@/hooks/useGlobalRealtime";
+
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Empresas from "./pages/Empresas";
