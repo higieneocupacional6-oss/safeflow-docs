@@ -6,6 +6,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { GlobalRealtimeSync } from "@/hooks/useGlobalRealtime";
+
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Empresas from "./pages/Empresas";
@@ -33,10 +35,14 @@ const queryClient = new QueryClient({
     queries: {
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
+      refetchOnMount: "always",
       staleTime: 0,
+      gcTime: 60_000,
+      retry: 1,
     },
   },
 });
+
 
 const Protected = ({ children, admin }: { children: React.ReactNode; admin?: boolean }) => (
   <ProtectedRoute requireAdmin={admin}><AppLayout>{children}</AppLayout></ProtectedRoute>
@@ -49,7 +55,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <GlobalRealtimeSync />
           <Routes>
+
             <Route path="/login" element={<Login />} />
             <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
