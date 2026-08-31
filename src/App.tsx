@@ -55,7 +55,9 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <AuthProvider>
+          <GlobalRealtimeSync />
           <Routes>
+
             <Route path="/login" element={<Login />} />
             <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
