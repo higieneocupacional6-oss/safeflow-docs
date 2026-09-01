@@ -2820,11 +2820,9 @@ export default function AetWizard() {
                     ))}
                   </div>
 
-                  {algumSalvo && (
-                    <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar mais
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar avaliação
+                  </Button>
                 </div>
               );
             })}
