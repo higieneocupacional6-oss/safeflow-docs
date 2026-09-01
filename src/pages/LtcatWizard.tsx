@@ -3675,6 +3675,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, hasUnsavedChanges, savingDraft]);
 
+  // 🔁 Autosave por alteração (debounce 3s): grava no banco assim que o usuário
+  // para de digitar/selecionar, sem depender do botão "Salvar".
+  useEffect(() => {
+    if (!empresaId || !hasUnsavedChanges || savingDraft) return;
+    if (isEditMode && !docLoaded) return;
+    const t = setTimeout(() => { handleSaveDraft(true); }, 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded]);
+
+
   // 💾 Salva imediatamente ao sair da aba/rota para evitar perda de dados.
   // Usa um ref para sempre chamar a versão mais recente de handleSaveDraft.
   const saveDraftRef = useRef(handleSaveDraft);
