@@ -3569,31 +3569,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     silent = false,
     overrides: Record<string, any> = {},
     force = false,
-  ) => {
+  ): Promise<boolean> => {
     const snapshot = buildDraftSnapshot(overrides);
     const fingerprint = JSON.stringify(snapshot);
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
-      return;
+      return false;
     }
 
     if (!force && fingerprint === lastSavedFingerprintRef.current) {
       if (!silent) toast.info("Nenhuma alteração para salvar");
-      return;
+      return true; // já persistido no banco
     }
 
-    // 🔒 Mutex: bloqueia saves concorrentes para impedir duplicação de subdados
+    // 🔒 Mutex: se já há um save em andamento, aguarda a fila terminar em vez de
+    // ignorar a chamada (ignorar silenciosamente causava perda de dados).
     if (isPersistingRef.current) {
-      console.warn("[handleSaveDraft] Save em andamento — chamada concorrente ignorada");
-      return;
+      try { await persistQueueRef.current; } catch {}
+      if (isPersistingRef.current) {
+        console.warn("[handleSaveDraft] Save concorrente ainda em andamento");
+        return false;
+      }
     }
     isPersistingRef.current = true;
     // Suprime re-hidratações realtime/foco até ~5s após o save terminar,
     // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
     suppressReloadUntilRef.current = Date.now() + 60_000;
     setSavingDraft(true);
+    setSaveState("saving");
+    setSaveError("");
     try {
+
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
