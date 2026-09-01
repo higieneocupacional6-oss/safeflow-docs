@@ -3313,7 +3313,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_coleta: (r as any).tempo_coleta || null,
               unidade_tempo_coleta: (r as any).unidade_tempo_coleta || null,
             }).select("id").single();
-          if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
+          if (avErr || !avRow) {
+            console.error("[persistAvaliacoes] falha ao inserir avaliação:", avErr);
+            throw new Error("Falha ao gravar avaliação no banco: " + (avErr?.message || "erro desconhecido"));
+          }
+
           const avId = avRow.id;
 
           // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
