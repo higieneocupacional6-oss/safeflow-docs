@@ -1024,7 +1024,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
+  // Estado REAL da persistência no banco (não apenas da interface)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string>("");
   const lastSavedFingerprintRef = useRef("");
+
 
   const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
     empresaId: overrides.empresaId ?? empresaId,
