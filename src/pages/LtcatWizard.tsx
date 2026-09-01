@@ -3255,10 +3255,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         console.warn(
           `🛡️ [persistAvaliacoes] ABORTADO por proteção anti-truncamento: banco=${totalExistentes}, estado=${totalARecriar}.`,
         );
-        toast.error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
         // Força re-hidratação para recuperar o estado correto
         setReloadTick(t => t + 1);
-        return;
+        throw new Error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
+
       }
 
       if (existentes && existentes.length > 0) {
