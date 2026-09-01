@@ -395,6 +395,19 @@ export default function PgrWizard() {
     return next;
   };
 
+  /** Indicador do estado REAL de gravação no banco. */
+  const SaveIndicator = () => (
+    saveState === "saving" ? (
+      <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Salvando...</span>
+    ) : saveState === "error" ? (
+      <span className="text-xs text-destructive">Erro ao salvar</span>
+    ) : saveState === "saved" ? (
+      <span className="text-xs text-muted-foreground">Salvo</span>
+    ) : null
+  );
+
+
+
 
   const handleSalvar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
