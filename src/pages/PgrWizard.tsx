@@ -1542,7 +1542,9 @@ export default function PgrWizard() {
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <SaveIndicator />
+
             <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
             </Button>
