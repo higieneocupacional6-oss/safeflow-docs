@@ -2766,7 +2766,6 @@ export default function AetWizard() {
                 return map;
               }, new Map<string, { setor_id: string; setor_nome: string; ges: string; items: { idx: number; data: SetorAet }[] }>()).values()
             ).map((g) => {
-              const algumSalvo = g.items.some((it) => it.data._salvo);
               return (
                 <div key={g.setor_id} className="border rounded-lg p-4 border-border">
                   <div className="flex items-start justify-between mb-2">
