@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -83,7 +83,9 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
       toast.error("Já existe um agente com este nome e tipo.");
       return;
     }
+    savingRef.current = true;
     setSaving(true);
+
     const payload = {
       nome: nome.trim(),
       tipo,
@@ -107,7 +109,13 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
       error = err;
     }
     setSaving(false);
-    if (error) { toast.error("Erro ao salvar risco."); return; }
+    savingRef.current = false;
+    if (error) {
+      console.error("[RiscoModal] erro ao salvar", error);
+      toast.error("Não foi possível salvar o risco. Seus dados foram mantidos nesta tela. Tente novamente." + (error.message ? ` (${error.message})` : ""));
+      return;
+    }
+
     toast.success(editingId ? "Risco atualizado com sucesso!" : "Risco cadastrado com sucesso!");
     reset();
     onOpenChange(false);
