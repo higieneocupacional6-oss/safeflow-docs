@@ -4551,23 +4551,35 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Salvar
               </Button>
-              {lastSavedAt && (
+              {saveState === "saving" ? (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+                </span>
+              ) : saveState === "error" ? (
+                <span className="text-xs text-destructive" title={saveError}>Erro ao salvar</span>
+              ) : lastSavedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {lastSaveMode === "auto" ? "Salvo automaticamente" : "Salvo"} • Última atualização: {lastSavedAt}
                 </span>
-              )}
+              ) : null}
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
-                    // Auto-save ao avançar (somente se já carregou os dados em modo edição)
-                    if (empresaId && (!isEditMode || docLoaded)) {
-                      await handleSaveDraft(true);
+                    // 🔒 Só avança APÓS confirmação de gravação no banco.
+                    if (empresaId) {
+                      if (isEditMode && !docLoaded) {
+                        toast.error("Aguarde o documento terminar de carregar antes de avançar.");
+                        return;
+                      }
+                      const ok = await handleSaveDraft(true);
+                      if (!ok) return;
                     }
                     setStep(step + 1);
                   }}
-                  disabled={!canAdvance()}
+                  disabled={!canAdvance() || savingDraft}
                   className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2"
                 >
+
                   Avançar<ArrowRight className="w-4 h-4" />
                 </Button>
               )}
