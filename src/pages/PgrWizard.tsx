@@ -117,6 +117,9 @@ export default function PgrWizard() {
   const navigate = useNavigate();
 
   const [docId, setDocId] = useState<string | null>(documentoId || null);
+  const docIdRef = useRef<string | null>(documentoId || null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
   const [step, setStep] = useState(0);
   const [empresaId, setEmpresaId] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
