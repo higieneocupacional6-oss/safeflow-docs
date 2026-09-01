@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users, FileDown, FileCheck2, Link2 } from "lucide-react";
 import Docxtemplater from "docxtemplater";
@@ -117,6 +117,9 @@ export default function PgrWizard() {
   const navigate = useNavigate();
 
   const [docId, setDocId] = useState<string | null>(documentoId || null);
+  const docIdRef = useRef<string | null>(documentoId || null);
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
   const [step, setStep] = useState(0);
   const [empresaId, setEmpresaId] = useState("");
   const [empresaNome, setEmpresaNome] = useState("");
@@ -355,25 +358,56 @@ export default function PgrWizard() {
     };
   };
 
-  const persist = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
+  // 🔒 Fila serial: impede que dois saves concorrentes (duplo clique / autosave)
+  // criem dois documentos ou sobrescrevam dados um do outro.
+  const persistQueueRef = useRef<Promise<string | null>>(Promise.resolve(null));
+
+  const persistInner = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
     setSaving(true);
+    setSaveState("saving");
     try {
-      if (docId) {
-        const { error } = await supabase.from("documentos").update(buildPayload(overrides)).eq("id", docId);
+      const currentId = docId || docIdRef.current;
+      if (currentId) {
+        const { error } = await supabase.from("documentos").update(buildPayload(overrides)).eq("id", currentId);
         if (error) throw error;
-        return docId;
+        setSaveState("saved");
+        return currentId;
       }
       const { data, error } = await supabase.from("documentos").insert(buildPayload(overrides)).select("id").single();
       if (error) throw error;
+      docIdRef.current = data.id;
       setDocId(data.id);
+      setSaveState("saved");
       return data.id;
     } catch (e: any) {
-      toast.error("Erro ao salvar: " + (e.message || ""));
+      console.error("[PGR persist]", e);
+      setSaveState("error");
+      toast.error("Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." + (e?.message ? ` (${e.message})` : ""));
       return null;
     } finally {
       setSaving(false);
     }
   };
+
+  const persist = (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
+    const next = persistQueueRef.current.catch(() => null).then(() => persistInner(overrides));
+    persistQueueRef.current = next.catch(() => null);
+    return next;
+  };
+
+  /** Indicador do estado REAL de gravação no banco. */
+  const SaveIndicator = () => (
+    saveState === "saving" ? (
+      <span className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Salvando...</span>
+    ) : saveState === "error" ? (
+      <span className="text-xs text-destructive">Erro ao salvar</span>
+    ) : saveState === "saved" ? (
+      <span className="text-xs text-muted-foreground">Salvo</span>
+    ) : null
+  );
+
+
+
 
   const handleSalvar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
@@ -742,14 +776,18 @@ export default function PgrWizard() {
           )}
         </Card>
 
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between items-center mt-6">
           <Button variant="outline" onClick={handleSalvar} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
           </Button>
-          <Button onClick={handleAvancar} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
-          </Button>
+          <div className="flex items-center gap-3">
+            <SaveIndicator />
+            <Button onClick={handleAvancar} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+            </Button>
+          </div>
         </div>
+
       </div>
     );
   }
@@ -1208,12 +1246,16 @@ export default function PgrWizard() {
           </div>
         )}
 
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between items-center mt-6">
           <Button variant="outline" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <Button onClick={() => goToStep(2)} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
-          </Button>
+          <div className="flex items-center gap-3">
+            <SaveIndicator />
+            <Button onClick={() => goToStep(2)} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+            </Button>
+          </div>
         </div>
+
 
         {/* Modal Vincular riscos */}
         <Dialog open={!!linkModal} onOpenChange={(o) => !o && setLinkModal(null)}>
@@ -1417,7 +1459,9 @@ export default function PgrWizard() {
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(1)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <SaveIndicator />
+
             <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
             </Button>
@@ -1498,7 +1542,9 @@ export default function PgrWizard() {
 
         <div className="flex justify-between mt-6">
           <Button variant="outline" onClick={() => goToStep(2)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
+            <SaveIndicator />
+
             <Button variant="outline" onClick={async () => { const id = await persist(); if (id) toast.success("Salvo"); }} disabled={saving}>
               {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
             </Button>

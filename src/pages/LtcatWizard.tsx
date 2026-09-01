@@ -1024,7 +1024,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
+  // Estado REAL da persistência no banco (não apenas da interface)
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveError, setSaveError] = useState<string>("");
   const lastSavedFingerprintRef = useRef("");
+
 
   const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
     empresaId: overrides.empresaId ?? empresaId,
@@ -3233,17 +3237,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           totalExistentes,
           "avaliações no banco, mas o estado local está vazio. Save bloqueado para evitar perda de dados.",
         );
-        toast.error(
+        throw new Error(
           "Salvamento bloqueado: os riscos ainda não foram carregados. Aguarde o documento carregar completamente antes de salvar.",
         );
-        return;
       }
 
       if (isEditMode && !docLoaded) {
         console.warn("🛡️ [persistAvaliacoes] ABORTADO: documento ainda não carregado (docLoaded=false).");
-        toast.error("Aguarde o documento terminar de carregar antes de salvar.");
-        return;
+        throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
       }
+
 
       // 🛡️ Guarda adicional contra truncamento: se o banco tem MUITO mais avaliações
       // que o estado local (>3 e <50% do total), significa que o estado foi resetado
@@ -3252,10 +3255,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         console.warn(
           `🛡️ [persistAvaliacoes] ABORTADO por proteção anti-truncamento: banco=${totalExistentes}, estado=${totalARecriar}.`,
         );
-        toast.error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
         // Força re-hidratação para recuperar o estado correto
         setReloadTick(t => t + 1);
-        return;
+        throw new Error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
+
       }
 
       if (existentes && existentes.length > 0) {
@@ -3310,7 +3313,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               tempo_coleta: (r as any).tempo_coleta || null,
               unidade_tempo_coleta: (r as any).unidade_tempo_coleta || null,
             }).select("id").single();
-          if (avErr || !avRow) { console.warn("[persistAvaliacoes] insert avaliação:", avErr); continue; }
+          if (avErr || !avRow) {
+            console.error("[persistAvaliacoes] falha ao inserir avaliação:", avErr);
+            throw new Error("Falha ao gravar avaliação no banco: " + (avErr?.message || "erro desconhecido"));
+          }
+
           const avId = avRow.id;
 
           // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
@@ -3562,31 +3569,38 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     silent = false,
     overrides: Record<string, any> = {},
     force = false,
-  ) => {
+  ): Promise<boolean> => {
     const snapshot = buildDraftSnapshot(overrides);
     const fingerprint = JSON.stringify(snapshot);
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
-      return;
+      return false;
     }
 
     if (!force && fingerprint === lastSavedFingerprintRef.current) {
       if (!silent) toast.info("Nenhuma alteração para salvar");
-      return;
+      return true; // já persistido no banco
     }
 
-    // 🔒 Mutex: bloqueia saves concorrentes para impedir duplicação de subdados
+    // 🔒 Mutex: se já há um save em andamento, aguarda a fila terminar em vez de
+    // ignorar a chamada (ignorar silenciosamente causava perda de dados).
     if (isPersistingRef.current) {
-      console.warn("[handleSaveDraft] Save em andamento — chamada concorrente ignorada");
-      return;
+      try { await persistQueueRef.current; } catch {}
+      if (isPersistingRef.current) {
+        console.warn("[handleSaveDraft] Save concorrente ainda em andamento");
+        return false;
+      }
     }
     isPersistingRef.current = true;
     // Suprime re-hidratações realtime/foco até ~5s após o save terminar,
     // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
     suppressReloadUntilRef.current = Date.now() + 60_000;
     setSavingDraft(true);
+    setSaveState("saving");
+    setSaveError("");
     try {
+
       const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
 
@@ -3624,25 +3638,30 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         }
       }
 
-      if (docId) await persistAvaliacoes(docId, snapshot.riscos || []);
+      if (!docId) throw new Error("Não foi possível obter o identificador do documento.");
+      await persistAvaliacoes(docId, snapshot.riscos || []);
 
+      // ✅ Só marca como salvo APÓS a confirmação de gravação no banco.
       markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
+      setSaveState("saved");
       if (!silent) toast.success("Salvo com sucesso");
+      return true;
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
-      try {
-        localStorage.setItem(
-          `draft_${tipoDocumento}_${snapshot.empresaId}`,
-          JSON.stringify({ savedAt: Date.now() }),
-        );
-      } catch {}
-      if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
+      setSaveState("error");
+      setSaveError(err?.message || "Erro desconhecido");
+      toast.error(
+        "Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+      return false;
     } finally {
       setSavingDraft(false);
       isPersistingRef.current = false;
       // Mantém a supressão por 5s após o término para absorver ecos do realtime.
       suppressReloadUntilRef.current = Date.now() + 5_000;
     }
+
   };
 
   // 🔁 Autosave silencioso: a cada 30 segundos + somente quando houver alteração
@@ -3655,6 +3674,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [empresaId, hasUnsavedChanges, savingDraft]);
+
+  // 🔁 Autosave por alteração (debounce 3s): grava no banco assim que o usuário
+  // para de digitar/selecionar, sem depender do botão "Salvar".
+  useEffect(() => {
+    if (!empresaId || !hasUnsavedChanges || savingDraft) return;
+    if (isEditMode && !docLoaded) return;
+    const t = setTimeout(() => { handleSaveDraft(true); }, 3000);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded]);
+
 
   // 💾 Salva imediatamente ao sair da aba/rota para evitar perda de dados.
   // Usa um ref para sempre chamar a versão mais recente de handleSaveDraft.
@@ -4521,23 +4551,35 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 {savingDraft ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                 Salvar
               </Button>
-              {lastSavedAt && (
+              {saveState === "saving" ? (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+                </span>
+              ) : saveState === "error" ? (
+                <span className="text-xs text-destructive" title={saveError}>Erro ao salvar</span>
+              ) : lastSavedAt ? (
                 <span className="text-xs text-muted-foreground">
                   {lastSaveMode === "auto" ? "Salvo automaticamente" : "Salvo"} • Última atualização: {lastSavedAt}
                 </span>
-              )}
+              ) : null}
               {step < steps.length - 1 && (
                 <Button
                   onClick={async () => {
-                    // Auto-save ao avançar (somente se já carregou os dados em modo edição)
-                    if (empresaId && (!isEditMode || docLoaded)) {
-                      await handleSaveDraft(true);
+                    // 🔒 Só avança APÓS confirmação de gravação no banco.
+                    if (empresaId) {
+                      if (isEditMode && !docLoaded) {
+                        toast.error("Aguarde o documento terminar de carregar antes de avançar.");
+                        return;
+                      }
+                      const ok = await handleSaveDraft(true);
+                      if (!ok) return;
                     }
                     setStep(step + 1);
                   }}
-                  disabled={!canAdvance()}
+                  disabled={!canAdvance() || savingDraft}
                   className="bg-accent text-accent-foreground hover:bg-accent/90 gap-2"
                 >
+
                   Avançar<ArrowRight className="w-4 h-4" />
                 </Button>
               )}
