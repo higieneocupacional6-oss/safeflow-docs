@@ -64,10 +64,12 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
   };
 
   const handleSave = async () => {
+    if (savingRef.current) return; // 🔒 evita duplo clique / duplicação
     if (!nome.trim() || !tipo) {
       toast.error("Preencha o nome do agente e o tipo.");
       return;
     }
+
     // Duplicidade (mesmo nome + mesmo tipo)
     const { data: existentes } = await supabase
       .from("riscos")
