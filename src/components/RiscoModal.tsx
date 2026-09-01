@@ -32,6 +32,8 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
   const [tipoEpi, setTipoEpi] = useState("");
   const [epiEficaz, setEpiEficaz] = useState("");
   const [saving, setSaving] = useState(false);
+  const savingRef = useRef(false);
+
 
   useEffect(() => {
     if (editingId && open) {
