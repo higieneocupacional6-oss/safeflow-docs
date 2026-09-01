@@ -2777,9 +2777,20 @@ export default function AetWizard() {
                         {g.items.length} avaliação{g.items.length !== 1 ? "ões" : ""}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetorGroup(g.setor_id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-accent hover:text-accent"
+                        title="Adicionar avaliação"
+                        onClick={() => addAvaliacaoSetor(g.setor_id)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetorGroup(g.setor_id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 mt-2">
