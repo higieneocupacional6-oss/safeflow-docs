@@ -355,25 +355,43 @@ export default function PgrWizard() {
     };
   };
 
-  const persist = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
+  // 🔒 Fila serial: impede que dois saves concorrentes (duplo clique / autosave)
+  // criem dois documentos ou sobrescrevam dados um do outro.
+  const persistQueueRef = useRef<Promise<string | null>>(Promise.resolve(null));
+
+  const persistInner = async (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
     setSaving(true);
+    setSaveState("saving");
     try {
-      if (docId) {
-        const { error } = await supabase.from("documentos").update(buildPayload(overrides)).eq("id", docId);
+      const currentId = docId || docIdRef.current;
+      if (currentId) {
+        const { error } = await supabase.from("documentos").update(buildPayload(overrides)).eq("id", currentId);
         if (error) throw error;
-        return docId;
+        setSaveState("saved");
+        return currentId;
       }
       const { data, error } = await supabase.from("documentos").insert(buildPayload(overrides)).select("id").single();
       if (error) throw error;
+      docIdRef.current = data.id;
       setDocId(data.id);
+      setSaveState("saved");
       return data.id;
     } catch (e: any) {
-      toast.error("Erro ao salvar: " + (e.message || ""));
+      console.error("[PGR persist]", e);
+      setSaveState("error");
+      toast.error("Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." + (e?.message ? ` (${e.message})` : ""));
       return null;
     } finally {
       setSaving(false);
     }
   };
+
+  const persist = (overrides?: Partial<{ step: number; snapshot: PgrSnapshot }>): Promise<string | null> => {
+    const next = persistQueueRef.current.catch(() => null).then(() => persistInner(overrides));
+    persistQueueRef.current = next.catch(() => null);
+    return next;
+  };
+
 
   const handleSalvar = async () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
