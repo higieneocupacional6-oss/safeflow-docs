@@ -3638,25 +3638,30 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         }
       }
 
-      if (docId) await persistAvaliacoes(docId, snapshot.riscos || []);
+      if (!docId) throw new Error("Não foi possível obter o identificador do documento.");
+      await persistAvaliacoes(docId, snapshot.riscos || []);
 
+      // ✅ Só marca como salvo APÓS a confirmação de gravação no banco.
       markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
+      setSaveState("saved");
       if (!silent) toast.success("Salvo com sucesso");
+      return true;
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
-      try {
-        localStorage.setItem(
-          `draft_${tipoDocumento}_${snapshot.empresaId}`,
-          JSON.stringify({ savedAt: Date.now() }),
-        );
-      } catch {}
-      if (!silent) toast.error("Erro ao salvar: " + (err.message || ""));
+      setSaveState("error");
+      setSaveError(err?.message || "Erro desconhecido");
+      toast.error(
+        "Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." +
+          (err?.message ? ` (${err.message})` : ""),
+      );
+      return false;
     } finally {
       setSavingDraft(false);
       isPersistingRef.current = false;
       // Mantém a supressão por 5s após o término para absorver ecos do realtime.
       suppressReloadUntilRef.current = Date.now() + 5_000;
     }
+
   };
 
   // 🔁 Autosave silencioso: a cada 30 segundos + somente quando houver alteração
