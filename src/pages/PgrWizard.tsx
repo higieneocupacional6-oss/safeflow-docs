@@ -763,14 +763,18 @@ export default function PgrWizard() {
           )}
         </Card>
 
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between items-center mt-6">
           <Button variant="outline" onClick={handleSalvar} disabled={saving}>
             {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar
           </Button>
-          <Button onClick={handleAvancar} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
-          </Button>
+          <div className="flex items-center gap-3">
+            <SaveIndicator />
+            <Button onClick={handleAvancar} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+            </Button>
+          </div>
         </div>
+
       </div>
     );
   }
