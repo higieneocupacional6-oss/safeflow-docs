@@ -2766,7 +2766,6 @@ export default function AetWizard() {
                 return map;
               }, new Map<string, { setor_id: string; setor_nome: string; ges: string; items: { idx: number; data: SetorAet }[] }>()).values()
             ).map((g) => {
-              const algumSalvo = g.items.some((it) => it.data._salvo);
               return (
                 <div key={g.setor_id} className="border rounded-lg p-4 border-border">
                   <div className="flex items-start justify-between mb-2">
@@ -2777,9 +2776,20 @@ export default function AetWizard() {
                         {g.items.length} avaliação{g.items.length !== 1 ? "ões" : ""}
                       </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetorGroup(g.setor_id)}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7 text-accent hover:text-accent"
+                        title="Adicionar avaliação"
+                        onClick={() => addAvaliacaoSetor(g.setor_id)}
+                      >
+                        <Plus className="w-4 h-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="text-destructive h-7 w-7" onClick={() => removeSetorGroup(g.setor_id)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
                   </div>
 
                   <div className="space-y-1.5 mt-2">
@@ -2809,11 +2819,9 @@ export default function AetWizard() {
                     ))}
                   </div>
 
-                  {algumSalvo && (
-                    <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
-                      <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar mais
-                    </Button>
-                  )}
+                  <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
+                    <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar avaliação
+                  </Button>
                 </div>
               );
             })}
