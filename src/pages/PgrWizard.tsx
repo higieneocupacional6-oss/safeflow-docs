@@ -1246,12 +1246,16 @@ export default function PgrWizard() {
           </div>
         )}
 
-        <div className="flex justify-between mt-6">
+        <div className="flex justify-between items-center mt-6">
           <Button variant="outline" onClick={() => setStep(0)}><ArrowLeft className="w-4 h-4 mr-2" /> Voltar</Button>
-          <Button onClick={() => goToStep(2)} disabled={saving}>
-            {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
-          </Button>
+          <div className="flex items-center gap-3">
+            <SaveIndicator />
+            <Button onClick={() => goToStep(2)} disabled={saving}>
+              {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}Avançar
+            </Button>
+          </div>
         </div>
+
 
         {/* Modal Vincular riscos */}
         <Dialog open={!!linkModal} onOpenChange={(o) => !o && setLinkModal(null)}>
