@@ -3237,17 +3237,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           totalExistentes,
           "avaliações no banco, mas o estado local está vazio. Save bloqueado para evitar perda de dados.",
         );
-        toast.error(
+        throw new Error(
           "Salvamento bloqueado: os riscos ainda não foram carregados. Aguarde o documento carregar completamente antes de salvar.",
         );
-        return;
       }
 
       if (isEditMode && !docLoaded) {
         console.warn("🛡️ [persistAvaliacoes] ABORTADO: documento ainda não carregado (docLoaded=false).");
-        toast.error("Aguarde o documento terminar de carregar antes de salvar.");
-        return;
+        throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
       }
+
 
       // 🛡️ Guarda adicional contra truncamento: se o banco tem MUITO mais avaliações
       // que o estado local (>3 e <50% do total), significa que o estado foi resetado
