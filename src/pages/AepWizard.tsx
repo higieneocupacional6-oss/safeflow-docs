@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  FileDown, Sparkles,
+  FileDown, Sparkles, PenLine, ImagePlus,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -144,6 +144,14 @@ export default function AepWizard() {
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
   const [iaLoading, setIaLoading] = useState(false);
+  const [iaFotos, setIaFotos] = useState<{ name: string; mime: string; data: string; url: string }[]>([]);
+  const [iaSubstituir, setIaSubstituir] = useState(false);
+  const [iaConfirmOpen, setIaConfirmOpen] = useState(false);
+  const [iaInstrOpen, setIaInstrOpen] = useState(false);
+  const [iaInstrucoes, setIaInstrucoes] = useState(
+    () => localStorage.getItem("aep_ia_instrucoes") || ""
+  );
+
 
   useSetoresFuncoesSync();
 
@@ -385,11 +393,37 @@ export default function AepWizard() {
   };
 
   // ───────────── IA ─────────────
+  const addFotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const novos: { name: string; mime: string; data: string; url: string }[] = [];
+    for (const f of Array.from(files).slice(0, 10)) {
+      if (!f.type.startsWith("image/")) { toast.error(`${f.name}: apenas imagens.`); continue; }
+      const buf = await f.arrayBuffer();
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      novos.push({ name: f.name, mime: f.type, data: btoa(bin), url: URL.createObjectURL(f) });
+    }
+    setIaFotos((prev) => [...prev, ...novos].slice(0, 10));
+  };
+
+  const setorTemConteudo = (s?: SetorAep) =>
+    !!s && (s.riscos_lista.length > 0 || !!s.parecer_ambiente?.trim() || !!s.parecer_ergonomia?.trim() ||
+      !!s.parecer_conduta_1?.trim() || !!s.parecer_conduta_2?.trim() || s.plano_acao.length > 0);
+
+  const solicitarGeracao = () => {
+    const s = editingSetorIdx !== null ? setoresAep[editingSetorIdx] : undefined;
+    if (iaSubstituir && setorTemConteudo(s)) { setIaConfirmOpen(true); return; }
+    gerarComIA();
+  };
+
   const gerarComIA = async () => {
+    setIaConfirmOpen(false);
     if (editingSetorIdx === null) {
       toast.error("Abra o registro de um setor para gerar com IA");
       return;
     }
+
     const setor = setoresAep[editingSetorIdx];
     setIaLoading(true);
     try {
@@ -408,11 +442,28 @@ export default function AepWizard() {
         postura_observacao: setor.postura_observacao,
         checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
         riscos_ja_cadastrados: setor.riscos_lista,
+        conteudo_atual: {
+          parecer_ambiente: setor.parecer_ambiente,
+          parecer_ergonomia: setor.parecer_ergonomia,
+          conduta_1: setor.conduta_1,
+          parecer_conduta_1: setor.parecer_conduta_1,
+          conduta_2: setor.conduta_2,
+          parecer_conduta_2: setor.parecer_conduta_2,
+          plano_acao: setor.plano_acao,
+        },
+        modo: iaSubstituir
+          ? "SUBSTITUIR — reanalisar tudo e refazer riscos, pareceres, condutas e plano de ação"
+          : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
         observacoes_complementares: iaObs,
       };
 
       const { data, error } = await supabase.functions.invoke("aep-generate", {
-        body: { descricao: iaObs, contexto },
+        body: {
+          descricao: iaObs,
+          contexto,
+          instrucoes_usuario: iaInstrucoes,
+          anexos: iaFotos.map((f) => ({ name: f.name, mime: f.mime, kind: "image", data: f.data })),
+        },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -437,23 +488,33 @@ export default function AepWizard() {
           })
         : [];
 
+      const planoIa = Array.isArray(r.plano_acao)
+        ? r.plano_acao.map((p: any) => ({
+            o_que: p.acao || p.o_que || "",
+            como: p.como || p.justificativa || "",
+            responsavel: p.responsavel || "",
+            prazo: p.prazo || "",
+          }))
+        : [];
+      // Substituir = sobrescreve; Complementar = mantém o que já existe
+      const pick = (novo: string, atual: string) =>
+        iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
+
       updateSetor(editingSetorIdx, {
-        riscos_lista: riscos.length > 0 ? riscos : setor.riscos_lista,
-        parecer_ambiente: r.parecer_ambiente || setor.parecer_ambiente,
-        parecer_ergonomia: r.parecer_ergonomia || setor.parecer_ergonomia,
-        conduta_1: r.conduta_1 || setor.conduta_1,
-        parecer_conduta_1: r.parecer_conduta_1 || setor.parecer_conduta_1,
-        conduta_2: r.conduta_2 || setor.conduta_2,
-        parecer_conduta_2: r.parecer_conduta_2 || setor.parecer_conduta_2,
-        plano_acao: Array.isArray(r.plano_acao) && r.plano_acao.length > 0
-          ? r.plano_acao.map((p: any) => ({
-              o_que: p.acao || p.o_que || "",
-              como: p.como || p.justificativa || "",
-              responsavel: p.responsavel || "",
-              prazo: p.prazo || "",
-            }))
-          : setor.plano_acao,
+        riscos_lista: iaSubstituir
+          ? (riscos.length > 0 ? riscos : setor.riscos_lista)
+          : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
+        parecer_ambiente: pick(r.parecer_ambiente, setor.parecer_ambiente),
+        parecer_ergonomia: pick(r.parecer_ergonomia, setor.parecer_ergonomia),
+        conduta_1: pick(r.conduta_1, setor.conduta_1),
+        parecer_conduta_1: pick(r.parecer_conduta_1, setor.parecer_conduta_1),
+        conduta_2: pick(r.conduta_2, setor.conduta_2),
+        parecer_conduta_2: pick(r.parecer_conduta_2, setor.parecer_conduta_2),
+        plano_acao: iaSubstituir
+          ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
+          : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
+
       setIaOpen(false);
       toast.success("Análise gerada com IA");
     } catch (e: any) {
@@ -1102,29 +1163,117 @@ export default function AepWizard() {
 
         {/* Modal IA */}
         <Dialog open={iaOpen} onOpenChange={setIaOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Gerar análise com IA</DialogTitle>
+              <div className="flex items-center justify-between gap-2 pr-6">
+                <DialogTitle>Gerar AEP automaticamente</DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Instrução personalizada para a IA"
+                  onClick={() => setIaInstrOpen((v) => !v)}
+                >
+                  <PenLine className={`w-4 h-4 ${iaInstrucoes.trim() ? "text-primary" : ""}`} />
+                </Button>
+              </div>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              A IA usará função, atividade, setor, GES, ambiente, turno, postura e checklist preenchidos.
-              Descreva abaixo observações complementares de campo.
-            </p>
-            <Textarea
-              className="min-h-[140px]"
-              placeholder="Relato in loco, observações complementares…"
-              value={iaObs}
-              onChange={(e) => setIaObs(e.target.value)}
-            />
+
+            <div className="space-y-1.5">
+              <Label>1. Informações complementares</Label>
+              <Textarea
+                className="min-h-[130px]"
+                placeholder="Informe informações complementares sobre a função, atividade ou condições observadas…"
+                value={iaObs}
+                onChange={(e) => setIaObs(e.target.value)}
+              />
+            </div>
+
+            {iaInstrOpen && (
+              <div className="space-y-1.5 rounded-md border border-border p-3">
+                <Label>Instrução personalizada para a IA</Label>
+                <Textarea
+                  className="min-h-[100px]"
+                  placeholder="Informe como deseja que a IA conduza esta avaliação…"
+                  value={iaInstrucoes}
+                  onChange={(e) => {
+                    setIaInstrucoes(e.target.value);
+                    localStorage.setItem("aep_ia_instrucoes", e.target.value);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Orienta estilo, foco e profundidade. Não substitui os critérios técnicos e regras do sistema.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>2. Anexar fotografias</Label>
+              <input
+                id="aep-ia-fotos"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { addFotos(e.target.files); e.currentTarget.value = ""; }}
+              />
+              <Button variant="outline" onClick={() => document.getElementById("aep-ia-fotos")?.click()}>
+                <ImagePlus className="w-4 h-4 mr-2" />Adicionar fotos
+              </Button>
+              {iaFotos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {iaFotos.map((f, i) => (
+                    <div key={i} className="relative group">
+                      <img src={f.url} alt={f.name} className="w-full h-20 object-cover rounded-md border border-border" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => setIaFotos((prev) => prev.filter((_, k) => k !== i))}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                As fotos são analisadas pela IA (postura, mobiliário, organização, posto de trabalho). Ela não
+                afirmará o que não for possível identificar com segurança pela imagem.
+              </p>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox checked={iaSubstituir} onCheckedChange={(v) => setIaSubstituir(!!v)} />
+              Substituir conteúdo atual
+            </label>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setIaOpen(false)}>Cancelar</Button>
-              <Button onClick={gerarComIA} disabled={iaLoading}>
+              <Button onClick={solicitarGeracao} disabled={iaLoading}>
                 {iaLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                 Gerar
               </Button>
+
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmação de substituição */}
+        <Dialog open={iaConfirmOpen} onOpenChange={setIaConfirmOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Substituir conteúdo atual?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Ao continuar, os conteúdos gerados anteriormente poderão ser substituídos. Deseja continuar?
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIaConfirmOpen(false)}>Cancelar</Button>
+              <Button onClick={gerarComIA} disabled={iaLoading}>Continuar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     );
   }
