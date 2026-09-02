@@ -61,13 +61,30 @@ const grupos: { title: string; vars: string[] }[] = [
     ],
   },
   {
-    title: "Análise técnica",
+    title: "Riscos ergonômicos (tabela)",
     vars: [
-      "{{aep.riscos_ergonomicos}}", "{{aep.parecer_ambiente}}", "{{aep.parecer_ergonomia}}", "{{aep.conduta}}",
-      "{{aep.plano_acao}}",
-      "{{#aep.plano_acao_lista}}{{o_que}}", "{{como}}", "{{responsavel}}", "{{prazo}}{{/aep.plano_acao_lista}}",
+      "{{#aep.riscos_ergonomicos_lista}}{{tipo_agente}}", "{{fator_risco}}", "{{fonte_geradora}}",
+      "{{possiveis_danos}}", "{{controle_existente}}", "{{probabilidade}}", "{{severidade}}",
+      "{{nivel_risco}}", "{{medidas}}{{/aep.riscos_ergonomicos_lista}}",
+      "{{aep.riscos_ergonomicos}}", "{{aep.riscos_ergonomicos_texto}}",
     ],
   },
+  {
+    title: "Pareceres e conduta",
+    vars: [
+      "{{aep.parecer_ambiente}}", "{{aep.parecer_ergonomia}}",
+      "{{aep.conduta_1}}", "{{aep.parecer_conduta_1}}",
+      "{{aep.conduta_2}}", "{{aep.parecer_conduta_2}}", "{{aep.conduta}}",
+    ],
+  },
+  {
+    title: "Plano de ação",
+    vars: [
+      "{{aep.plano_acao}}",
+      "{{#aep.plano_acao_lista}}{{acao}}", "{{o_que}}", "{{como}}", "{{responsavel}}", "{{prazo}}{{/aep.plano_acao_lista}}",
+    ],
+  },
+
 ];
 
 export function AepTemplateHelper() {

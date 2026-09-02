@@ -19,6 +19,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import { AepTemplateHelper } from "@/components/AepTemplateHelper";
 import { sortByGes } from "@/lib/sortGes";
+import {
+  TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
+  calcularNivelRiscoAep, emptyRiscoErgonomico, CORES_NIVEL_RISCO,
+  type RiscoErgonomico,
+} from "@/lib/aepRisco";
 
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
@@ -45,9 +50,14 @@ type SetorAep = {
   postura_observacao: string;
   checklist: Record<string, ChecklistItem>;
   riscos_ergonomicos: string;
+  riscos_lista: RiscoErgonomico[];
   parecer_ambiente: string;
   parecer_ergonomia: string;
   conduta: string;
+  conduta_1: string;
+  parecer_conduta_1: string;
+  conduta_2: string;
+  parecer_conduta_2: string;
   plano_acao: PlanoAcao[];
   _salvo?: boolean;
 };
@@ -90,9 +100,14 @@ const newSetor = (s: any): SetorAep => ({
   postura_observacao: "",
   checklist: emptyChecklist(),
   riscos_ergonomicos: "",
+  riscos_lista: [],
   parecer_ambiente: "",
   parecer_ergonomia: "",
   conduta: "",
+  conduta_1: "",
+  parecer_conduta_1: "",
+  conduta_2: "",
+  parecer_conduta_2: "",
   plano_acao: [],
   _salvo: false,
 });
@@ -236,6 +251,7 @@ export default function AepWizard() {
             funcoes_selecionadas: s.funcoes_selecionadas || [],
             colaboradores: s.colaboradores || [],
             plano_acao: s.plano_acao || [],
+            riscos_lista: s.riscos_lista || [],
             checklist: { ...emptyChecklist(), ...(s.checklist || {}) },
           })));
         }
@@ -391,28 +407,52 @@ export default function AepWizard() {
         postura_predominante: setor.postura_predominante,
         postura_observacao: setor.postura_observacao,
         checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
+        riscos_ja_cadastrados: setor.riscos_lista,
+        observacoes_complementares: iaObs,
       };
 
-      const { data, error } = await supabase.functions.invoke("aet-generate", {
+      const { data, error } = await supabase.functions.invoke("aep-generate", {
         body: { descricao: iaObs, contexto },
       });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      const r: any = data || {};
+      const r: any = (data as any)?.output || data || {};
+      const riscos: RiscoErgonomico[] = Array.isArray(r.riscos_ergonomicos)
+        ? r.riscos_ergonomicos.map((x: any) => {
+            const probabilidade = x.probabilidade || "";
+            const severidade = x.severidade || "";
+            return {
+              ...emptyRiscoErgonomico(),
+              tipo_agente: x.tipo_agente || "",
+              fator_risco: x.fator_risco || "",
+              fonte_geradora: x.fonte_geradora || "",
+              possiveis_danos: x.possiveis_danos || "",
+              controle_existente: x.controle_existente || "",
+              probabilidade,
+              severidade,
+              nivel_risco: calcularNivelRiscoAep(probabilidade, severidade),
+              medidas: x.medidas || "",
+            };
+          })
+        : [];
+
       updateSetor(editingSetorIdx, {
-        parecer_ambiente: r.posto_trabalho || setor.parecer_ambiente,
-        riscos_ergonomicos: r.caracterizacao_biomecanica || setor.riscos_ergonomicos,
-        parecer_ergonomia: r.diagnostico_ergonomico || setor.parecer_ergonomia,
-        conduta: r.conclusao || setor.conduta,
+        riscos_lista: riscos.length > 0 ? riscos : setor.riscos_lista,
+        parecer_ambiente: r.parecer_ambiente || setor.parecer_ambiente,
+        parecer_ergonomia: r.parecer_ergonomia || setor.parecer_ergonomia,
+        conduta_1: r.conduta_1 || setor.conduta_1,
+        parecer_conduta_1: r.parecer_conduta_1 || setor.parecer_conduta_1,
+        conduta_2: r.conduta_2 || setor.conduta_2,
+        parecer_conduta_2: r.parecer_conduta_2 || setor.parecer_conduta_2,
         plano_acao: Array.isArray(r.plano_acao) && r.plano_acao.length > 0
           ? r.plano_acao.map((p: any) => ({
-              o_que: p.o_que || p.acao || "",
+              o_que: p.acao || p.o_que || "",
               como: p.como || p.justificativa || "",
               responsavel: p.responsavel || "",
               prazo: p.prazo || "",
             }))
           : setor.plano_acao,
-        descricao_atividade: setor.descricao_atividade || r.descricao_atividade || "",
       });
       setIaOpen(false);
       toast.success("Análise gerada com IA");
@@ -471,14 +511,27 @@ export default function AepWizard() {
         condicao: s.checklist[l.key]?.condicao || "",
         observacao: s.checklist[l.key]?.observacao || "",
       })),
-      riscos_ergonomicos: s.riscos_ergonomicos,
+      riscos_ergonomicos: s.riscos_lista.length
+        ? s.riscos_lista
+            .map((r) => `${r.tipo_agente} — ${r.fator_risco} (${r.nivel_risco})`)
+            .join("\n")
+        : s.riscos_ergonomicos,
+      riscos_ergonomicos_lista: s.riscos_lista,
+      riscos_ergonomicos_texto: s.riscos_ergonomicos,
       parecer_ambiente: s.parecer_ambiente,
       parecer_ergonomia: s.parecer_ergonomia,
       conduta: s.conduta,
+      conduta_1: s.conduta_1,
+      parecer_conduta_1: s.parecer_conduta_1,
+      conduta_2: s.conduta_2,
+      parecer_conduta_2: s.parecer_conduta_2,
       plano_acao: s.plano_acao
         .map((p) => [p.o_que, p.como, p.responsavel, p.prazo].filter(Boolean).join(" — "))
         .join("\n"),
-      plano_acao_lista: s.plano_acao,
+      plano_acao_lista: s.plano_acao.map((p) => ({
+        ...p,
+        acao: [p.o_que, p.como].filter(Boolean).join(" — "),
+      })),
     };
     return { aep, ...aep };
   };
@@ -826,35 +879,179 @@ export default function AepWizard() {
           </div>
         </Card>
 
-        {/* Análise técnica */}
+        {/* Riscos ergonômicos */}
         <Card className="p-5 mb-4">
-          <h2 className="font-heading font-semibold mb-3">Análise técnica</h2>
-          <div className="space-y-3">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading font-semibold">Riscos ergonômicos</h2>
+            <Button size="sm" variant="outline" onClick={() =>
+              updateSetor(editingSetorIdx, { riscos_lista: [...setor.riscos_lista, emptyRiscoErgonomico()] })
+            }>
+              <Plus className="w-4 h-4 mr-1" />Risco
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[1400px]">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="p-2 w-48">Tipo de agente</th>
+                  <th className="p-2 w-52">Fator de risco</th>
+                  <th className="p-2 w-52">Fonte geradora</th>
+                  <th className="p-2 w-52">Possíveis danos</th>
+                  <th className="p-2 w-52">Controle existente</th>
+                  <th className="p-2 w-32">Probabilidade</th>
+                  <th className="p-2 w-32">Severidade</th>
+                  <th className="p-2 w-32">Nível de risco</th>
+                  <th className="p-2 w-56">Medidas</th>
+                  <th className="p-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {setor.riscos_lista.map((r, i) => {
+                  const patch = (p: Partial<RiscoErgonomico>) => {
+                    const arr = [...setor.riscos_lista];
+                    const next = { ...arr[i], ...p };
+                    next.nivel_risco = calcularNivelRiscoAep(next.probabilidade, next.severidade);
+                    arr[i] = next;
+                    updateSetor(editingSetorIdx, { riscos_lista: arr });
+                  };
+                  return (
+                    <tr key={i} className="border-t border-border align-top">
+                      <td className="p-2">
+                        <Select value={r.tipo_agente || undefined} onValueChange={(v) => patch({ tipo_agente: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {TIPOS_AGENTE_ERGONOMICO.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.fator_risco}
+                          onChange={(e) => patch({ fator_risco: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.fonte_geradora}
+                          onChange={(e) => patch({ fonte_geradora: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.possiveis_danos}
+                          onChange={(e) => patch({ possiveis_danos: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.controle_existente}
+                          onChange={(e) => patch({ controle_existente: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Select value={r.probabilidade || undefined} onValueChange={(v) => patch({ probabilidade: v })}>
+                          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            {PROBABILIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Select value={r.severidade || undefined} onValueChange={(v) => patch({ severidade: v })}>
+                          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            {SEVERIDADES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        {r.nivel_risco ? (
+                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO[r.nivel_risco]}`}>
+                            {r.nivel_risco}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.medidas}
+                          onChange={(e) => patch({ medidas: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                          updateSetor(editingSetorIdx, { riscos_lista: setor.riscos_lista.filter((_, k) => k !== i) })
+                        }>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {setor.riscos_lista.length === 0 && (
+                  <tr><td colSpan={10} className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum risco cadastrado. Adicione manualmente ou gere com IA.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            O nível de risco é calculado automaticamente pela matriz do sistema (Probabilidade × Severidade).
+          </p>
+        </Card>
+
+        {/* Pareceres */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Parecer do ambiente de trabalho</h2>
+          <Textarea className="min-h-[160px]" value={setor.parecer_ambiente}
+            onChange={(e) => updateSetor(editingSetorIdx, { parecer_ambiente: e.target.value })} />
+        </Card>
+
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Parecer de ergonomia</h2>
+          <Textarea className="min-h-[160px]" value={setor.parecer_ergonomia}
+            onChange={(e) => updateSetor(editingSetorIdx, { parecer_ergonomia: e.target.value })} />
+        </Card>
+
+        {/* Conduta */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Conduta</h2>
+          <div className="space-y-5">
             <div>
-              <Label>Riscos ergonômicos identificados</Label>
-              <Textarea value={setor.riscos_ergonomicos}
-                onChange={(e) => updateSetor(editingSetorIdx, { riscos_ergonomicos: e.target.value })} />
+              <Label>Há condição inadequada que necessita de soluções?</Label>
+              <div className="flex gap-4 mt-2">
+                {["SIM", "NÃO"].map((op) => (
+                  <label key={op} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={setor.conduta_1 === op}
+                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_1: c ? op : "" })} />
+                    {op}
+                  </label>
+                ))}
+              </div>
+              <Label className="mt-3 block">Parecer da conduta</Label>
+              <Textarea className="min-h-[100px]" value={setor.parecer_conduta_1}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_conduta_1: e.target.value })} />
             </div>
             <div>
-              <Label>Parecer sobre o ambiente</Label>
-              <Textarea value={setor.parecer_ambiente}
-                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ambiente: e.target.value })} />
+              <Label>Foi encontrada solução rápida de baixo investimento e complexidade?</Label>
+              <div className="flex gap-4 mt-2">
+                {["SIM", "NÃO"].map((op) => (
+                  <label key={op} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={setor.conduta_2 === op}
+                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_2: c ? op : "" })} />
+                    {op}
+                  </label>
+                ))}
+              </div>
+              <Label className="mt-3 block">Parecer da conduta</Label>
+              <Textarea className="min-h-[100px]" value={setor.parecer_conduta_2}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_conduta_2: e.target.value })} />
             </div>
             <div>
-              <Label>Parecer ergonômico</Label>
-              <Textarea value={setor.parecer_ergonomia}
-                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ergonomia: e.target.value })} />
-            </div>
-            <div>
-              <Label>Conduta</Label>
+              <Label>Observações complementares da conduta</Label>
               <Textarea value={setor.conduta}
                 onChange={(e) => updateSetor(editingSetorIdx, { conduta: e.target.value })} />
             </div>
           </div>
+        </Card>
 
-          <div className="mt-4">
+        {/* Plano de ação */}
+        <Card className="p-5 mb-4">
+          <div className="mt-0">
             <div className="flex items-center justify-between mb-2">
-              <Label>Plano de ação</Label>
+              <h2 className="font-heading font-semibold">Plano de ação</h2>
               <Button size="sm" variant="outline" onClick={() =>
                 updateSetor(editingSetorIdx, { plano_acao: [...setor.plano_acao, emptyPlano()] })
               }>
