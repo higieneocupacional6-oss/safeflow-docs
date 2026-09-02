@@ -19,6 +19,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import { AepTemplateHelper } from "@/components/AepTemplateHelper";
 import { sortByGes } from "@/lib/sortGes";
+import {
+  TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
+  calcularNivelRiscoAep, emptyRiscoErgonomico, CORES_NIVEL_RISCO,
+  type RiscoErgonomico,
+} from "@/lib/aepRisco";
 
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
