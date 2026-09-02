@@ -1049,11 +1049,9 @@ export default function AepWizard() {
 
         {/* Plano de ação */}
         <Card className="p-5 mb-4">
-
-
-          <div className="mt-4">
+          <div className="mt-0">
             <div className="flex items-center justify-between mb-2">
-              <Label>Plano de ação</Label>
+              <h2 className="font-heading font-semibold">Plano de ação</h2>
               <Button size="sm" variant="outline" onClick={() =>
                 updateSetor(editingSetorIdx, { plano_acao: [...setor.plano_acao, emptyPlano()] })
               }>
