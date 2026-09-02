@@ -1163,26 +1163,97 @@ export default function AepWizard() {
 
         {/* Modal IA */}
         <Dialog open={iaOpen} onOpenChange={setIaOpen}>
-          <DialogContent>
+          <DialogContent className="sm:max-w-2xl max-h-[88vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Gerar análise com IA</DialogTitle>
+              <div className="flex items-center justify-between gap-2 pr-6">
+                <DialogTitle>Gerar AEP automaticamente</DialogTitle>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  title="Instrução personalizada para a IA"
+                  onClick={() => setIaInstrOpen((v) => !v)}
+                >
+                  <PenLine className={`w-4 h-4 ${iaInstrucoes.trim() ? "text-primary" : ""}`} />
+                </Button>
+              </div>
             </DialogHeader>
-            <p className="text-sm text-muted-foreground">
-              A IA usará função, atividade, setor, GES, ambiente, turno, postura e checklist preenchidos.
-              Descreva abaixo observações complementares de campo.
-            </p>
-            <Textarea
-              className="min-h-[140px]"
-              placeholder="Relato in loco, observações complementares…"
-              value={iaObs}
-              onChange={(e) => setIaObs(e.target.value)}
-            />
+
+            <div className="space-y-1.5">
+              <Label>1. Informações complementares</Label>
+              <Textarea
+                className="min-h-[130px]"
+                placeholder="Informe informações complementares sobre a função, atividade ou condições observadas…"
+                value={iaObs}
+                onChange={(e) => setIaObs(e.target.value)}
+              />
+            </div>
+
+            {iaInstrOpen && (
+              <div className="space-y-1.5 rounded-md border border-border p-3">
+                <Label>Instrução personalizada para a IA</Label>
+                <Textarea
+                  className="min-h-[100px]"
+                  placeholder="Informe como deseja que a IA conduza esta avaliação…"
+                  value={iaInstrucoes}
+                  onChange={(e) => {
+                    setIaInstrucoes(e.target.value);
+                    localStorage.setItem("aep_ia_instrucoes", e.target.value);
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Orienta estilo, foco e profundidade. Não substitui os critérios técnicos e regras do sistema.
+                </p>
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <Label>2. Anexar fotografias</Label>
+              <input
+                id="aep-ia-fotos"
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={(e) => { addFotos(e.target.files); e.currentTarget.value = ""; }}
+              />
+              <Button variant="outline" onClick={() => document.getElementById("aep-ia-fotos")?.click()}>
+                <ImagePlus className="w-4 h-4 mr-2" />Adicionar fotos
+              </Button>
+              {iaFotos.length > 0 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {iaFotos.map((f, i) => (
+                    <div key={i} className="relative group">
+                      <img src={f.url} alt={f.name} className="w-full h-20 object-cover rounded-md border border-border" />
+                      <Button
+                        variant="destructive"
+                        size="icon"
+                        className="absolute top-1 right-1 h-6 w-6"
+                        onClick={() => setIaFotos((prev) => prev.filter((_, k) => k !== i))}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <p className="text-xs text-muted-foreground">
+                As fotos são analisadas pela IA (postura, mobiliário, organização, posto de trabalho). Ela não
+                afirmará o que não for possível identificar com segurança pela imagem.
+              </p>
+            </div>
+
+            <label className="flex items-center gap-2 text-sm cursor-pointer">
+              <Checkbox checked={iaSubstituir} onCheckedChange={(v) => setIaSubstituir(!!v)} />
+              Substituir conteúdo atual
+            </label>
+
             <DialogFooter>
               <Button variant="outline" onClick={() => setIaOpen(false)}>Cancelar</Button>
-              <Button onClick={gerarComIA} disabled={iaLoading}>
+              <Button onClick={solicitarGeracao} disabled={iaLoading}>
                 {iaLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
                 Gerar
               </Button>
+
             </DialogFooter>
           </DialogContent>
         </Dialog>
