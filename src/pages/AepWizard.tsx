@@ -45,9 +45,14 @@ type SetorAep = {
   postura_observacao: string;
   checklist: Record<string, ChecklistItem>;
   riscos_ergonomicos: string;
+  riscos_lista: RiscoErgonomico[];
   parecer_ambiente: string;
   parecer_ergonomia: string;
   conduta: string;
+  conduta_1: string;
+  parecer_conduta_1: string;
+  conduta_2: string;
+  parecer_conduta_2: string;
   plano_acao: PlanoAcao[];
   _salvo?: boolean;
 };
