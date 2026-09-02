@@ -511,14 +511,27 @@ export default function AepWizard() {
         condicao: s.checklist[l.key]?.condicao || "",
         observacao: s.checklist[l.key]?.observacao || "",
       })),
-      riscos_ergonomicos: s.riscos_ergonomicos,
+      riscos_ergonomicos: s.riscos_lista.length
+        ? s.riscos_lista
+            .map((r) => `${r.tipo_agente} — ${r.fator_risco} (${r.nivel_risco})`)
+            .join("\n")
+        : s.riscos_ergonomicos,
+      riscos_ergonomicos_lista: s.riscos_lista,
+      riscos_ergonomicos_texto: s.riscos_ergonomicos,
       parecer_ambiente: s.parecer_ambiente,
       parecer_ergonomia: s.parecer_ergonomia,
       conduta: s.conduta,
+      conduta_1: s.conduta_1,
+      parecer_conduta_1: s.parecer_conduta_1,
+      conduta_2: s.conduta_2,
+      parecer_conduta_2: s.parecer_conduta_2,
       plano_acao: s.plano_acao
         .map((p) => [p.o_que, p.como, p.responsavel, p.prazo].filter(Boolean).join(" — "))
         .join("\n"),
-      plano_acao_lista: s.plano_acao,
+      plano_acao_lista: s.plano_acao.map((p) => ({
+        ...p,
+        acao: [p.o_que, p.como].filter(Boolean).join(" — "),
+      })),
     };
     return { aep, ...aep };
   };
