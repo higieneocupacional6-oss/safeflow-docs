@@ -879,31 +879,177 @@ export default function AepWizard() {
           </div>
         </Card>
 
-        {/* Análise técnica */}
+        {/* Riscos ergonômicos */}
         <Card className="p-5 mb-4">
-          <h2 className="font-heading font-semibold mb-3">Análise técnica</h2>
-          <div className="space-y-3">
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="font-heading font-semibold">Riscos ergonômicos</h2>
+            <Button size="sm" variant="outline" onClick={() =>
+              updateSetor(editingSetorIdx, { riscos_lista: [...setor.riscos_lista, emptyRiscoErgonomico()] })
+            }>
+              <Plus className="w-4 h-4 mr-1" />Risco
+            </Button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[1400px]">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="p-2 w-48">Tipo de agente</th>
+                  <th className="p-2 w-52">Fator de risco</th>
+                  <th className="p-2 w-52">Fonte geradora</th>
+                  <th className="p-2 w-52">Possíveis danos</th>
+                  <th className="p-2 w-52">Controle existente</th>
+                  <th className="p-2 w-32">Probabilidade</th>
+                  <th className="p-2 w-32">Severidade</th>
+                  <th className="p-2 w-32">Nível de risco</th>
+                  <th className="p-2 w-56">Medidas</th>
+                  <th className="p-2 w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {setor.riscos_lista.map((r, i) => {
+                  const patch = (p: Partial<RiscoErgonomico>) => {
+                    const arr = [...setor.riscos_lista];
+                    const next = { ...arr[i], ...p };
+                    next.nivel_risco = calcularNivelRiscoAep(next.probabilidade, next.severidade);
+                    arr[i] = next;
+                    updateSetor(editingSetorIdx, { riscos_lista: arr });
+                  };
+                  return (
+                    <tr key={i} className="border-t border-border align-top">
+                      <td className="p-2">
+                        <Select value={r.tipo_agente || undefined} onValueChange={(v) => patch({ tipo_agente: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {TIPOS_AGENTE_ERGONOMICO.map((t) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.fator_risco}
+                          onChange={(e) => patch({ fator_risco: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.fonte_geradora}
+                          onChange={(e) => patch({ fonte_geradora: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.possiveis_danos}
+                          onChange={(e) => patch({ possiveis_danos: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.controle_existente}
+                          onChange={(e) => patch({ controle_existente: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Select value={r.probabilidade || undefined} onValueChange={(v) => patch({ probabilidade: v })}>
+                          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            {PROBABILIDADES.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Select value={r.severidade || undefined} onValueChange={(v) => patch({ severidade: v })}>
+                          <SelectTrigger><SelectValue placeholder="—" /></SelectTrigger>
+                          <SelectContent>
+                            {SEVERIDADES.map((s) => <SelectItem key={s} value={s}>{s}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        {r.nivel_risco ? (
+                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO[r.nivel_risco]}`}>
+                            {r.nivel_risco}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.medidas}
+                          onChange={(e) => patch({ medidas: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                          updateSetor(editingSetorIdx, { riscos_lista: setor.riscos_lista.filter((_, k) => k !== i) })
+                        }>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+                {setor.riscos_lista.length === 0 && (
+                  <tr><td colSpan={10} className="p-4 text-center text-sm text-muted-foreground">
+                    Nenhum risco cadastrado. Adicione manualmente ou gere com IA.
+                  </td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            O nível de risco é calculado automaticamente pela matriz do sistema (Probabilidade × Severidade).
+          </p>
+        </Card>
+
+        {/* Pareceres */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Parecer do ambiente de trabalho</h2>
+          <Textarea className="min-h-[160px]" value={setor.parecer_ambiente}
+            onChange={(e) => updateSetor(editingSetorIdx, { parecer_ambiente: e.target.value })} />
+        </Card>
+
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Parecer de ergonomia</h2>
+          <Textarea className="min-h-[160px]" value={setor.parecer_ergonomia}
+            onChange={(e) => updateSetor(editingSetorIdx, { parecer_ergonomia: e.target.value })} />
+        </Card>
+
+        {/* Conduta */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Conduta</h2>
+          <div className="space-y-5">
             <div>
-              <Label>Riscos ergonômicos identificados</Label>
-              <Textarea value={setor.riscos_ergonomicos}
-                onChange={(e) => updateSetor(editingSetorIdx, { riscos_ergonomicos: e.target.value })} />
+              <Label>Há condição inadequada que necessita de soluções?</Label>
+              <div className="flex gap-4 mt-2">
+                {["SIM", "NÃO"].map((op) => (
+                  <label key={op} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={setor.conduta_1 === op}
+                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_1: c ? op : "" })} />
+                    {op}
+                  </label>
+                ))}
+              </div>
+              <Label className="mt-3 block">Parecer da conduta</Label>
+              <Textarea className="min-h-[100px]" value={setor.parecer_conduta_1}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_conduta_1: e.target.value })} />
             </div>
             <div>
-              <Label>Parecer sobre o ambiente</Label>
-              <Textarea value={setor.parecer_ambiente}
-                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ambiente: e.target.value })} />
+              <Label>Foi encontrada solução rápida de baixo investimento e complexidade?</Label>
+              <div className="flex gap-4 mt-2">
+                {["SIM", "NÃO"].map((op) => (
+                  <label key={op} className="flex items-center gap-2 text-sm">
+                    <Checkbox checked={setor.conduta_2 === op}
+                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_2: c ? op : "" })} />
+                    {op}
+                  </label>
+                ))}
+              </div>
+              <Label className="mt-3 block">Parecer da conduta</Label>
+              <Textarea className="min-h-[100px]" value={setor.parecer_conduta_2}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_conduta_2: e.target.value })} />
             </div>
             <div>
-              <Label>Parecer ergonômico</Label>
-              <Textarea value={setor.parecer_ergonomia}
-                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ergonomia: e.target.value })} />
-            </div>
-            <div>
-              <Label>Conduta</Label>
+              <Label>Observações complementares da conduta</Label>
               <Textarea value={setor.conduta}
                 onChange={(e) => updateSetor(editingSetorIdx, { conduta: e.target.value })} />
             </div>
           </div>
+        </Card>
+
+        {/* Plano de ação */}
+        <Card className="p-5 mb-4">
+
 
           <div className="mt-4">
             <div className="flex items-center justify-between mb-2">
