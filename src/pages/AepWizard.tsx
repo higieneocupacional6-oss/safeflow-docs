@@ -1257,6 +1257,23 @@ export default function AepWizard() {
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Confirmação de substituição */}
+        <Dialog open={iaConfirmOpen} onOpenChange={setIaConfirmOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Substituir conteúdo atual?</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              Ao continuar, os conteúdos gerados anteriormente poderão ser substituídos. Deseja continuar?
+            </p>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIaConfirmOpen(false)}>Cancelar</Button>
+              <Button onClick={gerarComIA} disabled={iaLoading}>Continuar</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
       </div>
     );
   }
