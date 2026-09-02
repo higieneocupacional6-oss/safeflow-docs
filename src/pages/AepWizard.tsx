@@ -442,11 +442,28 @@ export default function AepWizard() {
         postura_observacao: setor.postura_observacao,
         checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
         riscos_ja_cadastrados: setor.riscos_lista,
+        conteudo_atual: {
+          parecer_ambiente: setor.parecer_ambiente,
+          parecer_ergonomia: setor.parecer_ergonomia,
+          conduta_1: setor.conduta_1,
+          parecer_conduta_1: setor.parecer_conduta_1,
+          conduta_2: setor.conduta_2,
+          parecer_conduta_2: setor.parecer_conduta_2,
+          plano_acao: setor.plano_acao,
+        },
+        modo: iaSubstituir
+          ? "SUBSTITUIR — reanalisar tudo e refazer riscos, pareceres, condutas e plano de ação"
+          : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
         observacoes_complementares: iaObs,
       };
 
       const { data, error } = await supabase.functions.invoke("aep-generate", {
-        body: { descricao: iaObs, contexto },
+        body: {
+          descricao: iaObs,
+          contexto,
+          instrucoes_usuario: iaInstrucoes,
+          anexos: iaFotos.map((f) => ({ name: f.name, mime: f.mime, kind: "image", data: f.data })),
+        },
       });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
@@ -471,23 +488,33 @@ export default function AepWizard() {
           })
         : [];
 
+      const planoIa = Array.isArray(r.plano_acao)
+        ? r.plano_acao.map((p: any) => ({
+            o_que: p.acao || p.o_que || "",
+            como: p.como || p.justificativa || "",
+            responsavel: p.responsavel || "",
+            prazo: p.prazo || "",
+          }))
+        : [];
+      // Substituir = sobrescreve; Complementar = mantém o que já existe
+      const pick = (novo: string, atual: string) =>
+        iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
+
       updateSetor(editingSetorIdx, {
-        riscos_lista: riscos.length > 0 ? riscos : setor.riscos_lista,
-        parecer_ambiente: r.parecer_ambiente || setor.parecer_ambiente,
-        parecer_ergonomia: r.parecer_ergonomia || setor.parecer_ergonomia,
-        conduta_1: r.conduta_1 || setor.conduta_1,
-        parecer_conduta_1: r.parecer_conduta_1 || setor.parecer_conduta_1,
-        conduta_2: r.conduta_2 || setor.conduta_2,
-        parecer_conduta_2: r.parecer_conduta_2 || setor.parecer_conduta_2,
-        plano_acao: Array.isArray(r.plano_acao) && r.plano_acao.length > 0
-          ? r.plano_acao.map((p: any) => ({
-              o_que: p.acao || p.o_que || "",
-              como: p.como || p.justificativa || "",
-              responsavel: p.responsavel || "",
-              prazo: p.prazo || "",
-            }))
-          : setor.plano_acao,
+        riscos_lista: iaSubstituir
+          ? (riscos.length > 0 ? riscos : setor.riscos_lista)
+          : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
+        parecer_ambiente: pick(r.parecer_ambiente, setor.parecer_ambiente),
+        parecer_ergonomia: pick(r.parecer_ergonomia, setor.parecer_ergonomia),
+        conduta_1: pick(r.conduta_1, setor.conduta_1),
+        parecer_conduta_1: pick(r.parecer_conduta_1, setor.parecer_conduta_1),
+        conduta_2: pick(r.conduta_2, setor.conduta_2),
+        parecer_conduta_2: pick(r.parecer_conduta_2, setor.parecer_conduta_2),
+        plano_acao: iaSubstituir
+          ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
+          : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
+
       setIaOpen(false);
       toast.success("Análise gerada com IA");
     } catch (e: any) {
