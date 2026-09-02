@@ -236,6 +236,7 @@ export default function AepWizard() {
             funcoes_selecionadas: s.funcoes_selecionadas || [],
             colaboradores: s.colaboradores || [],
             plano_acao: s.plano_acao || [],
+            riscos_lista: s.riscos_lista || [],
             checklist: { ...emptyChecklist(), ...(s.checklist || {}) },
           })));
         }
