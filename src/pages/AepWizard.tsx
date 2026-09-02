@@ -407,28 +407,52 @@ export default function AepWizard() {
         postura_predominante: setor.postura_predominante,
         postura_observacao: setor.postura_observacao,
         checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
+        riscos_ja_cadastrados: setor.riscos_lista,
+        observacoes_complementares: iaObs,
       };
 
-      const { data, error } = await supabase.functions.invoke("aet-generate", {
+      const { data, error } = await supabase.functions.invoke("aep-generate", {
         body: { descricao: iaObs, contexto },
       });
       if (error) throw error;
+      if ((data as any)?.error) throw new Error((data as any).error);
 
-      const r: any = data || {};
+      const r: any = (data as any)?.output || data || {};
+      const riscos: RiscoErgonomico[] = Array.isArray(r.riscos_ergonomicos)
+        ? r.riscos_ergonomicos.map((x: any) => {
+            const probabilidade = x.probabilidade || "";
+            const severidade = x.severidade || "";
+            return {
+              ...emptyRiscoErgonomico(),
+              tipo_agente: x.tipo_agente || "",
+              fator_risco: x.fator_risco || "",
+              fonte_geradora: x.fonte_geradora || "",
+              possiveis_danos: x.possiveis_danos || "",
+              controle_existente: x.controle_existente || "",
+              probabilidade,
+              severidade,
+              nivel_risco: calcularNivelRiscoAep(probabilidade, severidade),
+              medidas: x.medidas || "",
+            };
+          })
+        : [];
+
       updateSetor(editingSetorIdx, {
-        parecer_ambiente: r.posto_trabalho || setor.parecer_ambiente,
-        riscos_ergonomicos: r.caracterizacao_biomecanica || setor.riscos_ergonomicos,
-        parecer_ergonomia: r.diagnostico_ergonomico || setor.parecer_ergonomia,
-        conduta: r.conclusao || setor.conduta,
+        riscos_lista: riscos.length > 0 ? riscos : setor.riscos_lista,
+        parecer_ambiente: r.parecer_ambiente || setor.parecer_ambiente,
+        parecer_ergonomia: r.parecer_ergonomia || setor.parecer_ergonomia,
+        conduta_1: r.conduta_1 || setor.conduta_1,
+        parecer_conduta_1: r.parecer_conduta_1 || setor.parecer_conduta_1,
+        conduta_2: r.conduta_2 || setor.conduta_2,
+        parecer_conduta_2: r.parecer_conduta_2 || setor.parecer_conduta_2,
         plano_acao: Array.isArray(r.plano_acao) && r.plano_acao.length > 0
           ? r.plano_acao.map((p: any) => ({
-              o_que: p.o_que || p.acao || "",
+              o_que: p.acao || p.o_que || "",
               como: p.como || p.justificativa || "",
               responsavel: p.responsavel || "",
               prazo: p.prazo || "",
             }))
           : setor.plano_acao,
-        descricao_atividade: setor.descricao_atividade || r.descricao_atividade || "",
       });
       setIaOpen(false);
       toast.success("Análise gerada com IA");
