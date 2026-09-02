@@ -19,6 +19,7 @@ import LtcatWizard from "./pages/LtcatWizard";
 import PgrWizard from "./pages/PgrWizard";
 import PcmsoWizard from "./pages/PcmsoWizard";
 import AetWizard from "./pages/AetWizard";
+import AepWizard from "./pages/AepWizard";
 import SetoresFuncoes from "./pages/SetoresFuncoes";
 import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
@@ -85,6 +86,8 @@ const App = () => (
             <Route path="/documentos/pcmso/editar/:documentoId" element={<Protected><PcmsoWizard /></Protected>} />
             <Route path="/documentos/aet/novo" element={<Protected><AetWizard /></Protected>} />
             <Route path="/documentos/aet/editar/:documentoId" element={<Protected><AetWizard /></Protected>} />
+            <Route path="/documentos/aep/novo" element={<Protected><AepWizard /></Protected>} />
+            <Route path="/documentos/aep/editar/:documentoId" element={<Protected><AepWizard /></Protected>} />
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

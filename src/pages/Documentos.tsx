@@ -30,16 +30,18 @@ const docTypes = [
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
+  { id: "aep", label: "AEP", desc: "Análise Ergonômica Preliminar" },
 ];
 
 // Ordem canônica exibida na árvore.
-const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET"];
+const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AEP"];
 
 const tipoLabel = (t: string) => {
   const up = (t || "").toUpperCase();
   if (up === "INSALUBRIDADE") return "Laudo de Insalubridade";
   if (up === "PERICULOSIDADE") return "Laudo de Periculosidade";
   if (up === "AET") return "AET";
+  if (up === "AEP") return "AEP";
   return up;
 };
 
@@ -60,6 +62,7 @@ export default function Documentos() {
     [
       { table: "documentos", queryKey: ["documentos"] },
       { table: "aet_documentos", queryKey: ["documentos"] },
+      { table: "aep_documentos", queryKey: ["documentos"] },
       { table: "contratos", queryKey: ["contratos-doc"] },
       { table: "empresas", queryKey: ["empresas-doc"] },
     ],
@@ -149,6 +152,7 @@ export default function Documentos() {
     else if (typeId === "insalubridade") setTimeout(() => setInsalubridadeOpen(true), 100);
     else if (typeId === "periculosidade") setTimeout(() => setPericulosidadeOpen(true), 100);
     else if (typeId === "aet") navigate("/documentos/aet/novo");
+    else if (typeId === "aep") navigate("/documentos/aep/novo");
     else if (typeId === "pgr") navigate("/documentos/pgr/novo");
     else if (typeId === "pcmso") setTimeout(() => setPcmsoOpen(true), 100);
   };
@@ -193,7 +197,7 @@ export default function Documentos() {
     const tipo = (doc.tipo || "").toUpperCase();
     const map: Record<string, string> = {
       LTCAT: "ltcat", INSALUBRIDADE: "insalubridade", PERICULOSIDADE: "periculosidade",
-      AET: "aet", PGR: "pgr", PCMSO: "pcmso",
+      AET: "aet", AEP: "aep", PGR: "pgr", PCMSO: "pcmso",
     };
     const slug = map[tipo];
     if (slug) navigate(`/documentos/${slug}/editar/${doc.id}`);

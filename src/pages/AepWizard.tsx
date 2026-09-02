@@ -1,0 +1,1175 @@
+import { useEffect, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import {
+  ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
+  FileDown, Sparkles,
+} from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Card } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
+import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
+import { AepTemplateHelper } from "@/components/AepTemplateHelper";
+import { sortByGes } from "@/lib/sortGes";
+
+import Docxtemplater from "docxtemplater";
+import PizZip from "pizzip";
+import { saveAs } from "file-saver";
+import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+
+// ───────────── Tipos ─────────────
+type Revisao = { data_revisao: string; descricao_revisao: string };
+type Colaborador = { nome_colaborador: string; funcao: string; data_avaliacao: string };
+type PlanoAcao = { o_que: string; como: string; responsavel: string; prazo: string };
+type ChecklistItem = { quantidade_inadequados: string; condicao: string; observacao: string };
+
+type SetorAep = {
+  setor_id: string;
+  setor_nome: string;
+  ges: string;
+  descricao_ambiente: string;
+  funcoes_selecionadas: { id: string; nome: string }[];
+  numero_funcionarios: string;
+  colaboradores: Colaborador[];
+  descricao_atividade: string;
+  turno: string;
+  postura_predominante: string;
+  postura_observacao: string;
+  checklist: Record<string, ChecklistItem>;
+  riscos_ergonomicos: string;
+  parecer_ambiente: string;
+  parecer_ergonomia: string;
+  conduta: string;
+  plano_acao: PlanoAcao[];
+  _salvo?: boolean;
+};
+
+export const CHECKLIST_LINHAS: { key: string; label: string }[] = [
+  { key: "organizacao_trabalho", label: "Organização do trabalho" },
+  { key: "levantamento_transporte_cargas", label: "Levantamento e transporte de cargas" },
+  { key: "mobiliario", label: "Mobiliário dos postos de trabalho" },
+  { key: "maquinas_equipamentos_ferramentas", label: "Máquinas, equipamentos e ferramentas manuais" },
+  { key: "conforto_ambiente", label: "Condições de conforto no ambiente de trabalho" },
+];
+
+const CONDICOES = ["Adequado", "Parcialmente adequado", "Inadequado", "Não aplicável"];
+
+const POSTURAS = [
+  "Sentado", "Em pé", "Alternado sentado/em pé", "Agachado",
+  "Ajoelhado", "Caminhando", "Posturas variadas", "Outra",
+];
+
+const emptyChecklist = (): Record<string, ChecklistItem> =>
+  Object.fromEntries(
+    CHECKLIST_LINHAS.map((l) => [l.key, { quantidade_inadequados: "", condicao: "", observacao: "" }]),
+  );
+
+const emptyColab = (): Colaborador => ({ nome_colaborador: "", funcao: "", data_avaliacao: "" });
+const emptyPlano = (): PlanoAcao => ({ o_que: "", como: "", responsavel: "", prazo: "" });
+const emptyRev = (): Revisao => ({ data_revisao: "", descricao_revisao: "" });
+
+const newSetor = (s: any): SetorAep => ({
+  setor_id: s.id,
+  setor_nome: s.nome_setor || "",
+  ges: s.ghe_ges || "",
+  descricao_ambiente: s.descricao_ambiente || "",
+  funcoes_selecionadas: [],
+  numero_funcionarios: "",
+  colaboradores: [],
+  descricao_atividade: "",
+  turno: "",
+  postura_predominante: "",
+  postura_observacao: "",
+  checklist: emptyChecklist(),
+  riscos_ergonomicos: "",
+  parecer_ambiente: "",
+  parecer_ergonomia: "",
+  conduta: "",
+  plano_acao: [],
+  _salvo: false,
+});
+
+const formatDate = (v?: string | null) => (v ? new Date(v + "T00:00:00").toLocaleDateString("pt-BR") : "");
+
+export default function AepWizard() {
+  const { documentoId } = useParams();
+  const navigate = useNavigate();
+
+  const [empresaId, setEmpresaId] = useState("");
+  const [contratoId, setContratoId] = useState("");
+  const [responsavelTecnico, setResponsavelTecnico] = useState("");
+  const [crea, setCrea] = useState("");
+  const [cargo, setCargo] = useState("");
+  const [dataElaboracao, setDataElaboracao] = useState("");
+  const [alteracoes, setAlteracoes] = useState("");
+  const [revisoes, setRevisoes] = useState<Revisao[]>([]);
+  const [setoresAep, setSetoresAep] = useState<SetorAep[]>([]);
+
+  const [selectModalOpen, setSelectModalOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [editingSetorIdx, setEditingSetorIdx] = useState<number | null>(null);
+
+  const [aepId, setAepId] = useState<string | null>(null);
+  const [docId, setDocId] = useState<string | null>(documentoId || null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(!!documentoId);
+
+  const [showGerar, setShowGerar] = useState(false);
+  const [selectedTemplate, setSelectedTemplate] = useState("");
+  const [generating, setGenerating] = useState(false);
+
+  const [iaOpen, setIaOpen] = useState(false);
+  const [iaObs, setIaObs] = useState("");
+  const [iaLoading, setIaLoading] = useState(false);
+
+  useSetoresFuncoesSync();
+
+  // ───────────── Queries ─────────────
+  const { data: empresas = [] } = useQuery({
+    queryKey: ["empresas-aep"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id,razao_social,nome_fantasia,cnpj,cnae_principal,grau_risco,endereco,total_funcionarios,jornada_trabalho")
+        .order("razao_social");
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const { data: contratosEmpresa = [] } = useQuery({
+    queryKey: ["contratos-aep", empresaId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id,numero_contrato,nome_contratante,cnpj_contratante,vigencia_inicio,vigencia_fim,local_trabalho")
+        .eq("empresa_id", empresaId)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!empresaId,
+  });
+
+  const { data: setoresEmpresa = [] } = useQuery({
+    queryKey: ["setores-empresa-aep", empresaId, contratoId],
+    queryFn: async () => {
+      if (!empresaId) return [];
+      let q = (supabase as any).from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente");
+      if (contratoId) q = q.eq("contrato_id", contratoId);
+      else q = q.eq("empresa_id", empresaId);
+      const { data, error } = await q;
+      if (error) throw error;
+      return sortByGes(data || []);
+    },
+    enabled: !!empresaId,
+  });
+
+  const { data: funcoesAll = [] } = useQuery({
+    queryKey: ["funcoes-aep", setoresAep.map((s) => s.setor_id).join(",")],
+    queryFn: async () => {
+      const ids = setoresAep.map((s) => s.setor_id);
+      if (ids.length === 0) return [];
+      const { data, error } = await supabase
+        .from("funcoes")
+        .select("id,nome_funcao,setor_id,descricao_atividades")
+        .in("setor_id", ids);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: setoresAep.length > 0,
+  });
+
+  const { data: templates = [] } = useQuery({
+    queryKey: ["templates-aep"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("templates")
+        .select("id,title,file_path")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const templatesAep = (templates as any[]).filter((t) => /aep|ergon/i.test(t.title || ""));
+  const templatesToShow = templatesAep.length > 0 ? templatesAep : (templates as any[]);
+
+  const empresa: any = (empresas as any[]).find((e) => e.id === empresaId) || {};
+  const contrato: any = (contratosEmpresa as any[]).find((c) => c.id === contratoId) || {};
+  const empresaNome = empresa.razao_social || empresa.nome_fantasia || "";
+  const allSetoresSalvos = setoresAep.length > 0 && setoresAep.every((s) => s._salvo);
+
+  // ───────────── Carregar existente ─────────────
+  useEffect(() => {
+    if (!documentoId) return;
+    (async () => {
+      try {
+        const { data, error } = await (supabase as any)
+          .from("aep_documentos")
+          .select("*")
+          .eq("documento_id", documentoId)
+          .maybeSingle();
+        if (error) throw error;
+        if (data) {
+          setAepId(data.id);
+          setEmpresaId(data.empresa_id || "");
+          setContratoId(data.contrato_id || "");
+          setResponsavelTecnico(data.responsavel_tecnico || "");
+          setCrea(data.crea || "");
+          setCargo(data.cargo || "");
+          setDataElaboracao(data.data_elaboracao || "");
+          setAlteracoes(data.alteracoes_documento || "");
+          setRevisoes(data.revisoes || []);
+          setSetoresAep(((data.setores as any[]) || []).map((s: any) => ({
+            ...newSetor({ id: s.setor_id, nome_setor: s.setor_nome, ghe_ges: s.ges, descricao_ambiente: s.descricao_ambiente }),
+            ...s,
+            funcoes_selecionadas: s.funcoes_selecionadas || [],
+            colaboradores: s.colaboradores || [],
+            plano_acao: s.plano_acao || [],
+            checklist: { ...emptyChecklist(), ...(s.checklist || {}) },
+          })));
+        }
+      } catch (e: any) {
+        toast.error("Erro ao carregar AEP: " + e.message);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, [documentoId]);
+
+  // Mantém nomes/GES sincronizados com o cadastro
+  useEffect(() => {
+    if (!empresaId || (setoresEmpresa as any[]).length === 0) return;
+    const map = new Map((setoresEmpresa as any[]).map((s: any) => [s.id, s]));
+    setSetoresAep((prev) => {
+      const next = prev
+        .filter((s) => !s.setor_id || map.has(s.setor_id))
+        .map((s) => {
+          const db: any = map.get(s.setor_id);
+          if (!db) return s;
+          if (s.setor_nome === (db.nome_setor || "") && s.ges === (db.ghe_ges || "")) return s;
+          return { ...s, setor_nome: db.nome_setor || "", ges: db.ghe_ges || "" };
+        });
+      return JSON.stringify(next) === JSON.stringify(prev) ? prev : next;
+    });
+  }, [setoresEmpresa, empresaId]);
+
+  // ───────────── Setores ─────────────
+  const handleConfirmSetores = () => {
+    const novos = (setoresEmpresa as any[])
+      .filter((s: any) => selectedIds.has(s.id))
+      .map((s: any) => newSetor(s));
+    setSetoresAep([...setoresAep, ...novos]);
+    setSelectedIds(new Set());
+    setSelectModalOpen(false);
+  };
+
+  const addAvaliacaoSetor = (setorId: string) => {
+    const base = (setoresEmpresa as any[]).find((s: any) => s.id === setorId);
+    const ref = setoresAep.find((s) => s.setor_id === setorId);
+    const novo = newSetor(base || { id: setorId, nome_setor: ref?.setor_nome, ghe_ges: ref?.ges, descricao_ambiente: ref?.descricao_ambiente });
+    setSetoresAep([...setoresAep, novo]);
+    setEditingSetorIdx(setoresAep.length);
+  };
+
+  const removeSetor = (idx: number) => setSetoresAep(setoresAep.filter((_, i) => i !== idx));
+  const removeSetorGroup = (setorId: string) => setSetoresAep(setoresAep.filter((s) => s.setor_id !== setorId));
+
+  const updateSetor = (idx: number, patch: Partial<SetorAep>) => {
+    setSetoresAep((prev) => prev.map((s, i) => (i === idx ? { ...s, ...patch } : s)));
+  };
+
+  // ───────────── Persistência ─────────────
+  const persist = async (status: "rascunho" | "concluido", silent = false): Promise<string | null> => {
+    if (!empresaId) {
+      if (!silent) toast.error("Selecione a empresa");
+      return null;
+    }
+    if (status === "concluido" && (!responsavelTecnico.trim() || !dataElaboracao)) {
+      toast.error("Preencha responsável técnico e data de elaboração");
+      return null;
+    }
+    setSaving(true);
+    try {
+      let docIdLocal = docId;
+      if (!docIdLocal) {
+        const { data: doc, error: docErr } = await supabase
+          .from("documentos")
+          .insert({ tipo: "AEP", empresa_id: empresaId, empresa_nome: empresaNome, contrato_id: contratoId || null, status })
+          .select()
+          .single();
+        if (docErr) throw docErr;
+        docIdLocal = doc.id;
+        setDocId(docIdLocal);
+      } else {
+        await supabase
+          .from("documentos")
+          .update({ empresa_id: empresaId, empresa_nome: empresaNome, contrato_id: contratoId || null, status })
+          .eq("id", docIdLocal);
+      }
+
+      const payload: any = {
+        documento_id: docIdLocal,
+        empresa_id: empresaId,
+        contrato_id: contratoId || null,
+        responsavel_tecnico: responsavelTecnico,
+        crea,
+        cargo,
+        data_elaboracao: dataElaboracao || null,
+        alteracoes_documento: alteracoes,
+        revisoes,
+        setores: setoresAep,
+        status,
+      };
+
+      if (aepId) {
+        const { error } = await (supabase as any).from("aep_documentos").update(payload).eq("id", aepId);
+        if (error) throw error;
+      } else {
+        const { data, error } = await (supabase as any).from("aep_documentos").insert(payload).select().single();
+        if (error) throw error;
+        setAepId(data.id);
+      }
+
+      if (!silent) toast.success(status === "concluido" ? "AEP finalizada!" : "Rascunho salvo");
+      return docIdLocal;
+    } catch (e: any) {
+      toast.error("Erro ao salvar: " + e.message);
+      return null;
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSalvarSetor = async () => {
+    if (editingSetorIdx === null) return;
+    const setor = setoresAep[editingSetorIdx];
+    if (setor.funcoes_selecionadas.length === 0) {
+      toast.error("Selecione ao menos uma função avaliada");
+      return;
+    }
+    if (!setor.descricao_atividade.trim()) {
+      toast.error("Descreva a atividade realizada");
+      return;
+    }
+    setSetoresAep((prev) => prev.map((s, i) => (i === editingSetorIdx ? { ...s, _salvo: true } : s)));
+    setEditingSetorIdx(null);
+    toast.success(`Setor "${setor.setor_nome}" salvo`);
+    setTimeout(() => persist("rascunho", true), 100);
+  };
+
+  // ───────────── IA ─────────────
+  const gerarComIA = async () => {
+    if (editingSetorIdx === null) {
+      toast.error("Abra o registro de um setor para gerar com IA");
+      return;
+    }
+    const setor = setoresAep[editingSetorIdx];
+    setIaLoading(true);
+    try {
+      const contexto = {
+        tipo_documento: "AEP — Análise Ergonômica Preliminar",
+        empresa: { razao_social: empresaNome, cnae: empresa.cnae_principal, grau_risco: empresa.grau_risco },
+        setor: setor.setor_nome,
+        ges: setor.ges,
+        descricao_ambiente: setor.descricao_ambiente,
+        funcoes: setor.funcoes_selecionadas.map((f) => f.nome),
+        numero_funcionarios: setor.numero_funcionarios,
+        colaboradores: setor.colaboradores,
+        descricao_atividade: setor.descricao_atividade,
+        turno: setor.turno,
+        postura_predominante: setor.postura_predominante,
+        postura_observacao: setor.postura_observacao,
+        checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
+      };
+
+      const { data, error } = await supabase.functions.invoke("aet-generate", {
+        body: { descricao: iaObs, contexto },
+      });
+      if (error) throw error;
+
+      const r: any = data || {};
+      updateSetor(editingSetorIdx, {
+        parecer_ambiente: r.posto_trabalho || setor.parecer_ambiente,
+        riscos_ergonomicos: r.caracterizacao_biomecanica || setor.riscos_ergonomicos,
+        parecer_ergonomia: r.diagnostico_ergonomico || setor.parecer_ergonomia,
+        conduta: r.conclusao || setor.conduta,
+        plano_acao: Array.isArray(r.plano_acao) && r.plano_acao.length > 0
+          ? r.plano_acao.map((p: any) => ({
+              o_que: p.o_que || p.acao || "",
+              como: p.como || p.justificativa || "",
+              responsavel: p.responsavel || "",
+              prazo: p.prazo || "",
+            }))
+          : setor.plano_acao,
+        descricao_atividade: setor.descricao_atividade || r.descricao_atividade || "",
+      });
+      setIaOpen(false);
+      toast.success("Análise gerada com IA");
+    } catch (e: any) {
+      toast.error("Erro na geração com IA: " + (e.message || ""));
+    } finally {
+      setIaLoading(false);
+    }
+  };
+
+  // ───────────── Template ─────────────
+  const buildSetorData = (s: SetorAep) => {
+    const aep = {
+      empresa: {
+        razao_social: empresaNome,
+        nome_fantasia: empresa.nome_fantasia || "",
+        cnpj: empresa.cnpj || "",
+        cnae_principal: empresa.cnae_principal || "",
+        grau_risco: empresa.grau_risco || "",
+        endereco: empresa.endereco || "",
+        total_funcionarios: empresa.total_funcionarios ?? "",
+        jornada_trabalho: empresa.jornada_trabalho || "",
+      },
+      contrato: {
+        numero: contrato.numero_contrato || "",
+        contratante: contrato.nome_contratante || "",
+        cnpj_contratante: contrato.cnpj_contratante || "",
+        vigencia_inicio: formatDate(contrato.vigencia_inicio),
+        vigencia_fim: formatDate(contrato.vigencia_fim),
+        local_trabalho: contrato.local_trabalho || "",
+      },
+      responsavel_tecnico: responsavelTecnico,
+      crea,
+      cargo,
+      data_elaboracao: formatDate(dataElaboracao),
+      alteracoes,
+      revisoes,
+      setor: { nome: s.setor_nome },
+      ges: s.ges,
+      descricao_ambiente: s.descricao_ambiente,
+      funcao: s.funcoes_selecionadas.map((f) => f.nome).join("\n"),
+      funcoes: s.funcoes_selecionadas.map((f) => ({ nome: f.nome })),
+      numero_funcionarios: s.numero_funcionarios,
+      colaboradores: s.colaboradores.map((c) => c.nome_colaborador).filter(Boolean).join("\n"),
+      colaboradores_lista: s.colaboradores.map((c) => ({
+        nome: c.nome_colaborador, funcao: c.funcao, data_avaliacao: formatDate(c.data_avaliacao),
+      })),
+      descricao_atividade: s.descricao_atividade,
+      turno: s.turno,
+      postura_predominante: s.postura_predominante,
+      postura_observacao: s.postura_observacao,
+      checklist: s.checklist,
+      checklist_lista: CHECKLIST_LINHAS.map((l) => ({
+        variavel: l.label,
+        quantidade_inadequados: s.checklist[l.key]?.quantidade_inadequados || "",
+        condicao: s.checklist[l.key]?.condicao || "",
+        observacao: s.checklist[l.key]?.observacao || "",
+      })),
+      riscos_ergonomicos: s.riscos_ergonomicos,
+      parecer_ambiente: s.parecer_ambiente,
+      parecer_ergonomia: s.parecer_ergonomia,
+      conduta: s.conduta,
+      plano_acao: s.plano_acao
+        .map((p) => [p.o_que, p.como, p.responsavel, p.prazo].filter(Boolean).join(" — "))
+        .join("\n"),
+      plano_acao_lista: s.plano_acao,
+    };
+    return { aep, ...aep };
+  };
+
+  const buildTemplateData = () => {
+    const setores = setoresAep.map((s) => buildSetorData(s));
+    const primeiro = setores[0];
+    return { aep: primeiro?.aep || {}, setores, empresa: empresaNome };
+  };
+
+  const loadTemplateDoc = async () => {
+    const template: any = (templates as any[]).find((t) => t.id === selectedTemplate);
+    if (!template) throw new Error("Template não encontrado");
+    const { data: fileData, error } = await supabase.storage.from("templates").download(template.file_path);
+    if (error) throw error;
+
+    const path = String(template.file_path || "").toLowerCase();
+    if (path.endsWith(".html") || path.endsWith(".htm")) {
+      const htmlSource = await fileData.text();
+      let lastData: any = null;
+      return {
+        kind: "html",
+        render(d: any) { lastData = d; },
+        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+      } as any;
+    }
+
+    const arrayBuffer = await fileData.arrayBuffer();
+    return new Docxtemplater(new PizZip(arrayBuffer), {
+      paragraphLoop: true,
+      linebreaks: true,
+      delimiters: { start: "{{", end: "}}" },
+      nullGetter: () => "",
+    });
+  };
+
+  const handleGenerate = async () => {
+    setGenerating(true);
+    try {
+      const doc: any = await loadTemplateDoc();
+      doc.render(buildTemplateData());
+      const output: Blob = doc.kind === "html"
+        ? await doc.toBlob()
+        : doc.getZip().generate({
+            type: "blob",
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          });
+
+      const fileName = `AEP_${empresaNome.replace(/[^a-zA-Z0-9]/g, "_")}_${new Date().getFullYear()}.docx`;
+      const storagePath = `documentos/${Date.now()}_${fileName}`;
+      const { error: upErr } = await supabase.storage.from("templates").upload(storagePath, output);
+      if (docId) {
+        await supabase.from("documentos").update({
+          file_path: storagePath, template_id: selectedTemplate, status: upErr ? "erro" : "concluido",
+        }).eq("id", docId);
+      }
+      saveAs(output, fileName);
+      toast.success("Documento AEP gerado com sucesso!");
+    } catch (e: any) {
+      toast.error("Erro ao gerar documento: " + (e.message || ""));
+    } finally {
+      setGenerating(false);
+    }
+  };
+
+  const handleEmitir = async () => {
+    const id = await persist("rascunho", true);
+    if (id) setShowGerar(true);
+  };
+
+  // ───────────── Render ─────────────
+  if (loading) {
+    return (
+      <div className="flex justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
+  if (showGerar) {
+    return (
+      <div className="max-w-3xl mx-auto pb-20">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setShowGerar(false)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div>
+            <h1 className="font-heading text-2xl font-bold">Gerar Documento AEP</h1>
+            <p className="text-xs text-muted-foreground">{empresaNome}</p>
+          </div>
+        </div>
+
+        <Card className="p-8 text-center">
+          <FileDown className="w-12 h-12 mx-auto text-accent mb-4" />
+          <h2 className="font-heading text-xl font-bold mb-2">Selecione o template AEP</h2>
+          <p className="text-muted-foreground mb-6 text-sm">
+            Escolha o template e gere o documento final
+          </p>
+
+          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+            <SelectTrigger className="max-w-md mx-auto"><SelectValue placeholder="Escolher template" /></SelectTrigger>
+            <SelectContent>
+              {templatesToShow.length === 0 && (
+                <div className="p-2 text-sm text-muted-foreground">Nenhum template cadastrado</div>
+              )}
+              {templatesToShow.map((t: any) => (
+                <SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <div className="flex justify-center gap-2 mt-6">
+            <Button
+              onClick={handleGenerate}
+              disabled={generating || !selectedTemplate}
+              className="bg-accent text-accent-foreground hover:bg-accent/90"
+            >
+              {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
+              Gerar Documento
+            </Button>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
+  // ───── EDITOR DE SETOR ─────
+  if (editingSetorIdx !== null) {
+    const setor = setoresAep[editingSetorIdx];
+    const funcoesSetor = (funcoesAll as any[]).filter((f) => f.setor_id === setor.setor_id);
+
+    return (
+      <div className="max-w-5xl mx-auto pb-20">
+        <div className="flex items-center gap-3 mb-6">
+          <Button variant="ghost" size="icon" onClick={() => setEditingSetorIdx(null)}>
+            <ArrowLeft className="w-5 h-5" />
+          </Button>
+          <div className="flex-1">
+            <h1 className="font-heading text-2xl font-bold">{setor.setor_nome}</h1>
+            <p className="text-xs text-muted-foreground">Avaliação ergonômica preliminar deste setor</p>
+          </div>
+          <Button variant="outline" onClick={() => setIaOpen(true)}>
+            <Sparkles className="w-4 h-4 mr-2" />Gerar com IA
+          </Button>
+          <AepTemplateHelper />
+          <Button onClick={handleSalvarSetor} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Save className="w-4 h-4 mr-2" />Salvar setor
+          </Button>
+        </div>
+
+        {/* Identificação do setor */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Identificação do setor</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div>
+              <Label>GES</Label>
+              <Input value={setor.ges} onChange={(e) => updateSetor(editingSetorIdx, { ges: e.target.value })} />
+            </div>
+            <div>
+              <Label>Setor</Label>
+              <Input value={setor.setor_nome} onChange={(e) => updateSetor(editingSetorIdx, { setor_nome: e.target.value })} />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Descrição do ambiente</Label>
+              <Textarea
+                value={setor.descricao_ambiente}
+                onChange={(e) => updateSetor(editingSetorIdx, { descricao_ambiente: e.target.value })}
+              />
+            </div>
+            <div className="md:col-span-2">
+              <Label>Funções avaliadas *</Label>
+              <div className="grid sm:grid-cols-2 gap-1 mt-1 max-h-52 overflow-y-auto border border-border rounded-lg p-2">
+                {funcoesSetor.length === 0 && (
+                  <p className="text-xs text-muted-foreground p-2">Nenhuma função cadastrada neste setor.</p>
+                )}
+                {funcoesSetor.map((f: any) => {
+                  const checked = setor.funcoes_selecionadas.some((x) => x.id === f.id);
+                  return (
+                    <label key={f.id} className="flex items-center gap-2 p-1.5 rounded hover:bg-muted cursor-pointer">
+                      <Checkbox
+                        checked={checked}
+                        onCheckedChange={(v) => {
+                          const sel = v
+                            ? [...setor.funcoes_selecionadas, { id: f.id, nome: f.nome_funcao }]
+                            : setor.funcoes_selecionadas.filter((x) => x.id !== f.id);
+                          updateSetor(editingSetorIdx, { funcoes_selecionadas: sel });
+                        }}
+                      />
+                      <span className="text-sm">{f.nome_funcao}</span>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+            <div>
+              <Label>Nº de funcionários</Label>
+              <Input
+                type="number"
+                value={setor.numero_funcionarios}
+                onChange={(e) => updateSetor(editingSetorIdx, { numero_funcionarios: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label>Colaboradores avaliados</Label>
+              <Button size="sm" variant="outline" onClick={() =>
+                updateSetor(editingSetorIdx, { colaboradores: [...setor.colaboradores, emptyColab()] })
+              }>
+                <Plus className="w-4 h-4 mr-1" />Colaborador
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {setor.colaboradores.map((c, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-5">
+                    <Label className="text-xs">Nome</Label>
+                    <Input value={c.nome_colaborador} onChange={(e) => {
+                      const arr = [...setor.colaboradores];
+                      arr[i] = { ...arr[i], nome_colaborador: e.target.value };
+                      updateSetor(editingSetorIdx, { colaboradores: arr });
+                    }} />
+                  </div>
+                  <div className="col-span-4">
+                    <Label className="text-xs">Função</Label>
+                    <Select value={c.funcao || undefined} onValueChange={(v) => {
+                      const arr = [...setor.colaboradores];
+                      arr[i] = { ...arr[i], funcao: v };
+                      updateSetor(editingSetorIdx, { colaboradores: arr });
+                    }}>
+                      <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                      <SelectContent>
+                        {setor.funcoes_selecionadas.map((f) => (
+                          <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Data</Label>
+                    <Input type="date" value={c.data_avaliacao} onChange={(e) => {
+                      const arr = [...setor.colaboradores];
+                      arr[i] = { ...arr[i], data_avaliacao: e.target.value };
+                      updateSetor(editingSetorIdx, { colaboradores: arr });
+                    }} />
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                    updateSetor(editingSetorIdx, { colaboradores: setor.colaboradores.filter((_, k) => k !== i) })
+                  }>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* Descrição da atividade */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Descrição da atividade</h2>
+          <Textarea
+            className="min-h-[160px]"
+            placeholder="Descreva detalhadamente as atividades realizadas pelo trabalhador (método, sequência, ferramentas, cargas, ciclos)…"
+            value={setor.descricao_atividade}
+            onChange={(e) => updateSetor(editingSetorIdx, { descricao_atividade: e.target.value })}
+          />
+        </Card>
+
+        {/* Turno e postura */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Turno e postura</h2>
+          <div className="grid md:grid-cols-2 gap-3">
+            <div className="md:col-span-2">
+              <Label>Turno de trabalho</Label>
+              <Textarea
+                placeholder="Horário, jornada, escala, intervalos e pausas…"
+                value={setor.turno}
+                onChange={(e) => updateSetor(editingSetorIdx, { turno: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label>Postura predominante</Label>
+              <Select
+                value={setor.postura_predominante || undefined}
+                onValueChange={(v) => updateSetor(editingSetorIdx, { postura_predominante: v })}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                <SelectContent>
+                  {POSTURAS.map((p) => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observação complementar</Label>
+              <Input
+                value={setor.postura_observacao}
+                onChange={(e) => updateSetor(editingSetorIdx, { postura_observacao: e.target.value })}
+              />
+            </div>
+          </div>
+        </Card>
+
+        {/* Checklist */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Resultado do checklist AEP</h2>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs uppercase text-muted-foreground">
+                  <th className="p-2">Variáveis observadas</th>
+                  <th className="p-2 w-40">Qtd. de itens inadequados</th>
+                  <th className="p-2 w-52">Condição</th>
+                  <th className="p-2">Observação</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CHECKLIST_LINHAS.map((l) => {
+                  const item = setor.checklist[l.key] || { quantidade_inadequados: "", condicao: "", observacao: "" };
+                  const patch = (p: Partial<ChecklistItem>) =>
+                    updateSetor(editingSetorIdx, { checklist: { ...setor.checklist, [l.key]: { ...item, ...p } } });
+                  return (
+                    <tr key={l.key} className="border-t border-border">
+                      <td className="p-2 font-medium">{l.label}</td>
+                      <td className="p-2">
+                        <Input type="number" min={0} value={item.quantidade_inadequados}
+                          onChange={(e) => patch({ quantidade_inadequados: e.target.value })} />
+                      </td>
+                      <td className="p-2">
+                        <Select value={item.condicao || undefined} onValueChange={(v) => patch({ condicao: v })}>
+                          <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+                          <SelectContent>
+                            {CONDICOES.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                      </td>
+                      <td className="p-2">
+                        <Input value={item.observacao} onChange={(e) => patch({ observacao: e.target.value })} />
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </Card>
+
+        {/* Análise técnica */}
+        <Card className="p-5 mb-4">
+          <h2 className="font-heading font-semibold mb-3">Análise técnica</h2>
+          <div className="space-y-3">
+            <div>
+              <Label>Riscos ergonômicos identificados</Label>
+              <Textarea value={setor.riscos_ergonomicos}
+                onChange={(e) => updateSetor(editingSetorIdx, { riscos_ergonomicos: e.target.value })} />
+            </div>
+            <div>
+              <Label>Parecer sobre o ambiente</Label>
+              <Textarea value={setor.parecer_ambiente}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ambiente: e.target.value })} />
+            </div>
+            <div>
+              <Label>Parecer ergonômico</Label>
+              <Textarea value={setor.parecer_ergonomia}
+                onChange={(e) => updateSetor(editingSetorIdx, { parecer_ergonomia: e.target.value })} />
+            </div>
+            <div>
+              <Label>Conduta</Label>
+              <Textarea value={setor.conduta}
+                onChange={(e) => updateSetor(editingSetorIdx, { conduta: e.target.value })} />
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <div className="flex items-center justify-between mb-2">
+              <Label>Plano de ação</Label>
+              <Button size="sm" variant="outline" onClick={() =>
+                updateSetor(editingSetorIdx, { plano_acao: [...setor.plano_acao, emptyPlano()] })
+              }>
+                <Plus className="w-4 h-4 mr-1" />Ação
+              </Button>
+            </div>
+            <div className="space-y-2">
+              {setor.plano_acao.map((p, i) => (
+                <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                  <div className="col-span-4">
+                    <Label className="text-xs">O que</Label>
+                    <Input value={p.o_que} onChange={(e) => {
+                      const arr = [...setor.plano_acao]; arr[i] = { ...arr[i], o_que: e.target.value };
+                      updateSetor(editingSetorIdx, { plano_acao: arr });
+                    }} />
+                  </div>
+                  <div className="col-span-3">
+                    <Label className="text-xs">Como</Label>
+                    <Input value={p.como} onChange={(e) => {
+                      const arr = [...setor.plano_acao]; arr[i] = { ...arr[i], como: e.target.value };
+                      updateSetor(editingSetorIdx, { plano_acao: arr });
+                    }} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Responsável</Label>
+                    <Input value={p.responsavel} onChange={(e) => {
+                      const arr = [...setor.plano_acao]; arr[i] = { ...arr[i], responsavel: e.target.value };
+                      updateSetor(editingSetorIdx, { plano_acao: arr });
+                    }} />
+                  </div>
+                  <div className="col-span-2">
+                    <Label className="text-xs">Prazo</Label>
+                    <Input value={p.prazo} onChange={(e) => {
+                      const arr = [...setor.plano_acao]; arr[i] = { ...arr[i], prazo: e.target.value };
+                      updateSetor(editingSetorIdx, { plano_acao: arr });
+                    }} />
+                  </div>
+                  <Button variant="ghost" size="icon" className="text-destructive" onClick={() =>
+                    updateSetor(editingSetorIdx, { plano_acao: setor.plano_acao.filter((_, k) => k !== i) })
+                  }>
+                    <Trash2 className="w-4 h-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        </Card>
+
+        {/* Modal IA */}
+        <Dialog open={iaOpen} onOpenChange={setIaOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Gerar análise com IA</DialogTitle>
+            </DialogHeader>
+            <p className="text-sm text-muted-foreground">
+              A IA usará função, atividade, setor, GES, ambiente, turno, postura e checklist preenchidos.
+              Descreva abaixo observações complementares de campo.
+            </p>
+            <Textarea
+              className="min-h-[140px]"
+              placeholder="Relato in loco, observações complementares…"
+              value={iaObs}
+              onChange={(e) => setIaObs(e.target.value)}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setIaOpen(false)}>Cancelar</Button>
+              <Button onClick={gerarComIA} disabled={iaLoading}>
+                {iaLoading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}
+                Gerar
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      </div>
+    );
+  }
+
+  // ───── TELA PRINCIPAL ─────
+  return (
+    <div className="max-w-5xl mx-auto pb-20">
+      <div className="flex items-center gap-3 mb-6">
+        <Button variant="ghost" size="icon" onClick={() => navigate("/documentos")}>
+          <ArrowLeft className="w-5 h-5" />
+        </Button>
+        <div className="flex-1">
+          <h1 className="font-heading text-2xl font-bold">Análise Ergonômica Preliminar (AEP)</h1>
+          <p className="text-xs text-muted-foreground">Cadastro completo do documento</p>
+        </div>
+        <Button variant="outline" onClick={() => {
+          if (setoresAep.length === 0) { toast.error("Adicione um setor e clique em Registrar"); return; }
+          setEditingSetorIdx(0); setIaOpen(true);
+        }}>
+          <Sparkles className="w-4 h-4 mr-2" />Gerar com IA
+        </Button>
+        <AepTemplateHelper />
+      </div>
+
+      {/* Identificação */}
+      <Card className="p-5 mb-4">
+        <h2 className="font-heading font-semibold mb-3">1. Identificação da empresa</h2>
+        <div className="grid md:grid-cols-2 gap-3">
+          <div className="md:col-span-2">
+            <Label>Empresa *</Label>
+            <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
+              <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
+              <SelectContent>
+                {(empresas as any[]).map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.razao_social || e.nome_fantasia}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="md:col-span-2">
+            <Label>Contrato</Label>
+            <Select value={contratoId || "__none__"} onValueChange={(v) => setContratoId(v === "__none__" ? "" : v)} disabled={!empresaId}>
+              <SelectTrigger>
+                <SelectValue placeholder={empresaId ? "Selecione um contrato" : "Selecione a empresa primeiro"} />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">— Sem contrato —</SelectItem>
+                {(contratosEmpresa as any[]).map((c) => (
+                  <SelectItem key={c.id} value={c.id}>
+                    {c.numero_contrato || "Contrato"} {c.nome_contratante ? `· ${c.nome_contratante}` : ""}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div>
+            <Label>Responsável técnico *</Label>
+            <Input value={responsavelTecnico} onChange={(e) => setResponsavelTecnico(e.target.value)} />
+          </div>
+          <div>
+            <Label>CREA</Label>
+            <Input value={crea} onChange={(e) => setCrea(e.target.value)} />
+          </div>
+          <div>
+            <Label>Cargo</Label>
+            <Input value={cargo} onChange={(e) => setCargo(e.target.value)} />
+          </div>
+          <div>
+            <Label>Data de elaboração *</Label>
+            <Input type="date" value={dataElaboracao} onChange={(e) => setDataElaboracao(e.target.value)} />
+          </div>
+          <div className="md:col-span-2">
+            <Label>Alterações do documento</Label>
+            <Textarea value={alteracoes} onChange={(e) => setAlteracoes(e.target.value)} />
+          </div>
+        </div>
+
+        <div className="mt-4">
+          <div className="flex items-center justify-between mb-2">
+            <Label>Revisões</Label>
+            <Button size="sm" variant="outline" onClick={() => setRevisoes([...revisoes, emptyRev()])}>
+              <Plus className="w-4 h-4 mr-1" />Revisão
+            </Button>
+          </div>
+          <div className="space-y-2">
+            {revisoes.map((r, i) => (
+              <div key={i} className="grid grid-cols-12 gap-2 items-end">
+                <div className="col-span-3">
+                  <Label className="text-xs">Data</Label>
+                  <Input type="date" value={r.data_revisao} onChange={(e) => {
+                    const arr = [...revisoes]; arr[i] = { ...arr[i], data_revisao: e.target.value }; setRevisoes(arr);
+                  }} />
+                </div>
+                <div className="col-span-8">
+                  <Label className="text-xs">Descrição</Label>
+                  <Input value={r.descricao_revisao} onChange={(e) => {
+                    const arr = [...revisoes]; arr[i] = { ...arr[i], descricao_revisao: e.target.value }; setRevisoes(arr);
+                  }} />
+                </div>
+                <Button variant="ghost" size="icon" className="text-destructive"
+                  onClick={() => setRevisoes(revisoes.filter((_, k) => k !== i))}>
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </Card>
+
+      {/* Setores */}
+      <Card className="p-5 mb-4">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="font-heading font-semibold">2. Setores avaliados</h2>
+          <Button size="sm" variant="outline" disabled={!empresaId} onClick={() => setSelectModalOpen(true)}>
+            <Plus className="w-4 h-4 mr-1" />Selecionar setores
+          </Button>
+        </div>
+        {setoresAep.length === 0 ? (
+          <div className="text-center py-8 border-2 border-dashed border-border rounded-lg">
+            <FileText className="w-8 h-8 mx-auto mb-2 text-muted-foreground/40" />
+            <p className="text-sm text-muted-foreground">
+              {empresaId ? "Nenhum setor adicionado" : "Selecione uma empresa primeiro"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid md:grid-cols-2 gap-3">
+            {Array.from(
+              setoresAep.reduce((map, s, idx) => {
+                const g = map.get(s.setor_id) || { setor_id: s.setor_id, setor_nome: s.setor_nome, ges: s.ges, items: [] as { idx: number; data: SetorAep }[] };
+                g.items.push({ idx, data: s });
+                map.set(s.setor_id, g);
+                return map;
+              }, new Map<string, { setor_id: string; setor_nome: string; ges: string; items: { idx: number; data: SetorAep }[] }>()).values()
+            ).map((g) => (
+              <div key={g.setor_id} className="border rounded-lg p-4 border-border">
+                <div className="flex items-start justify-between mb-2">
+                  <div className="flex-1">
+                    <h3 className="font-semibold">{g.setor_nome}</h3>
+                    {g.ges && <p className="text-xs text-muted-foreground">GES: {g.ges}</p>}
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {g.items.length} avaliação{g.items.length !== 1 ? "ões" : ""}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="icon" className="h-7 w-7 text-accent hover:text-accent"
+                      title="Adicionar avaliação" onClick={() => addAvaliacaoSetor(g.setor_id)}>
+                      <Plus className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="text-destructive h-7 w-7"
+                      onClick={() => removeSetorGroup(g.setor_id)}>
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 mt-2">
+                  {g.items.map((it, n) => (
+                    <div key={it.idx}
+                      className={`flex items-center justify-between gap-2 px-2 py-1.5 rounded border text-sm ${
+                        it.data._salvo ? "border-emerald-500/40 bg-emerald-50/40" : "border-border"
+                      }`}>
+                      <div className="flex items-center gap-2 min-w-0">
+                        {it.data._salvo && <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />}
+                        <span className="truncate">Avaliação {n + 1}</span>
+                        {!it.data._salvo && <span className="text-xs text-muted-foreground">(pendente)</span>}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Button size="sm" variant={it.data._salvo ? "outline" : "default"} className="h-7"
+                          onClick={() => setEditingSetorIdx(it.idx)}>
+                          {it.data._salvo ? "Editar" : "Registrar"}
+                        </Button>
+                        {g.items.length > 1 && (
+                          <Button variant="ghost" size="icon" className="text-destructive h-7 w-7"
+                            onClick={() => removeSetor(it.idx)}>
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                <Button size="sm" variant="outline" className="w-full mt-2" onClick={() => addAvaliacaoSetor(g.setor_id)}>
+                  <Plus className="w-3.5 h-3.5 mr-1" /> Adicionar avaliação
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
+      <div className="flex justify-end gap-2 sticky bottom-4 bg-background/80 backdrop-blur p-3 rounded-xl border border-border">
+        <Button variant="outline" onClick={() => persist("rascunho")} disabled={saving}>
+          {saving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
+          Salvar rascunho
+        </Button>
+        {allSetoresSalvos && (
+          <Button onClick={handleEmitir} disabled={saving} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <FileDown className="w-4 h-4 mr-2" />Emitir documento
+          </Button>
+        )}
+      </div>
+
+      {/* Modal seleção de setores */}
+      <Dialog open={selectModalOpen} onOpenChange={setSelectModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Selecionar setores</DialogTitle>
+          </DialogHeader>
+          <div className="max-h-80 overflow-y-auto space-y-1">
+            {(setoresEmpresa as any[]).length === 0 && (
+              <p className="text-sm text-muted-foreground py-4 text-center">
+                Esta empresa não possui setores cadastrados.
+              </p>
+            )}
+            {(setoresEmpresa as any[]).map((s) => {
+              const already = setoresAep.some((x) => x.setor_id === s.id);
+              return (
+                <label key={s.id} className={`flex items-center gap-2 p-2 rounded hover:bg-muted ${already ? "opacity-50" : "cursor-pointer"}`}>
+                  <Checkbox
+                    checked={selectedIds.has(s.id)}
+                    disabled={already}
+                    onCheckedChange={(v) => {
+                      const next = new Set(selectedIds);
+                      if (v) next.add(s.id); else next.delete(s.id);
+                      setSelectedIds(next);
+                    }}
+                  />
+                  <span className="text-sm">{s.nome_setor}</span>
+                  {already && <span className="text-xs text-muted-foreground ml-auto">já adicionado</span>}
+                </label>
+              );
+            })}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectModalOpen(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmSetores} disabled={selectedIds.size === 0}>
+              Adicionar ({selectedIds.size})
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
