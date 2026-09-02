@@ -144,6 +144,14 @@ export default function AepWizard() {
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
   const [iaLoading, setIaLoading] = useState(false);
+  const [iaFotos, setIaFotos] = useState<{ name: string; mime: string; data: string; url: string }[]>([]);
+  const [iaSubstituir, setIaSubstituir] = useState(false);
+  const [iaConfirmOpen, setIaConfirmOpen] = useState(false);
+  const [iaInstrOpen, setIaInstrOpen] = useState(false);
+  const [iaInstrucoes, setIaInstrucoes] = useState(
+    () => localStorage.getItem("aep_ia_instrucoes") || ""
+  );
+
 
   useSetoresFuncoesSync();
 
