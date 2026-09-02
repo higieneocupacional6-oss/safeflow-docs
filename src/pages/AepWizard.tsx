@@ -393,11 +393,37 @@ export default function AepWizard() {
   };
 
   // ───────────── IA ─────────────
+  const addFotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const novos: { name: string; mime: string; data: string; url: string }[] = [];
+    for (const f of Array.from(files).slice(0, 10)) {
+      if (!f.type.startsWith("image/")) { toast.error(`${f.name}: apenas imagens.`); continue; }
+      const buf = await f.arrayBuffer();
+      let bin = "";
+      const bytes = new Uint8Array(buf);
+      for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+      novos.push({ name: f.name, mime: f.type, data: btoa(bin), url: URL.createObjectURL(f) });
+    }
+    setIaFotos((prev) => [...prev, ...novos].slice(0, 10));
+  };
+
+  const setorTemConteudo = (s?: SetorAep) =>
+    !!s && (s.riscos_lista.length > 0 || !!s.parecer_ambiente?.trim() || !!s.parecer_ergonomia?.trim() ||
+      !!s.parecer_conduta_1?.trim() || !!s.parecer_conduta_2?.trim() || s.plano_acao.length > 0);
+
+  const solicitarGeracao = () => {
+    const s = editingSetorIdx !== null ? setoresAep[editingSetorIdx] : undefined;
+    if (iaSubstituir && setorTemConteudo(s)) { setIaConfirmOpen(true); return; }
+    gerarComIA();
+  };
+
   const gerarComIA = async () => {
+    setIaConfirmOpen(false);
     if (editingSetorIdx === null) {
       toast.error("Abra o registro de um setor para gerar com IA");
       return;
     }
+
     const setor = setoresAep[editingSetorIdx];
     setIaLoading(true);
     try {
