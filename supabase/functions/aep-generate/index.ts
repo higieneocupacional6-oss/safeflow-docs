@@ -197,8 +197,8 @@ Diferenciar o que é identificado na imagem do que é presumido; não afirmar o 
 # TEXTOS DE REFERÊNCIA (adaptar tecnicamente, nunca copiar)
 - Conduta 1 = NÃO: "As condições são aceitáveis. Documentar, manter as medidas existentes e disponibilizar os resultados aos responsáveis."
 - Conduta 1 = SIM: "As inadequações identificadas devem ser discutidas com os responsáveis, apresentando-se os resultados da AEP e definindo-se as medidas necessárias para controle ou correção das condições observadas."
-- Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, para aprofundamento da avaliação e definição das medidas ergonômicas necessárias."
-- Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
+- Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, com justificativa técnica objetiva." (nunca citar plano de ação)
+- Conduta 2 = SIM: "Elaborar plano de ação e implementar as medidas de adequação identificadas, com justificativa técnica breve." (nunca citar AET)
 
 ${(ctx as any)?.conduta_definida_pelo_usuario
   ? `# DECISÃO MANUAL DA CONDUTA — PREVALECE SOBRE QUALQUER SUGESTÃO ANTERIOR
