@@ -42,6 +42,7 @@ type SetorAep = {
   ges: string;
   descricao_ambiente: string;
   funcoes_selecionadas: { id: string; nome: string }[];
+  funcao_avaliada: string;
   numero_funcionarios: string;
   colaboradores: Colaborador[];
   descricao_atividade: string;
@@ -92,6 +93,7 @@ const newSetor = (s: any): SetorAep => ({
   ges: s.ghe_ges || "",
   descricao_ambiente: s.descricao_ambiente || "",
   funcoes_selecionadas: [],
+  funcao_avaliada: "",
   numero_funcionarios: "",
   colaboradores: [],
   descricao_atividade: "",
@@ -599,9 +601,90 @@ export default function AepWizard() {
     }
   };
 
-  // ───────────── Template ─────────────
+  // ───────────── Template (estrutura exclusiva da AEP) ─────────────
+  const CHECKLIST_VAR_KEYS: Record<string, string> = {
+    organizacao_trabalho: "organizacao_trabalho",
+    levantamento_transporte_cargas: "levantamento_cargas",
+    mobiliario: "mobiliario",
+    maquinas_equipamentos_ferramentas: "maquinas_equipamentos",
+    conforto_ambiente: "conforto_ambiente",
+  };
+
   const buildSetorData = (s: SetorAep) => {
+    const checklist: Record<string, any> = {};
+    for (const l of CHECKLIST_LINHAS) {
+      const item = s.checklist[l.key] || { quantidade_inadequados: "", condicao: "", observacao: "" };
+      checklist[CHECKLIST_VAR_KEYS[l.key] || l.key] = {
+        variavel: l.label,
+        qtd_inadequados: item.quantidade_inadequados || "",
+        condicao: item.condicao || "",
+        observacao: item.observacao || "",
+      };
+    }
+
+    return {
+      ges: s.ges || "",
+      setor: s.setor_nome || "",
+      descricao_ambiente: s.descricao_ambiente || "",
+      funcoes_avaliadas: s.funcoes_selecionadas.map((f) => f.nome).filter(Boolean).join("\n"),
+      funcao_avaliada: s.funcao_avaliada || "",
+      numero_funcionarios: s.numero_funcionarios || "",
+      colaboradores: s.colaboradores
+        .filter((c) => c.nome_colaborador || c.funcao || c.data_avaliacao)
+        .map((c) => ({
+          nome: c.nome_colaborador || "",
+          funcao: c.funcao || "",
+          data: formatDate(c.data_avaliacao),
+          colaborador: {
+            nome: c.nome_colaborador || "",
+            funcao: c.funcao || "",
+            data: formatDate(c.data_avaliacao),
+          },
+        })),
+      descricao_atividade: s.descricao_atividade || "",
+      turno: s.turno || "",
+      postura_predominante: s.postura_predominante || "",
+      observacao_complementar: s.postura_observacao || "",
+      checklist,
+      riscos_ergonomicos: s.riscos_lista.map((r) => ({
+        tipo_agente: r.tipo_agente || "",
+        fator_risco: r.fator_risco || "",
+        fonte_geradora: r.fonte_geradora || "",
+        possiveis_danos: r.possiveis_danos || "",
+        controle_existente: r.controle_existente || "",
+        probabilidade: r.probabilidade || "",
+        severidade: r.severidade || "",
+        nivel_risco: r.nivel_risco || "",
+        medidas: r.medidas || "",
+      })),
+      parecer_ambiente_trabalho: s.parecer_ambiente || "",
+      parecer_ergonomia: s.parecer_ergonomia || "",
+      conduta: {
+        condicao_inadequada: s.conduta_1 || "",
+        solucao_rapida: s.conduta_2 || "",
+        parecer_condicao_inadequada: s.parecer_conduta_1 || "",
+        parecer_solucao_rapida: s.parecer_conduta_2 || "",
+      },
+      plano_acao: s.plano_acao
+        .filter((p) => p.o_que || p.como || p.responsavel || p.prazo)
+        .map((p) => ({
+          o_que: p.o_que || "",
+          como: p.como || "",
+          responsavel: p.responsavel || "",
+          prazo: p.prazo || "",
+        })),
+    };
+  };
+
+  const buildTemplateData = () => {
+    const setores = setoresAep.map((s) => buildSetorData(s));
     const aep = {
+      responsavel_tecnico: responsavelTecnico || "",
+      crea: crea || "",
+      cargo: cargo || "",
+      data_elaboracao: formatDate(dataElaboracao),
+      data: new Date().toLocaleDateString("pt-BR"),
+      descricao: alteracoes || "",
       empresa: {
         razao_social: empresaNome,
         nome_fantasia: empresa.nome_fantasia || "",
@@ -620,63 +703,12 @@ export default function AepWizard() {
         vigencia_fim: formatDate(contrato.vigencia_fim),
         local_trabalho: contrato.local_trabalho || "",
       },
-      responsavel_tecnico: responsavelTecnico,
-      crea,
-      cargo,
-      data_elaboracao: formatDate(dataElaboracao),
-      alteracoes,
       revisoes,
-      setor: { nome: s.setor_nome },
-      ges: s.ges,
-      descricao_ambiente: s.descricao_ambiente,
-      funcao: s.funcoes_selecionadas.map((f) => f.nome).join("\n"),
-      funcoes: s.funcoes_selecionadas.map((f) => ({ nome: f.nome })),
-      numero_funcionarios: s.numero_funcionarios,
-      colaboradores: s.colaboradores.map((c) => c.nome_colaborador).filter(Boolean).join("\n"),
-      colaboradores_lista: s.colaboradores.map((c) => ({
-        nome: c.nome_colaborador, funcao: c.funcao, data_avaliacao: formatDate(c.data_avaliacao),
-      })),
-      descricao_atividade: s.descricao_atividade,
-      turno: s.turno,
-      postura_predominante: s.postura_predominante,
-      postura_observacao: s.postura_observacao,
-      checklist: s.checklist,
-      checklist_lista: CHECKLIST_LINHAS.map((l) => ({
-        variavel: l.label,
-        quantidade_inadequados: s.checklist[l.key]?.quantidade_inadequados || "",
-        condicao: s.checklist[l.key]?.condicao || "",
-        observacao: s.checklist[l.key]?.observacao || "",
-      })),
-      riscos_ergonomicos: s.riscos_lista.length
-        ? s.riscos_lista
-            .map((r) => `${r.tipo_agente} — ${r.fator_risco} (${r.nivel_risco})`)
-            .join("\n")
-        : s.riscos_ergonomicos,
-      riscos_ergonomicos_lista: s.riscos_lista,
-      riscos_ergonomicos_texto: s.riscos_ergonomicos,
-      parecer_ambiente: s.parecer_ambiente,
-      parecer_ergonomia: s.parecer_ergonomia,
-      conduta: s.conduta,
-      conduta_1: s.conduta_1,
-      parecer_conduta_1: s.parecer_conduta_1,
-      conduta_2: s.conduta_2,
-      parecer_conduta_2: s.parecer_conduta_2,
-      plano_acao: s.plano_acao
-        .map((p) => [p.o_que, p.como, p.responsavel, p.prazo].filter(Boolean).join(" — "))
-        .join("\n"),
-      plano_acao_lista: s.plano_acao.map((p) => ({
-        ...p,
-        acao: [p.o_que, p.como].filter(Boolean).join(" — "),
-      })),
+      setores,
     };
-    return { aep, ...aep };
+    return { aep, setores, empresa: empresaNome };
   };
 
-  const buildTemplateData = () => {
-    const setores = setoresAep.map((s) => buildSetorData(s));
-    const primeiro = setores[0];
-    return { aep: primeiro?.aep || {}, setores, empresa: empresaNome };
-  };
 
   const loadTemplateDoc = async () => {
     const template: any = (templates as any[]).find((t) => t.id === selectedTemplate);
@@ -861,6 +893,14 @@ export default function AepWizard() {
                   );
                 })}
               </div>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Função avaliada</Label>
+              <Input
+                placeholder="Função específica avaliada neste setor"
+                value={setor.funcao_avaliada}
+                onChange={(e) => updateSetor(editingSetorIdx, { funcao_avaliada: e.target.value })}
+              />
             </div>
             <div>
               <Label>Nº de funcionários</Label>

@@ -1,90 +1,94 @@
 import { useState } from "react";
-import { Braces, Copy, Check, Info } from "lucide-react";
+import { Braces, Copy, Check, Info, Repeat } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { toast } from "sonner";
 
-const grupos: { title: string; vars: string[] }[] = [
+type Grupo = { title: string; loop?: string; nota?: string; vars: string[] };
+
+const grupos: Grupo[] = [
   {
-    title: "Empresa",
+    title: "Dados gerais",
+    vars: [
+      "{{aep.responsavel_tecnico}}",
+      "{{aep.crea}}",
+      "{{aep.cargo}}",
+      "{{aep.data_elaboracao}}",
+      "{{aep.data}}",
+      "{{aep.descricao}}",
+    ],
+  },
+  {
+    title: "Empresa e contrato",
     vars: [
       "{{aep.empresa.razao_social}}", "{{aep.empresa.nome_fantasia}}", "{{aep.empresa.cnpj}}",
       "{{aep.empresa.cnae_principal}}", "{{aep.empresa.grau_risco}}", "{{aep.empresa.endereco}}",
       "{{aep.empresa.total_funcionarios}}", "{{aep.empresa.jornada_trabalho}}",
-    ],
-  },
-  {
-    title: "Contrato",
-    vars: [
       "{{aep.contrato.numero}}", "{{aep.contrato.contratante}}", "{{aep.contrato.cnpj_contratante}}",
       "{{aep.contrato.vigencia_inicio}}", "{{aep.contrato.vigencia_fim}}", "{{aep.contrato.local_trabalho}}",
     ],
   },
   {
-    title: "Documento",
+    title: "Loop principal — Setores",
+    loop: "Abre e fecha o bloco que envolve TODO o conteúdo do setor. Tudo entre as duas tags é repetido para cada setor cadastrado.",
+    vars: ["{{#aep.setores}}", "{{/aep.setores}}"],
+  },
+  {
+    title: "Setor (dentro do loop de setores)",
     vars: [
-      "{{aep.responsavel_tecnico}}", "{{aep.crea}}", "{{aep.cargo}}", "{{aep.data_elaboracao}}",
-      "{{aep.alteracoes}}", "{{#aep.revisoes}}", "{{data_revisao}}", "{{descricao_revisao}}", "{{/aep.revisoes}}",
+      "{{ges}}", "{{setor}}", "{{descricao_ambiente}}",
+      "{{funcoes_avaliadas}}", "{{funcao_avaliada}}", "{{numero_funcionarios}}",
+      "{{descricao_atividade}}", "{{turno}}", "{{postura_predominante}}", "{{observacao_complementar}}",
     ],
   },
   {
-    title: "Loop de setores avaliados",
-    vars: ["{{#setores}}", "... variáveis do setor ...", "{{/setores}}"],
-  },
-  {
-    title: "Setor / GES (dentro do loop)",
+    title: "Colaboradores avaliados",
+    loop: "Insira as tags de abertura/fechamento na linha da tabela; a linha é duplicada para cada colaborador.",
     vars: [
-      "{{aep.setor.nome}}", "{{aep.ges}}", "{{aep.descricao_ambiente}}",
-      "{{aep.funcao}}", "{{aep.numero_funcionarios}}",
-      "{{#aep.funcoes}}{{nome}}{{/aep.funcoes}}",
-      "{{aep.colaboradores}}",
-      "{{#aep.colaboradores_lista}}{{nome}}", "{{funcao}}", "{{data_avaliacao}}{{/aep.colaboradores_lista}}",
-    ],
-  },
-  {
-    title: "Atividade e condições",
-    vars: [
-      "{{aep.descricao_atividade}}", "{{aep.turno}}",
-      "{{aep.postura_predominante}}", "{{aep.postura_observacao}}",
+      "{{#colaboradores}}",
+      "{{colaborador.nome}}", "{{colaborador.funcao}}", "{{colaborador.data}}",
+      "{{/colaboradores}}",
     ],
   },
   {
     title: "Checklist AEP",
     vars: [
-      "{{aep.checklist.organizacao_trabalho.quantidade_inadequados}}", "{{aep.checklist.organizacao_trabalho.condicao}}", "{{aep.checklist.organizacao_trabalho.observacao}}",
-      "{{aep.checklist.levantamento_transporte_cargas.quantidade_inadequados}}", "{{aep.checklist.levantamento_transporte_cargas.condicao}}", "{{aep.checklist.levantamento_transporte_cargas.observacao}}",
-      "{{aep.checklist.mobiliario.quantidade_inadequados}}", "{{aep.checklist.mobiliario.condicao}}", "{{aep.checklist.mobiliario.observacao}}",
-      "{{aep.checklist.maquinas_equipamentos_ferramentas.quantidade_inadequados}}", "{{aep.checklist.maquinas_equipamentos_ferramentas.condicao}}", "{{aep.checklist.maquinas_equipamentos_ferramentas.observacao}}",
-      "{{aep.checklist.conforto_ambiente.quantidade_inadequados}}", "{{aep.checklist.conforto_ambiente.condicao}}", "{{aep.checklist.conforto_ambiente.observacao}}",
-      "{{#aep.checklist_lista}}{{variavel}}", "{{quantidade_inadequados}}", "{{condicao}}", "{{observacao}}{{/aep.checklist_lista}}",
+      "{{checklist.organizacao_trabalho.qtd_inadequados}}", "{{checklist.organizacao_trabalho.condicao}}", "{{checklist.organizacao_trabalho.observacao}}",
+      "{{checklist.levantamento_cargas.qtd_inadequados}}", "{{checklist.levantamento_cargas.condicao}}", "{{checklist.levantamento_cargas.observacao}}",
+      "{{checklist.mobiliario.qtd_inadequados}}", "{{checklist.mobiliario.condicao}}", "{{checklist.mobiliario.observacao}}",
+      "{{checklist.maquinas_equipamentos.qtd_inadequados}}", "{{checklist.maquinas_equipamentos.condicao}}", "{{checklist.maquinas_equipamentos.observacao}}",
+      "{{checklist.conforto_ambiente.qtd_inadequados}}", "{{checklist.conforto_ambiente.condicao}}", "{{checklist.conforto_ambiente.observacao}}",
     ],
   },
   {
-    title: "Riscos ergonômicos (tabela)",
+    title: "Riscos ergonômicos",
+    loop: "Coloque {{#riscos_ergonomicos}} na primeira célula da linha da tabela e {{/riscos_ergonomicos}} na última. A linha é duplicada para cada risco cadastrado (1, 5, 20…).",
     vars: [
-      "{{#aep.riscos_ergonomicos_lista}}{{tipo_agente}}", "{{fator_risco}}", "{{fonte_geradora}}",
-      "{{possiveis_danos}}", "{{controle_existente}}", "{{probabilidade}}", "{{severidade}}",
-      "{{nivel_risco}}", "{{medidas}}{{/aep.riscos_ergonomicos_lista}}",
-      "{{aep.riscos_ergonomicos}}", "{{aep.riscos_ergonomicos_texto}}",
+      "{{#riscos_ergonomicos}}",
+      "{{tipo_agente}}", "{{fator_risco}}", "{{fonte_geradora}}", "{{possiveis_danos}}",
+      "{{controle_existente}}", "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}", "{{medidas}}",
+      "{{/riscos_ergonomicos}}",
     ],
   },
   {
-    title: "Pareceres e conduta",
+    title: "Pareceres",
+    vars: ["{{parecer_ambiente_trabalho}}", "{{parecer_ergonomia}}"],
+  },
+  {
+    title: "Conduta (SIM / NÃO)",
     vars: [
-      "{{aep.parecer_ambiente}}", "{{aep.parecer_ergonomia}}",
-      "{{aep.conduta_1}}", "{{aep.parecer_conduta_1}}",
-      "{{aep.conduta_2}}", "{{aep.parecer_conduta_2}}", "{{aep.conduta}}",
+      "{{conduta.condicao_inadequada}}",
+      "{{conduta.parecer_condicao_inadequada}}",
+      "{{conduta.solucao_rapida}}",
+      "{{conduta.parecer_solucao_rapida}}",
     ],
   },
   {
     title: "Plano de ação",
-    vars: [
-      "{{aep.plano_acao}}",
-      "{{#aep.plano_acao_lista}}{{acao}}", "{{o_que}}", "{{como}}", "{{responsavel}}", "{{prazo}}{{/aep.plano_acao_lista}}",
-    ],
+    loop: "Coloque {{#plano_acao}} na primeira célula da linha e {{/plano_acao}} na última. A linha é duplicada para cada ação cadastrada.",
+    vars: ["{{#plano_acao}}", "{{o_que}}", "{{como}}", "{{responsavel}}", "{{prazo}}", "{{/plano_acao}}"],
   },
-
 ];
 
 export function AepTemplateHelper() {
@@ -112,14 +116,24 @@ export function AepTemplateHelper() {
 
           <div className="p-3 rounded-lg bg-muted/50 border border-border text-sm text-muted-foreground mb-4">
             <Info className="w-4 h-4 inline mr-1.5 -mt-0.5" />
-            Use estas variáveis no seu template .docx. As variáveis de setor devem ficar dentro do
-            loop <code>{"{{#setores}} ... {{/setores}}"}</code>. Clique para copiar.
+            Todo o conteúdo do setor (checklist, riscos, pareceres, conduta e plano de ação) deve ficar
+            dentro do loop principal <code>{"{{#aep.setores}} … {{/aep.setores}}"}</code>. Os grupos
+            marcados como <strong>LOOP</strong> repetem automaticamente a linha da tabela onde forem
+            inseridos. Clique na variável para copiar.
           </div>
 
           <div className="space-y-5">
             {grupos.map((g) => (
               <div key={g.title}>
-                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">{g.title}</h4>
+                <h4 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 flex items-center gap-2">
+                  {g.title}
+                  {g.loop && (
+                    <Badge variant="secondary" className="text-[10px] py-0 px-1.5">
+                      <Repeat className="w-3 h-3 mr-1" /> LOOP
+                    </Badge>
+                  )}
+                </h4>
+                {g.loop && <p className="text-xs text-muted-foreground mb-2">{g.loop}</p>}
                 <div className="flex flex-wrap gap-1.5">
                   {g.vars.map((v) => (
                     <Badge
