@@ -42,6 +42,7 @@ type SetorAep = {
   ges: string;
   descricao_ambiente: string;
   funcoes_selecionadas: { id: string; nome: string }[];
+  funcao_avaliada: string;
   numero_funcionarios: string;
   colaboradores: Colaborador[];
   descricao_atividade: string;
@@ -92,6 +93,7 @@ const newSetor = (s: any): SetorAep => ({
   ges: s.ghe_ges || "",
   descricao_ambiente: s.descricao_ambiente || "",
   funcoes_selecionadas: [],
+  funcao_avaliada: "",
   numero_funcionarios: "",
   colaboradores: [],
   descricao_atividade: "",
@@ -891,6 +893,14 @@ export default function AepWizard() {
                   );
                 })}
               </div>
+            </div>
+            <div className="md:col-span-2">
+              <Label>Função avaliada</Label>
+              <Input
+                placeholder="Função específica avaliada neste setor"
+                value={setor.funcao_avaliada}
+                onChange={(e) => updateSetor(editingSetorIdx, { funcao_avaliada: e.target.value })}
+              />
             </div>
             <div>
               <Label>Nº de funcionários</Label>
