@@ -139,16 +139,17 @@ ${instrTxt}
 `
       : "";
 
-    const userText = `${instrBlock}# RELATO DA AVALIAÇÃO IN LOCO (usuário)
-${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Sem relato complementar — basear-se integralmente no contexto cadastrado."}
+    const userText = `${instrBlock}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
+${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Nenhuma informação complementar digitada — basear-se no contexto cadastrado, sem presumir dados ausentes."}
 
-# CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
+# ETAPAS 2 a 5 — CONTEXTO CADASTRADO (empresa, contrato, GES/setor/ambiente/funções avaliadas, cadastro de setores e funções). Fonte de complementação e validação — NÃO contradizer, NÃO substituir a Etapa 1.
 \`\`\`json
 ${JSON.stringify(contexto || {}, null, 2)}
 \`\`\`
 
-# ANEXOS
-${anexosArr.length === 0 ? "Nenhum anexo enviado." : anexosArr.map((a, i) => `- Anexo ${i + 1}: ${a.name} (${a.kind === "image" ? "Fotografia" : "PDF"})`).join("\n")}
+# ETAPA 6 — FOTOGRAFIAS (analisar somente após as etapas anteriores; complementar, nunca substituir)
+${anexosArr.length === 0 ? "Nenhuma fotografia enviada — não presumir condições visuais." : anexosArr.map((a, i) => `- Anexo ${i + 1}: ${a.name} (${a.kind === "image" ? "Fotografia" : "PDF"})`).join("\n")}
+Diferenciar o que é identificado na imagem do que é presumido; não afirmar o que não for visualmente verificável.
 
 # TEXTOS DE REFERÊNCIA (adaptar tecnicamente, nunca copiar)
 - Conduta 1 = NÃO: "As condições são aceitáveis. Documentar, manter as medidas existentes e disponibilizar os resultados aos responsáveis."
@@ -156,8 +157,9 @@ ${anexosArr.length === 0 ? "Nenhum anexo enviado." : anexosArr.map((a, i) => `- 
 - Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, para aprofundamento da avaliação e definição das medidas ergonômicas necessárias."
 - Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
 
-# INSTRUÇÕES DE SAÍDA
-Gerar JSON conforme o schema, com riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas.`;
+# ETAPA 7 — INSTRUÇÕES DE SAÍDA
+Gerar JSON conforme o schema: checklist AEP (5 linhas), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
+
 
     const userContent: any[] = [{ type: "text", text: userText }];
     for (const a of anexosArr) {
