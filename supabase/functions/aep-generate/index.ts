@@ -14,7 +14,7 @@ DOMÍNIO TÉCNICO: NR-17 e anexos, NR-01 (GRO/PGR), NR-06, ISO 11226, ISO 11228-
 FLUXO OBRIGATÓRIO DE LEITURA (nesta ordem exata, sem pular etapas):
 1. ETAPA 1 — Ler e interpretar PRIMEIRO o texto digitado pelo usuário (informações complementares). É o PONTO DE PARTIDA da análise.
 2. ETAPA 2 — Ler os dados da empresa (razão social, nome fantasia, CNPJ, CNAE, grau de risco, endereço, contrato/unidade).
-3. ETAPA 3 — Ler a identificação do setor da AEP: GES, setor, descrição do ambiente, funções avaliadas, nº de funcionários, colaboradores, atividade, turno e postura.
+3. ETAPA 3 — Ler a identificação do setor da AEP: GES, setor, FUNÇÃO DO GES (campo "funcao_ges" — função específica avaliada), descrição do ambiente, funções avaliadas, nº de funcionários, colaboradores, atividade, turno e postura.
 4. ETAPA 4 — Consultar o cadastro Empresa → Setores → Funções para saber quais funções existem naquele setor/empresa.
 5. ETAPA 5 — Cruzar todas as fontes acima e compreender qual atividade real está sendo avaliada.
 6. ETAPA 6 — SOMENTE DEPOIS analisar as fotografias, como informação COMPLEMENTAR. Distinguir explicitamente o que é identificado na imagem do que é presumido ("observa-se na imagem…" vs "possivelmente…"). Nunca afirmar como fato o que não é visualmente verificável.
@@ -39,6 +39,20 @@ REGRAS OBRIGATÓRIAS:
 - parecer_conduta_1 e parecer_conduta_2 devem ADAPTAR tecnicamente os textos de referência à situação real analisada, jamais copiá-los literalmente.
 - plano_acao: ações concretas derivadas dos riscos e medidas recomendadas, com responsável e prazo editáveis.
 - Respeitar o campo "modo" do contexto: em COMPLEMENTAR, não contradizer o conteúdo já preenchido.
+- descricao_atividade: descrever de forma técnica e profissional as atividades realmente relacionadas à FUNÇÃO DO GES ("funcao_ges") e às funções avaliadas, com base nas informações disponíveis. Nunca inventar tarefas, máquinas ou cargas não citadas.
+- turno: usar EXCLUSIVAMENTE a jornada/turno cadastrada da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, redigindo de forma técnica. Se não houver dado cadastrado, responder exatamente "Informação não fornecida". PROIBIDO inventar horários.
+
+CHECKLIST AEP — REGRAS ESTRITAS:
+- Sempre retornar as 5 linhas fixas.
+- quantidade_inadequados: número como texto; quando nenhuma inadequação for identificada, usar "0".
+- condicao: quando a quantidade for "0", usar obrigatoriamente "Não aplicado". Havendo inadequação, usar a condição coerente (Adequado | Parcialmente adequado | Inadequado).
+- observacao: justificativa técnica curta e objetiva, coerente com a atividade, a função do GES, o ambiente, as informações do usuário, as fotografias (quando houver) e a própria condição informada. Proibido texto genérico ou contraditório.
+
+COERÊNCIA DOS RISCOS ERGONÔMICOS (OBRIGATÓRIA):
+- Somente riscos pertinentes às atividades efetivamente avaliadas.
+- Os campos devem conversar entre si: a fonte geradora deve pertencer à atividade/função descrita; os possíveis danos devem decorrer do fator de risco; o controle existente só pode citar o que foi informado (senão "Não identificado"); as medidas devem responder exatamente ao risco descrito; probabilidade e severidade devem refletir a exposição descrita.
+- PROIBIDO propor medida de controle para risco não identificado, ou risco cuja fonte geradora não se relacione à atividade.
+- Fundamentar na NR-17 e nas demais referências técnicas aplicáveis ao caso.
 
 ISOLAMENTO DE CONTEXTO (REGRA CRÍTICA):
 - Cada setor/GES/função da AEP é uma AVALIAÇÃO INDEPENDENTE, com contexto e resultados próprios.
@@ -89,6 +103,8 @@ const RESPONSE_SCHEMA = {
         additionalProperties: false,
       },
     },
+    descricao_atividade: { type: "string", description: "Descrição técnica das atividades da função do GES avaliada" },
+    turno: { type: "string", description: "Turno/jornada conforme cadastro da empresa; 'Informação não fornecida' quando ausente" },
     parecer_ambiente: { type: "string", description: "Parecer técnico do ambiente de trabalho: características, conforto, mobiliário, equipamentos, organização, checklist e riscos." },
     parecer_ergonomia: { type: "string", description: "Parecer ergonômico específico: atividade, função, postura, organização, fatores, controles, nível de risco e medidas." },
     conduta_1: { type: "string", description: "SIM | NÃO — Há condição inadequada que necessita de soluções?" },
@@ -111,7 +127,7 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: [
-    "riscos_ergonomicos", "checklist", "parecer_ambiente", "parecer_ergonomia",
+    "descricao_atividade", "turno", "riscos_ergonomicos", "checklist", "parecer_ambiente", "parecer_ergonomia",
     "conduta_1", "parecer_conduta_1", "conduta_2", "parecer_conduta_2", "plano_acao",
   ],
 
@@ -170,7 +186,7 @@ Diferenciar o que é identificado na imagem do que é presumido; não afirmar o 
 - Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
 
 # ETAPA 7 — INSTRUÇÕES DE SAÍDA
-Gerar JSON conforme o schema: checklist AEP (5 linhas), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
+Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
     const userContent: any[] = [{ type: "text", text: userText }];
