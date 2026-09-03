@@ -832,7 +832,10 @@ export default function AepWizard() {
             Escolha o template e gere o documento final
           </p>
 
-          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+          <Select
+            value={selectedTemplate}
+            onValueChange={(v) => { setSelectedTemplate(v); setVinculado(false); setBindResult(null); }}
+          >
             <SelectTrigger className="max-w-md mx-auto"><SelectValue placeholder="Escolher template" /></SelectTrigger>
             <SelectContent>
               {templatesToShow.length === 0 && (
@@ -845,14 +848,19 @@ export default function AepWizard() {
           </Select>
 
           <div className="flex justify-center gap-2 mt-6">
+            <Button variant="outline" onClick={handleVincular} disabled={binding || !selectedTemplate}>
+              {binding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+              Vincular Documento
+            </Button>
             <Button
               onClick={handleGenerate}
-              disabled={generating || !selectedTemplate}
+              disabled={generating || !selectedTemplate || !vinculado}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
               {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
               Gerar Documento
             </Button>
+
           </div>
         </Card>
       </div>
