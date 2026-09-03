@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  FileDown, Sparkles, PenLine, ImagePlus,
+  FileDown, Sparkles, PenLine, ImagePlus, Link2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
