@@ -1510,7 +1510,7 @@ export default function AepWizard() {
             </p>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIaConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={gerarComIA} disabled={iaLoading}>Continuar</Button>
+              <Button onClick={() => gerarComIA()} disabled={iaLoading}>Continuar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
