@@ -46,7 +46,7 @@ type SetorAep = {
   ges: string;
   descricao_ambiente: string;
   funcoes_selecionadas: { id: string; nome: string }[];
-  funcao_avaliada: string;
+  funcao_ges: string;
   numero_funcionarios: string;
   colaboradores: Colaborador[];
   descricao_atividade: string;
@@ -75,7 +75,7 @@ export const CHECKLIST_LINHAS: { key: string; label: string }[] = [
   { key: "conforto_ambiente", label: "Condições de conforto no ambiente de trabalho" },
 ];
 
-const CONDICOES = ["Adequado", "Parcialmente adequado", "Inadequado", "Não aplicável"];
+const CONDICOES = ["Adequado", "Parcialmente adequado", "Inadequado", "Não aplicado", "Não aplicável"];
 
 const POSTURAS = [
   "Sentado", "Em pé", "Alternado sentado/em pé", "Agachado",
@@ -97,7 +97,7 @@ const newSetor = (s: any): SetorAep => ({
   ges: s.ghe_ges || "",
   descricao_ambiente: s.descricao_ambiente || "",
   funcoes_selecionadas: [],
-  funcao_avaliada: "",
+  funcao_ges: "",
   numero_funcionarios: "",
   colaboradores: [],
   descricao_atividade: "",
@@ -272,6 +272,7 @@ export default function AepWizard() {
             plano_acao: s.plano_acao || [],
             riscos_lista: s.riscos_lista || [],
             checklist: { ...emptyChecklist(), ...(s.checklist || {}) },
+            funcao_ges: s.funcao_ges ?? s.funcao_avaliada ?? "",
           })));
         }
       } catch (e: any) {
@@ -486,6 +487,7 @@ export default function AepWizard() {
           setor: setor.setor_nome,
           descricao_ambiente: setor.descricao_ambiente,
           funcoes_avaliadas: setor.funcoes_selecionadas.map((f) => f.nome),
+          funcao_ges: setor.funcao_ges,
           numero_funcionarios: setor.numero_funcionarios,
           colaboradores: setor.colaboradores,
           descricao_atividade: setor.descricao_atividade,
@@ -586,6 +588,8 @@ export default function AepWizard() {
 
       updateSetor(editingSetorIdx, {
         checklist: checklistIa,
+        descricao_atividade: pick(r.descricao_atividade, setor.descricao_atividade),
+        turno: pick(r.turno, setor.turno),
         riscos_lista: iaSubstituir
           ? (riscos.length > 0 ? riscos : setor.riscos_lista)
           : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
@@ -636,7 +640,7 @@ export default function AepWizard() {
       setor: s.setor_nome || "",
       descricao_ambiente: s.descricao_ambiente || "",
       funcoes_avaliadas: s.funcoes_selecionadas.map((f) => f.nome).filter(Boolean).join("\n"),
-      funcao_avaliada: s.funcao_avaliada || "",
+      funcao_ges: s.funcao_ges || "",
       numero_funcionarios: s.numero_funcionarios || "",
       colaboradores: s.colaboradores
         .filter((c) => c.nome_colaborador || c.funcao || c.data_avaliacao)
@@ -990,11 +994,11 @@ export default function AepWizard() {
               </div>
             </div>
             <div className="md:col-span-2">
-              <Label>Função avaliada</Label>
+              <Label>Função do GES</Label>
               <Input
-                placeholder="Função específica avaliada neste setor"
-                value={setor.funcao_avaliada}
-                onChange={(e) => updateSetor(editingSetorIdx, { funcao_avaliada: e.target.value })}
+                placeholder="Função do GES avaliada neste setor"
+                value={setor.funcao_ges}
+                onChange={(e) => updateSetor(editingSetorIdx, { funcao_ges: e.target.value })}
               />
             </div>
             <div>
