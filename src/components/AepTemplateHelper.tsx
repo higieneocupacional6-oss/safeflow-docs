@@ -147,6 +147,7 @@ export function AepTemplateHelper() {
                     </Badge>
                   )}
                 </h4>
+                {g.nota && <p className="text-xs text-muted-foreground mb-2">{g.nota}</p>}
                 {g.loop && <p className="text-xs text-muted-foreground mb-2">{g.loop}</p>}
                 <div className="flex flex-wrap gap-1.5">
                   {g.vars.map((v) => (
