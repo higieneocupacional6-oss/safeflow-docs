@@ -191,8 +191,14 @@ Diferenciar o que é identificado na imagem do que é presumido; não afirmar o 
 - Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, para aprofundamento da avaliação e definição das medidas ergonômicas necessárias."
 - Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
 
-# ETAPA 7 — INSTRUÇÕES DE SAÍDA
-Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
+${(ctx as any)?.conduta_definida_pelo_usuario
+  ? `# DECISÃO MANUAL DA CONDUTA — PREVALECE SOBRE QUALQUER SUGESTÃO ANTERIOR
+conduta_1 = "${(ctx as any).conduta_definida_pelo_usuario.conduta_1 || ""}" | conduta_2 = "${(ctx as any).conduta_definida_pelo_usuario.conduta_2 || ""}"
+Devolver esses valores EXATAMENTE e reescrever riscos, medidas, pareceres, pareceres da conduta e plano de ação para que nenhum texto fique contraditório com essa decisão.
+
+`
+  : ""}# ETAPA 7 — INSTRUÇÕES DE SAÍDA
+Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos (ambiente e ergonomia, cada um com conteúdo próprio), condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
     const userContent: any[] = [{ type: "text", text: userText }];
