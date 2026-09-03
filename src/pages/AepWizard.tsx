@@ -710,7 +710,7 @@ export default function AepWizard() {
   };
 
 
-  const loadTemplateDoc = async () => {
+  const loadTemplateDoc = async (data: any) => {
     const template: any = (templates as any[]).find((t) => t.id === selectedTemplate);
     if (!template) throw new Error("Template não encontrado");
     const { data: fileData, error } = await supabase.storage.from("templates").download(template.file_path);
@@ -721,26 +721,49 @@ export default function AepWizard() {
       const htmlSource = await fileData.text();
       let lastData: any = null;
       return {
-        kind: "html",
-        render(d: any) { lastData = d; },
-        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
-      } as any;
+        text: htmlSource,
+        doc: {
+          kind: "html",
+          render(d: any) { lastData = d; },
+          async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+        } as any,
+      };
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    return new Docxtemplater(new PizZip(arrayBuffer), {
+    const zip = new PizZip(arrayBuffer);
+    const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
       nullGetter: () => "",
+      parser: createAepParser(data),
     });
+    return { text: extractDocxText(zip), doc };
+  };
+
+  const handleVincular = async () => {
+    setBinding(true);
+    try {
+      const data = buildTemplateData();
+      const { text } = await loadTemplateDoc(data);
+      const result = validateAepBinding(text, data);
+      setBindResult(result);
+      setBindOpen(true);
+      if (!result.issues.some((i) => i.tipo === "erro")) setVinculado(true);
+    } catch (e: any) {
+      toast.error("Erro ao vincular documento: " + (e.message || ""));
+    } finally {
+      setBinding(false);
+    }
   };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const doc: any = await loadTemplateDoc();
-      doc.render(buildTemplateData());
+      const data = buildTemplateData();
+      const { doc } = await loadTemplateDoc(data);
+      doc.render(data);
       const output: Blob = doc.kind === "html"
         ? await doc.toBlob()
         : doc.getZip().generate({
@@ -764,6 +787,7 @@ export default function AepWizard() {
       setGenerating(false);
     }
   };
+
 
   const handleEmitir = async () => {
     const id = await persist("rascunho", true);
