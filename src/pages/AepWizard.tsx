@@ -533,7 +533,25 @@ export default function AepWizard() {
       const pick = (novo: string, atual: string) =>
         iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
 
+      // Checklist AEP sugerido pela IA
+      const checklistIa: Record<string, ChecklistItem> = { ...setor.checklist };
+      if (Array.isArray(r.checklist)) {
+        for (const item of r.checklist) {
+          const key = CHECKLIST_LINHAS.find(
+            (l) => l.key === item?.chave || l.label === item?.variavel,
+          )?.key;
+          if (!key) continue;
+          const atual = setor.checklist[key] || { quantidade_inadequados: "", condicao: "", observacao: "" };
+          checklistIa[key] = {
+            quantidade_inadequados: pick(String(item.quantidade_inadequados ?? ""), atual.quantidade_inadequados),
+            condicao: pick(item.condicao || "", atual.condicao),
+            observacao: pick(item.observacao || "", atual.observacao),
+          };
+        }
+      }
+
       updateSetor(editingSetorIdx, {
+        checklist: checklistIa,
         riscos_lista: iaSubstituir
           ? (riscos.length > 0 ? riscos : setor.riscos_lista)
           : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
@@ -547,6 +565,7 @@ export default function AepWizard() {
           ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
           : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
+
 
       setIaOpen(false);
       toast.success("Análise gerada com IA");
