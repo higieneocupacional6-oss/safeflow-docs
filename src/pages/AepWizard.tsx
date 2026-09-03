@@ -185,7 +185,7 @@ export default function AepWizard() {
       if (!empresaId) return [];
       const { data, error } = await supabase
         .from("contratos")
-        .select("id,numero_contrato,nome_contratante,cnpj_contratante,vigencia_inicio,vigencia_fim,local_trabalho")
+        .select("*")
         .eq("empresa_id", empresaId)
         .order("created_at", { ascending: false });
       if (error) throw error;
