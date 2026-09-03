@@ -432,12 +432,27 @@ export default function AepWizard() {
         .filter((f) => f.setor_id === setor.setor_id)
         .map((f) => ({ nome: f.nome_funcao, descricao_atividades: f.descricao_atividades || "" }));
 
-      const contexto = {
+      const aep_context = {
         tipo_documento: "AEP — Análise Ergonômica Preliminar",
-        // ETAPA 1 — ponto de partida da análise
-        etapa_1_informacoes_do_usuario: iaObs || "",
-        // ETAPA 2 — dados da empresa
-        etapa_2_empresa: {
+        // Cada setor/GES/função é uma AVALIAÇÃO INDEPENDENTE
+        avaliacao_id: setor.setor_id || `setor-${editingSetorIdx}`,
+        avaliacao_indice: editingSetorIdx + 1,
+        total_avaliacoes_no_documento: setoresAep.length,
+        outras_avaliacoes_do_documento: setoresAep
+          .filter((_, i) => i !== editingSetorIdx)
+          .map((s) => ({ setor: s.setor_nome, ges: s.ges })),
+        modo: iaSubstituir
+          ? "SUBSTITUIR — reanalisar tudo e refazer checklist, riscos, pareceres, condutas e plano de ação"
+          : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
+
+        // ETAPA 1 — entrada do usuário
+        user_input: {
+          informacoes_complementares: iaObs || "",
+          instrucao_personalizada: iaInstrucoes || "",
+        },
+
+        // ETAPA 2 — empresa e contrato
+        empresa: {
           razao_social: empresa.razao_social || "",
           nome_fantasia: empresa.nome_fantasia || "",
           cnpj: empresa.cnpj || "",
@@ -453,8 +468,9 @@ export default function AepWizard() {
             local_trabalho: contrato.local_trabalho || "",
           },
         },
-        // ETAPA 3 — identificação do setor na AEP
-        etapa_3_identificacao_setor: {
+
+        // ETAPA 3 — a avaliação em análise (ÚNICA fonte de setor/GES/função)
+        avaliacao: {
           ges: setor.ges,
           setor: setor.setor_nome,
           descricao_ambiente: setor.descricao_ambiente,
@@ -466,38 +482,45 @@ export default function AepWizard() {
           postura_predominante: setor.postura_predominante,
           postura_observacao: setor.postura_observacao,
         },
-        // ETAPA 4 — cadastro Setores e Funções da empresa
-        etapa_4_cadastro_setores_funcoes: {
-          setores_da_empresa: (setoresEmpresa as any[]).map((s) => ({ setor: s.nome_setor, ges: s.ghe_ges || "" })),
-          funcoes_cadastradas_no_setor: funcoesCadastroSetor,
+
+        // ETAPA 4 — cadastro Empresa → Setores → Funções
+        cadastro_empresa: {
+          setores: (setoresEmpresa as any[]).map((s) => ({ setor: s.nome_setor, ges: s.ghe_ges || "" })),
+          funcoes_do_setor: funcoesCadastroSetor,
         },
-        checklist_atual: CHECKLIST_LINHAS.map((l) => ({
-          chave: l.key, variavel: l.label, ...setor.checklist[l.key],
-        })),
-        riscos_ja_cadastrados: setor.riscos_lista,
-        conteudo_atual: {
+
+        // ETAPA 6 — fotografias (metadados; imagens seguem como anexos multimodais)
+        fotografias: iaFotos.map((f, i) => ({ indice: i + 1, nome: f.name, mime: f.mime })),
+
+        // Conteúdo já existente desta avaliação (nunca de outra)
+        dados_existentes: {
+          checklist: CHECKLIST_LINHAS.reduce((acc, l) => {
+            acc[l.key] = { variavel: l.label, ...setor.checklist[l.key] };
+            return acc;
+          }, {} as Record<string, any>),
+          riscos: setor.riscos_lista,
           parecer_ambiente: setor.parecer_ambiente,
           parecer_ergonomia: setor.parecer_ergonomia,
-          conduta_1: setor.conduta_1,
-          parecer_conduta_1: setor.parecer_conduta_1,
-          conduta_2: setor.conduta_2,
-          parecer_conduta_2: setor.parecer_conduta_2,
+          conduta: {
+            conduta_1: setor.conduta_1,
+            parecer_conduta_1: setor.parecer_conduta_1,
+            conduta_2: setor.conduta_2,
+            parecer_conduta_2: setor.parecer_conduta_2,
+          },
           plano_acao: setor.plano_acao,
         },
-        modo: iaSubstituir
-          ? "SUBSTITUIR — reanalisar tudo e refazer checklist, riscos, pareceres, condutas e plano de ação"
-          : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
       };
-
 
       const { data, error } = await supabase.functions.invoke("aep-generate", {
         body: {
           descricao: iaObs,
-          contexto,
+          aep_context,
+          contexto: aep_context,
           instrucoes_usuario: iaInstrucoes,
           anexos: iaFotos.map((f) => ({ name: f.name, mime: f.mime, kind: "image", data: f.data })),
         },
       });
+
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
 
