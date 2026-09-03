@@ -862,8 +862,62 @@ export default function AepWizard() {
             </Button>
 
           </div>
+
+          {bindResult && (
+            <p className="text-xs text-muted-foreground mt-4">
+              {bindResult.vinculadas}/{bindResult.totalTags} variáveis vinculadas
+              {bindResult.loops.length > 0 && ` · loops: ${bindResult.loops.map((l) => `${l.nome} (${l.itens})`).join(", ")}`}
+            </p>
+          )}
         </Card>
+
+        <Dialog open={bindOpen} onOpenChange={setBindOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">
+                {bindResult && bindResult.issues.some((i) => i.tipo === "erro")
+                  ? "Erros encontrados na vinculação"
+                  : "Vinculação concluída com sucesso."}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                {bindResult?.vinculadas ?? 0} de {bindResult?.totalTags ?? 0} variáveis do template foram
+                vinculadas ao JSON da AEP.
+                {bindResult?.loops.length
+                  ? ` Loops processados: ${bindResult.loops.map((l) => `${l.nome} → ${l.itens} registro(s)`).join(", ")}.`
+                  : ""}
+              </p>
+
+              {bindResult?.issues.length === 0 && (
+                <p className="text-success">Nenhum problema encontrado. Você já pode gerar o documento.</p>
+              )}
+
+              {bindResult?.issues.map((iss, i) => (
+                <div
+                  key={i}
+                  className={`p-3 rounded-lg border ${iss.tipo === "erro" ? "border-destructive/40 bg-destructive/5" : "border-amber-500/40 bg-amber-500/5"}`}
+                >
+                  <p className="font-semibold">{iss.titulo}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Onde: {iss.onde}</p>
+                  <p className="text-xs mt-1">Como corrigir: {iss.correcao}</p>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button
+                onClick={() => { setVinculado(true); setBindOpen(false); }}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                Entendi — continuar mesmo assim
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     );
   }
 
