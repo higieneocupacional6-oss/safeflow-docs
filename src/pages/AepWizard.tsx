@@ -29,6 +29,10 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import {
+  createAepParser, extractDocxText, validateAepBinding, type AepBindingResult,
+} from "@/lib/aepTemplate";
+
 
 // ───────────── Tipos ─────────────
 type Revisao = { data_revisao: string; descricao_revisao: string };
