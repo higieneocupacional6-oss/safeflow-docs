@@ -67,6 +67,21 @@ const RESPONSE_SCHEMA = {
         additionalProperties: false,
       },
     },
+    checklist: {
+      type: "array",
+      description: "5 linhas fixas do checklist AEP",
+      items: {
+        type: "object",
+        properties: {
+          chave: { type: "string", description: "organizacao_trabalho | levantamento_transporte_cargas | mobiliario | maquinas_equipamentos_ferramentas | conforto_ambiente" },
+          quantidade_inadequados: { type: "string", description: "Número como texto; vazio quando não sustentável" },
+          condicao: { type: "string", description: "Adequado | Parcialmente adequado | Inadequado | Não aplicável" },
+          observacao: { type: "string" },
+        },
+        required: ["chave", "quantidade_inadequados", "condicao", "observacao"],
+        additionalProperties: false,
+      },
+    },
     parecer_ambiente: { type: "string", description: "Parecer técnico do ambiente de trabalho: características, conforto, mobiliário, equipamentos, organização, checklist e riscos." },
     parecer_ergonomia: { type: "string", description: "Parecer ergonômico específico: atividade, função, postura, organização, fatores, controles, nível de risco e medidas." },
     conduta_1: { type: "string", description: "SIM | NÃO — Há condição inadequada que necessita de soluções?" },
@@ -88,9 +103,10 @@ const RESPONSE_SCHEMA = {
     },
   },
   required: [
-    "riscos_ergonomicos", "parecer_ambiente", "parecer_ergonomia",
+    "riscos_ergonomicos", "checklist", "parecer_ambiente", "parecer_ergonomia",
     "conduta_1", "parecer_conduta_1", "conduta_2", "parecer_conduta_2", "plano_acao",
   ],
+
   additionalProperties: false,
 };
 
