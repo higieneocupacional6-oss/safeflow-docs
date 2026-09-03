@@ -741,7 +741,40 @@ export default function AepWizard() {
       revisoes,
       setores,
     };
-    return { aep, setores, empresa: empresaNome };
+    // Variáveis GLOBAIS do módulo Empresas — mesmas chaves usadas nos demais documentos.
+    // Contrato tem precedência quando o dado existe no contrato selecionado.
+    const pref = (a: any, b: any) => (a !== null && a !== undefined && a !== "" ? a : (b ?? "")) || "";
+    const globais = {
+      razao_social: empresa.razao_social || "",
+      nome_fantasia: empresa.nome_fantasia || "",
+      cnpj: empresa.cnpj || "",
+      cnae_principal: empresa.cnae_principal || "",
+      grau_risco: empresa.grau_risco || "",
+      endereco: empresa.endereco || "",
+      preposto_nome: pref(contrato.preposto_nome, empresa.preposto_nome),
+      preposto_email: pref(contrato.preposto_email, empresa.preposto_email),
+      preposto_telefone: pref(contrato.preposto_telefone, empresa.preposto_telefone),
+      total_funcionarios: String(pref(contrato.total_funcionarios, empresa.total_funcionarios)),
+      numero_funcionarios_masc: String(pref(contrato.numero_funcionarios_masc, empresa.numero_funcionarios_masc)),
+      numero_funcionarios_fem: String(pref(contrato.numero_funcionarios_fem, empresa.numero_funcionarios_fem)),
+      jornada_trabalho: pref(contrato.jornada_trabalho, empresa.jornada_trabalho),
+      nome_contratante: pref(contrato.nome_contratante, empresa.nome_contratante),
+      cnpj_contratante: pref(contrato.cnpj_contratante, empresa.cnpj_contratante),
+      numero_contrato: pref(contrato.numero_contrato, empresa.numero_contrato),
+      vigencia_inicio: formatDate(pref(contrato.vigencia_inicio, empresa.vigencia_inicio)),
+      vigencia_fim: formatDate(pref(contrato.vigencia_fim, empresa.vigencia_fim)),
+      escopo_contrato: pref(contrato.escopo_contrato, empresa.escopo_contrato),
+      gestor_nome: pref(contrato.gestor_nome, empresa.gestor_nome),
+      gestor_email: pref(contrato.gestor_email, empresa.gestor_email),
+      gestor_telefone: pref(contrato.gestor_telefone, empresa.gestor_telefone),
+      fiscal_nome: pref(contrato.fiscal_nome, empresa.fiscal_nome),
+      fiscal_email: pref(contrato.fiscal_email, empresa.fiscal_email),
+      fiscal_telefone: pref(contrato.fiscal_telefone, empresa.fiscal_telefone),
+      local_trabalho: pref(contrato.local_trabalho, empresa.local_trabalho),
+      caracteristicas_empresa: alteracoes || "",
+    };
+
+    return { aep, setores, empresa: empresaNome, ...globais };
   };
 
 
