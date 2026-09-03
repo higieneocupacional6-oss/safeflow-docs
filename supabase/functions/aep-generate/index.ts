@@ -35,10 +35,16 @@ REGRAS OBRIGATÓRIAS:
 - Probabilidade: Baixa | Média | Alta. Severidade: Leve | Moderada | Grave. O nível de risco é calculado pelo sistema — não é necessário informá-lo.
 - riscos_ergonomicos: 3 a 8 riscos reais e específicos, classificados em Ergonômico físico, Ergonômico organizacional, Ergonômico cognitivo ou Ergonômico psicossocial.
 - checklist: retornar as 5 linhas fixas (chaves: organizacao_trabalho, levantamento_transporte_cargas, mobiliario, maquinas_equipamentos_ferramentas, conforto_ambiente), com quantidade de itens inadequados (número como texto; vazio se não sustentável), condição (Adequado | Parcialmente adequado | Inadequado | Não aplicável) e observação técnica objetiva.
-- conduta_1 (Há condição inadequada que necessita de soluções?) e conduta_2 (Foi encontrada solução rápida de baixo investimento e complexidade?) devem ser "SIM" ou "NÃO", coerentes com os riscos identificados e com o checklist.
+- parecer_ambiente: conclusão técnica do AMBIENTE avaliado, em texto corrido, profissional e objetivo, relacionando obrigatoriamente: características do ambiente (descricao_ambiente), atividade executada, função do GES, condições observadas, resultados do checklist (as 5 linhas e suas condições) e riscos identificados. Deve fechar com uma conclusão técnica sobre a adequação do ambiente. Não repetir o parecer de ergonomia.
+- parecer_ergonomia: conclusão técnica FINAL da avaliação ergonômica, relacionando obrigatoriamente: função, atividade, organização do trabalho, condições ambientais, fatores ergonômicos identificados, resultados do checklist, riscos ergonômicos e controles existentes, com fundamentação na NR-17 (e normas técnicas aplicáveis). Texto coerente com os fatos apresentados, sem generalidades.
+- conduta_1 (Há condição inadequada que necessita de soluções?) e conduta_2 (Foi encontrada solução rápida de baixo investimento e complexidade?) devem ser "SIM" ou "NÃO", determinadas nesta ordem: primeiro conduta_1 a partir do checklist e dos riscos; depois conduta_2 a partir da natureza e complexidade das inadequações encontradas.
+- parecer_conduta_1: se "NÃO", texto técnico breve indicando que não foram identificadas condições inadequadas que demandem soluções adicionais, considerando os resultados da avaliação, devendo ser mantidas e monitoradas as medidas existentes. Se "SIM", texto técnico breve indicando que foram identificadas condições inadequadas que demandam tratamento, devendo os resultados da AEP ser discutidos com os responsáveis e adotadas medidas de adequação. Sempre coerente com os riscos e resultados encontrados.
+- parecer_conduta_2: se "NÃO", informar de forma técnica e breve que, diante da complexidade das inadequações identificadas e da necessidade de aprofundamento da análise ergonômica, deverá ser realizada AET — Análise Ergonômica do Trabalho, nos termos da NR-17, com justificativa técnica objetiva. Se "SIM", informar de forma técnica e breve que foi identificada possibilidade de solução de baixo investimento e complexidade, devendo ser elaborado plano de ação para implantação das medidas corretivas e acompanhamento de sua efetividade.
 - parecer_conduta_1 e parecer_conduta_2 devem ADAPTAR tecnicamente os textos de referência à situação real analisada, jamais copiá-los literalmente.
 - plano_acao: ações concretas derivadas dos riscos e medidas recomendadas, com responsável e prazo editáveis.
 - Respeitar o campo "modo" do contexto: em COMPLEMENTAR, não contradizer o conteúdo já preenchido.
+- MODO REANALISE_CONDUTA: quando "conduta_definida_pelo_usuario" estiver preenchido, essas respostas foram escolhidas MANUALMENTE pelo responsável técnico e PREVALECEM sobre qualquer sugestão anterior. Devolver conduta_1 e conduta_2 EXATAMENTE com esses valores e REESCREVER riscos (inclusive medidas), checklist quando necessário, parecer_ambiente, parecer_ergonomia, parecer_conduta_1, parecer_conduta_2 e plano_acao de modo que NENHUM texto contradiga as respostas escolhidas. Se conduta_2 = "NÃO", nenhum texto pode afirmar existência de solução rápida e o encaminhamento é a AET; se conduta_2 = "SIM", o plano de ação deve trazer medidas de baixo investimento e complexidade. Se conduta_1 = "NÃO", riscos e pareceres não podem descrever inadequações pendentes de correção — apenas manutenção e monitoramento das medidas existentes.
+- COERÊNCIA GLOBAL: a AEP é um documento técnico ÚNICO (INFORMAÇÕES → ATIVIDADES → CHECKLIST → RISCOS → PARECERES → CONDUTA → PLANO DE AÇÃO). Sempre que uma informação principal mudar, reavaliar todos os campos dependentes; é PROIBIDO devolver campos contraditórios entre si.
 - descricao_atividade: descrever de forma técnica e profissional as atividades realmente relacionadas à FUNÇÃO DO GES ("funcao_ges") e às funções avaliadas, com base nas informações disponíveis. Nunca inventar tarefas, máquinas ou cargas não citadas.
 - turno: usar EXCLUSIVAMENTE a jornada/turno cadastrada da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, redigindo de forma técnica. Se não houver dado cadastrado, responder exatamente "Informação não fornecida". PROIBIDO inventar horários.
 
@@ -185,8 +191,14 @@ Diferenciar o que é identificado na imagem do que é presumido; não afirmar o 
 - Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, para aprofundamento da avaliação e definição das medidas ergonômicas necessárias."
 - Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
 
-# ETAPA 7 — INSTRUÇÕES DE SAÍDA
-Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
+${(ctx as any)?.conduta_definida_pelo_usuario
+  ? `# DECISÃO MANUAL DA CONDUTA — PREVALECE SOBRE QUALQUER SUGESTÃO ANTERIOR
+conduta_1 = "${(ctx as any).conduta_definida_pelo_usuario.conduta_1 || ""}" | conduta_2 = "${(ctx as any).conduta_definida_pelo_usuario.conduta_2 || ""}"
+Devolver esses valores EXATAMENTE e reescrever riscos, medidas, pareceres, pareceres da conduta e plano de ação para que nenhum texto fique contraditório com essa decisão.
+
+`
+  : ""}# ETAPA 7 — INSTRUÇÕES DE SAÍDA
+Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos (ambiente e ergonomia, cada um com conteúdo próprio), condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
     const userContent: any[] = [{ type: "text", text: userText }];

@@ -429,14 +429,15 @@ export default function AepWizard() {
     gerarComIA();
   };
 
-  const gerarComIA = async () => {
+  const gerarComIA = async (opts?: { condutaForcada?: { conduta_1: string; conduta_2: string } }) => {
     setIaConfirmOpen(false);
     if (editingSetorIdx === null) {
       toast.error("Abra o registro de um setor para gerar com IA");
       return;
     }
 
-    const setor = setoresAep[editingSetorIdx];
+    const forcar = !!opts?.condutaForcada;
+    const setor = { ...setoresAep[editingSetorIdx], ...(opts?.condutaForcada ?? {}) };
     setIaLoading(true);
     try {
       // Cadastro Empresa → Setores → Funções (Etapa 4)
@@ -453,9 +454,16 @@ export default function AepWizard() {
         outras_avaliacoes_do_documento: setoresAep
           .filter((_, i) => i !== editingSetorIdx)
           .map((s) => ({ setor: s.setor_nome, ges: s.ges })),
-        modo: iaSubstituir
+        modo: forcar
+          ? "REANALISE_CONDUTA — o responsável técnico definiu MANUALMENTE as respostas da conduta. Essas respostas PREVALECEM e não podem ser alteradas. Reanalisar e reescrever riscos, medidas, pareceres, pareceres da conduta e plano de ação para que TODO o documento fique coerente com as respostas escolhidas, sem textos contraditórios."
+          : iaSubstituir
           ? "SUBSTITUIR — reanalisar tudo e refazer checklist, riscos, pareceres, condutas e plano de ação"
           : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
+
+        conduta_definida_pelo_usuario: forcar
+          ? { conduta_1: setor.conduta_1, conduta_2: setor.conduta_2 }
+          : null,
+
 
         // ETAPA 1 — entrada do usuário
         user_input: {
@@ -565,9 +573,10 @@ export default function AepWizard() {
             prazo: p.prazo || "",
           }))
         : [];
-      // Substituir = sobrescreve; Complementar = mantém o que já existe
+      // Substituir/Reanálise = sobrescreve; Complementar = mantém o que já existe
+      const sobrescrever = iaSubstituir || forcar;
       const pick = (novo: string, atual: string) =>
-        iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
+        sobrescrever ? (novo || atual) : (atual?.trim() ? atual : novo || "");
 
       // Checklist AEP sugerido pela IA
       const checklistIa: Record<string, ChecklistItem> = { ...setor.checklist };
@@ -590,29 +599,42 @@ export default function AepWizard() {
         checklist: checklistIa,
         descricao_atividade: pick(r.descricao_atividade, setor.descricao_atividade),
         turno: pick(r.turno, setor.turno),
-        riscos_lista: iaSubstituir
+        riscos_lista: sobrescrever
           ? (riscos.length > 0 ? riscos : setor.riscos_lista)
           : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
         parecer_ambiente: pick(r.parecer_ambiente, setor.parecer_ambiente),
         parecer_ergonomia: pick(r.parecer_ergonomia, setor.parecer_ergonomia),
-        conduta_1: pick(r.conduta_1, setor.conduta_1),
+        // A resposta escolhida manualmente pelo usuário sempre prevalece
+        conduta_1: forcar ? setor.conduta_1 : pick(r.conduta_1, setor.conduta_1),
         parecer_conduta_1: pick(r.parecer_conduta_1, setor.parecer_conduta_1),
-        conduta_2: pick(r.conduta_2, setor.conduta_2),
+        conduta_2: forcar ? setor.conduta_2 : pick(r.conduta_2, setor.conduta_2),
         parecer_conduta_2: pick(r.parecer_conduta_2, setor.parecer_conduta_2),
-        plano_acao: iaSubstituir
+        plano_acao: sobrescrever
           ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
           : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
 
 
       setIaOpen(false);
-      toast.success("Análise gerada com IA");
+      toast.success(forcar ? "AEP reanalisada com base na conduta escolhida" : "Análise gerada com IA");
     } catch (e: any) {
       toast.error("Erro na geração com IA: " + (e.message || ""));
     } finally {
       setIaLoading(false);
     }
   };
+
+  // Alteração manual da conduta → aciona reanálise automática da IA
+  const alterarConduta = (campo: "conduta_1" | "conduta_2", valor: string) => {
+    if (editingSetorIdx === null) return;
+    const atual = setoresAep[editingSetorIdx];
+    const conduta_1 = campo === "conduta_1" ? valor : atual.conduta_1;
+    const conduta_2 = campo === "conduta_2" ? valor : atual.conduta_2;
+    updateSetor(editingSetorIdx, { [campo]: valor } as any);
+    if (!valor) return;
+    gerarComIA({ condutaForcada: { conduta_1, conduta_2 } });
+  };
+
 
   // ───────────── Template (estrutura exclusiva da AEP) ─────────────
   const CHECKLIST_VAR_KEYS: Record<string, string> = {
@@ -1283,14 +1305,18 @@ export default function AepWizard() {
         {/* Conduta */}
         <Card className="p-5 mb-4">
           <h2 className="font-heading font-semibold mb-3">Conduta</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Ao alterar manualmente qualquer resposta abaixo, a IA reanalisa automaticamente a AEP e
+            ajusta riscos, medidas, pareceres, condutas e plano de ação para manter a coerência.
+          </p>
           <div className="space-y-5">
             <div>
               <Label>Há condição inadequada que necessita de soluções?</Label>
               <div className="flex gap-4 mt-2">
                 {["SIM", "NÃO"].map((op) => (
                   <label key={op} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={setor.conduta_1 === op}
-                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_1: c ? op : "" })} />
+                    <Checkbox checked={setor.conduta_1 === op} disabled={iaLoading}
+                      onCheckedChange={(c) => alterarConduta("conduta_1", c ? op : "")} />
                     {op}
                   </label>
                 ))}
@@ -1304,10 +1330,11 @@ export default function AepWizard() {
               <div className="flex gap-4 mt-2">
                 {["SIM", "NÃO"].map((op) => (
                   <label key={op} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={setor.conduta_2 === op}
-                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_2: c ? op : "" })} />
+                    <Checkbox checked={setor.conduta_2 === op} disabled={iaLoading}
+                      onCheckedChange={(c) => alterarConduta("conduta_2", c ? op : "")} />
                     {op}
                   </label>
+
                 ))}
               </div>
               <Label className="mt-3 block">Parecer da conduta</Label>
@@ -1483,7 +1510,7 @@ export default function AepWizard() {
             </p>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIaConfirmOpen(false)}>Cancelar</Button>
-              <Button onClick={gerarComIA} disabled={iaLoading}>Continuar</Button>
+              <Button onClick={() => gerarComIA()} disabled={iaLoading}>Continuar</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
