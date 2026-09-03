@@ -142,6 +142,11 @@ export default function AepWizard() {
   const [showGerar, setShowGerar] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const [bindOpen, setBindOpen] = useState(false);
+  const [vinculado, setVinculado] = useState(false);
+  const [bindResult, setBindResult] = useState<AepBindingResult | null>(null);
+
 
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
