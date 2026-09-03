@@ -43,6 +43,8 @@ export default function Templates() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
+    // Permite selecionar o mesmo arquivo novamente
+    e.target.value = "";
     if (f) {
       const lower = f.name.toLowerCase();
       if (!lower.endsWith(".docx") && !lower.endsWith(".html") && !lower.endsWith(".htm")) {
