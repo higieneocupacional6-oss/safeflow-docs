@@ -429,14 +429,15 @@ export default function AepWizard() {
     gerarComIA();
   };
 
-  const gerarComIA = async () => {
+  const gerarComIA = async (opts?: { condutaForcada?: { conduta_1: string; conduta_2: string } }) => {
     setIaConfirmOpen(false);
     if (editingSetorIdx === null) {
       toast.error("Abra o registro de um setor para gerar com IA");
       return;
     }
 
-    const setor = setoresAep[editingSetorIdx];
+    const forcar = !!opts?.condutaForcada;
+    const setor = { ...setoresAep[editingSetorIdx], ...(opts?.condutaForcada ?? {}) };
     setIaLoading(true);
     try {
       // Cadastro Empresa → Setores → Funções (Etapa 4)
@@ -453,9 +454,16 @@ export default function AepWizard() {
         outras_avaliacoes_do_documento: setoresAep
           .filter((_, i) => i !== editingSetorIdx)
           .map((s) => ({ setor: s.setor_nome, ges: s.ges })),
-        modo: iaSubstituir
+        modo: forcar
+          ? "REANALISE_CONDUTA — o responsável técnico definiu MANUALMENTE as respostas da conduta. Essas respostas PREVALECEM e não podem ser alteradas. Reanalisar e reescrever riscos, medidas, pareceres, pareceres da conduta e plano de ação para que TODO o documento fique coerente com as respostas escolhidas, sem textos contraditórios."
+          : iaSubstituir
           ? "SUBSTITUIR — reanalisar tudo e refazer checklist, riscos, pareceres, condutas e plano de ação"
           : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
+
+        conduta_definida_pelo_usuario: forcar
+          ? { conduta_1: setor.conduta_1, conduta_2: setor.conduta_2 }
+          : null,
+
 
         // ETAPA 1 — entrada do usuário
         user_input: {
