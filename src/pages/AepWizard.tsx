@@ -427,20 +427,53 @@ export default function AepWizard() {
     const setor = setoresAep[editingSetorIdx];
     setIaLoading(true);
     try {
+      // Cadastro Empresa → Setores → Funções (Etapa 4)
+      const funcoesCadastroSetor = (funcoesAll as any[])
+        .filter((f) => f.setor_id === setor.setor_id)
+        .map((f) => ({ nome: f.nome_funcao, descricao_atividades: f.descricao_atividades || "" }));
+
       const contexto = {
         tipo_documento: "AEP — Análise Ergonômica Preliminar",
-        empresa: { razao_social: empresaNome, cnae: empresa.cnae_principal, grau_risco: empresa.grau_risco },
-        setor: setor.setor_nome,
-        ges: setor.ges,
-        descricao_ambiente: setor.descricao_ambiente,
-        funcoes: setor.funcoes_selecionadas.map((f) => f.nome),
-        numero_funcionarios: setor.numero_funcionarios,
-        colaboradores: setor.colaboradores,
-        descricao_atividade: setor.descricao_atividade,
-        turno: setor.turno,
-        postura_predominante: setor.postura_predominante,
-        postura_observacao: setor.postura_observacao,
-        checklist: CHECKLIST_LINHAS.map((l) => ({ variavel: l.label, ...setor.checklist[l.key] })),
+        // ETAPA 1 — ponto de partida da análise
+        etapa_1_informacoes_do_usuario: iaObs || "",
+        // ETAPA 2 — dados da empresa
+        etapa_2_empresa: {
+          razao_social: empresa.razao_social || "",
+          nome_fantasia: empresa.nome_fantasia || "",
+          cnpj: empresa.cnpj || "",
+          cnae: empresa.cnae_principal || "",
+          grau_risco: empresa.grau_risco || "",
+          endereco: empresa.endereco || "",
+          total_funcionarios: empresa.total_funcionarios ?? "",
+          jornada_trabalho: empresa.jornada_trabalho || "",
+          contrato: {
+            numero_contrato: contrato.numero_contrato || "",
+            nome_contratante: contrato.nome_contratante || "",
+            cnpj_contratante: contrato.cnpj_contratante || "",
+            local_trabalho: contrato.local_trabalho || "",
+          },
+        },
+        // ETAPA 3 — identificação do setor na AEP
+        etapa_3_identificacao_setor: {
+          ges: setor.ges,
+          setor: setor.setor_nome,
+          descricao_ambiente: setor.descricao_ambiente,
+          funcoes_avaliadas: setor.funcoes_selecionadas.map((f) => f.nome),
+          numero_funcionarios: setor.numero_funcionarios,
+          colaboradores: setor.colaboradores,
+          descricao_atividade: setor.descricao_atividade,
+          turno: setor.turno,
+          postura_predominante: setor.postura_predominante,
+          postura_observacao: setor.postura_observacao,
+        },
+        // ETAPA 4 — cadastro Setores e Funções da empresa
+        etapa_4_cadastro_setores_funcoes: {
+          setores_da_empresa: (setoresEmpresa as any[]).map((s) => ({ setor: s.nome_setor, ges: s.ghe_ges || "" })),
+          funcoes_cadastradas_no_setor: funcoesCadastroSetor,
+        },
+        checklist_atual: CHECKLIST_LINHAS.map((l) => ({
+          chave: l.key, variavel: l.label, ...setor.checklist[l.key],
+        })),
         riscos_ja_cadastrados: setor.riscos_lista,
         conteudo_atual: {
           parecer_ambiente: setor.parecer_ambiente,
@@ -452,10 +485,10 @@ export default function AepWizard() {
           plano_acao: setor.plano_acao,
         },
         modo: iaSubstituir
-          ? "SUBSTITUIR — reanalisar tudo e refazer riscos, pareceres, condutas e plano de ação"
+          ? "SUBSTITUIR — reanalisar tudo e refazer checklist, riscos, pareceres, condutas e plano de ação"
           : "COMPLEMENTAR — preservar o conteúdo já preenchido e apenas completar o que estiver vazio",
-        observacoes_complementares: iaObs,
       };
+
 
       const { data, error } = await supabase.functions.invoke("aep-generate", {
         body: {
@@ -500,7 +533,25 @@ export default function AepWizard() {
       const pick = (novo: string, atual: string) =>
         iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
 
+      // Checklist AEP sugerido pela IA
+      const checklistIa: Record<string, ChecklistItem> = { ...setor.checklist };
+      if (Array.isArray(r.checklist)) {
+        for (const item of r.checklist) {
+          const key = CHECKLIST_LINHAS.find(
+            (l) => l.key === item?.chave || l.label === item?.variavel,
+          )?.key;
+          if (!key) continue;
+          const atual = setor.checklist[key] || { quantidade_inadequados: "", condicao: "", observacao: "" };
+          checklistIa[key] = {
+            quantidade_inadequados: pick(String(item.quantidade_inadequados ?? ""), atual.quantidade_inadequados),
+            condicao: pick(item.condicao || "", atual.condicao),
+            observacao: pick(item.observacao || "", atual.observacao),
+          };
+        }
+      }
+
       updateSetor(editingSetorIdx, {
+        checklist: checklistIa,
         riscos_lista: iaSubstituir
           ? (riscos.length > 0 ? riscos : setor.riscos_lista)
           : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
@@ -514,6 +565,7 @@ export default function AepWizard() {
           ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
           : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
+
 
       setIaOpen(false);
       toast.success("Análise gerada com IA");
