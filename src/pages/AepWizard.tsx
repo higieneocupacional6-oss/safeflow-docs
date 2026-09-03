@@ -1587,7 +1587,7 @@ export default function AepWizard() {
             <Input type="date" value={dataElaboracao} onChange={(e) => setDataElaboracao(e.target.value)} />
           </div>
           <div className="md:col-span-2">
-            <Label>Alterações do documento</Label>
+            <Label>Características da empresa</Label>
             <Textarea value={alteracoes} onChange={(e) => setAlteracoes(e.target.value)} />
           </div>
         </div>
