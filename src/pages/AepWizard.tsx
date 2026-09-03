@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
-  FileDown, Sparkles, PenLine, ImagePlus,
+  FileDown, Sparkles, PenLine, ImagePlus, Link2,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -29,6 +29,10 @@ import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
+import {
+  createAepParser, extractDocxText, validateAepBinding, type AepBindingResult,
+} from "@/lib/aepTemplate";
+
 
 // ───────────── Tipos ─────────────
 type Revisao = { data_revisao: string; descricao_revisao: string };
@@ -142,6 +146,11 @@ export default function AepWizard() {
   const [showGerar, setShowGerar] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState("");
   const [generating, setGenerating] = useState(false);
+  const [binding, setBinding] = useState(false);
+  const [bindOpen, setBindOpen] = useState(false);
+  const [vinculado, setVinculado] = useState(false);
+  const [bindResult, setBindResult] = useState<AepBindingResult | null>(null);
+
 
   const [iaOpen, setIaOpen] = useState(false);
   const [iaObs, setIaObs] = useState("");
@@ -710,7 +719,7 @@ export default function AepWizard() {
   };
 
 
-  const loadTemplateDoc = async () => {
+  const loadTemplateDoc = async (data: any) => {
     const template: any = (templates as any[]).find((t) => t.id === selectedTemplate);
     if (!template) throw new Error("Template não encontrado");
     const { data: fileData, error } = await supabase.storage.from("templates").download(template.file_path);
@@ -721,26 +730,49 @@ export default function AepWizard() {
       const htmlSource = await fileData.text();
       let lastData: any = null;
       return {
-        kind: "html",
-        render(d: any) { lastData = d; },
-        async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
-      } as any;
+        text: htmlSource,
+        doc: {
+          kind: "html",
+          render(d: any) { lastData = d; },
+          async toBlob() { return await renderHtmlTemplateToDocx(htmlSource, lastData ?? {}); },
+        } as any,
+      };
     }
 
     const arrayBuffer = await fileData.arrayBuffer();
-    return new Docxtemplater(new PizZip(arrayBuffer), {
+    const zip = new PizZip(arrayBuffer);
+    const doc = new Docxtemplater(zip, {
       paragraphLoop: true,
       linebreaks: true,
       delimiters: { start: "{{", end: "}}" },
       nullGetter: () => "",
+      parser: createAepParser(data),
     });
+    return { text: extractDocxText(zip), doc };
+  };
+
+  const handleVincular = async () => {
+    setBinding(true);
+    try {
+      const data = buildTemplateData();
+      const { text } = await loadTemplateDoc(data);
+      const result = validateAepBinding(text, data);
+      setBindResult(result);
+      setBindOpen(true);
+      if (!result.issues.some((i) => i.tipo === "erro")) setVinculado(true);
+    } catch (e: any) {
+      toast.error("Erro ao vincular documento: " + (e.message || ""));
+    } finally {
+      setBinding(false);
+    }
   };
 
   const handleGenerate = async () => {
     setGenerating(true);
     try {
-      const doc: any = await loadTemplateDoc();
-      doc.render(buildTemplateData());
+      const data = buildTemplateData();
+      const { doc } = await loadTemplateDoc(data);
+      doc.render(data);
       const output: Blob = doc.kind === "html"
         ? await doc.toBlob()
         : doc.getZip().generate({
@@ -764,6 +796,7 @@ export default function AepWizard() {
       setGenerating(false);
     }
   };
+
 
   const handleEmitir = async () => {
     const id = await persist("rascunho", true);
@@ -799,7 +832,10 @@ export default function AepWizard() {
             Escolha o template e gere o documento final
           </p>
 
-          <Select value={selectedTemplate} onValueChange={setSelectedTemplate}>
+          <Select
+            value={selectedTemplate}
+            onValueChange={(v) => { setSelectedTemplate(v); setVinculado(false); setBindResult(null); }}
+          >
             <SelectTrigger className="max-w-md mx-auto"><SelectValue placeholder="Escolher template" /></SelectTrigger>
             <SelectContent>
               {templatesToShow.length === 0 && (
@@ -812,17 +848,76 @@ export default function AepWizard() {
           </Select>
 
           <div className="flex justify-center gap-2 mt-6">
+            <Button variant="outline" onClick={handleVincular} disabled={binding || !selectedTemplate}>
+              {binding ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Link2 className="w-4 h-4 mr-2" />}
+              Vincular Documento
+            </Button>
             <Button
               onClick={handleGenerate}
-              disabled={generating || !selectedTemplate}
+              disabled={generating || !selectedTemplate || !vinculado}
               className="bg-accent text-accent-foreground hover:bg-accent/90"
             >
               {generating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}
               Gerar Documento
             </Button>
+
           </div>
+
+          {bindResult && (
+            <p className="text-xs text-muted-foreground mt-4">
+              {bindResult.vinculadas}/{bindResult.totalTags} variáveis vinculadas
+              {bindResult.loops.length > 0 && ` · loops: ${bindResult.loops.map((l) => `${l.nome} (${l.itens})`).join(", ")}`}
+            </p>
+          )}
         </Card>
+
+        <Dialog open={bindOpen} onOpenChange={setBindOpen}>
+          <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="font-heading">
+                {bindResult && bindResult.issues.some((i) => i.tipo === "erro")
+                  ? "Erros encontrados na vinculação"
+                  : "Vinculação concluída com sucesso."}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-3 text-sm">
+              <p className="text-muted-foreground">
+                {bindResult?.vinculadas ?? 0} de {bindResult?.totalTags ?? 0} variáveis do template foram
+                vinculadas ao JSON da AEP.
+                {bindResult?.loops.length
+                  ? ` Loops processados: ${bindResult.loops.map((l) => `${l.nome} → ${l.itens} registro(s)`).join(", ")}.`
+                  : ""}
+              </p>
+
+              {bindResult?.issues.length === 0 && (
+                <p className="text-success">Nenhum problema encontrado. Você já pode gerar o documento.</p>
+              )}
+
+              {bindResult?.issues.map((iss, i) => (
+                <div
+                  key={i}
+                  className={`p-3 rounded-lg border ${iss.tipo === "erro" ? "border-destructive/40 bg-destructive/5" : "border-amber-500/40 bg-amber-500/5"}`}
+                >
+                  <p className="font-semibold">{iss.titulo}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Onde: {iss.onde}</p>
+                  <p className="text-xs mt-1">Como corrigir: {iss.correcao}</p>
+                </div>
+              ))}
+            </div>
+
+            <DialogFooter>
+              <Button
+                onClick={() => { setVinculado(true); setBindOpen(false); }}
+                className="bg-accent text-accent-foreground hover:bg-accent/90"
+              >
+                Entendi — continuar mesmo assim
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
+
     );
   }
 
