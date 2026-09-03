@@ -75,7 +75,7 @@ export const CHECKLIST_LINHAS: { key: string; label: string }[] = [
   { key: "conforto_ambiente", label: "Condições de conforto no ambiente de trabalho" },
 ];
 
-const CONDICOES = ["Adequado", "Parcialmente adequado", "Inadequado", "Não aplicável"];
+const CONDICOES = ["Adequado", "Parcialmente adequado", "Inadequado", "Não aplicado", "Não aplicável"];
 
 const POSTURAS = [
   "Sentado", "Em pé", "Alternado sentado/em pé", "Agachado",
