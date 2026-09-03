@@ -49,7 +49,7 @@ const grupos: Grupo[] = [
     vars: ["{{#aep.setores}}", "{{/aep.setores}}"],
   },
   {
-    title: "Setor (dentro do loop de setores)",
+    title: "Setor / GES (dentro do loop de setores)",
     vars: [
       "{{ges}}", "{{setor}}", "{{descricao_ambiente}}",
       "{{funcoes_avaliadas}}", "{{funcao_ges}}", "{{numero_funcionarios}}",
