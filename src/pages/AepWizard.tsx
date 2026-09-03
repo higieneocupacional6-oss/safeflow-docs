@@ -573,9 +573,10 @@ export default function AepWizard() {
             prazo: p.prazo || "",
           }))
         : [];
-      // Substituir = sobrescreve; Complementar = mantém o que já existe
+      // Substituir/Reanálise = sobrescreve; Complementar = mantém o que já existe
+      const sobrescrever = iaSubstituir || forcar;
       const pick = (novo: string, atual: string) =>
-        iaSubstituir ? (novo || atual) : (atual?.trim() ? atual : novo || "");
+        sobrescrever ? (novo || atual) : (atual?.trim() ? atual : novo || "");
 
       // Checklist AEP sugerido pela IA
       const checklistIa: Record<string, ChecklistItem> = { ...setor.checklist };
@@ -598,29 +599,42 @@ export default function AepWizard() {
         checklist: checklistIa,
         descricao_atividade: pick(r.descricao_atividade, setor.descricao_atividade),
         turno: pick(r.turno, setor.turno),
-        riscos_lista: iaSubstituir
+        riscos_lista: sobrescrever
           ? (riscos.length > 0 ? riscos : setor.riscos_lista)
           : (setor.riscos_lista.length > 0 ? setor.riscos_lista : riscos),
         parecer_ambiente: pick(r.parecer_ambiente, setor.parecer_ambiente),
         parecer_ergonomia: pick(r.parecer_ergonomia, setor.parecer_ergonomia),
-        conduta_1: pick(r.conduta_1, setor.conduta_1),
+        // A resposta escolhida manualmente pelo usuário sempre prevalece
+        conduta_1: forcar ? setor.conduta_1 : pick(r.conduta_1, setor.conduta_1),
         parecer_conduta_1: pick(r.parecer_conduta_1, setor.parecer_conduta_1),
-        conduta_2: pick(r.conduta_2, setor.conduta_2),
+        conduta_2: forcar ? setor.conduta_2 : pick(r.conduta_2, setor.conduta_2),
         parecer_conduta_2: pick(r.parecer_conduta_2, setor.parecer_conduta_2),
-        plano_acao: iaSubstituir
+        plano_acao: sobrescrever
           ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
           : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
       });
 
 
       setIaOpen(false);
-      toast.success("Análise gerada com IA");
+      toast.success(forcar ? "AEP reanalisada com base na conduta escolhida" : "Análise gerada com IA");
     } catch (e: any) {
       toast.error("Erro na geração com IA: " + (e.message || ""));
     } finally {
       setIaLoading(false);
     }
   };
+
+  // Alteração manual da conduta → aciona reanálise automática da IA
+  const alterarConduta = (campo: "conduta_1" | "conduta_2", valor: string) => {
+    if (editingSetorIdx === null) return;
+    const atual = setoresAep[editingSetorIdx];
+    const conduta_1 = campo === "conduta_1" ? valor : atual.conduta_1;
+    const conduta_2 = campo === "conduta_2" ? valor : atual.conduta_2;
+    updateSetor(editingSetorIdx, { [campo]: valor } as any);
+    if (!valor) return;
+    gerarComIA({ condutaForcada: { conduta_1, conduta_2 } });
+  };
+
 
   // ───────────── Template (estrutura exclusiva da AEP) ─────────────
   const CHECKLIST_VAR_KEYS: Record<string, string> = {
