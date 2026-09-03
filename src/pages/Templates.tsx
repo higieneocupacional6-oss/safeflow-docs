@@ -43,6 +43,8 @@ export default function Templates() {
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
+    // Permite selecionar o mesmo arquivo novamente
+    e.target.value = "";
     if (f) {
       const lower = f.name.toLowerCase();
       if (!lower.endsWith(".docx") && !lower.endsWith(".html") && !lower.endsWith(".htm")) {
@@ -257,18 +259,22 @@ export default function Templates() {
               <div className="mt-1">
                 <input
                   ref={fileRef}
+                  id="template-file-input"
                   type="file"
                   accept=".docx,.html,.htm"
                   onChange={handleFileChange}
-                  className="hidden"
+                  className="sr-only"
                 />
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={() => fileRef.current?.click()}
+                  asChild
                   className="w-full justify-start gap-2"
                 >
-                  <Upload className="w-4 h-4" />
-                  {file ? file.name : "Selecionar arquivo .docx ou .html"}
+                  <label htmlFor="template-file-input" className="flex items-center gap-2 cursor-pointer w-full">
+                    <Upload className="w-4 h-4" />
+                    {file ? file.name : "Selecionar arquivo .docx ou .html"}
+                  </label>
                 </Button>
                 <p className="text-[11px] text-muted-foreground mt-1.5">
                   Aceitamos <strong>.docx</strong> e <strong>.html</strong>. O documento final é sempre gerado em <strong>.docx</strong>.
