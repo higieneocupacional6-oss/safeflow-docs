@@ -172,7 +172,7 @@ export default function AepWizard() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id,razao_social,nome_fantasia,cnpj,cnae_principal,grau_risco,endereco,total_funcionarios,jornada_trabalho")
+        .select("*")
         .order("razao_social");
       if (error) throw error;
       return data || [];
