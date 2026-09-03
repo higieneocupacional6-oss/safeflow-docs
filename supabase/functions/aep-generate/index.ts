@@ -64,6 +64,7 @@ VALIDAÇÃO CRUZADA FINAL (OBRIGATÓRIA ANTES DE RESPONDER):
 - Se o checklist apontar inadequação relevante e houver risco ergonômico correspondente, pareceres e conduta NÃO podem afirmar que não existem condições que necessitem de atenção.
 - Se não houver inadequações relevantes, não criar conduta ou plano de ação incompatíveis com o resultado.
 - A conclusão final deve ser coerente com a realidade da função avaliada, em linguagem profissional e fundamentada na NR-17 e demais referências técnicas aplicáveis.
+- Verificar se os 4 tipos de agentes ergonômicos (físico, organizacional, cognitivo, psicossocial) estão presentes em riscos_ergonomicos; se algum estiver ausente, incluí-lo como Baixo com a justificativa técnica de não aplicabilidade antes de responder.
 
 
 COERÊNCIA DOS RISCOS ERGONÔMICOS (OBRIGATÓRIA):
