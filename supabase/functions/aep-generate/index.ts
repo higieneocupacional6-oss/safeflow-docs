@@ -46,13 +46,22 @@ REGRAS OBRIGATÓRIAS:
 - MODO REANALISE_CONDUTA: quando "conduta_definida_pelo_usuario" estiver preenchido, essas respostas foram escolhidas MANUALMENTE pelo responsável técnico e PREVALECEM sobre qualquer sugestão anterior. Devolver conduta_1 e conduta_2 EXATAMENTE com esses valores e REESCREVER riscos (inclusive medidas), checklist quando necessário, parecer_ambiente, parecer_ergonomia, parecer_conduta_1, parecer_conduta_2 e plano_acao de modo que NENHUM texto contradiga as respostas escolhidas. Se conduta_2 = "NÃO", nenhum texto pode afirmar existência de solução rápida e o encaminhamento é a AET; se conduta_2 = "SIM", o plano de ação deve trazer medidas de baixo investimento e complexidade. Se conduta_1 = "NÃO", riscos e pareceres não podem descrever inadequações pendentes de correção — apenas manutenção e monitoramento das medidas existentes.
 - COERÊNCIA GLOBAL: a AEP é um documento técnico ÚNICO (INFORMAÇÕES → ATIVIDADES → CHECKLIST → RISCOS → PARECERES → CONDUTA → PLANO DE AÇÃO). Sempre que uma informação principal mudar, reavaliar todos os campos dependentes; é PROIBIDO devolver campos contraditórios entre si.
 - descricao_atividade: descrever de forma técnica e profissional as atividades realmente relacionadas à FUNÇÃO DO GES ("funcao_ges") e às funções avaliadas, com base nas informações disponíveis. Nunca inventar tarefas, máquinas ou cargas não citadas.
-- turno: usar EXCLUSIVAMENTE a jornada/turno cadastrada da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, redigindo de forma técnica. Se não houver dado cadastrado, responder exatamente "Informação não fornecida". PROIBIDO inventar horários.
+- turno: consultar o cadastro da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, INFORMAR o turno/jornada encontrado e ACRESCENTAR descrição técnica e profissional da jornada no contexto ergonômico da AEP, considerando, quando houver informação: duração da jornada, organização dos horários, pausas, ritmo, possibilidade de recuperação e características da atividade. PROIBIDO inventar horários ou pausas. Se não houver dado cadastrado, responder exatamente "Informação não fornecida".
 
-CHECKLIST AEP — REGRAS ESTRITAS:
+CHECKLIST AEP — ANÁLISE CRÍTICA E REGRAS ESTRITAS:
 - Sempre retornar as 5 linhas fixas.
-- quantidade_inadequados: número como texto; quando nenhuma inadequação for identificada, usar "0".
+- Fazer análise PROFUNDA e REALISTA; NÃO repetir simplesmente o que o usuário digitou. Avaliar cada item cruzando: atividade real da função, função do GES, setor, descrição do ambiente, descrição da atividade, organização do trabalho, características conhecidas da atividade profissional, informações complementares do usuário, fotografias (quando houver) e demais dados cadastrados na AEP.
+- Aplicar raciocínio ergonômico técnico para identificar inadequações compatíveis com a atividade. PROIBIDO produzir uma AEP artificialmente perfeita: não marcar tudo como adequado apenas porque o usuário não relatou inadequação. Se a análise técnica indicar fator de risco ou condição que mereça atenção, registrar a inadequação e justificá-la tecnicamente. Igualmente, não criar inadequações sem fundamento. O resultado deve ser equilibrado — nem tudo adequado, nem tudo inadequado.
+- quantidade_inadequados: quantidade efetivamente identificada pela análise, como texto; "0" quando não houver inadequação.
 - condicao: quando a quantidade for "0", usar obrigatoriamente "Não aplicado". Havendo inadequação, usar a condição coerente (Adequado | Parcialmente adequado | Inadequado).
-- observacao: justificativa técnica curta e objetiva, coerente com a atividade, a função do GES, o ambiente, as informações do usuário, as fotografias (quando houver) e a própria condição informada. Proibido texto genérico ou contraditório.
+- observacao: justificativa curta, técnica, objetiva e ESPECÍFICA daquela categoria, relacionada à atividade real. Proibido frases genéricas repetidas entre as linhas ou contraditórias com a condição informada.
+
+VALIDAÇÃO CRUZADA FINAL (OBRIGATÓRIA ANTES DE RESPONDER):
+- Revisar a cadeia Atividade → Turno → Checklist → Riscos → Pareceres → Conduta → Plano de ação e corrigir automaticamente qualquer contradição.
+- Se o checklist apontar inadequação relevante e houver risco ergonômico correspondente, pareceres e conduta NÃO podem afirmar que não existem condições que necessitem de atenção.
+- Se não houver inadequações relevantes, não criar conduta ou plano de ação incompatíveis com o resultado.
+- A conclusão final deve ser coerente com a realidade da função avaliada, em linguagem profissional e fundamentada na NR-17 e demais referências técnicas aplicáveis.
+
 
 COERÊNCIA DOS RISCOS ERGONÔMICOS (OBRIGATÓRIA):
 - Somente riscos pertinentes às atividades efetivamente avaliadas.
