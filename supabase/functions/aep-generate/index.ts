@@ -33,26 +33,35 @@ REGRAS OBRIGATÓRIAS:
 - Linguagem técnica, formal, em português do Brasil, citando itens específicos da NR-17 quando aplicável.
 - Não inventar responsáveis nominais: quando não informados, usar cargos genéricos adequados (ex.: "Gestão/Supervisão do setor", "SESMT", "Engenharia de Segurança").
 - Probabilidade: Baixa | Média | Alta. Severidade: Leve | Moderada | Grave. O nível de risco é calculado pelo sistema — não é necessário informá-lo.
-- riscos_ergonomicos: 3 a 8 riscos reais e específicos, classificados em Ergonômico físico, Ergonômico organizacional, Ergonômico cognitivo ou Ergonômico psicossocial.
-- checklist: retornar as 5 linhas fixas (chaves: organizacao_trabalho, levantamento_transporte_cargas, mobiliario, maquinas_equipamentos_ferramentas, conforto_ambiente), com quantidade de itens inadequados (número como texto; vazio se não sustentável), condição (Adequado | Parcialmente adequado | Inadequado | Não aplicável) e observação técnica objetiva.
+- riscos_ergonomicos: análise realista e tecnicamente CRÍTICA das atividades e funções avaliadas. Para CADA tipo de agente ergonômico efetivamente presente na atividade (Ergonômico físico, organizacional, cognitivo, psicossocial), informar NO MÍNIMO 2 fatores de risco distintos, quando tecnicamente aplicáveis (ex.: físico → postura sentada prolongada; movimentos repetitivos de membros superiores. Organizacional → ritmo de trabalho; pressão por prazos). Pode haver mais de 2 quando a atividade justificar. PROIBIDO criar riscos artificialmente só para atingir a quantidade mínima e PROIBIDO criar um tipo de agente que não esteja presente na atividade apenas para preencher a tabela.
+- checklist: retornar as 5 linhas fixas (chaves: organizacao_trabalho, levantamento_transporte_cargas, mobiliario, maquinas_equipamentos_ferramentas, conforto_ambiente), com quantidade de itens inadequados (número como texto; vazio se não sustentável), condição (Adequado | Parcialmente adequado | Inadequado | Não aplicado) e observação técnica objetiva.
 - parecer_ambiente: conclusão técnica do AMBIENTE avaliado, em texto corrido, profissional e objetivo, relacionando obrigatoriamente: características do ambiente (descricao_ambiente), atividade executada, função do GES, condições observadas, resultados do checklist (as 5 linhas e suas condições) e riscos identificados. Deve fechar com uma conclusão técnica sobre a adequação do ambiente. Não repetir o parecer de ergonomia.
 - parecer_ergonomia: conclusão técnica FINAL da avaliação ergonômica, relacionando obrigatoriamente: função, atividade, organização do trabalho, condições ambientais, fatores ergonômicos identificados, resultados do checklist, riscos ergonômicos e controles existentes, com fundamentação na NR-17 (e normas técnicas aplicáveis). Texto coerente com os fatos apresentados, sem generalidades.
 - conduta_1 (Há condição inadequada que necessita de soluções?) e conduta_2 (Foi encontrada solução rápida de baixo investimento e complexidade?) devem ser "SIM" ou "NÃO", determinadas nesta ordem: primeiro conduta_1 a partir do checklist e dos riscos; depois conduta_2 a partir da natureza e complexidade das inadequações encontradas.
 - parecer_conduta_1: se "NÃO", texto técnico breve indicando que não foram identificadas condições inadequadas que demandem soluções adicionais, considerando os resultados da avaliação, devendo ser mantidas e monitoradas as medidas existentes. Se "SIM", texto técnico breve indicando que foram identificadas condições inadequadas que demandam tratamento, devendo os resultados da AEP ser discutidos com os responsáveis e adotadas medidas de adequação. Sempre coerente com os riscos e resultados encontrados.
-- parecer_conduta_2: se "NÃO", informar de forma técnica e breve que, diante da complexidade das inadequações identificadas e da necessidade de aprofundamento da análise ergonômica, deverá ser realizada AET — Análise Ergonômica do Trabalho, nos termos da NR-17, com justificativa técnica objetiva. Se "SIM", informar de forma técnica e breve que foi identificada possibilidade de solução de baixo investimento e complexidade, devendo ser elaborado plano de ação para implantação das medidas corretivas e acompanhamento de sua efetividade.
+- parecer_conduta_2: EXCLUSIVIDADE OBRIGATÓRIA. Se "NÃO": informar SOMENTE que é necessária a realização de AET — Análise Ergonômica do Trabalho, nos termos da NR-17, com justificativa técnica breve e objetiva do porquê a AET é necessária diante das condições encontradas. É PROIBIDO mencionar plano de ação nesse texto. Se "SIM": informar SOMENTE que deve ser elaborado plano de ação e implementadas as medidas de adequação identificadas, com justificativa técnica breve do porquê a medida é aplicável. É PROIBIDO mencionar AET nesse texto.
 - parecer_conduta_1 e parecer_conduta_2 devem ADAPTAR tecnicamente os textos de referência à situação real analisada, jamais copiá-los literalmente.
 - plano_acao: ações concretas derivadas dos riscos e medidas recomendadas, com responsável e prazo editáveis.
 - Respeitar o campo "modo" do contexto: em COMPLEMENTAR, não contradizer o conteúdo já preenchido.
 - MODO REANALISE_CONDUTA: quando "conduta_definida_pelo_usuario" estiver preenchido, essas respostas foram escolhidas MANUALMENTE pelo responsável técnico e PREVALECEM sobre qualquer sugestão anterior. Devolver conduta_1 e conduta_2 EXATAMENTE com esses valores e REESCREVER riscos (inclusive medidas), checklist quando necessário, parecer_ambiente, parecer_ergonomia, parecer_conduta_1, parecer_conduta_2 e plano_acao de modo que NENHUM texto contradiga as respostas escolhidas. Se conduta_2 = "NÃO", nenhum texto pode afirmar existência de solução rápida e o encaminhamento é a AET; se conduta_2 = "SIM", o plano de ação deve trazer medidas de baixo investimento e complexidade. Se conduta_1 = "NÃO", riscos e pareceres não podem descrever inadequações pendentes de correção — apenas manutenção e monitoramento das medidas existentes.
 - COERÊNCIA GLOBAL: a AEP é um documento técnico ÚNICO (INFORMAÇÕES → ATIVIDADES → CHECKLIST → RISCOS → PARECERES → CONDUTA → PLANO DE AÇÃO). Sempre que uma informação principal mudar, reavaliar todos os campos dependentes; é PROIBIDO devolver campos contraditórios entre si.
 - descricao_atividade: descrever de forma técnica e profissional as atividades realmente relacionadas à FUNÇÃO DO GES ("funcao_ges") e às funções avaliadas, com base nas informações disponíveis. Nunca inventar tarefas, máquinas ou cargas não citadas.
-- turno: usar EXCLUSIVAMENTE a jornada/turno cadastrada da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, redigindo de forma técnica. Se não houver dado cadastrado, responder exatamente "Informação não fornecida". PROIBIDO inventar horários.
+- turno: consultar o cadastro da empresa (aep_context.empresa.jornada_trabalho) ou o já informado na avaliação, INFORMAR o turno/jornada encontrado e ACRESCENTAR descrição técnica e profissional da jornada no contexto ergonômico da AEP, considerando, quando houver informação: duração da jornada, organização dos horários, pausas, ritmo, possibilidade de recuperação e características da atividade. PROIBIDO inventar horários ou pausas. Se não houver dado cadastrado, responder exatamente "Informação não fornecida".
 
-CHECKLIST AEP — REGRAS ESTRITAS:
+CHECKLIST AEP — ANÁLISE CRÍTICA E REGRAS ESTRITAS:
 - Sempre retornar as 5 linhas fixas.
-- quantidade_inadequados: número como texto; quando nenhuma inadequação for identificada, usar "0".
+- Fazer análise PROFUNDA e REALISTA; NÃO repetir simplesmente o que o usuário digitou. Avaliar cada item cruzando: atividade real da função, função do GES, setor, descrição do ambiente, descrição da atividade, organização do trabalho, características conhecidas da atividade profissional, informações complementares do usuário, fotografias (quando houver) e demais dados cadastrados na AEP.
+- Aplicar raciocínio ergonômico técnico para identificar inadequações compatíveis com a atividade. PROIBIDO produzir uma AEP artificialmente perfeita: não marcar tudo como adequado apenas porque o usuário não relatou inadequação. Se a análise técnica indicar fator de risco ou condição que mereça atenção, registrar a inadequação e justificá-la tecnicamente. Igualmente, não criar inadequações sem fundamento. O resultado deve ser equilibrado — nem tudo adequado, nem tudo inadequado.
+- quantidade_inadequados: quantidade efetivamente identificada pela análise, como texto; "0" quando não houver inadequação.
 - condicao: quando a quantidade for "0", usar obrigatoriamente "Não aplicado". Havendo inadequação, usar a condição coerente (Adequado | Parcialmente adequado | Inadequado).
-- observacao: justificativa técnica curta e objetiva, coerente com a atividade, a função do GES, o ambiente, as informações do usuário, as fotografias (quando houver) e a própria condição informada. Proibido texto genérico ou contraditório.
+- observacao: justificativa curta, técnica, objetiva e ESPECÍFICA daquela categoria, relacionada à atividade real. Proibido frases genéricas repetidas entre as linhas ou contraditórias com a condição informada.
+
+VALIDAÇÃO CRUZADA FINAL (OBRIGATÓRIA ANTES DE RESPONDER):
+- Revisar a cadeia Atividade → Turno → Checklist → Riscos → Pareceres → Conduta → Plano de ação e corrigir automaticamente qualquer contradição.
+- Se o checklist apontar inadequação relevante e houver risco ergonômico correspondente, pareceres e conduta NÃO podem afirmar que não existem condições que necessitem de atenção.
+- Se não houver inadequações relevantes, não criar conduta ou plano de ação incompatíveis com o resultado.
+- A conclusão final deve ser coerente com a realidade da função avaliada, em linguagem profissional e fundamentada na NR-17 e demais referências técnicas aplicáveis.
+
 
 COERÊNCIA DOS RISCOS ERGONÔMICOS (OBRIGATÓRIA):
 - Somente riscos pertinentes às atividades efetivamente avaliadas.
@@ -102,7 +111,7 @@ const RESPONSE_SCHEMA = {
         properties: {
           chave: { type: "string", description: "organizacao_trabalho | levantamento_transporte_cargas | mobiliario | maquinas_equipamentos_ferramentas | conforto_ambiente" },
           quantidade_inadequados: { type: "string", description: "Número como texto; vazio quando não sustentável" },
-          condicao: { type: "string", description: "Adequado | Parcialmente adequado | Inadequado | Não aplicável" },
+          condicao: { type: "string", description: "Adequado | Parcialmente adequado | Inadequado | Não aplicado" },
           observacao: { type: "string" },
         },
         required: ["chave", "quantidade_inadequados", "condicao", "observacao"],
@@ -188,8 +197,8 @@ Diferenciar o que é identificado na imagem do que é presumido; não afirmar o 
 # TEXTOS DE REFERÊNCIA (adaptar tecnicamente, nunca copiar)
 - Conduta 1 = NÃO: "As condições são aceitáveis. Documentar, manter as medidas existentes e disponibilizar os resultados aos responsáveis."
 - Conduta 1 = SIM: "As inadequações identificadas devem ser discutidas com os responsáveis, apresentando-se os resultados da AEP e definindo-se as medidas necessárias para controle ou correção das condições observadas."
-- Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, para aprofundamento da avaliação e definição das medidas ergonômicas necessárias."
-- Conduta 2 = SIM: "Elaborar plano de ação e implantar as medidas recomendadas."
+- Conduta 2 = NÃO: "Realizar AET — Análise Ergonômica do Trabalho, nos termos da NR-17, com justificativa técnica objetiva." (nunca citar plano de ação)
+- Conduta 2 = SIM: "Elaborar plano de ação e implementar as medidas de adequação identificadas, com justificativa técnica breve." (nunca citar AET)
 
 ${(ctx as any)?.conduta_definida_pelo_usuario
   ? `# DECISÃO MANUAL DA CONDUTA — PREVALECE SOBRE QUALQUER SUGESTÃO ANTERIOR
