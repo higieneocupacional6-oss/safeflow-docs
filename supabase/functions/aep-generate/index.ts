@@ -88,6 +88,7 @@ const RESPONSE_SCHEMA = {
   properties: {
     riscos_ergonomicos: {
       type: "array",
+      description: "Deve conter SEMPRE os 4 tipos de agentes (físico, organizacional, cognitivo, psicossocial): agentes aplicáveis com ≥2 fatores detalhados; agentes não aplicáveis registrados como Baixo com justificativa técnica de não identificação de fatores relevantes.",
       items: {
         type: "object",
         properties: {
