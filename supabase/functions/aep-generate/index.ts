@@ -40,7 +40,14 @@ REGRAS OBRIGATÓRIAS:
 - plano_acao: ações concretas derivadas dos riscos e medidas recomendadas, com responsável e prazo editáveis.
 - Respeitar o campo "modo" do contexto: em COMPLEMENTAR, não contradizer o conteúdo já preenchido.
 
-FORMATO: responder EXCLUSIVAMENTE em JSON VÁLIDO conforme o schema, sem markdown.`;
+ISOLAMENTO DE CONTEXTO (REGRA CRÍTICA):
+- Cada setor/GES/função da AEP é uma AVALIAÇÃO INDEPENDENTE, com contexto e resultados próprios.
+- Você recebe UMA única avaliação por requisição, no objeto "aep_context.avaliacao" (campo "avaliacao_id").
+- É PROIBIDO misturar, transferir ou inferir informações de outras avaliações do mesmo documento. O campo "outras_avaliacoes_do_documento" existe apenas para você saber que elas existem — jamais use seus dados.
+- Todo risco, parecer, conduta e ação gerado deve ser específico do GES, setor, funções e atividade descritos em "aep_context.avaliacao".
+- "aep_context.cadastro_empresa.funcoes_do_setor" limita quais funções podem ser citadas. Não invente funções, setores, equipamentos ou medições.
+
+FORMATO: responder EXCLUSIVAMENTE em JSON VÁLIDO conforme o schema, sem markdown. Nunca responder em texto livre — todos os campos devem vir estruturados para preenchimento automático do formulário.`;
 
 
 const RESPONSE_SCHEMA = {
@@ -93,11 +100,12 @@ const RESPONSE_SCHEMA = {
       items: {
         type: "object",
         properties: {
-          acao: { type: "string" },
+          acao: { type: "string", description: "O QUE será feito" },
+          como: { type: "string", description: "COMO será executado / justificativa técnica" },
           responsavel: { type: "string" },
           prazo: { type: "string" },
         },
-        required: ["acao", "responsavel", "prazo"],
+        required: ["acao", "como", "responsavel", "prazo"],
         additionalProperties: false,
       },
     },
@@ -124,7 +132,9 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos, instrucoes_usuario } = await req.json();
+    const body = await req.json();
+    const { descricao, anexos, instrucoes_usuario } = body;
+    const ctx = body.aep_context ?? body.contexto ?? {};
 
     const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
     const instrTxt = typeof instrucoes_usuario === "string" ? instrucoes_usuario.trim() : "";
@@ -142,9 +152,11 @@ ${instrTxt}
     const userText = `${instrBlock}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
 ${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Nenhuma informação complementar digitada — basear-se no contexto cadastrado, sem presumir dados ausentes."}
 
-# ETAPAS 2 a 5 — CONTEXTO CADASTRADO (empresa, contrato, GES/setor/ambiente/funções avaliadas, cadastro de setores e funções). Fonte de complementação e validação — NÃO contradizer, NÃO substituir a Etapa 1.
+# ETAPAS 2 a 5 — CONTEXTO ESTRUTURADO DESTA AVALIAÇÃO (aep_context)
+Avaliação ${(ctx as any)?.avaliacao_indice ?? 1} de ${(ctx as any)?.total_avaliacoes_no_documento ?? 1} — GES: ${(ctx as any)?.avaliacao?.ges || "-"} | Setor: ${(ctx as any)?.avaliacao?.setor || "-"}.
+Analisar EXCLUSIVAMENTE esta avaliação. Não usar dados de outras avaliações do documento.
 \`\`\`json
-${JSON.stringify(contexto || {}, null, 2)}
+${JSON.stringify({ aep_context: ctx }, null, 2)}
 \`\`\`
 
 # ETAPA 6 — FOTOGRAFIAS (analisar somente após as etapas anteriores; complementar, nunca substituir)
