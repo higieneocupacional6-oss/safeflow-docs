@@ -9,7 +9,21 @@ type Grupo = { title: string; loop?: string; nota?: string; vars: string[] };
 
 const grupos: Grupo[] = [
   {
-    title: "Dados gerais",
+    title: "Dados da empresa",
+    nota: "Variáveis globais do módulo Empresas — preenchidas automaticamente com a empresa/contrato selecionados.",
+    vars: [
+      "{{razao_social}}", "{{nome_fantasia}}", "{{cnpj}}", "{{cnae_principal}}", "{{grau_risco}}",
+      "{{endereco}}", "{{preposto_nome}}", "{{preposto_email}}", "{{preposto_telefone}}",
+      "{{total_funcionarios}}", "{{numero_funcionarios_masc}}", "{{numero_funcionarios_fem}}",
+      "{{jornada_trabalho}}", "{{nome_contratante}}", "{{cnpj_contratante}}", "{{numero_contrato}}",
+      "{{vigencia_inicio}}", "{{vigencia_fim}}", "{{escopo_contrato}}",
+      "{{gestor_nome}}", "{{gestor_email}}", "{{gestor_telefone}}",
+      "{{fiscal_nome}}", "{{fiscal_email}}", "{{fiscal_telefone}}",
+      "{{local_trabalho}}", "{{caracteristicas_empresa}}",
+    ],
+  },
+  {
+    title: "Dados da AEP",
     vars: [
       "{{aep.responsavel_tecnico}}",
       "{{aep.crea}}",
@@ -20,7 +34,7 @@ const grupos: Grupo[] = [
     ],
   },
   {
-    title: "Empresa e contrato",
+    title: "Empresa e contrato (dentro de aep)",
     vars: [
       "{{aep.empresa.razao_social}}", "{{aep.empresa.nome_fantasia}}", "{{aep.empresa.cnpj}}",
       "{{aep.empresa.cnae_principal}}", "{{aep.empresa.grau_risco}}", "{{aep.empresa.endereco}}",
@@ -30,12 +44,12 @@ const grupos: Grupo[] = [
     ],
   },
   {
-    title: "Loop principal — Setores",
+    title: "Setores (loop principal)",
     loop: "Abre e fecha o bloco que envolve TODO o conteúdo do setor. Tudo entre as duas tags é repetido para cada setor cadastrado.",
     vars: ["{{#aep.setores}}", "{{/aep.setores}}"],
   },
   {
-    title: "Setor (dentro do loop de setores)",
+    title: "Setor / GES (dentro do loop de setores)",
     vars: [
       "{{ges}}", "{{setor}}", "{{descricao_ambiente}}",
       "{{funcoes_avaliadas}}", "{{funcao_ges}}", "{{numero_funcionarios}}",
@@ -133,6 +147,7 @@ export function AepTemplateHelper() {
                     </Badge>
                   )}
                 </h4>
+                {g.nota && <p className="text-xs text-muted-foreground mb-2">{g.nota}</p>}
                 {g.loop && <p className="text-xs text-muted-foreground mb-2">{g.loop}</p>}
                 <div className="flex flex-wrap gap-1.5">
                   {g.vars.map((v) => (
