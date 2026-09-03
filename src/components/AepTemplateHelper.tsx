@@ -38,7 +38,7 @@ const grupos: Grupo[] = [
     title: "Setor (dentro do loop de setores)",
     vars: [
       "{{ges}}", "{{setor}}", "{{descricao_ambiente}}",
-      "{{funcoes_avaliadas}}", "{{funcao_avaliada}}", "{{numero_funcionarios}}",
+      "{{funcoes_avaliadas}}", "{{funcao_ges}}", "{{numero_funcionarios}}",
       "{{descricao_atividade}}", "{{turno}}", "{{postura_predominante}}", "{{observacao_complementar}}",
     ],
   },
