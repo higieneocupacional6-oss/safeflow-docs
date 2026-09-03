@@ -1305,14 +1305,18 @@ export default function AepWizard() {
         {/* Conduta */}
         <Card className="p-5 mb-4">
           <h2 className="font-heading font-semibold mb-3">Conduta</h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Ao alterar manualmente qualquer resposta abaixo, a IA reanalisa automaticamente a AEP e
+            ajusta riscos, medidas, pareceres, condutas e plano de ação para manter a coerência.
+          </p>
           <div className="space-y-5">
             <div>
               <Label>Há condição inadequada que necessita de soluções?</Label>
               <div className="flex gap-4 mt-2">
                 {["SIM", "NÃO"].map((op) => (
                   <label key={op} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={setor.conduta_1 === op}
-                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_1: c ? op : "" })} />
+                    <Checkbox checked={setor.conduta_1 === op} disabled={iaLoading}
+                      onCheckedChange={(c) => alterarConduta("conduta_1", c ? op : "")} />
                     {op}
                   </label>
                 ))}
@@ -1326,10 +1330,11 @@ export default function AepWizard() {
               <div className="flex gap-4 mt-2">
                 {["SIM", "NÃO"].map((op) => (
                   <label key={op} className="flex items-center gap-2 text-sm">
-                    <Checkbox checked={setor.conduta_2 === op}
-                      onCheckedChange={(c) => updateSetor(editingSetorIdx, { conduta_2: c ? op : "" })} />
+                    <Checkbox checked={setor.conduta_2 === op} disabled={iaLoading}
+                      onCheckedChange={(c) => alterarConduta("conduta_2", c ? op : "")} />
                     {op}
                   </label>
+
                 ))}
               </div>
               <Label className="mt-3 block">Parecer da conduta</Label>
