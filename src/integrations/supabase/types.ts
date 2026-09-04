@@ -649,6 +649,9 @@ export type Database = {
       }
       equipamentos_ho_registros: {
         Row: {
+          certificado_nome: string | null
+          certificado_path: string | null
+          certificado_updated_at: string | null
           created_at: string
           data_calibracao: string | null
           equipamento_id: string
@@ -658,6 +661,9 @@ export type Database = {
           situacao_operacional: string
         }
         Insert: {
+          certificado_nome?: string | null
+          certificado_path?: string | null
+          certificado_updated_at?: string | null
           created_at?: string
           data_calibracao?: string | null
           equipamento_id: string
@@ -667,6 +673,9 @@ export type Database = {
           situacao_operacional?: string
         }
         Update: {
+          certificado_nome?: string | null
+          certificado_path?: string | null
+          certificado_updated_at?: string | null
           created_at?: string
           data_calibracao?: string | null
           equipamento_id?: string
