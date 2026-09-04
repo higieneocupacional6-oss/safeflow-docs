@@ -1760,23 +1760,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return;
     }
 
-    // ------------------------------------------------------------
-    // REGRA DE DUPLICIDADE: Apenas dentro do RISCO/AVALIAÇÃO ATUAL.
-    // Mesmo colaborador/função/valores PODEM se repetir em riscos diferentes.
-    // ------------------------------------------------------------
-    const seenKeys = new Set<string>();
-    const hasDuplicateInCurrentRisk = finalItems.some((it) => {
-      const k = `${it.funcao_id || ""}|${(it.colaborador || "").trim().toLowerCase()}`;
-      if (!it.funcao_id && !it.colaborador) return false;
-      if (seenKeys.has(k)) return true;
-      seenKeys.add(k);
-      return false;
-    });
-
-    if (hasDuplicateInCurrentRisk) {
-      toast.error("Mesmo colaborador e função repetidos dentro deste risco. Remova a duplicata.");
-      return;
-    }
+    // Duplicidade de colaborador + função é PERMITIDA (inclusive dentro do
+    // mesmo risco) — cada registro permanece independente.
 
     const newRisk: RiscoEntry = {
       id: editingRiskId || Date.now().toString(),
@@ -3267,15 +3252,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
 
       for (const r of riscosSource) {
-        // 🛡️ ANTI-DUPLICAÇÃO: dedupe items por (colaborador|funcao_id) para evitar
-        // que o mesmo colaborador gere múltiplas avaliações (bug reportado em químicos).
-        const seenItems = new Set<string>();
-        const uniqueItems = (r.items || []).filter((it: any) => {
-          const k = `${it.funcao_id || ""}|${(it.colaborador || "").trim().toLowerCase()}`;
-          if (seenItems.has(k)) return false;
-          seenItems.add(k);
-          return true;
-        });
+        // Duplicidade de colaborador + função é permitida: todos os itens são
+        // gravados como registros independentes.
+        const uniqueItems = (r.items || []);
         let __itemIdx = 0;
         for (const it of uniqueItems) {
           const __isFirstItem = __itemIdx === 0;
