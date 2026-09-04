@@ -5,6 +5,7 @@ import { sugerirEpiEpcParaRiscos, type SugestaoEpiEpc } from "@/lib/epiEpcSugest
 import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
+import { EquipamentosPanel } from "@/components/equipamentos/EquipamentosPanel";
 import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -118,7 +119,7 @@ export default function Cadastros() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
-        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao)")
+        .select("*, equipamentos_ho_registros(*)")
         .order("nome");
       if (error) throw error;
       return data;
