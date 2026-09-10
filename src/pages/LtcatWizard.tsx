@@ -1109,7 +1109,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
             if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
             if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(dedupeRiscosIdenticos(draftSnapshot.riscos as RiscoEntry[]));
+              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
               markSnapshotAsSaved(draftSnapshot, "load");
             }
           }
@@ -1633,7 +1633,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
       finalItems = finalCalor.map(r => ({
-        id: crypto.randomUUID(),
+        id: r.id || crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1650,7 +1650,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
       finalItems = finalVibracao.map(r => ({
-        id: crypto.randomUUID(),
+        id: r.id || crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1666,7 +1666,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
       finalItems = finalComponentes.map(r => ({
-        id: crypto.randomUUID(),
+        id: r.id || crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1726,7 +1726,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // mesmo risco) — cada registro permanece independente.
 
     const newRisk: RiscoEntry = {
-      id: editingRiskId || Date.now().toString(),
+      id: editingRiskId || crypto.randomUUID(),
       setor_id: currentRiskSetor.id,
       setor_nome: currentRiskSetor.nome_setor,
       items: finalItems,
@@ -1811,7 +1811,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           : riscos;
         // Se um risco idêntico já existe na listagem (duplo clique / save concorrente),
         // não cria uma segunda linha.
-        nextRiscos = dedupeRiscosIdenticos([...propagated, newRisk]);
+        nextRiscos = [...propagated, newRisk];
         setRiscos(nextRiscos);
       }
       await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
@@ -3148,10 +3148,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return doc;
   };
 
-  // Persiste TODAS as avaliações + subdados (componentes/calor/vibração/resultados/equipamentos/EPI-EPC)
-  // vinculadas ao documento. Apaga e recria para garantir consistência na edição.
-  // 🔒 Serializado: chamadas concorrentes (autosave + salvar + validar) são enfileiradas,
-  // pois o ciclo delete→insert não é atômico e gerava riscos duplicados no banco.
+  // Persiste o conjunto em uma única transação no banco. Cada item representa
+  // uma avaliação independente e conserva seu UUID em todos os salvamentos.
   const persistAvaliacoes = (docId: string, riscosSource: RiscoEntry[] = riscos) => {
     const next = persistQueueRef.current
       .catch(() => {})
@@ -3160,349 +3158,134 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return next;
   };
 
-  const persistAvaliacoesInner = async (docId: string, riscosSourceRaw: RiscoEntry[] = riscos) => {
+  const persistAvaliacoesInner = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
     if (!docId || !empresaId) return;
-    // Suprime re-hidratação por realtime durante a gravação (evita estado parcial).
-    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
-    // 🛡️ ANTI-DUPLICAÇÃO: agrupa entradas idênticas (mesmo setor + agente + tipos)
-    // antes de gravar, evitando múltiplas linhas para o mesmo risco.
-    const riscosSource = dedupeRiscosIdenticos(riscosSourceRaw || []);
-    try {
-      // 🛡️ PROTEÇÃO ANTI-PERDA DE DADOS:
-      // Em modo edição, NUNCA apagar avaliações existentes se o estado local `riscos` está vazio
-      // ou se o documento ainda não terminou de carregar. Isso evita o cenário onde o save é
-      // disparado antes da hidratação completa e apaga todos os dados sem reinserir.
-      const { data: existentes } = await supabase
-        .from("ltcat_avaliacoes").select("id").eq("documento_id", docId);
-      const totalExistentes = existentes?.length || 0;
-      const totalARecriar = (riscosSource || []).reduce((acc, r) => acc + (r.items?.length || 0), 0);
-
-
-      if (totalExistentes > 0 && totalARecriar === 0) {
-        console.warn(
-          "🛡️ [persistAvaliacoes] ABORTADO: documento tem",
-          totalExistentes,
-          "avaliações no banco, mas o estado local está vazio. Save bloqueado para evitar perda de dados.",
-        );
-        throw new Error(
-          "Salvamento bloqueado: os riscos ainda não foram carregados. Aguarde o documento carregar completamente antes de salvar.",
-        );
-      }
-
-      if (isEditMode && !docLoaded) {
-        console.warn("🛡️ [persistAvaliacoes] ABORTADO: documento ainda não carregado (docLoaded=false).");
-        throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
-      }
-
-
-      // 🛡️ Guarda adicional contra truncamento: se o banco tem MUITO mais avaliações
-      // que o estado local (>3 e <50% do total), significa que o estado foi resetado
-      // por uma re-hidratação parcial/concorrente. Aborta para não perder dados.
-      if (totalExistentes > 3 && totalARecriar > 0 && totalARecriar < Math.floor(totalExistentes / 2)) {
-        console.warn(
-          `🛡️ [persistAvaliacoes] ABORTADO por proteção anti-truncamento: banco=${totalExistentes}, estado=${totalARecriar}.`,
-        );
-        // Força re-hidratação para recuperar o estado correto
-        setReloadTick(t => t + 1);
-        throw new Error("Salvamento bloqueado: estado local incompleto detectado. Recarregue a página.");
-
-      }
-
-      if (existentes && existentes.length > 0) {
-        await supabase.from("ltcat_avaliacoes")
-          .delete().in("id", existentes.map(e => e.id));
-      }
-
-      for (const r of riscosSource) {
-        // Duplicidade de colaborador + função é permitida: todos os itens são
-        // gravados como registros independentes.
-        const uniqueItems = (r.items || []);
-        let __itemIdx = 0;
-        for (const it of uniqueItems) {
-          const __isFirstItem = __itemIdx === 0;
-          __itemIdx++;
-          const { data: avRow, error: avErr } = await supabase
-            .from("ltcat_avaliacoes")
-            .insert({
-              documento_id: docId,
-              // Insalubridade espelha LTCAT no pool compartilhado
-              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
-              empresa_id: empresaId,
-              setor_id: r.setor_id || null,
-              funcao_id: it.funcao_id || null,
-              colaborador: it.colaborador || null,
-              tipo_avaliacao: r.tipo_avaliacao || null,
-              tipo_agente: r.tipo_agente || null,
-              agente_id: r.agente_id || null,
-              tecnica_id: r.tecnica_id || null,
-              equipamento_id: r.equipamento_id || null,
-              resultado: r.resultado ? Number(r.resultado) : null,
-              unidade_resultado_id: r.unidade_resultado_id || null,
-              limite_tolerancia: r.limite_tolerancia ? Number(r.limite_tolerancia) : null,
-              unidade_limite_id: r.unidade_limite_id || null,
-              codigo_esocial: r.codigo_esocial || null,
-              descricao_esocial: r.descricao_esocial || null,
-              propagacao: r.propagacao || null,
-              tipo_exposicao: r.tipo_exposicao || null,
-              fonte_geradora: r.fonte_geradora || null,
-              danos_saude: r.danos_saude || null,
-              medidas_controle: r.medidas_controle || null,
-              parecer_tecnico: r.parecer_tecnico || null,
-              aposentadoria_especial: r.aposentadoria_especial || null,
-              data_avaliacao: r.data_avaliacao || null,
-              funcoes_ges: r.funcoes_ges || null,
-              tempo_coleta: (r as any).tempo_coleta || null,
-              unidade_tempo_coleta: (r as any).unidade_tempo_coleta || null,
-            }).select("id").single();
-          if (avErr || !avRow) {
-            console.error("[persistAvaliacoes] falha ao inserir avaliação:", avErr);
-            throw new Error("Falha ao gravar avaliação no banco: " + (avErr?.message || "erro desconhecido"));
-          }
-
-          const avId = avRow.id;
-
-          // 🛡️ ANTI-DUPLICAÇÃO: filtrar subdados pertencentes a este item (mesmo colaborador+função).
-          // Se o subdado não tiver colaborador/funcao_id (legado), só atribui ao primeiro item do risco.
-          const __matchItem = (x: any) => {
-            const xc = (x?.colaborador || "").trim().toLowerCase();
-            const xf = x?.funcao_id || "";
-            const ic = (it.colaborador || "").trim().toLowerCase();
-            const ifc = it.funcao_id || "";
-            if (!xc && !xf) return __isFirstItem; // sem vínculo → cai no primeiro
-            return xc === ic && xf === ifc;
-          };
-          const __filter = (arr: any[] | undefined) => (arr || []).filter(__matchItem);
-          // Achata grupos {funcao_id, colaborador, componentes:[]} em uma linha por componente
-          const __flattenComponentes = (arr: any[] | undefined) => {
-            const out: any[] = [];
-            (arr || []).forEach((row: any) => {
-              const base = {
-                colaborador: row.colaborador || null,
-                funcao_id: row.funcao_id || null,
-                data_avaliacao: row.data_avaliacao || null,
-                cod_gfip: row.cod_gfip || null,
-                parecer_tecnico: row.parecer_tecnico || null,
-                aposentadoria_especial: row.aposentadoria_especial || null,
-                descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || null,
-                numero_serie_bomba: row.numero_serie_bomba || null,
-                amostrador: row.amostrador || null,
-              };
-              // Determina lista de componentes desta linha.
-              // Importante: se a linha for um GRUPO (tem funcao_id/colaborador) sem componentes,
-              // NÃO criar uma linha-fantasma no DB. Só usamos o fallback [row] quando a própria
-              // linha parece ser um componente plano (legado: tem 'componente' ou 'resultado').
-              let comps: any[] = [];
-              if (Array.isArray(row.componentes) && row.componentes.length > 0) {
-                comps = row.componentes;
-              } else if (row.componente || row.componente_avaliado || row.resultado != null) {
-                comps = [row];
-              } else {
-                return; // grupo vazio → não persiste nada
-              }
-              comps.forEach((c: any) => {
-                const compNome = c.componente_avaliado || c.componente || row.componente || null;
-                const compRes = c.resultado ?? row.resultado ?? null;
-                const compLT = c.limite_tolerancia ?? row.limite_tolerancia ?? null;
-                // Pula componentes totalmente vazios (sem nome, sem resultado, sem LT)
-                if (!compNome && (compRes == null || compRes === "") && (compLT == null || compLT === "")) return;
-                out.push({
-                  ...base,
-                  componente: compNome,
-                  cas: c.cas || null,
-                  resultado: compRes,
-                  unidade_resultado_id: c.unidade_resultado_id || row.unidade_resultado_id || null,
-                  limite_tolerancia: compLT,
-                  unidade_limite_id: c.unidade_limite_id || row.unidade_limite_id || null,
-                  tempo_coleta: c.tempo_coleta || row.tempo_coleta || null,
-                  unidade_tempo_coleta: c.unidade_tempo_coleta || row.unidade_tempo_coleta || null,
-                  dose_percentual: c.dose_percentual ?? row.dose_percentual ?? null,
-                  situacao: c.situacao || row.situacao || null,
-                  cod_gfip: c.cod_gfip || row.cod_gfip || base.cod_gfip,
-                  amostrador: c.amostrador || row.amostrador || base.amostrador,
-                });
-              });
-            });
-            return out;
-          };
-          const __compArr = __flattenComponentes(__filter(r.resultados_componentes));
-          const __calorArr = __filter(r.resultados_calor);
-          const __vibArr = __filter(r.resultados_vibracao);
-          const __resArr = __filter(r.resultados_detalhados);
-          // Equipamentos do risco: pertencem ao risco como um todo → só no primeiro item
-          const __eqArr = __isFirstItem ? ((r as any).equipamentos_avaliacao || []) : [];
-
-          const mkRows = (arr: any[] | undefined, extra: (x: any, i: number) => any) =>
-            (arr || []).map((x, i) => ({ avaliacao_id: avId, ordem: i, tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento, ...extra(x, i) }));
-
-          const compRows = mkRows(__compArr, (x) => ({
-            componente: x.componente || null,
-            cas: x.cas || null,
-            resultado: x.resultado != null && x.resultado !== "" ? Number(x.resultado) : null,
-            unidade_resultado_id: x.unidade_resultado_id || null,
-            limite_tolerancia: x.limite_tolerancia != null && x.limite_tolerancia !== "" ? Number(x.limite_tolerancia) : null,
-            unidade_limite_id: x.unidade_limite_id || null,
-            tempo_coleta: x.tempo_coleta || null,
-            unidade_tempo_coleta: x.unidade_tempo_coleta || null,
-            dose_percentual: x.dose_percentual != null && x.dose_percentual !== "" ? Number(x.dose_percentual) : null,
-            situacao: x.situacao || null,
-            cod_gfip: x.cod_gfip || null,
-            colaborador: x.colaborador || null,
-            funcao_id: x.funcao_id || null,
-            data_avaliacao: x.data_avaliacao || null,
-            descricao_avaliacao: x.descricao_avaliacao || null,
-            parecer_tecnico: x.parecer_tecnico || null,
-            aposentadoria_especial: x.aposentadoria_especial || null,
-            numero_serie_bomba: x.numero_serie_bomba || null,
-            amostrador: x.amostrador || null,
-          }));
-          const calorRows = mkRows(__calorArr, (x) => {
-            // O resultado do calor pode vir do Cálculo IBUTG OU do campo
-            // "Exposição" digitado manualmente. Sem esse fallback os valores
-            // digitados eram perdidos no salvamento (tabela não renderizava).
-            const _num = (v: any) => {
-              const n = parseFloat(String(v ?? "").replace(",", "."));
-              return isFinite(n) ? n : null;
-            };
-            const _ib = _num(x.ibutg_resultado) ?? _num(x.ibutg_medido) ?? _num(x.exposicao) ?? _num(x.resultado_calor);
-            const _lim = _num(x.ibutg_limite) ?? _num(x.limite_tolerancia) ?? _num(x.limite_tolerancia_calor);
-            const _tipo = x.ibutg_tipo || (String(x.tbs_valores || "").trim() ? "com_carga_solar" : (_ib != null ? "sem_carga_solar" : null));
-            return {
-              colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
-              data_avaliacao: x.data_avaliacao || null,
-              ibutg_medido: _ib,
-              ibutg_limite: _lim,
-              m_kcal_h: x.m_kcal_h ? Number(x.m_kcal_h) : null,
-              tipo_atividade: x.tipo_atividade || null,
-              taxa_metabolica: x.taxa_metabolica || null,
-              descricao_atividade: x.descricao_atividade || null,
-              situacao: x.situacao || (_ib != null && _lim != null && _lim > 0 ? (_ib <= _lim ? "Seguro" : "Nocivo") : null),
-              cod_gfip: x.cod_gfip || null,
-              parecer_tecnico: x.parecer_tecnico || null,
-              aposentadoria_especial: x.aposentadoria_especial || null,
-              local_atividade: x.local_atividade || null,
-              equipamento_id: x.equipamento_id || null,
-              tempo_exposicao: x.tempo_exposicao || null,
-              ibutg_tipo: _tipo,
-              tbn_valores: x.tbn_valores || null,
-              tg_valores: x.tg_valores || null,
-              tbs_valores: x.tbs_valores || null,
-            };
-          });
-
-          const vibRows = mkRows(__vibArr, (x) => ({
-            tipo: x.tipo || null,
-            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
-            data_avaliacao: x.data_avaliacao || null,
-            aren: x.aren_resultado ? Number(x.aren_resultado) : (x.aren ? Number(x.aren) : null),
-            vdvr: x.vdvr_resultado ? Number(x.vdvr_resultado) : (x.vdvr ? Number(x.vdvr) : null),
-            aren_limite: x.aren_limite ? Number(x.aren_limite) : null,
-            vdvr_limite: x.vdvr_limite ? Number(x.vdvr_limite) : null,
-            tempo_exposicao: x.tempo_exposicao || x.tempo_coleta || null,
-            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
-            parecer_tecnico: x.parecer_tecnico || null,
-            aposentadoria_especial: x.aposentadoria_especial || null,
-          }));
-          const resRows = mkRows(__resArr, (x) => ({
-            colaborador: x.colaborador || null, funcao_id: x.funcao_id || null,
-            data_avaliacao: x.data_avaliacao || null,
-            equipamento_registro_id: x.equipamento_registro_id || null,
-            resultado: x.resultado ? Number(x.resultado) : null,
-            unidade_resultado_id: x.unidade_resultado_id || null,
-            limite_tolerancia: x.limite_tolerancia ? Number(x.limite_tolerancia) : null,
-            unidade_limite_id: x.unidade_limite_id || null,
-            tempo_coleta: x.tempo_coleta || null,
-            unidade_tempo_coleta: x.unidade_tempo_coleta || null,
-            dose_percentual: x.dose_percentual ? Number(x.dose_percentual) : null,
-            situacao: x.situacao || null, cod_gfip: x.cod_gfip || null,
-            descricao_avaliacao: x.descricao_avaliacao || null,
-            parecer_tecnico: x.parecer_tecnico || null,
-            aposentadoria_especial: x.aposentadoria_especial || null,
-          }));
-          const eqRowsRaw = mkRows(__eqArr, (x) => ({
-            nome_equipamento: x.nome_equipamento || null,
-            modelo_equipamento: x.modelo_equipamento || null,
-            serie_equipamento: x.serie_equipamento || null,
-            data_calibracao: x.data_calibracao || null,
-            data_avaliacao: x.data_avaliacao || null,
-            agente_nome: x.agente_nome || null,
-          }));
-          // 🛡️ ANTI-DUPLICAÇÃO: remove equipamentos idênticos por conteúdo
-          // antes do insert (defesa extra contra qualquer duplicação no estado).
-          const eqSeen = new Set<string>();
-          const eqRows = eqRowsRaw.filter((x: any) => {
-            const k = `${x.nome_equipamento || ""}|${x.serie_equipamento || ""}|${x.modelo_equipamento || ""}|${x.data_avaliacao || ""}|${x.data_calibracao || ""}`;
-            if (eqSeen.has(k)) return false;
-            eqSeen.add(k);
-            return true;
-          });
-
-          // 🛡️ ANTI-DUPLICAÇÃO: descarta linhas idênticas em conteúdo (ignorando `ordem`)
-          // antes de gravar — causa raiz das duplicações vistas na listagem de riscos.
-          const dedupeByContent = (rows: any[]) => {
-            const seen = new Set<string>();
-            return rows.filter((row) => {
-              const { ordem, ...rest } = row || {};
-              const k = JSON.stringify(rest);
-              if (seen.has(k)) return false;
-              seen.add(k);
-              return true;
-            }).map((row, i) => ({ ...row, ordem: i }));
-          };
-
-          const tasks: any[] = [];
-          const compRowsU  = dedupeByContent(compRows);
-          const calorRowsU = dedupeByContent(calorRows);
-          const vibRowsU   = dedupeByContent(vibRows);
-          const resRowsU   = dedupeByContent(resRows);
-          if (compRowsU.length)  tasks.push(supabase.from("ltcat_av_componentes").insert(compRowsU).then());
-          if (calorRowsU.length) tasks.push(supabase.from("ltcat_av_calor").insert(calorRowsU).then());
-          if (vibRowsU.length)   tasks.push(supabase.from("ltcat_av_vibracao").insert(vibRowsU).then());
-          if (resRowsU.length)   tasks.push(supabase.from("ltcat_av_resultados").insert(resRowsU).then());
-          if (eqRows.length)    tasks.push(supabase.from("ltcat_av_equipamentos").insert(eqRows).then());
-          if (r.epi_id || r.epc_id || r.epi_eficaz || r.epc_eficaz) {
-            tasks.push(supabase.from("ltcat_av_epi_epc").insert({
-              avaliacao_id: avId,
-              tipo_documento: tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento,
-              epi_id: r.epi_id || null, epi_ca: r.epi_ca || null,
-              epi_atenuacao: r.epi_atenuacao || null, epi_eficaz: r.epi_eficaz || null,
-              epc_id: r.epc_id || null, epc_eficaz: r.epc_eficaz || null,
-            }).then());
-          }
-          await Promise.all(tasks);
-        }
-      }
-      // 🧹 Limpeza final anti-duplicação: se um save concorrente (ou legado) deixou
-      // linhas repetidas para a mesma combinação setor+função+agente+colaborador,
-      // mantém apenas a mais recente (que carrega os subdados recém-inseridos).
-      try {
-        const { data: finais } = await supabase
-          .from("ltcat_avaliacoes")
-          .select("id, setor_id, funcao_id, agente_id, colaborador, tipo_avaliacao, tipo_agente, created_at")
-          .eq("documento_id", docId)
-          .order("created_at", { ascending: false });
-        const vistos = new Set<string>();
-        const idsDuplicados: string[] = [];
-        (finais || []).forEach((row: any) => {
-          const k = [
-            row.setor_id || "", row.funcao_id || "", row.agente_id || "",
-            (row.colaborador || "").trim().toLowerCase(),
-            row.tipo_avaliacao || "", row.tipo_agente || "",
-          ].join("|");
-          if (vistos.has(k)) idsDuplicados.push(row.id);
-          else vistos.add(k);
-        });
-        if (idsDuplicados.length) {
-          await supabase.from("ltcat_avaliacoes").delete().in("id", idsDuplicados);
-          console.warn("🧹 [LTCAT] Avaliações duplicadas removidas:", idsDuplicados.length);
-        }
-      } catch (cleanupErr) {
-        console.warn("[persistAvaliacoes] limpeza de duplicados falhou:", cleanupErr);
-      }
-      console.log("💾 [LTCAT] Avaliações persistidas para documento:", docId);
-    } catch (e) {
-      console.error("[persistAvaliacoes] erro:", e);
-      throw e;
+    if (isEditMode && !docLoaded) {
+      throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
     }
+
+    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
+    const tipoPersistido = tipoDocumento === "insalubridade" ? "insalubridade" : tipoDocumento;
+    const asNumber = (value: any) => {
+      if (value == null || value === "") return null;
+      const parsed = Number(String(value).replace(",", "."));
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+    const belongsToItem = (row: any, item: any, first: boolean) => {
+      if (row?.id && row.id === item.id) return true;
+      const rowPerson = buildPessoaFuncaoKey(row);
+      const itemPerson = buildPessoaFuncaoKey(item);
+      if (rowPerson !== "|" && rowPerson === itemPerson) return true;
+      return first && rowPerson === "|";
+    };
+    const flattenComponentes = (rows: any[]) => rows.flatMap((row: any) => {
+      const components = Array.isArray(row.componentes) && row.componentes.length
+        ? row.componentes
+        : (row.componente || row.componente_avaliado || row.resultado != null ? [row] : []);
+      return components.map((component: any) => ({
+        id: component.id || crypto.randomUUID(),
+        componente: component.componente_avaliado || component.componente || row.componente || "",
+        cas: component.cas || "",
+        resultado: asNumber(component.resultado ?? row.resultado),
+        unidade_resultado_id: component.unidade_resultado_id || row.unidade_resultado_id || "",
+        limite_tolerancia: asNumber(component.limite_tolerancia ?? row.limite_tolerancia),
+        unidade_limite_id: component.unidade_limite_id || row.unidade_limite_id || "",
+        tempo_coleta: component.tempo_coleta || row.tempo_coleta || "",
+        unidade_tempo_coleta: component.unidade_tempo_coleta || row.unidade_tempo_coleta || "",
+        dose_percentual: asNumber(component.dose_percentual ?? row.dose_percentual),
+        situacao: component.situacao || row.situacao || "",
+        cod_gfip: component.cod_gfip || row.cod_gfip || "",
+        colaborador: row.colaborador || "",
+        funcao_id: row.funcao_id || "",
+        data_avaliacao: row.data_avaliacao || "",
+        descricao_avaliacao: row.descricao_avaliacao || row.descricao_tecnica || "",
+        parecer_tecnico: row.parecer_tecnico || "",
+        aposentadoria_especial: row.aposentadoria_especial || "",
+        numero_serie_bomba: component.numero_serie_bomba || row.numero_serie_bomba || "",
+        amostrador: component.amostrador || row.amostrador || "",
+      }));
+    });
+
+    const avaliacoes = riscosSource.flatMap((risk) => (risk.items || []).map((item, index) => {
+      const filter = (rows?: any[]) => (rows || []).filter((row) => belongsToItem(row, item, index === 0));
+      return {
+        id: item.id,
+        contrato_id: contratoId || "",
+        setor_id: risk.setor_id || "",
+        funcao_id: item.funcao_id || "",
+        colaborador: item.colaborador || "",
+        tipo_avaliacao: risk.tipo_avaliacao || "",
+        tipo_agente: risk.tipo_agente || "",
+        agente_id: risk.agente_id || "",
+        tecnica_id: risk.tecnica_id || "",
+        equipamento_id: risk.equipamento_id || "",
+        resultado: asNumber(risk.resultado),
+        unidade_resultado_id: risk.unidade_resultado_id || "",
+        limite_tolerancia: asNumber(risk.limite_tolerancia),
+        unidade_limite_id: risk.unidade_limite_id || "",
+        codigo_esocial: risk.codigo_esocial || "",
+        descricao_esocial: risk.descricao_esocial || "",
+        propagacao: Array.isArray(risk.propagacao)
+          ? risk.propagacao
+          : String(risk.propagacao || "").split(",").map((v) => v.trim()).filter(Boolean),
+        tipo_exposicao: risk.tipo_exposicao || "",
+        fonte_geradora: risk.fonte_geradora || "",
+        danos_saude: risk.danos_saude || "",
+        medidas_controle: risk.medidas_controle || "",
+        parecer_tecnico: risk.parecer_tecnico || "",
+        aposentadoria_especial: risk.aposentadoria_especial || "",
+        data_avaliacao: risk.data_avaliacao || "",
+        funcoes_ges: risk.funcoes_ges || "",
+        tempo_coleta: risk.tempo_coleta || "",
+        unidade_tempo_coleta: risk.unidade_tempo_coleta || "",
+        componentes: flattenComponentes(filter(risk.resultados_componentes)),
+        calor: filter(risk.resultados_calor).map((row) => ({
+          ...row, id: row.id || crypto.randomUUID(),
+          ibutg_medido: asNumber(row.ibutg_resultado ?? row.ibutg_medido ?? row.exposicao ?? row.resultado_calor),
+          ibutg_limite: asNumber(row.ibutg_limite ?? row.limite_tolerancia ?? row.limite_tolerancia_calor),
+          m_kcal_h: asNumber(row.m_kcal_h),
+        })),
+        vibracao: filter(risk.resultados_vibracao).map((row) => ({
+          ...row, id: row.id || crypto.randomUUID(),
+          aren: asNumber(row.aren_resultado ?? row.aren),
+          vdvr: asNumber(row.vdvr_resultado ?? row.vdvr),
+          aren_limite: asNumber(row.aren_limite),
+          vdvr_limite: asNumber(row.vdvr_limite),
+          tempo_exposicao: row.tempo_exposicao || row.tempo_coleta || "",
+        })),
+        resultados: filter(risk.resultados_detalhados).map((row) => ({
+          ...row, id: row.id || crypto.randomUUID(),
+          resultado: asNumber(row.resultado),
+          limite_tolerancia: asNumber(row.limite_tolerancia),
+          dose_percentual: asNumber(row.dose_percentual),
+        })),
+        equipamentos: index === 0 ? (risk.equipamentos_avaliacao || []).map((row) => ({
+          ...row, id: row.id || crypto.randomUUID(),
+        })) : [],
+        epi_epc: risk.epi_id || risk.epc_id || risk.epi_eficaz || risk.epc_eficaz ? {
+          epi_id: risk.epi_id || "", epi_ca: risk.epi_ca || "",
+          epi_atenuacao: risk.epi_atenuacao || "", epi_eficaz: risk.epi_eficaz || "",
+          epc_id: risk.epc_id || "", epc_eficaz: risk.epc_eficaz || "",
+        } : {},
+      };
+    }));
+
+    const ids = avaliacoes.map((row) => row.id);
+    if (new Set(ids).size !== ids.length) {
+      throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
+    }
+
+    const { data, error } = await (supabase as any).rpc("sync_ltcat_avaliacoes", {
+      _documento_id: docId,
+      _empresa_id: empresaId,
+      _tipo_documento: tipoPersistido,
+      _avaliacoes: avaliacoes,
+    });
+    if (error) throw new Error(`Falha ao gravar avaliações: ${error.message}`);
+    if (!data?.ok || data.count !== avaliacoes.length) {
+      throw new Error("O banco não confirmou todas as avaliações enviadas.");
+    }
+    console.log(`💾 [${tipoDocLabel}] ${data.count} avaliação(ões) persistida(s) para o documento ${docId}`);
   };
 
   // SALVAR - persiste snapshot completo + avaliações normalizadas
