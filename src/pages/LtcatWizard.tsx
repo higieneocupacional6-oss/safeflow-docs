@@ -1632,8 +1632,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         toast.error("Preencha colaborador e função em todos os registros");
         return;
       }
-      finalItems = finalCalor.map(r => ({
-        id: r.id || crypto.randomUUID(),
+      finalItems = finalCalor.map((r, index) => ({
+        id: editingRiskId && index === 0 ? editingRiskId : crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1649,8 +1649,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         toast.error("Preencha colaborador e função em todos os registros");
         return;
       }
-      finalItems = finalVibracao.map(r => ({
-        id: r.id || crypto.randomUUID(),
+      finalItems = finalVibracao.map((r, index) => ({
+        id: editingRiskId && index === 0 ? editingRiskId : crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1665,8 +1665,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         toast.error("Preencha colaborador, função e ao menos um componente em cada linha");
         return;
       }
-      finalItems = finalComponentes.map(r => ({
-        id: r.id || crypto.randomUUID(),
+      finalItems = finalComponentes.map((r, index) => ({
+        id: editingRiskId && index === 0 ? editingRiskId : crypto.randomUUID(),
         colaborador: r.colaborador,
         funcao_id: r.funcao_id,
         funcao_nome: r.funcao_nome,
@@ -1694,8 +1694,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Preencha todos os campos obrigatórios nos resultados");
           return;
         }
-        finalItems = finalResultados.map(r => ({
-          id: crypto.randomUUID(),
+        finalItems = finalResultados.map((r, index) => ({
+          id: editingRiskId && index === 0 ? editingRiskId : crypto.randomUUID(),
           colaborador: r.colaborador,
           funcao_id: r.funcao_id,
           funcao_nome: r.funcao_nome
@@ -4067,6 +4067,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                 <div className="divide-y divide-border/30 bg-background/40">
                                   {allItems.map((item) => {
                                     // Look for result data in all entries
+                                    const itemEntry = entriesForAgent.find((entry) =>
+                                      entry.id === item.id || entry.items.some((entryItem) => entryItem.id === item.id)
+                                    ) || firstEntry;
                                     const findRes = () => {
                                       for (const e of entriesForAgent) {
                                         const rc = e.resultados_calor?.find(r => r.id === item.id || (r.funcao_id === item.funcao_id && r.colaborador === item.colaborador));
@@ -4106,7 +4109,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                           <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-accent hover:bg-accent/10 rounded-lg"
                                             title="Editar este risco"
-                                            onClick={() => openRiskModal(setores.find(s => s.id === firstEntry.setor_id), firstEntry)}
+                                            onClick={() => openRiskModal(setores.find(s => s.id === itemEntry.setor_id), itemEntry)}
                                           >
                                             <Pencil className="w-3.5 h-3.5" />
                                           </Button>
