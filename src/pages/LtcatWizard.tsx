@@ -1848,10 +1848,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     setDeleteItemsModalOpen(true);
   };
 
-  const handleConfirmSelectiveDelete = () => {
+  const handleConfirmSelectiveDelete = async () => {
     if (!riskToDeleteItems || selectedItemsToDelete.length === 0) return;
 
-    setRiscos(prev => prev.map(r => {
+    const previousRiscos = riscos;
+    const nextRiscos = riscos.map(r => {
       if (r.id === riskToDeleteItems.id) {
         const remainingItems = r.items.filter(i => !selectedItemsToDelete.includes(i.id));
 
@@ -1868,10 +1869,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         };
       }
       return r;
-    }).filter(r => r.items.length > 0)); // Remove risk entry if no items left
+    }).filter(r => r.items.length > 0); // Remove risk entry if no items left
 
-    setDeleteItemsModalOpen(false);
-    toast.success("Itens removidos com sucesso");
+    setRiscos(nextRiscos);
+    try {
+      const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+      if (!saved) throw new Error("O banco não confirmou a exclusão.");
+      setDeleteItemsModalOpen(false);
+      toast.success("Itens removidos com sucesso");
+    } catch (error) {
+      setRiscos(previousRiscos);
+      toast.error(error instanceof Error ? error.message : "Erro ao excluir avaliação");
+    }
   };
 
   // Parecer técnico/aposentadoria especial agora são preenchidos exclusivamente
