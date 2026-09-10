@@ -1,79 +1,53 @@
-# Refatoração do Módulo Avaliação Psicossocial (COPSOQ)
+# Correção estrutural da persistência de avaliações
 
-Escopo grande dividido em 5 frentes independentes. Todas as mudanças ficam em frontend/apresentação (nada de banco).
+## Diagnóstico confirmado
 
-## 1. PDF Profissional (`src/lib/copsoqRelatorio.ts`)
+- O salvamento atual executa `DELETE` de todas as avaliações do documento e depois faz vários `INSERT`s separados. Uma falha, fechamento da página ou nova chamada durante esse intervalo deixa o documento parcial.
+- Ao final do salvamento, uma rotina considera duplicadas avaliações com o mesmo setor, função, agente, colaborador e tipo, e exclui todas menos uma. Isso viola diretamente a regra de avaliações independentes.
+- No carregamento, avaliações do mesmo setor/agente/tipo são agrupadas e os colaboradores são desduplicados por nome + função. Assim, registros diferentes podem virar uma única linha na tela.
+- Os IDs permanentes do banco não são preservados nos itens carregados; são substituídos por IDs temporários. A edição e exclusão deixam de apontar com segurança para uma avaliação específica.
+- A edição exibida por colaborador abre a primeira avaliação do agente, não necessariamente a avaliação escolhida.
+- O banco já possui chave primária UUID individual e não tem restrição que impeça várias avaliações do mesmo agente. A perda está no fluxo de sincronização da aplicação.
 
-Substituir o motor atual (jsPDF puro com `doc.text` linha-a-linha, que causa o efeito de "letras esticadas" quando o texto é justificado sem métricas corretas) por renderização baseada em `jspdf.html` **não** — usar `jsPDF` com utilitários próprios:
+## Implementação
 
-- Fonte: `helvetica` (built-in), tamanhos padronizados (Título 16pt bold, H1 13pt bold, H2 11pt bold, corpo 10pt normal, legenda 8pt).
-- Margens fixas: 20 mm todas.
-- Parágrafos via helper `paragrafo(texto, {justify, indent, lineHeight: 1.4})`:
-  - `splitTextToSize` para quebra automática.
-  - Justificação **manual correta**: última linha e linhas curtas ficam à esquerda; demais linhas distribuem apenas espaço extra entre palavras (usar `doc.getTextWidth` e desenhar palavra a palavra com espaçamento calculado). **Nunca** aplicar `charSpace` — era a causa das letras esticadas.
-- Títulos com faixa cinza clara; subtítulos com sublinhado fino.
-- Rodapé com nº de página / total, cabeçalho com nome da empresa.
-- Recuo de primeira linha (5 mm) em parágrafos de corpo.
-- Tabelas via `autotable` (já em uso) mantidas, com tema `grid` uniformizado.
+1. **Identidade permanente por avaliação**
+   - Preservar o UUID da linha de `ltcat_avaliacoes` durante carregamento, edição e exclusão.
+   - Gerar UUID permanente para cada nova avaliação antes do primeiro salvamento.
+   - Representar cada avaliação como unidade independente, mesmo quando setor, agente, função e colaborador forem iguais.
 
-## 2. Seção "Funções Avaliadas" no relatório consolidado
+2. **Persistência incremental e segura**
+   - Remover o ciclo destrutivo “apagar tudo e recriar”.
+   - Inserir somente avaliações novas, atualizar somente IDs existentes e excluir somente IDs removidos explicitamente.
+   - Manter os subdados de cada avaliação vinculados exclusivamente ao seu UUID.
+   - Verificar os erros de todas as gravações; nenhum salvamento será marcado como concluído se uma etapa falhar.
+   - Serializar autosave, salvamento manual e troca de etapa usando sempre o snapshot mais recente.
 
-Em `gerarRelatorioCopsoqPDF` (ou wrapper consolidado):
-- Agregar `avaliacoes.map(a => a.funcao)` com dedupe case-insensitive.
-- Ordenar alfabeticamente.
-- Renderizar seção "Funções Avaliadas" logo após os dados da empresa, com lista com marcadores.
-- Mostrar contagem (N respondentes por função entre parênteses).
+3. **Carregamento sem consolidação destrutiva**
+   - Carregar todas as avaliações do documento, sem agrupamento ou deduplicação por conteúdo.
+   - Preservar ordem e IDs do banco para 100+ registros.
+   - Eliminar o fallback por empresa que pode misturar avaliações de documentos diferentes; manter compatibilidade do espelhamento LTCAT/Insalubridade somente pela origem correta do documento.
 
-## 3. Parser inteligente (`src/components/PsicossocialTextInputModal.tsx`)
+4. **Edição e exclusão pontuais**
+   - Fazer o botão de editar abrir exatamente o UUID selecionado.
+   - Fazer a exclusão remover somente esse UUID e seus subdados relacionados.
+   - Remover a limpeza automática que apaga avaliações “duplicadas” legítimas.
 
-Reescrever completo:
-- **Normalização**: lowercase, remoção de acentos, colapso de espaços/tabs, remoção de numeração (`1.`, `1)`, `-`, `•`, `*`) e pontuação final.
-- **Reconstrução de perguntas quebradas**: unir linhas consecutivas até encontrar `?`, `:` ou uma linha que case como resposta.
-- **Detecção de resposta**: regex tolerante (`^\s*(nunca|raramente|as\s*vezes|frequentemente|sempre)\s*$` já normalizado) + números 0–4 / 0–100.
-- **Fuzzy matching**: manter Jaccard atual + fallback por trigramas (Dice) e limiar mais baixo (0.18) quando não houver ambiguidade; escolher melhor score global por linha.
-- **Associação pergunta→resposta**: após identificar pergunta, avançar linhas ignorando vazias/tabulações até encontrar próxima resposta válida **ou** próxima pergunta reconhecida (nesse caso, marca como sem resposta e reprocessa a nova pergunta).
-- Sem limite de tamanho — remover qualquer slice/limite atual.
-- Suporte a marcador de função robusto: `Função`, `Cargo`, `Colaborador`, `Posto`, com `:` `-` `–` `=` opcionais.
+5. **Banco e integridade**
+   - Criar uma operação transacional no backend para reconciliar uma avaliação e seus subdados, evitando estado parcial.
+   - Manter as chaves estrangeiras e exclusão em cascata já existentes.
+   - Não criar índice único por setor/agente/função/colaborador e não impor limite de quantidade.
 
-## 4. Página dedicada COPSOQ
+## Validação obrigatória
 
-Criar rota `/avaliacao-psicossocial/:aetId` renderizada por nova página `src/pages/AvaliacaoPsicossocial.tsx`:
-- Layout com `AppLayout` + `PageHeader`.
-- Seções em cards: Dados da Empresa/Contrato, Ações (importar PDF/Excel/CSV, Escrever Questionário, Novo Manual, COPSOQ template para impressão), Lista de Avaliações Salvas (com editar/excluir por função — reutilizando ícones já criados), Indicadores rápidos (nº avaliações, funções, % completas), Botão "Gerar Relatório Consolidado" fixo no topo direito.
-- Reaproveitar toda a lógica existente de `PsicossocialModal` extraindo o miolo em componentes:
-  - `PsicoAvaliacaoForm` (edição de uma avaliação)
-  - `PsicoAvaliacoesList`
-  - `PsicoAcoesToolbar`
-- Registrar rota em `src/App.tsx`.
-- Em `AetWizard.tsx`, substituir a abertura do modal por navegação para a nova página (`navigate('/avaliacao-psicossocial/${aetId}')`). Manter o modal antigo apenas se necessário para retrocompatibilidade — remover botão do modal.
+- Criar 10 avaliações de Ruído no mesmo setor, incluindo registros com função/colaborador repetidos.
+- Criar avaliações de agentes diferentes no mesmo documento.
+- Confirmar a contagem e os UUIDs no banco.
+- Atualizar a página e reabrir o documento em uma nova sessão.
+- Editar uma avaliação intermediária e confirmar que somente seu UUID mudou.
+- Excluir uma avaliação intermediária e confirmar que somente seu UUID e subdados foram removidos.
+- Confirmar que todas as demais avaliações continuam intactas no LTCAT e no Laudo de Insalubridade.
 
-## 5. Ajustes finos
+## Escopo
 
-- Ícones editar/excluir por função permanecem (já implementados).
-- Auto-abertura de avaliação incompleta continua funcionando na nova página.
-- Bloqueio do botão de relatório enquanto houver pendências mantido.
-
-## Detalhes Técnicos
-
-**Arquivos criados**
-- `src/pages/AvaliacaoPsicossocial.tsx`
-- `src/components/psico/PsicoAvaliacaoForm.tsx`
-- `src/components/psico/PsicoAvaliacoesList.tsx`
-- `src/components/psico/PsicoAcoesToolbar.tsx`
-- `src/lib/pdf/textRender.ts` (helpers `paragrafo`, `titulo`, `subtitulo`, `secao`)
-
-**Arquivos alterados**
-- `src/lib/copsoqRelatorio.ts` — reescrita da geração
-- `src/components/PsicossocialTextInputModal.tsx` — parser novo
-- `src/components/PsicossocialModal.tsx` — vira wrapper compat OU deprecado
-- `src/pages/AetWizard.tsx` — botão navega para nova página
-- `src/App.tsx` — nova rota
-
-**Sem alterações de banco.** Toda a lógica de leitura/gravação (`aet_documentos`, `psico_respostas`) permanece.
-
-## Ordem de execução
-1. Helpers de PDF + reescrita do relatório (impacto imediato visível).
-2. Seção "Funções Avaliadas" no relatório.
-3. Parser inteligente (independente).
-4. Extração de componentes + página dedicada + rota.
-5. Ajuste do AetWizard.
+Somente a persistência, carregamento, edição e exclusão de avaliações no LTCAT e no Laudo de Insalubridade. O layout e os demais módulos permanecem inalterados.
