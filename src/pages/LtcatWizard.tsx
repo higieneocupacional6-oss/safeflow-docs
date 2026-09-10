@@ -117,37 +117,6 @@ const dedupeRows = <T,>(rows: T[], getKey: (row: T) => string) => {
   });
 };
 
-// 🛡️ ANTI-DUPLICAÇÃO (listagem/gravação): remove entradas de risco IDÊNTICAS em
-// conteúdo (mesmo setor, agente, tipos, resultados, funções/colaboradores).
-// Só descarta cópias exatas — riscos distintos (resultados/colaboradores diferentes)
-// são sempre preservados.
-const buildRiscoFingerprint = (r: any) => {
-  const itens = (r?.items || [])
-    .map((i: any) => buildPessoaFuncaoKey(i))
-    .sort()
-    .join(",");
-  return JSON.stringify({
-    setor_id: r?.setor_id || "",
-    agente_id: r?.agente_id || "",
-    tipo_avaliacao: r?.tipo_avaliacao || "",
-    tipo_agente: r?.tipo_agente || "",
-    resultado: r?.resultado ?? "",
-    limite_tolerancia: r?.limite_tolerancia ?? "",
-    data_avaliacao: r?.data_avaliacao || "",
-    tecnica_id: r?.tecnica_id || "",
-    equipamento_id: r?.equipamento_id || "",
-    parecer_tecnico: r?.parecer_tecnico || "",
-    itens,
-    nRes: (r?.resultados_detalhados || []).length,
-    nComp: (r?.resultados_componentes || []).length,
-    nCalor: (r?.resultados_calor || []).length,
-    nVib: (r?.resultados_vibracao || []).length,
-  });
-};
-
-const dedupeRiscosIdenticos = <T,>(rows: T[]): T[] =>
-  dedupeRows(rows, (r: any) => buildRiscoFingerprint(r));
-
 // O DOCX é um pacote de arquivos XML 1.0. Caracteres de controle e os
 // não-caracteres U+FFFE/U+FFFF podem vir de textos colados no cadastro e
 // tornam o document.xml inválido, fazendo o Word recusar o arquivo inteiro.
@@ -1146,22 +1115,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           }
         }
 
-        // Buscar avaliações vinculadas a ESTE documento (preferencial),
-        // com fallback para todas da empresa (compatibilidade + espelho LTCAT↔Insal)
-        let avaliacoes: any[] = [];
-        const { data: avDoc } = await supabase
-          .from("ltcat_avaliacoes").select("*").eq("documento_id", documentoId);
-        if (avDoc && avDoc.length > 0) {
-          avaliacoes = avDoc;
-        } else if (doc.empresa_id) {
-          // Para Insalubridade, espelhar do pool LTCAT da empresa
-          const escopo = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
-          const { data: avEmp } = await supabase
-            .from("ltcat_avaliacoes").select("*")
-            .eq("empresa_id", doc.empresa_id)
-            .eq("tipo_documento", escopo);
-          avaliacoes = avEmp || [];
-        }
+        // O documento é a fronteira definitiva de persistência. Nunca carregar o
+        // conjunto inteiro da empresa, pois isso mistura documentos independentes.
+        const { data: avaliacoes = [], error: avErr } = await supabase
+          .from("ltcat_avaliacoes")
+          .select("*")
+          .eq("documento_id", documentoId)
+          .order("created_at", { ascending: true });
+        if (avErr) throw avErr;
 
         if (avaliacoes.length === 0) {
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
@@ -1260,7 +1221,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           };
         };
 
-        const loadedRiscos = mergeLoadedRiscos(avaliacoes.map((av: any) => {
+        const loadedRiscos = avaliacoes.map((av: any) => {
           const epi = epiByAv[av.id] || {};
           const setor = setorMap.get(av.setor_id);
           const funcao = funcaoMap.get(av.funcao_id);
@@ -1272,7 +1233,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             funcoes_ges: av.funcoes_ges || "",
             data_avaliacao: av.data_avaliacao || "",
             items: [{
-              id: crypto.randomUUID(),
+              // O item representa exatamente a linha-pai no banco.
+              id: av.id,
               colaborador: av.colaborador || "",
               funcao_id: av.funcao_id || "",
               funcao_nome: funcao?.nome_funcao || "",
@@ -1405,7 +1367,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             epc_id: epi.epc_id || "",
             epc_eficaz: epi.epc_eficaz || "",
           } as RiscoEntry;
-        }));
+        });
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
         console.log("📦 [RASCUNHO CARREGADO]", {
