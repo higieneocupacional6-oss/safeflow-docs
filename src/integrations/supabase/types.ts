@@ -2313,6 +2313,15 @@ export type Database = {
         Args: { _payload: Json; _token: string }
         Returns: Json
       }
+      sync_ltcat_avaliacoes: {
+        Args: {
+          _avaliacoes: Json
+          _documento_id: string
+          _empresa_id: string
+          _tipo_documento: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "usuario"
