@@ -1725,11 +1725,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // Duplicidade de colaborador + função é PERMITIDA (inclusive dentro do
     // mesmo risco) — cada registro permanece independente.
 
-    const newRisk: RiscoEntry = {
-      id: editingRiskId || crypto.randomUUID(),
+    const riskBase = {
       setor_id: currentRiskSetor.id,
       setor_nome: currentRiskSetor.nome_setor,
-      items: finalItems,
       tipo_avaliacao: riskForm.tipo_avaliacao,
       tipo_agente: riskForm.tipo_agente,
       agente_id: riskForm.agente_id,
@@ -1767,7 +1765,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       aposentadoria_especial: riskForm.aposentadoria_especial,
       nen_calc: (riskForm as any).nen_calc,
       quimico_calc: (riskForm as any).quimico_calc,
-    } as RiscoEntry;
+    };
+
+    // Cada pessoa/medição é uma avaliação independente. Nunca manter várias
+    // linhas do banco escondidas dentro de um único objeto da interface.
+    const newRisks: RiscoEntry[] = finalItems.map((item) => {
+      const owns = (row: any) => {
+        if (row?.id === item.id) return true;
+        return buildPessoaFuncaoKey(row) === buildPessoaFuncaoKey(item);
+      };
+      return {
+        ...riskBase,
+        id: item.id,
+        items: [item],
+        resultados_detalhados: (finalResultados || []).filter(owns),
+        resultados_componentes: (finalComponentes || []).filter(owns),
+        resultados_vibracao: (finalVibracao || []).filter(owns),
+        resultados_calor: (finalCalor || []).filter(owns),
+      } as RiscoEntry;
+    });
 
     // Persistir parecer técnico vinculado ao risco (todas as funções/colaboradores deste risco)
     try {
@@ -1796,22 +1812,20 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const novoGes = (riskForm.funcoes_ges || "").trim();
       let nextRiscos: RiscoEntry[] = [];
       if (editingRiskId) {
-        nextRiscos = riscos.map(r => {
-          if (r.id === editingRiskId) return newRisk;
+        nextRiscos = riscos.flatMap(r => {
+          if (r.id === editingRiskId) return newRisks;
           // Propaga funcoes_ges atualizado para todos os riscos do mesmo setor
           if (novoGes && r.setor_id === currentRiskSetor.id) {
             return { ...r, funcoes_ges: novoGes };
           }
-          return r;
+          return [r];
         });
         setRiscos(nextRiscos);
       } else {
         const propagated = novoGes
           ? riscos.map(r => r.setor_id === currentRiskSetor.id ? { ...r, funcoes_ges: novoGes } : r)
           : riscos;
-        // Se um risco idêntico já existe na listagem (duplo clique / save concorrente),
-        // não cria uma segunda linha.
-        nextRiscos = [...propagated, newRisk];
+        nextRiscos = [...propagated, ...newRisks];
         setRiscos(nextRiscos);
       }
       await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
