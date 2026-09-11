@@ -18,6 +18,8 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import { AepTemplateHelper } from "@/components/AepTemplateHelper";
+import { PsicoIntegracaoBadge } from "@/components/psico/PsicoIntegracaoBadge";
+import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoContexto";
 import { sortByGes } from "@/lib/sortGes";
 import {
   TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
@@ -158,6 +160,7 @@ export default function AepWizard() {
   const [iaFotos, setIaFotos] = useState<{ name: string; mime: string; data: string; url: string }[]>([]);
   const [iaSubstituir, setIaSubstituir] = useState(false);
   const [iaConfirmOpen, setIaConfirmOpen] = useState(false);
+  const [psicoCtx, setPsicoCtx] = useState<PsicoContextoIa | null>(null);
   const [iaInstrOpen, setIaInstrOpen] = useState(false);
   const [iaInstrucoes, setIaInstrucoes] = useState(
     () => localStorage.getItem("aep_ia_instrucoes") || ""
@@ -445,6 +448,16 @@ export default function AepWizard() {
         .filter((f) => f.setor_id === setor.setor_id)
         .map((f) => ({ nome: f.nome_funcao, descricao_atividades: f.descricao_atividades || "" }));
 
+      // Integração automática com o módulo Psicossocial (somente consulta)
+      const psicossocial = await carregarContextoPsicossocial({
+        empresaId,
+        contratoId,
+        setorId: setor.setor_id,
+        setorNome: setor.setor_nome,
+        ghe: setor.ges,
+      });
+      setPsicoCtx(psicossocial.disponivel ? psicossocial : null);
+
       const aep_context = {
         tipo_documento: "AEP — Análise Ergonômica Preliminar",
         // Cada setor/GES/função é uma AVALIAÇÃO INDEPENDENTE
@@ -537,6 +550,7 @@ export default function AepWizard() {
           descricao: iaObs,
           aep_context,
           contexto: aep_context,
+          psicossocial,
           instrucoes_usuario: iaInstrucoes,
           anexos: iaFotos.map((f) => ({ name: f.name, mime: f.mime, kind: "image", data: f.data })),
         },
@@ -1451,6 +1465,8 @@ export default function AepWizard() {
                 </Button>
               </div>
             </DialogHeader>
+
+            <PsicoIntegracaoBadge contexto={psicoCtx} />
 
             <div className="space-y-1.5">
               <Label>1. Informações complementares</Label>

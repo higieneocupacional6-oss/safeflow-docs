@@ -154,6 +154,26 @@ const RESPONSE_SCHEMA = {
   additionalProperties: false,
 };
 
+const psicoRules = `# INTEGRAÇÃO PSICOSSOCIAL (dados já avaliados para esta empresa)
+- Use os dados psicossociais APENAS para correlação técnica. É PROIBIDO copiar, colar ou parafrasear literalmente textos do módulo Psicossocial.
+- Prioridade: Empresa → Setor → GHE/GES → Função. Se houver dados do MESMO setor/GHE, use-os preferencialmente e não misture outros setores.
+- Se os dados forem gerais da empresa (origem = "empresa"), utilize somente quando tecnicamente pertinentes e deixe explícito no texto que se trata de informação psicossocial geral da empresa, não específica do setor.
+- Correlacione os fatores (exigências, ritmo, autonomia, apoio/liderança, reconhecimento, segurança, conflitos, jornada, comunicação, exigências cognitivas e emocionais) com as atividades, organização do trabalho, pausas, exigências físicas/cognitivas, riscos ergonômicos e medidas de prevenção observados.
+- NUNCA invente dados psicossociais. Se não houver dados, redija normalmente sem qualquer menção a avaliação psicossocial.`;
+
+function psicoBlock(p: any): string {
+  if (!p || !p.disponivel) return "";
+  return `${psicoRules}
+
+## DADOS PSICOSSOCIAIS DISPONÍVEIS (origem: ${p.origem})
+${p.observacao || ""}
+\`\`\`json
+${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resumo, indicadores: p.indicadores, avaliacoes: p.avaliacoes }, null, 2)}
+\`\`\`
+
+`;
+}
+
 type Anexo = { name: string; mime: string; kind: "image" | "pdf"; data: string };
 
 Deno.serve(async (req) => {
@@ -169,7 +189,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { descricao, anexos, instrucoes_usuario } = body;
+    const { descricao, anexos, instrucoes_usuario, psicossocial } = body;
     const ctx = body.aep_context ?? body.contexto ?? {};
 
     const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
@@ -185,7 +205,9 @@ ${instrTxt}
 `
       : "";
 
-    const userText = `${instrBlock}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
+    const psicoTxt = psicoBlock(psicossocial);
+
+    const userText = `${instrBlock}${psicoTxt}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
 ${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Nenhuma informação complementar digitada — basear-se no contexto cadastrado, sem presumir dados ausentes."}
 
 # ETAPAS 2 a 5 — CONTEXTO ESTRUTURADO DESTA AVALIAÇÃO (aep_context)
