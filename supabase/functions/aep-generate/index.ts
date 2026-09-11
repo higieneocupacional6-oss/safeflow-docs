@@ -174,6 +174,31 @@ ${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resum
 `;
 }
 
+
+const conhecimentoRules = `# BASE DE CONHECIMENTO TÉCNICO DO RESPONSÁVEL (Conhecimento IA — tipo {TIPO})
+- Os documentos abaixo foram cadastrados pelo responsável técnico como FONTE DE CONSULTA COMPLEMENTAR para {TIPO}.
+- Use-os para conferir conceitos, metodologias, itens e numerações de normas, critérios e fundamentação técnica, evitando citar itens normativos incorretos ou desatualizados.
+- É PROIBIDO copiar trechos literais desses documentos para os campos da resposta; interprete e aplique ao caso concreto.
+- NÃO se limite a esses arquivos: continue usando conhecimento técnico e normativo confiável já consolidado. A lógica é: conhecimento dos arquivos + conhecimento técnico externo confiável + dados preenchidos pelo usuário + dados do sistema.
+- Em caso de divergência sobre a redação/numeração de um item normativo, prevalece o conteúdo dos arquivos cadastrados.
+- Use SOMENTE o conhecimento do tipo {TIPO}; nunca aplique base de outro tipo de documento.
+- Esses arquivos são referência técnica, não fatos da empresa: nunca extraia deles dados do posto, colaboradores, medições ou condições avaliadas.`;
+
+function conhecimentoBlock(c: any, tipo: string): string {
+  if (!c || !c.disponivel) return "";
+  const pastas = (c.pastas || [])
+    .map((p: any) => `- ${p.nome}: ${(p.arquivos || []).join(", ") || "(sem arquivos)"}`)
+    .join("\n");
+  return `${conhecimentoRules.split("{TIPO}").join(tipo)}
+
+## PASTAS E ARQUIVOS DISPONÍVEIS
+${pastas}
+
+`;
+}
+
+type ConhecimentoAnexo = { name: string; mime: string; data: string; pasta?: string };
+
 type Anexo = { name: string; mime: string; kind: "image" | "pdf"; data: string };
 
 Deno.serve(async (req) => {
@@ -189,7 +214,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { descricao, anexos, instrucoes_usuario, psicossocial } = body;
+    const { descricao, anexos, instrucoes_usuario, psicossocial, conhecimento } = body;
     const ctx = body.aep_context ?? body.contexto ?? {};
 
     const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
@@ -206,8 +231,9 @@ ${instrTxt}
       : "";
 
     const psicoTxt = psicoBlock(psicossocial);
+    const conhecTxt = conhecimentoBlock(conhecimento, "AEP");
 
-    const userText = `${instrBlock}${psicoTxt}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
+    const userText = `${instrBlock}${conhecTxt}${psicoTxt}# ETAPA 1 — INFORMAÇÕES DIGITADAS PELO USUÁRIO (PONTO DE PARTIDA — ler e interpretar ANTES de tudo)
 ${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Nenhuma informação complementar digitada — basear-se no contexto cadastrado, sem presumir dados ausentes."}
 
 # ETAPAS 2 a 5 — CONTEXTO ESTRUTURADO DESTA AVALIAÇÃO (aep_context)
@@ -238,6 +264,19 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
 
 
     const userContent: any[] = [{ type: "text", text: userText }];
+    const conhecAnexos: ConhecimentoAnexo[] = Array.isArray(conhecimento?.anexos)
+      ? conhecimento.anexos.slice(0, 10)
+      : [];
+    for (const a of conhecAnexos) {
+      if (!a?.data) continue;
+      userContent.push({
+        type: "file",
+        file: {
+          filename: a.name || "conhecimento.pdf",
+          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
+        },
+      });
+    }
     for (const a of anexosArr) {
       if (a.kind === "image" && a.data && a.mime) {
         userContent.push({ type: "image_url", image_url: { url: `data:${a.mime};base64,${a.data}` } });
