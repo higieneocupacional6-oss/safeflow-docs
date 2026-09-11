@@ -2331,6 +2331,8 @@ export default function AetWizard() {
                   <>Modo <strong>determinístico</strong> (sem IA): geração pelo próprio sistema a partir de regras de negócio, banco de conhecimento interno e dados cadastrados. Ative a IA no botão acima para análises contextualizadas.</>
                 )}
               </p>
+              <PsicoIntegracaoBadge contexto={psicoCtx} />
+
               <Textarea
                 rows={7}
                 placeholder="Informações complementares observadas in loco (opcional): mobiliário, postura, cadência, queixas, condições do ambiente..."
