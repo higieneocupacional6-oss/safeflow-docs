@@ -52,13 +52,6 @@ export async function carregarConhecimentoIa(tipo: ConhecimentoTipo): Promise<Co
     const ps = (pastas as any[]) || [];
     if (!ps.length) return vazio;
 
-    const { data: arquivos } = await supabase
-      .from("ia_conhecimento_arquivos")
-      .select("id, pasta_id, nome, caminho, mime, tamanho")
-      .in("id", []) // placeholder substituído abaixo
-      .limit(0);
-    void arquivos;
-
     const { data: arqs } = await supabase
       .from("ia_conhecimento_arquivos")
       .select("id, pasta_id, nome, caminho, mime, tamanho")
