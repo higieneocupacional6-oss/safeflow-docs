@@ -27,6 +27,7 @@ export default function Templates() {
   const [saving, setSaving] = useState(false);
   const [validationIssues, setValidationIssues] = useState<TemplateIssue[]>([]);
   const [validationOpen, setValidationOpen] = useState(false);
+  const [conhecimentoOpen, setConhecimentoOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -166,6 +167,9 @@ export default function Templates() {
         description="Gerencie templates de documentos com variáveis dinâmicas"
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setConhecimentoOpen(true)}>
+              <Brain className="w-4 h-4 mr-2" />Conhecimento IA
+            </Button>
             <a href="/templates/avaliacoes-psicossociais">
               <Button variant="outline">Avaliações Psicossociais</Button>
             </a>
@@ -238,6 +242,8 @@ export default function Templates() {
           <TemplateVariables />
         </div>
       </div>
+
+      <ConhecimentoIaModal open={conhecimentoOpen} onOpenChange={setConhecimentoOpen} />
 
       {/* Upload Modal */}
       <Dialog open={open} onOpenChange={setOpen}>
