@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
+import { carregarConhecimentoIa } from "@/lib/iaConhecimento";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
@@ -545,9 +546,12 @@ export default function AepWizard() {
         },
       };
 
+      const conhecimento = await carregarConhecimentoIa("AEP");
+
       const { data, error } = await supabase.functions.invoke("aep-generate", {
         body: {
           descricao: iaObs,
+          conhecimento,
           aep_context,
           contexto: aep_context,
           psicossocial,

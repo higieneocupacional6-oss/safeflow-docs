@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
+import { carregarConhecimentoIa } from "@/lib/iaConhecimento";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
@@ -2493,9 +2494,11 @@ export default function AetWizard() {
                         ? iaObs
                         : (iaObs ? iaObs + " " : "") +
                           "Elaborar AET completa a partir do contexto cadastrado, anexos e evidências disponíveis.";
+                      const conhecimento = await carregarConhecimentoIa("AET");
                       const { data: aiData, error: aiError } = await supabase.functions.invoke("aet-generate", {
                         body: {
                           descricao: descricaoIA,
+                          conhecimento,
                           contexto,
                           psicossocial,
                           anexos: anexosPayload,
