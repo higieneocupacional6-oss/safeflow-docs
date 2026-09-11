@@ -4,7 +4,8 @@ import { LtcatTemplateHelper } from "@/components/LtcatTemplateHelper";
 import { AetTemplateHelper } from "@/components/AetTemplateHelper";
 import { CopsoqTemplateHelper } from "@/components/CopsoqTemplateHelper";
 import { PgrTemplateHelper } from "@/components/PgrTemplateHelper";
-import { Plus, FileText, Upload, Trash2, Loader2, AlertCircle, CheckCircle2, ShieldCheck } from "lucide-react";
+import { Plus, FileText, Upload, Trash2, Loader2, AlertCircle, CheckCircle2, ShieldCheck, Brain } from "lucide-react";
+import { ConhecimentoIaModal } from "@/components/ia/ConhecimentoIaModal";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -26,6 +27,7 @@ export default function Templates() {
   const [saving, setSaving] = useState(false);
   const [validationIssues, setValidationIssues] = useState<TemplateIssue[]>([]);
   const [validationOpen, setValidationOpen] = useState(false);
+  const [conhecimentoOpen, setConhecimentoOpen] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -165,6 +167,9 @@ export default function Templates() {
         description="Gerencie templates de documentos com variáveis dinâmicas"
         actions={
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setConhecimentoOpen(true)}>
+              <Brain className="w-4 h-4 mr-2" />Conhecimento IA
+            </Button>
             <a href="/templates/avaliacoes-psicossociais">
               <Button variant="outline">Avaliações Psicossociais</Button>
             </a>
@@ -237,6 +242,8 @@ export default function Templates() {
           <TemplateVariables />
         </div>
       </div>
+
+      <ConhecimentoIaModal open={conhecimentoOpen} onOpenChange={setConhecimentoOpen} />
 
       {/* Upload Modal */}
       <Dialog open={open} onOpenChange={setOpen}>

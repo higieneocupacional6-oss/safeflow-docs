@@ -839,6 +839,74 @@ export type Database = {
           },
         ]
       }
+      ia_conhecimento_arquivos: {
+        Row: {
+          caminho: string
+          created_at: string
+          created_by: string | null
+          id: string
+          mime: string | null
+          nome: string
+          pasta_id: string
+          tamanho: number | null
+        }
+        Insert: {
+          caminho: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mime?: string | null
+          nome: string
+          pasta_id: string
+          tamanho?: number | null
+        }
+        Update: {
+          caminho?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          mime?: string | null
+          nome?: string
+          pasta_id?: string
+          tamanho?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ia_conhecimento_arquivos_pasta_id_fkey"
+            columns: ["pasta_id"]
+            isOneToOne: false
+            referencedRelation: "ia_conhecimento_pastas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ia_conhecimento_pastas: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          nome: string
+          tipo: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome: string
+          tipo: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          nome?: string
+          tipo?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       ltcat_av_calor: {
         Row: {
           aposentadoria_especial: string | null

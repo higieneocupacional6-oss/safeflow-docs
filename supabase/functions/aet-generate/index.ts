@@ -141,6 +141,31 @@ ${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resum
 `;
 }
 
+
+const conhecimentoRules = `# BASE DE CONHECIMENTO TÉCNICO DO RESPONSÁVEL (Conhecimento IA — tipo {TIPO})
+- Os documentos abaixo foram cadastrados pelo responsável técnico como FONTE DE CONSULTA COMPLEMENTAR para {TIPO}.
+- Use-os para conferir conceitos, metodologias, itens e numerações de normas, critérios e fundamentação técnica, evitando citar itens normativos incorretos ou desatualizados.
+- É PROIBIDO copiar trechos literais desses documentos para os campos da resposta; interprete e aplique ao caso concreto.
+- NÃO se limite a esses arquivos: continue usando conhecimento técnico e normativo confiável já consolidado. A lógica é: conhecimento dos arquivos + conhecimento técnico externo confiável + dados preenchidos pelo usuário + dados do sistema.
+- Em caso de divergência sobre a redação/numeração de um item normativo, prevalece o conteúdo dos arquivos cadastrados.
+- Use SOMENTE o conhecimento do tipo {TIPO}; nunca aplique base de outro tipo de documento.
+- Esses arquivos são referência técnica, não fatos da empresa: nunca extraia deles dados do posto, colaboradores, medições ou condições avaliadas.`;
+
+function conhecimentoBlock(c: any, tipo: string): string {
+  if (!c || !c.disponivel) return "";
+  const pastas = (c.pastas || [])
+    .map((p: any) => `- ${p.nome}: ${(p.arquivos || []).join(", ") || "(sem arquivos)"}`)
+    .join("\n");
+  return `${conhecimentoRules.split("{TIPO}").join(tipo)}
+
+## PASTAS E ARQUIVOS DISPONÍVEIS
+${pastas}
+
+`;
+}
+
+type ConhecimentoAnexo = { name: string; mime: string; data: string; pasta?: string };
+
 type Anexo = { name: string; mime: string; kind: "image" | "pdf"; data: string };
 
 Deno.serve(async (req) => {
@@ -155,7 +180,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial } = await req.json();
+    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial, conhecimento } = await req.json();
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 20) {
       return new Response(
         JSON.stringify({ error: "Descreva com mais detalhes o que foi observado in loco (mínimo 20 caracteres)." }),
@@ -179,8 +204,9 @@ ${instrTxt}
       : "";
 
     const psicoTxt = psicoBlock(psicossocial);
+    const conhecTxt = conhecimentoBlock(conhecimento, "AET");
 
-    const userText = `${instrBlock}${psicoTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
+    const userText = `${instrBlock}${conhecTxt}${psicoTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
 ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
@@ -212,6 +238,19 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 
     // Build multimodal content array
     const userContent: any[] = [{ type: "text", text: userText }];
+    const conhecAnexos: ConhecimentoAnexo[] = Array.isArray(conhecimento?.anexos)
+      ? conhecimento.anexos.slice(0, 10)
+      : [];
+    for (const a of conhecAnexos) {
+      if (!a?.data) continue;
+      userContent.push({
+        type: "file",
+        file: {
+          filename: a.name || "conhecimento.pdf",
+          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
+        },
+      });
+    }
     for (const a of anexosArr) {
       if (a.kind === "image" && a.data && a.mime) {
         userContent.push({
