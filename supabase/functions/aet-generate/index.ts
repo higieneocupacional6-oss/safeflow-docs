@@ -120,6 +120,27 @@ const RESPONSE_SCHEMA = {
   ],
 };
 
+
+const psicoRules = `# INTEGRAÇÃO PSICOSSOCIAL (dados já avaliados para esta empresa)
+- Use os dados psicossociais APENAS para correlação técnica. É PROIBIDO copiar, colar ou parafrasear literalmente textos do módulo Psicossocial.
+- Prioridade: Empresa → Setor → GHE/GES → Função. Se houver dados do MESMO setor/GHE, use-os preferencialmente e não misture outros setores.
+- Se os dados forem gerais da empresa (origem = "empresa"), utilize somente quando tecnicamente pertinentes e deixe explícito no texto que se trata de informação psicossocial geral da empresa, não específica do setor.
+- Correlacione os fatores (exigências, ritmo, autonomia, apoio/liderança, reconhecimento, segurança, conflitos, jornada, comunicação, exigências cognitivas e emocionais) com as atividades, organização do trabalho, pausas, exigências físicas/cognitivas, riscos ergonômicos e medidas de prevenção observados.
+- NUNCA invente dados psicossociais. Se não houver dados, redija normalmente sem qualquer menção a avaliação psicossocial.`;
+
+function psicoBlock(p: any): string {
+  if (!p || !p.disponivel) return "";
+  return `${psicoRules}
+
+## DADOS PSICOSSOCIAIS DISPONÍVEIS (origem: ${p.origem})
+${p.observacao || ""}
+\`\`\`json
+${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resumo, indicadores: p.indicadores, avaliacoes: p.avaliacoes }, null, 2)}
+\`\`\`
+
+`;
+}
+
 type Anexo = { name: string; mime: string; kind: "image" | "pdf"; data: string };
 
 Deno.serve(async (req) => {
@@ -134,7 +155,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos, instrucoes_usuario } = await req.json();
+    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial } = await req.json();
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 20) {
       return new Response(
         JSON.stringify({ error: "Descreva com mais detalhes o que foi observado in loco (mínimo 20 caracteres)." }),
@@ -157,7 +178,9 @@ ${instrTxt}
 `
       : "";
 
-    const userText = `${instrBlock}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
+    const psicoTxt = psicoBlock(psicossocial);
+
+    const userText = `${instrBlock}${psicoTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
 ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
