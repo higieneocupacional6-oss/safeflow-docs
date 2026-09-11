@@ -27,6 +27,8 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
 import { gerarAetDeterministica } from "@/lib/aetGenerator";
+import { PsicoIntegracaoBadge } from "@/components/psico/PsicoIntegracaoBadge";
+import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoContexto";
 import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/ergonomia/ToolAssessmentModal";
 import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
@@ -408,6 +410,7 @@ export default function AetWizard() {
   const [justificativaLoadingIdx, setJustificativaLoadingIdx] = useState<number | null>(null);
   const [psicoOpen, setPsicoOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
+  const [psicoCtx, setPsicoCtx] = useState<PsicoContextoIa | null>(null);
   const [iaObs, setIaObs] = useState("");
   const [iaLoading, setIaLoading] = useState(false);
   const [iaFiles, setIaFiles] = useState<File[]>([]);
@@ -2418,7 +2421,18 @@ export default function AetWizard() {
                         alertas: calc.alertas,
                       };
                     });
+                    // Integração automática com o módulo Psicossocial (somente consulta)
+                    const psicossocial = await carregarContextoPsicossocial({
+                      empresaId,
+                      contratoId,
+                      setorId: setor.setor_id,
+                      setorNome: setor.setor_nome,
+                      ghe: setor.ges,
+                    });
+                    setPsicoCtx(psicossocial.disponivel ? psicossocial : null);
+
                     const contexto = {
+                      psicossocial_empresa: psicossocial,
                       empresa: {
                         razao_social: emp.razao_social,
                         cnpj: emp.cnpj,
@@ -2481,6 +2495,7 @@ export default function AetWizard() {
                         body: {
                           descricao: descricaoIA,
                           contexto,
+                          psicossocial,
                           anexos: anexosPayload,
                           instrucoes_usuario: instrucoesUsuario,
                         },
