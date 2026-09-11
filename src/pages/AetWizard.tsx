@@ -35,6 +35,7 @@ import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
 import type { FerramentaTipo } from "@/lib/ergonomia/types";
 import { objetivoFerramenta, interpretarFerramentaAuto } from "@/lib/ergonomia/objetivoInterpretacao";
+import { buildAetCronoTemplateData } from "@/lib/aetCronoTemplate";
 
 const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS"];
 
@@ -905,6 +906,13 @@ export default function AetWizard() {
   // Padrão LTCAT: variáveis de empresa e contrato na RAIZ do JSON (sem objetos aninhados)
   const buildTemplateData = () => {
     const emp = empresaSelecionada || ({} as any);
+    const cronoGeral = buildAetCronoTemplateData(
+      setoresAet.flatMap((setor) => setor.cronoanalise || []),
+      {
+        tarefas: setoresAet.map((setor) => setor.tarefas).filter(Boolean).join("\n"),
+        riscos_observados: setoresAet.map((setor) => setor.riscos_observados).filter(Boolean).join("\n"),
+      },
+    );
 
     const data = {
       // ─── EMPRESA (raiz, padrão LTCAT) ───
@@ -956,6 +964,10 @@ export default function AetWizard() {
       cargo: cargo || "",
       data_elaboracao: formatDate(dataElaboracao),
       alteracoes_documento: alteracoes || "",
+      tarefas: cronoGeral.tarefas,
+      tempo: cronoGeral.tempo,
+      riscos_observados: cronoGeral.riscos_observados,
+      cronoanalise: cronoGeral.cronoanalise,
       revisoes: revisoes.map((r) => ({
         data_revisao: formatDate(r.data_revisao),
         descricao_revisao: r.descricao_revisao || "",
@@ -965,6 +977,10 @@ export default function AetWizard() {
           ? s.funcoes_selecionadas
           : (s.funcao_nome ? [{ id: s.funcao_id, nome: s.funcao_nome }] : []);
         const funcoesNomes = funcoesSel.map((f) => f.nome).filter(Boolean);
+        const crono = buildAetCronoTemplateData(s.cronoanalise, {
+          tarefas: s.tarefas,
+          riscos_observados: s.riscos_observados,
+        });
         return {
           setor_nome: s.setor_nome || "",
           ges: s.ges || "",
@@ -976,13 +992,10 @@ export default function AetWizard() {
           posto_trabalho: s.posto_trabalho || "",
           descricao_atividade: s.descricao_atividade || "",
           analise_organizacional: s.analise_organizacional || "",
-          tarefas: s.tarefas || "",
-          riscos_observados: s.riscos_observados || "",
-          cronoanalise: (s.cronoanalise || []).map((t) => ({
-            tarefa: t.tarefa || "",
-            tempo: t.tempo || "",
-            risco: t.risco || "",
-          })),
+          tarefas: crono.tarefas,
+          tempo: crono.tempo,
+          riscos_observados: crono.riscos_observados,
+          cronoanalise: crono.cronoanalise,
           avaliacoes_dimensionais: DIMENSOES_LABELS.map(({ key, label }) => {
             const it = s.avaliacoes_dimensionais?.[key] || { medida: "", avaliacao: "" };
             return { item: label, medida: it.medida || "", avaliacao: it.avaliacao || "" };

@@ -67,8 +67,9 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
       { code: "{{posto_trabalho}}", desc: "Posto de trabalho" },
       { code: "{{descricao_atividade}}", desc: "Descrição da atividade" },
       { code: "{{analise_organizacional}}", desc: "Análise organizacional" },
-      { code: "{{tarefas}}", desc: "Tarefas" },
-      { code: "{{riscos_observados}}", desc: "Riscos observados" },
+      { code: "{{tarefas}}", desc: "Todas as tarefas da Cronoanálise, uma por linha" },
+      { code: "{{tempo}}", desc: "Todos os tempos da Cronoanálise, um por linha" },
+      { code: "{{riscos_observados}}", desc: "Todos os riscos da Cronoanálise, um por linha" },
       { code: "{{ritmo_complexidade}}", desc: "Ritmo e complexidade" },
       { code: "{{jornada_aspectos}}", desc: "Jornada e aspectos temporais" },
       { code: "{{caracterizacao_biomecanica}}", desc: "Caracterização biomecânica" },
@@ -86,7 +87,8 @@ const groups: { title: string; vars: { code: string; desc: string }[] }[] = [
   {
     title: "Cronoanálise de tarefas (loop dentro do setor)",
     vars: [
-      { code: "{{#cronoanalise}}\n{{tarefa}} | {{tempo}} | {{risco}}\n{{/cronoanalise}}", desc: "Tabela dinâmica com tarefa, tempo médio e risco associado" },
+      { code: "{{#cronoanalise}}\n{{tarefas}} | {{tempo}} | {{riscos_observados}}\n{{/cronoanalise}}", desc: "Loop recomendado para tabela dinâmica com todas as tarefas, tempos e riscos" },
+      { code: "{{#cronoanalise}}\n{{tarefa}} | {{tempo}} | {{risco}}\n{{/cronoanalise}}", desc: "Loop alternativo compatível com os nomes no singular" },
     ],
   },
   {
