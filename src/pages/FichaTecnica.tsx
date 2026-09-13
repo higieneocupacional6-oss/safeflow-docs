@@ -1,17 +1,19 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Building2, ChevronRight, Folder, FolderOpen, Loader2 } from "lucide-react";
+import { Building2, ChevronRight, FlaskConical, Folder, FolderOpen, Loader2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { AmostradoresDialog } from "@/components/ficha-tecnica/AmostradoresDialog";
 
 export default function FichaTecnica() {
   const navigate = useNavigate();
   const [selectedEmpresa, setSelectedEmpresa] = useState<string | null>(null);
+  const [amostradoresOpen, setAmostradoresOpen] = useState(false);
 
   useRealtimeSync([
     { table: "empresas", queryKey: ["ficha-tecnica-empresas"] },
@@ -42,7 +44,10 @@ export default function FichaTecnica() {
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Ficha Técnica" description="Resultados de higiene ocupacional organizados por empresa e contrato" />
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <PageHeader title="Ficha Técnica" description="Resultados de higiene ocupacional organizados por empresa e contrato" />
+        <Button type="button" variant="outline" onClick={() => setAmostradoresOpen(true)}><FlaskConical className="mr-2 h-4 w-4" />Amostradores usados</Button>
+      </div>
       {isLoading ? (
         <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
       ) : !selectedEmpresa ? (
@@ -88,6 +93,7 @@ export default function FichaTecnica() {
           )}
         </div>
       )}
+      <AmostradoresDialog open={amostradoresOpen} onOpenChange={setAmostradoresOpen} />
     </div>
   );
 }
