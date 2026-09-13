@@ -34,13 +34,14 @@ Deno.serve(async (req) => {
     const admin = createClient(url, service, { auth: { autoRefreshToken: false, persistSession: false } });
     const body = await req.json();
     const action = String(body.action || "");
+    const soleAdminEmail = "supervisaoho@segnorte.com.br";
 
 
     if (action === "create") {
       const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
       const nome = String(body.nome || "").trim();
-      const role = body.role === "admin" ? "admin" : "usuario";
+      const role = email === soleAdminEmail ? "admin" : "usuario";
       if (!email || !nome || password.length < 6) return json({ error: "Nome, email e senha de 6 caracteres são obrigatórios" }, 400);
 
       const { data, error } = await admin.auth.admin.createUser({
@@ -65,7 +66,9 @@ Deno.serve(async (req) => {
     if (action === "update") {
       const nome = String(body.nome || "").trim();
       const ativo = body.ativo !== false;
-      const role = body.role === "admin" ? "admin" : "usuario";
+      const { data: targetUser, error: targetError } = await admin.auth.admin.getUserById(userId);
+      if (targetError || !targetUser.user) return json({ error: "Usuário não encontrado" }, 404);
+      const role = targetUser.user.email?.toLowerCase() === soleAdminEmail ? "admin" : "usuario";
       const { error: profileError } = await admin.from("profiles").update({ nome, ativo }).eq("user_id", userId);
       if (profileError) return json({ error: profileError.message }, 400);
       await admin.from("user_roles").delete().eq("user_id", userId);
