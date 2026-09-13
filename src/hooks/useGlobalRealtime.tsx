@@ -3,6 +3,23 @@ import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 
+const QUERY_KEYS_BY_TABLE: Record<string, string[]> = {
+  empresas: ["empresas", "empresas-aet", "empresas-aep"],
+  contratos: ["contratos", "contratos-sf", "contratos-aet", "contratos-aep"],
+  setores: ["setores", "setores-empresa-aet", "setores-empresa-aep"],
+  funcoes: ["funcoes", "funcoes-aet", "funcoes-aep"],
+  riscos: ["riscos"],
+  documentos: ["documentos"],
+  templates: ["templates", "templates-aep", "templates-pgr"],
+  equipamentos_ho: ["equipamentos_ho"],
+  equipamentos_ho_registros: ["equipamentos_ho"],
+  epi_epc: ["epi_epc", "epi-epc-cadastro"],
+  epi_epc_riscos: ["epi_epc", "epi-epc-cadastro"],
+  treinamentos_cadastro: ["treinamentos_cadastro"],
+  exames_cadastro: ["exames_cadastro"],
+  responsaveis: ["responsaveis"],
+};
+
 /**
  * Sincronização global multiusuário.
  *
@@ -22,18 +39,23 @@ export function GlobalRealtimeSync() {
   useEffect(() => {
     if (!user) return;
 
-    const invalidateAll = () => {
+    const invalidateAffected = (payload?: { table?: string }) => {
       // debounce: várias linhas alteradas em lote geram um único refetch
       if (timerRef.current) clearTimeout(timerRef.current);
       timerRef.current = setTimeout(() => {
-        queryClient.invalidateQueries({ refetchType: "active" });
+        const keys = payload?.table ? QUERY_KEYS_BY_TABLE[payload.table] : undefined;
+        if (!keys?.length) {
+          queryClient.invalidateQueries({ refetchType: "active" });
+          return;
+        }
+        keys.forEach((key) => queryClient.invalidateQueries({ queryKey: [key], refetchType: "active" }));
       }, 150);
     };
 
     const channel = supabase
       .channel(`global-sync-${user.id}`)
-      .on("postgres_changes", { event: "*", schema: "public" }, invalidateAll)
-      .subscribe();
+      .on("postgres_changes", { event: "*", schema: "public" }, invalidateAffected)
+      .subscribe((status) => window.dispatchEvent(new CustomEvent("segdoc:sync-status", { detail: status })));
 
     // Reconexão / volta de foco: garante estado fresco vindo do banco
     const onFocus = () => queryClient.invalidateQueries({ refetchType: "active" });
