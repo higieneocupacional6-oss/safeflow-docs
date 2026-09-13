@@ -7,7 +7,7 @@ import { CalibracaoAlertBanner } from "@/components/CalibracaoAlertBanner";
 import { useAuth } from "@/hooks/useAuth";
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
-  const { user, isAdmin, signOut } = useAuth();
+  const { user, isAdmin, profileName, signOut } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const [syncOnline, setSyncOnline] = useState(navigator.onLine);
@@ -57,13 +57,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                   aria-label="Perfil"
                 >
                   <UserCircle2 className="h-5 w-5" />
-                  <span className="text-xs font-medium max-w-[160px] truncate hidden sm:inline">{user?.email}</span>
+                  <span className="text-xs font-medium max-w-[160px] truncate hidden sm:inline">{profileName || user?.email}</span>
                 </button>
                 {profileOpen && (
                   <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-border bg-card shadow-lg overflow-hidden z-50">
                     <div className="px-4 py-3 border-b border-border">
                       <p className="text-xs text-muted-foreground">Logado como</p>
-                      <p className="text-sm font-medium truncate">{user?.email}</p>
+                      <p className="text-sm font-medium truncate">{profileName || user?.email}</p>
+                      {profileName && <p className="text-xs text-muted-foreground truncate mt-0.5">{user?.email}</p>}
                       {isAdmin && <p className="text-[10px] text-primary font-semibold mt-1">ADMINISTRADOR</p>}
                     </div>
                     <button

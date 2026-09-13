@@ -31,6 +31,8 @@ import PsicossocialRelatorio from "./pages/PsicossocialRelatorio";
 import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
 import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
 import ChangePassword from "./pages/ChangePassword";
+import FichaTecnica from "./pages/FichaTecnica";
+import FichaTecnicaContrato from "./pages/FichaTecnicaContrato";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -73,6 +75,8 @@ const App = () => (
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
             <Route path="/documentos/controle" element={<Protected><ControleDocumentos /></Protected>} />
             <Route path="/psicossocial" element={<Protected><Psicossocial /></Protected>} />
+            <Route path="/ficha-tecnica" element={<Protected><FichaTecnica /></Protected>} />
+            <Route path="/ficha-tecnica/:empresaId/:contratoId" element={<Protected><FichaTecnicaContrato /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId" element={<Protected><PsicossocialEmpresa /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId" element={<Protected><PsicossocialAvaliacao /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId/relatorio" element={<Protected><PsicossocialRelatorio /></Protected>} />
