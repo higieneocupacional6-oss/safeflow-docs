@@ -35,6 +35,7 @@ const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
 interface RiscoEntry {
   id: string;
+  ficha_tecnica_resultado_id?: string;
   setor_id: string;
   setor_nome: string;
   funcoes_ges?: string;
@@ -1255,6 +1256,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const agente = agenteMap.get(av.agente_id);
           return {
             id: av.id,
+            ficha_tecnica_resultado_id: av.ficha_tecnica_resultado_id || "",
             setor_id: av.setor_id || "",
             setor_nome: setor?.nome_setor || "Setor não informado",
             funcoes_ges: av.funcoes_ges || "",
@@ -3260,6 +3262,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const filter = (rows?: any[]) => (rows || []).filter((row) => belongsToItem(row, item, index === 0));
       return {
         id: item.id,
+        ficha_tecnica_resultado_id: risk.ficha_tecnica_resultado_id || "",
         contrato_id: contratoId || "",
         setor_id: risk.setor_id || "",
         funcao_id: item.funcao_id || "",
