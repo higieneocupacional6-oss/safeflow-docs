@@ -772,6 +772,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [fichaImportPromptOpen, setFichaImportPromptOpen] = useState(false);
   const [importingFicha, setImportingFicha] = useState(false);
   const fichaPromptedRef = useRef(new Set<string>());
+  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  const currentDraftIdRef = useRef<string | null>(documentoId || null);
 
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
@@ -1016,8 +1018,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
-  const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
-  const currentDraftIdRef = useRef<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
   // Estado REAL da persistência no banco (não apenas da interface)
@@ -3455,6 +3455,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       });
       if (error) throw error;
       setFichaImportPromptOpen(false);
+      suppressReloadUntilRef.current = 0;
       setDocLoaded(false);
       setReloadTick((value) => value + 1);
       toast.success(`${data?.imported || 0} resultado(s) importado(s). ${data?.existing || 0} já estavam neste documento.`);

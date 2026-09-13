@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 
 export default function FichaTecnica() {
@@ -62,7 +63,7 @@ export default function FichaTecnica() {
         </div>
       ) : (
         <div className="space-y-4">
-          <button type="button" onClick={() => setSelectedEmpresa(null)} className="text-sm text-muted-foreground hover:text-foreground transition-colors">← Todas as empresas</button>
+          <Button type="button" variant="ghost" className="w-fit px-0 text-muted-foreground" onClick={() => setSelectedEmpresa(null)}>← Todas as empresas</Button>
           <div>
             <h2 className="font-heading text-xl font-semibold">{empresa?.nome_fantasia || empresa?.razao_social}</h2>
             <p className="text-sm text-muted-foreground">Selecione um contrato</p>
