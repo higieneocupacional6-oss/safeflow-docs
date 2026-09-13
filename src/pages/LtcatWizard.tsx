@@ -769,6 +769,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [alteracoesDoc, setAlteracoesDoc] = useState("");
   const [revisoes, setRevisoes] = useState<Revision[]>([]);
   const [contratoId, setContratoId] = useState<string>("");
+  const [fichaImportPromptOpen, setFichaImportPromptOpen] = useState(false);
+  const [importingFicha, setImportingFicha] = useState(false);
+  const fichaPromptedRef = useRef(new Set<string>());
 
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
@@ -801,6 +804,29 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     },
     enabled: !!contratoId,
   });
+
+  const { data: fichaResultadosCount = 0 } = useQuery({
+    queryKey: ["ficha-tecnica-disponivel", empresaId, contratoId],
+    queryFn: async () => {
+      if (!empresaId || !contratoId || isPericulosidade) return 0;
+      const { count, error } = await (supabase as any)
+        .from("ficha_tecnica_resultados")
+        .select("id", { count: "exact", head: true })
+        .eq("empresa_id", empresaId)
+        .eq("contrato_id", contratoId);
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!empresaId && !!contratoId && !isPericulosidade,
+  });
+
+  useEffect(() => {
+    if (!empresaId || !contratoId || !fichaResultadosCount || isPericulosidade) return;
+    const key = `${tipoDocumento}:${currentDraftId || documentoId || "novo"}:${empresaId}:${contratoId}`;
+    if (fichaPromptedRef.current.has(key)) return;
+    fichaPromptedRef.current.add(key);
+    setFichaImportPromptOpen(true);
+  }, [empresaId, contratoId, fichaResultadosCount, isPericulosidade, tipoDocumento, currentDraftId, documentoId]);
 
 
   // Step 2
@@ -991,6 +1017,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
+  const currentDraftIdRef = useRef<string | null>(documentoId || null);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
   // Estado REAL da persistência no banco (não apenas da interface)
@@ -3380,6 +3407,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (error) throw error;
         docId = inserted?.id || null;
         setCurrentDraftId(docId);
+        currentDraftIdRef.current = docId;
         if (docId && !documentoId) {
           navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
         }
@@ -3409,6 +3437,32 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       suppressReloadUntilRef.current = Date.now() + 5_000;
     }
 
+  };
+
+  const importFichaTecnica = async () => {
+    if (!empresaId || !contratoId) return;
+    setImportingFicha(true);
+    try {
+      const saved = await handleSaveDraft(true, {}, true);
+      if (!saved) throw new Error("Não foi possível salvar o documento antes da importação.");
+      const docId = currentDraftIdRef.current || currentDraftId || documentoId;
+      if (!docId) throw new Error("Documento sem identificador permanente.");
+      const { data, error } = await (supabase as any).rpc("import_ficha_tecnica_resultados", {
+        _documento_id: docId,
+        _empresa_id: empresaId,
+        _contrato_id: contratoId,
+        _tipo_documento: tipoDocumento,
+      });
+      if (error) throw error;
+      setFichaImportPromptOpen(false);
+      setDocLoaded(false);
+      setReloadTick((value) => value + 1);
+      toast.success(`${data?.imported || 0} resultado(s) importado(s). ${data?.existing || 0} já estavam neste documento.`);
+    } catch (error: any) {
+      toast.error(error?.message || "Não foi possível importar os resultados da Ficha Técnica.");
+    } finally {
+      setImportingFicha(false);
+    }
   };
 
   // 🔁 Autosave silencioso: a cada 30 segundos + somente quando houver alteração
@@ -3776,7 +3830,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             <div className="glass-card rounded-xl p-6 max-w-2xl space-y-4">
               <div>
                 <Label>Empresa <span className="text-destructive">*</span></Label>
-                <Select value={empresaId} onValueChange={setEmpresaId}>
+                <Select value={empresaId} onValueChange={(value) => { setEmpresaId(value); setContratoId(""); }}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                   <SelectContent>
                     {empresas.map((e: any) => (
@@ -3817,6 +3871,21 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <Label>Alterações do Documento</Label>
                 <Textarea className="mt-1" value={alteracoesDoc} onChange={(e) => setAlteracoesDoc(e.target.value)} placeholder="Descreva as alterações realizadas neste documento" />
               </div>
+
+              <Dialog open={fichaImportPromptOpen} onOpenChange={setFichaImportPromptOpen}>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader><DialogTitle>Resultados disponíveis na Ficha Técnica</DialogTitle></DialogHeader>
+                  <p className="text-sm text-muted-foreground">
+                    Esta empresa possui riscos cadastrados com resultados no módulo Ficha Técnica. Deseja trazer os resultados para este documento?
+                  </p>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={() => setFichaImportPromptOpen(false)} disabled={importingFicha}>Não</Button>
+                    <Button onClick={importFichaTecnica} disabled={importingFicha}>
+                      {importingFicha && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Sim
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
 
               {/* Subseção: Alterações do Documento */}
               <div className="pt-4 border-t border-border/50">
