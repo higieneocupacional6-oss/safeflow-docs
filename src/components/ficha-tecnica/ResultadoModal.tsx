@@ -24,8 +24,8 @@ type Props = {
 
 const emptyForm = {
   setor_id: "", funcao_id: "", agente_id: "", data_avaliacao: new Date().toISOString().slice(0, 10),
-  nen: "", lavg: "", aren: "", vdvr: "", concentracao: "", taxa_metabolica: "",
-  componentes: "", amostrador: "", exposicao: "", limite_tolerancia: "",
+  nen: "", dose_q3: "", lavg: "", dose_q5: "", aren: "", vdvr: "", concentracao: "", taxa_metabolica: "",
+  componentes: "", amostrador: "", amostrador_serie: "", exposicao: "", limite_tolerancia: "",
 };
 
 const numberOrNull = (value: string) => value === "" ? null : Number(value.replace(",", "."));
@@ -52,13 +52,16 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
       agente_id: read("agente_id"),
       data_avaliacao: read("data_avaliacao"),
       nen: read("nen"),
+      dose_q3: read("dose_q3"),
       lavg: read("lavg"),
+      dose_q5: read("dose_q5"),
       aren: read("aren"),
       vdvr: read("vdvr"),
       concentracao: read("concentracao"),
       taxa_metabolica: read("taxa_metabolica"),
       componentes: read("componentes"),
       amostrador: read("amostrador"),
+      amostrador_serie: read("amostrador_serie"),
       exposicao: read("exposicao"),
       limite_tolerancia: read("limite_tolerancia"),
     });
@@ -73,21 +76,21 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
       toast.error("Preencha setor, função, agente e limite de tolerância.");
       return;
     }
-    if (tipo === "ruido" && (!form.nen || !form.lavg)) return toast.error("Preencha NEN e LAVG.");
+    if (tipo === "ruido" && (!form.nen || !form.dose_q3 || !form.lavg || !form.dose_q5)) return toast.error("Preencha NEN, Dose Q3, LAVG e Dose Q5.");
     if ((tipo === "vibracao_vci" || tipo === "vibracao_vmb") && !form.aren) return toast.error("Preencha o AREN.");
     if (tipo === "vibracao_vci" && !form.vdvr) return toast.error("Preencha o VDVR.");
     if (tipo === "calor" && (!form.concentracao || !form.taxa_metabolica.trim())) return toast.error("Preencha concentração e taxa metabólica.");
-    if (isFichaQuimica(tipo) && (!form.componentes.trim() || !form.amostrador.trim() || !form.exposicao)) return toast.error("Preencha componentes, amostrador e exposição.");
+    if (isFichaQuimica(tipo) && (!form.componentes.trim() || !form.amostrador.trim() || !form.amostrador_serie.trim() || !form.exposicao)) return toast.error("Preencha componentes, amostrador, número/série e exposição.");
     setSaving(true);
     try {
       const payload = {
         empresa_id: empresaId, contrato_id: contratoId, tipo,
         setor_id: form.setor_id, funcao_id: form.funcao_id, agente_id: form.agente_id,
         data_avaliacao: form.data_avaliacao,
-        nen: numberOrNull(form.nen), lavg: numberOrNull(form.lavg), aren: numberOrNull(form.aren),
+        nen: numberOrNull(form.nen), dose_q3: numberOrNull(form.dose_q3), lavg: numberOrNull(form.lavg), dose_q5: numberOrNull(form.dose_q5), aren: numberOrNull(form.aren),
         vdvr: numberOrNull(form.vdvr), concentracao: numberOrNull(form.concentracao),
         taxa_metabolica: form.taxa_metabolica || null, componentes: form.componentes || null,
-        amostrador: form.amostrador || null, exposicao: numberOrNull(form.exposicao),
+        amostrador: form.amostrador || null, amostrador_serie: form.amostrador_serie || null, exposicao: numberOrNull(form.exposicao),
         limite_tolerancia: numberOrNull(form.limite_tolerancia),
       };
       const query = registro
@@ -114,12 +117,12 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
           <Field label="Função"><Select value={form.funcao_id} onValueChange={(value) => set("funcao_id", value)} disabled={!form.setor_id}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{funcoesDisponiveis.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome_funcao}</SelectItem>)}</SelectContent></Select></Field>
           <Field label="Agente"><Select value={form.agente_id} onValueChange={(value) => set("agente_id", value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{agentesDisponiveis.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}</SelectContent></Select></Field>
           <Field label="Data da avaliação"><Input type="date" value={form.data_avaliacao} onChange={(e) => set("data_avaliacao", e.target.value)} /></Field>
-          {tipo === "ruido" && <><NumberField label="NEN (dB)" value={form.nen} onChange={(v) => set("nen", v)} /><NumberField label="LAVG (dB)" value={form.lavg} onChange={(v) => set("lavg", v)} /></>}
+          {tipo === "ruido" && <><NumberField label="NEN (dB)" value={form.nen} onChange={(v) => set("nen", v)} /><NumberField label="Dose Q3 (%)" value={form.dose_q3} onChange={(v) => set("dose_q3", v)} /><NumberField label="LAVG (dB)" value={form.lavg} onChange={(v) => set("lavg", v)} /><NumberField label="Dose Q5 (%)" value={form.dose_q5} onChange={(v) => set("dose_q5", v)} /></>}
           {(tipo === "vibracao_vci" || tipo === "vibracao_vmb") && <NumberField label="AREN (m/s²)" value={form.aren} onChange={(v) => set("aren", v)} />}
           {tipo === "vibracao_vci" && <NumberField label="VDVR (m/s¹·⁷)" value={form.vdvr} onChange={(v) => set("vdvr", v)} />}
           {tipo === "calor" && <><NumberField label="Concentração / IBUTG" value={form.concentracao} onChange={(v) => set("concentracao", v)} /><Field label="Taxa Metabólica"><Input value={form.taxa_metabolica} onChange={(e) => set("taxa_metabolica", e.target.value)} placeholder="Ex.: 300 W" /></Field></>}
-          {isFichaQuimica(tipo) && <><Field label="Componentes"><Input value={form.componentes} onChange={(e) => set("componentes", e.target.value)} /></Field><Field label="Amostrador"><Input value={form.amostrador} onChange={(e) => set("amostrador", e.target.value)} /></Field><NumberField label="Exposição" value={form.exposicao} onChange={(v) => set("exposicao", v)} /></>}
-          <NumberField label={tipo === "vibracao_vci" ? "LT AREN (m/s²) — VDVR: 21,0 m/s¹·⁷" : "Limite de Tolerância"} value={form.limite_tolerancia} onChange={(v) => set("limite_tolerancia", v)} disabled={["ruido", "vibracao_vci", "vibracao_vmb"].includes(tipo)} />
+          {isFichaQuimica(tipo) && <><Field label="Componentes"><Input value={form.componentes} onChange={(e) => set("componentes", e.target.value)} /></Field><Field label="Amostrador"><Input value={form.amostrador} onChange={(e) => set("amostrador", e.target.value)} /></Field><Field label="Nº de série/identificação"><Input value={form.amostrador_serie} onChange={(e) => set("amostrador_serie", e.target.value)} /></Field><NumberField label="Exposição" value={form.exposicao} onChange={(v) => set("exposicao", v)} /></>}
+          <NumberField label={tipo === "ruido" ? "Limite de Tolerância (85 dB)" : tipo === "vibracao_vci" ? "LT AREN (m/s²) — VDVR: 21,0 m/s¹·⁷" : "Limite de Tolerância"} value={form.limite_tolerancia} onChange={(v) => set("limite_tolerancia", v)} disabled={["ruido", "vibracao_vci", "vibracao_vmb"].includes(tipo)} />
         </div>
         {agentesDisponiveis.length === 0 && <p className="text-sm text-destructive">Cadastre o agente correspondente em Cadastros gerais antes de salvar.</p>}
         <DialogFooter><Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button><Button onClick={save} disabled={saving || agentesDisponiveis.length === 0}>{saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button></DialogFooter>
