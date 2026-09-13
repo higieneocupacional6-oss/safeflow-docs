@@ -5,3 +5,9 @@
 - [x] Permitir editar e excluir resultados
 - [x] Integrar importação com LTCAT e Insalubridade
 - [x] Validar persistência, ausência de duplicação e segurança
+- [ ] Adicionar Dose Q3 e Dose Q5 ao ruído
+- [ ] Separar critérios de importação LTCAT e Insalubridade
+- [ ] Gerar relatório preliminar do contrato
+- [ ] Adicionar série/identificação aos amostradores químicos
+- [ ] Criar pesquisa e relatório de amostradores usados
+- [ ] Validar persistência, importação, PDFs e ausência de regressões
