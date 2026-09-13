@@ -2477,6 +2477,15 @@ export type Database = {
         }
         Returns: Json
       }
+      update_shared_record: {
+        Args: {
+          _expected_version: number
+          _patch: Json
+          _record_id: string
+          _table_name: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "usuario"
