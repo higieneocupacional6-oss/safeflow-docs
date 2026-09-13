@@ -35,6 +35,49 @@ Deno.serve(async (req) => {
     const body = await req.json();
     const action = String(body.action || "");
 
+    if (action === "bootstrap_segdoc_users") {
+      const initialPassword = Deno.env.get("SEGDOC_INITIAL_USER_PASSWORD");
+      if (!initialPassword) return json({ error: "Senha inicial segura não configurada" }, 500);
+      const expectedUsers = [
+        { email: "supervisaoho@segnorte.com.br", nome: "Larissa Monteiro", role: "admin" },
+        { email: "ho@segnorte.com.br", nome: "Klicia Cristina", role: "usuario" },
+        { email: "segnortee@gmail.com", nome: "Ana Cristina", role: "usuario" },
+        { email: "higieneocupacional6@gmail.com", nome: "Antonio Vilamar", role: "usuario" },
+        { email: "ho@segnorteoficial.com.br", nome: "Estagiário", role: "usuario" },
+      ];
+      const { data: listed, error: listError } = await admin.auth.admin.listUsers({ page: 1, perPage: 1000 });
+      if (listError) return json({ error: listError.message }, 500);
+      const results: Array<{ email: string; status: string }> = [];
+
+      for (const expected of expectedUsers) {
+        let target = listed.users.find((candidate) => candidate.email?.toLowerCase() === expected.email);
+        if (!target) {
+          const { data, error } = await admin.auth.admin.createUser({
+            email: expected.email,
+            password: initialPassword,
+            email_confirm: true,
+            user_metadata: { nome: expected.nome, must_change_password: true },
+          });
+          if (error || !data.user) return json({ error: error?.message || `Falha ao criar ${expected.email}` }, 400);
+          target = data.user;
+        } else {
+          const { error } = await admin.auth.admin.updateUserById(target.id, {
+            password: initialPassword,
+            email_confirm: true,
+            ban_duration: "none",
+            user_metadata: { ...(target.user_metadata || {}), nome: expected.nome, must_change_password: true },
+          });
+          if (error) return json({ error: error.message }, 400);
+        }
+        await admin.from("profiles").update({ nome: expected.nome, email: expected.email, ativo: true }).eq("user_id", target.id);
+        await admin.from("user_roles").delete().eq("user_id", target.id);
+        const { error: roleWriteError } = await admin.from("user_roles").insert({ user_id: target.id, role: expected.role });
+        if (roleWriteError) return json({ error: roleWriteError.message }, 400);
+        results.push({ email: expected.email, status: "ready" });
+      }
+      return json({ ok: true, users: results });
+    }
+
     if (action === "create") {
       const email = String(body.email || "").trim().toLowerCase();
       const password = String(body.password || "");
