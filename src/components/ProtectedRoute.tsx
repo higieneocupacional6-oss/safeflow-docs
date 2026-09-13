@@ -8,7 +8,7 @@ interface Props {
 }
 
 export function ProtectedRoute({ children, requireAdmin = false }: Props) {
-  const { user, loading, isAdmin } = useAuth();
+  const { user, loading, isAdmin, mustChangePassword } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -21,6 +21,10 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (mustChangePassword && location.pathname !== "/alterar-senha") {
+    return <Navigate to="/alterar-senha" replace />;
   }
 
   if (requireAdmin && !isAdmin) {

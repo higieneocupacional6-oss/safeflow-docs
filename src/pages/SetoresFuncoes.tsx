@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { SetorFuncaoModal } from "@/components/SetorFuncaoModal";
 import { FuncaoModal } from "@/components/FuncaoModal";
@@ -155,13 +156,14 @@ export default function SetoresFuncoes() {
   const handleSaveSetor = async () => {
     if (!editSetorForm.nome_setor.trim()) { toast.error("Nome do setor obrigatório"); return; }
     setSavingSetor(true);
-    const { error } = await supabase.from("setores").update({
+    let error: unknown = null;
+    try { await updateWithVersion("setores", editSetor.id, editSetor.row_version ?? 1, {
       nome_setor: editSetorForm.nome_setor.trim(),
       ghe_ges: editSetorForm.ghe_ges || null,
       descricao_ambiente: editSetorForm.descricao_ambiente || null,
-    }).eq("id", editSetor.id);
+    }); } catch (err) { error = err; }
     setSavingSetor(false);
-    if (error) { toast.error("Erro ao salvar"); return; }
+    if (error) { toast.error(conflictMessage(error)); return; }
     toast.success("Setor atualizado!");
     setEditSetorOpen(false);
     handleSaved();
@@ -182,14 +184,15 @@ export default function SetoresFuncoes() {
   const handleSaveFuncao = async () => {
     if (!editFuncaoForm.nome_funcao.trim()) { toast.error("Nome da função obrigatório"); return; }
     setSavingFuncao(true);
-    const { error } = await supabase.from("funcoes").update({
+    let error: unknown = null;
+    try { await updateWithVersion("funcoes", editFuncao.id, editFuncao.row_version ?? 1, {
       nome_funcao: editFuncaoForm.nome_funcao.trim(),
       cbo_codigo: editFuncaoForm.cbo_codigo || null,
       cbo_descricao: editFuncaoForm.cbo_descricao || null,
       descricao_atividades: editFuncaoForm.descricao_atividades || null,
-    }).eq("id", editFuncao.id);
+    }); } catch (err) { error = err; }
     setSavingFuncao(false);
-    if (error) { toast.error("Erro ao salvar"); return; }
+    if (error) { toast.error(conflictMessage(error)); return; }
     toast.success("Função atualizada!");
     setEditFuncaoOpen(false);
     handleSaved();
@@ -205,9 +208,11 @@ export default function SetoresFuncoes() {
   const handleConfirmMove = async () => {
     if (!moveTargetSetor) { toast.error("Selecione o setor destino"); return; }
     setMovingFuncao(true);
-    const { error } = await supabase.from("funcoes").update({ setor_id: moveTargetSetor }).eq("id", moveFuncao.id);
+    let error: unknown = null;
+    try { await updateWithVersion("funcoes", moveFuncao.id, moveFuncao.row_version ?? 1, { setor_id: moveTargetSetor }); }
+    catch (err) { error = err; }
     setMovingFuncao(false);
-    if (error) { toast.error("Erro ao mover"); return; }
+    if (error) { toast.error(conflictMessage(error)); return; }
     toast.success("Função movida com sucesso!");
     setMoveFuncaoOpen(false);
     handleSaved();

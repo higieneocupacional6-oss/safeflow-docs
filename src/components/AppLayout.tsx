@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { LogOut, UserCircle2 } from "lucide-react";
+import { LogOut, UserCircle2, Wifi, WifiOff } from "lucide-react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { CalibracaoAlertBanner } from "@/components/CalibracaoAlertBanner";
@@ -10,6 +10,21 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, isAdmin, signOut } = useAuth();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
+  const [syncOnline, setSyncOnline] = useState(navigator.onLine);
+
+  useEffect(() => {
+    const online = () => setSyncOnline(true);
+    const offline = () => setSyncOnline(false);
+    const sync = (event: Event) => setSyncOnline((event as CustomEvent<string>).detail === "SUBSCRIBED");
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    window.addEventListener("segdoc:sync-status", sync);
+    return () => {
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      window.removeEventListener("segdoc:sync-status", sync);
+    };
+  }, []);
 
   const handleLogout = async () => {
     await signOut();
@@ -29,7 +44,12 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                 SEG<span className="text-gradient-brand">DOC</span>
               </span>
 
-              <div className="ml-auto relative">
+              <div className="ml-auto flex items-center gap-2">
+                <div className="hidden sm:flex items-center gap-1.5 text-xs text-muted-foreground" title={syncOnline ? "Sincronização ativa" : "Sem sincronização"}>
+                  {syncOnline ? <Wifi className="h-3.5 w-3.5 text-success" /> : <WifiOff className="h-3.5 w-3.5 text-destructive" />}
+                  <span>{syncOnline ? "Sincronizado" : "Offline"}</span>
+                </div>
+                <div className="relative">
                 <button
                   onClick={() => setProfileOpen((v) => !v)}
                   onBlur={() => setTimeout(() => setProfileOpen(false), 150)}
@@ -54,6 +74,7 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
                     </button>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </header>

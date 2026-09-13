@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
 
 interface ContratoModalProps {
   open: boolean;
@@ -132,8 +133,7 @@ export function ContratoModal({ open, onOpenChange, onSaved, empresaId, empresaN
       };
 
       if (isEdit) {
-        const { error } = await supabase.from("contratos").update(payload).eq("id", contrato.id);
-        if (error) throw error;
+        await updateWithVersion("contratos", contrato.id, contrato.row_version ?? 1, payload);
       } else {
         const { error } = await supabase.from("contratos").insert(payload);
         if (error) throw error;
@@ -142,7 +142,7 @@ export function ContratoModal({ open, onOpenChange, onSaved, empresaId, empresaN
       onSaved?.();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error("Erro ao salvar contrato: " + (err.message || ""));
+      toast.error(conflictMessage(err));
     } finally {
       setSaving(false);
     }

@@ -7,6 +7,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
+import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -31,6 +32,7 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
   const [medidasControle, setMedidasControle] = useState("");
   const [tipoEpi, setTipoEpi] = useState("");
   const [epiEficaz, setEpiEficaz] = useState("");
+  const [rowVersion, setRowVersion] = useState(1);
   const [saving, setSaving] = useState(false);
   const savingRef = useRef(false);
 
@@ -51,6 +53,7 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
           setMedidasControle(data.medidas_controle || "");
           setTipoEpi(data.tipo_epi || "");
           setEpiEficaz(data.epi_eficaz || "");
+          setRowVersion((data as any).row_version ?? 1);
         }
       };
       loadData();
@@ -104,8 +107,10 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
 
     let error;
     if (editingId) {
-      const { error: err } = await supabase.from("riscos").update(payload).eq("id", editingId);
-      error = err;
+      try {
+        const updated = await updateWithVersion<any>("riscos", editingId, rowVersion, payload);
+        setRowVersion(updated.row_version ?? rowVersion + 1);
+      } catch (err) { error = err; }
     } else {
       const { error: err } = await supabase.from("riscos").insert(payload);
       error = err;
@@ -114,7 +119,7 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
     savingRef.current = false;
     if (error) {
       console.error("[RiscoModal] erro ao salvar", error);
-      toast.error("Não foi possível salvar o risco. Seus dados foram mantidos nesta tela. Tente novamente." + (error.message ? ` (${error.message})` : ""));
+      toast.error(conflictMessage(error));
       return;
     }
 

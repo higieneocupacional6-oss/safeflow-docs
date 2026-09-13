@@ -27,8 +27,10 @@ export type Database = {
           documento_id: string | null
           empresa_id: string | null
           id: string
+          last_modified_by: string | null
           responsavel_tecnico: string | null
           revisoes: Json
+          row_version: number
           setores: Json
           status: string
           updated_at: string
@@ -45,8 +47,10 @@ export type Database = {
           documento_id?: string | null
           empresa_id?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores?: Json
           status?: string
           updated_at?: string
@@ -63,8 +67,10 @@ export type Database = {
           documento_id?: string | null
           empresa_id?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores?: Json
           status?: string
           updated_at?: string
@@ -106,8 +112,10 @@ export type Database = {
           documento_id: string | null
           empresa_id: string | null
           id: string
+          last_modified_by: string | null
           responsavel_tecnico: string | null
           revisoes: Json
+          row_version: number
           setores: Json
           status: string
           updated_at: string
@@ -124,8 +132,10 @@ export type Database = {
           documento_id?: string | null
           empresa_id?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores?: Json
           status?: string
           updated_at?: string
@@ -142,8 +152,10 @@ export type Database = {
           documento_id?: string | null
           empresa_id?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores?: Json
           status?: string
           updated_at?: string
@@ -193,6 +205,39 @@ export type Database = {
         }
         Relationships: []
       }
+      audit_log: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          record_id: string | null
+          table_name: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          record_id?: string | null
+          table_name?: string
+        }
+        Relationships: []
+      }
       contratos: {
         Row: {
           cnpj_contratante: string | null
@@ -207,6 +252,7 @@ export type Database = {
           gestor_telefone: string | null
           id: string
           jornada_trabalho: string | null
+          last_modified_by: string | null
           local_trabalho: string | null
           nome_contratante: string | null
           numero_contrato: string | null
@@ -215,6 +261,7 @@ export type Database = {
           preposto_email: string | null
           preposto_nome: string | null
           preposto_telefone: string | null
+          row_version: number
           total_funcionarios: number | null
           updated_at: string
           vigencia_fim: string | null
@@ -233,6 +280,7 @@ export type Database = {
           gestor_telefone?: string | null
           id?: string
           jornada_trabalho?: string | null
+          last_modified_by?: string | null
           local_trabalho?: string | null
           nome_contratante?: string | null
           numero_contrato?: string | null
@@ -241,6 +289,7 @@ export type Database = {
           preposto_email?: string | null
           preposto_nome?: string | null
           preposto_telefone?: string | null
+          row_version?: number
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null
@@ -259,6 +308,7 @@ export type Database = {
           gestor_telefone?: string | null
           id?: string
           jornada_trabalho?: string | null
+          last_modified_by?: string | null
           local_trabalho?: string | null
           nome_contratante?: string | null
           numero_contrato?: string | null
@@ -267,6 +317,7 @@ export type Database = {
           preposto_email?: string | null
           preposto_nome?: string | null
           preposto_telefone?: string | null
+          row_version?: number
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null
@@ -297,9 +348,11 @@ export type Database = {
           empresa_nome: string
           file_path: string | null
           id: string
+          last_modified_by: string | null
           nome_documento: string | null
           responsavel_tecnico: string | null
           revisoes: Json
+          row_version: number
           status: string
           template_id: string | null
           tipo: string
@@ -320,9 +373,11 @@ export type Database = {
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_documento?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           status?: string
           template_id?: string | null
           tipo: string
@@ -343,9 +398,11 @@ export type Database = {
           empresa_nome?: string
           file_path?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_documento?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           status?: string
           template_id?: string | null
           tipo?: string
@@ -431,6 +488,7 @@ export type Database = {
           grau_risco: string | null
           id: string
           jornada_trabalho: string | null
+          last_modified_by: string | null
           local_trabalho: string | null
           nome_contratante: string | null
           nome_fantasia: string | null
@@ -441,6 +499,7 @@ export type Database = {
           preposto_nome: string | null
           preposto_telefone: string | null
           razao_social: string
+          row_version: number
           total_funcionarios: number | null
           updated_at: string
           vigencia_fim: string | null
@@ -462,6 +521,7 @@ export type Database = {
           grau_risco?: string | null
           id?: string
           jornada_trabalho?: string | null
+          last_modified_by?: string | null
           local_trabalho?: string | null
           nome_contratante?: string | null
           nome_fantasia?: string | null
@@ -472,6 +532,7 @@ export type Database = {
           preposto_nome?: string | null
           preposto_telefone?: string | null
           razao_social: string
+          row_version?: number
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null
@@ -493,6 +554,7 @@ export type Database = {
           grau_risco?: string | null
           id?: string
           jornada_trabalho?: string | null
+          last_modified_by?: string | null
           local_trabalho?: string | null
           nome_contratante?: string | null
           nome_fantasia?: string | null
@@ -503,6 +565,7 @@ export type Database = {
           preposto_nome?: string | null
           preposto_telefone?: string | null
           razao_social?: string
+          row_version?: number
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null
@@ -803,7 +866,9 @@ export type Database = {
           descricao_atividades: string | null
           expostos: string | null
           id: string
+          last_modified_by: string | null
           nome_funcao: string
+          row_version: number
           setor_id: string
           updated_at: string
         }
@@ -814,7 +879,9 @@ export type Database = {
           descricao_atividades?: string | null
           expostos?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_funcao: string
+          row_version?: number
           setor_id: string
           updated_at?: string
         }
@@ -825,7 +892,9 @@ export type Database = {
           descricao_atividades?: string | null
           expostos?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_funcao?: string
+          row_version?: number
           setor_id?: string
           updated_at?: string
         }
@@ -1675,8 +1744,10 @@ export type Database = {
           epi_blocos: Json
           file_path: string | null
           id: string
+          last_modified_by: string | null
           responsavel_tecnico: string | null
           revisoes: Json
+          row_version: number
           setores_snapshot: Json
           status: string
           template_id: string | null
@@ -1699,8 +1770,10 @@ export type Database = {
           epi_blocos?: Json
           file_path?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores_snapshot?: Json
           status?: string
           template_id?: string | null
@@ -1723,8 +1796,10 @@ export type Database = {
           epi_blocos?: Json
           file_path?: string | null
           id?: string
+          last_modified_by?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
+          row_version?: number
           setores_snapshot?: Json
           status?: string
           template_id?: string | null
@@ -2149,9 +2224,11 @@ export type Database = {
           fonte_geradora: string | null
           id: string
           is_padrao: boolean
+          last_modified_by: string | null
           medidas_controle: string | null
           nome: string
           propagacao: string[] | null
+          row_version: number
           tipo: string
           tipo_epi: string | null
           tipo_exposicao: string | null
@@ -2166,9 +2243,11 @@ export type Database = {
           fonte_geradora?: string | null
           id?: string
           is_padrao?: boolean
+          last_modified_by?: string | null
           medidas_controle?: string | null
           nome: string
           propagacao?: string[] | null
+          row_version?: number
           tipo: string
           tipo_epi?: string | null
           tipo_exposicao?: string | null
@@ -2183,9 +2262,11 @@ export type Database = {
           fonte_geradora?: string | null
           id?: string
           is_padrao?: boolean
+          last_modified_by?: string | null
           medidas_controle?: string | null
           nome?: string
           propagacao?: string[] | null
+          row_version?: number
           tipo?: string
           tipo_epi?: string | null
           tipo_exposicao?: string | null
@@ -2201,7 +2282,9 @@ export type Database = {
           empresa_id: string
           ghe_ges: string | null
           id: string
+          last_modified_by: string | null
           nome_setor: string
+          row_version: number
           updated_at: string
         }
         Insert: {
@@ -2211,7 +2294,9 @@ export type Database = {
           empresa_id: string
           ghe_ges?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_setor: string
+          row_version?: number
           updated_at?: string
         }
         Update: {
@@ -2221,7 +2306,9 @@ export type Database = {
           empresa_id?: string
           ghe_ges?: string | null
           id?: string
+          last_modified_by?: string | null
           nome_setor?: string
+          row_version?: number
           updated_at?: string
         }
         Relationships: [
@@ -2387,6 +2474,15 @@ export type Database = {
           _documento_id: string
           _empresa_id: string
           _tipo_documento: string
+        }
+        Returns: Json
+      }
+      update_shared_record: {
+        Args: {
+          _expected_version: number
+          _patch: Json
+          _record_id: string
+          _table_name: string
         }
         Returns: Json
       }
