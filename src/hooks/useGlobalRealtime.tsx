@@ -18,6 +18,7 @@ const QUERY_KEYS_BY_TABLE: Record<string, string[]> = {
   treinamentos_cadastro: ["treinamentos_cadastro"],
   exames_cadastro: ["exames_cadastro"],
   responsaveis: ["responsaveis"],
+  ficha_tecnica_resultados: ["ficha-tecnica-resultados", "ficha-tecnica-empresas"],
 };
 
 /**

@@ -11,6 +11,7 @@ interface AuthContextValue {
   loading: boolean;
   isAdmin: boolean;
   mustChangePassword: boolean;
+  profileName: string | null;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -22,16 +23,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
+  const [profileName, setProfileName] = useState<string | null>(null);
 
   const fetchRole = async (uid: string) => {
-    const { data } = await supabase
-      .from("user_roles")
-      .select("role")
-      .eq("user_id", uid)
-      .order("role", { ascending: true }) // 'admin' < 'usuario'
-      .limit(1)
-      .maybeSingle();
-    setRole((data?.role as AppRole) ?? "usuario");
+    const [{ data: roleData }, { data: profileData }] = await Promise.all([
+      supabase.from("user_roles").select("role").eq("user_id", uid).order("role", { ascending: true }).limit(1).maybeSingle(),
+      supabase.from("profiles").select("nome").eq("user_id", uid).maybeSingle(),
+    ]);
+    setRole((roleData?.role as AppRole) ?? "usuario");
+    setProfileName(profileData?.nome?.trim() || null);
   };
 
   useEffect(() => {
@@ -43,6 +43,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setTimeout(() => fetchRole(newSession.user.id), 0);
       } else {
         setRole(null);
+        setProfileName(null);
       }
     });
 
@@ -81,7 +82,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const mustChangePassword = user?.user_metadata?.must_change_password === true;
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, isAdmin: role === "admin", mustChangePassword, signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, loading, isAdmin: role === "admin", mustChangePassword, profileName, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );
