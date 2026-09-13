@@ -28,3 +28,11 @@ export const agenteMatchesTipo = (tipo: FichaTipo, nome: string) => {
   if (tipo === "vapores_organicos") return value.includes("vapor") && value.includes("organic");
   return value.includes("quim") || value.includes("poeira") || value.includes("fumo") || value.includes("vapor");
 };
+
+export const formatFichaResultado = (row: any) => {
+  if (row.tipo === "ruido") return `NEN ${row.nen} dB · Dose Q3 ${row.dose_q3}% · LAVG ${row.lavg} dB · Dose Q5 ${row.dose_q5}%`;
+  if (row.tipo === "vibracao_vci") return `AREN ${row.aren} m/s² · VDVR ${row.vdvr} m/s¹·⁷`;
+  if (row.tipo === "vibracao_vmb") return `AREN ${row.aren} m/s²`;
+  if (row.tipo === "calor") return `${row.concentracao} · ${row.taxa_metabolica}`;
+  return `${row.componentes}: ${row.exposicao}`;
+};
