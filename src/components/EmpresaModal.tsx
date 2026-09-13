@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
 import { getGrauRiscoByCnae } from "@/lib/cnaeGrauRisco";
 
 interface Contato {
@@ -357,8 +358,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
 
       let empresaId: string;
       if (isEdit) {
-        const { error } = await supabase.from("empresas").update(payload).eq("id", empresa.id);
-        if (error) throw error;
+        await updateWithVersion("empresas", empresa.id, empresa.row_version ?? 1, payload);
         empresaId = empresa.id;
       } else {
         const { data, error } = await supabase.from("empresas").insert(payload).select("id").single();
@@ -373,7 +373,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
       onSaved();
       onOpenChange(false);
     } catch (err: any) {
-      toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+      toast.error(conflictMessage(err));
     } finally {
       setSaving(false);
     }
