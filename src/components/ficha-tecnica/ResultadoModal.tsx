@@ -45,7 +45,23 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
     if (tipo === "vibracao_vmb") defaults.limite_tolerancia = "5";
     if (tipo === "vibracao_vci") defaults.limite_tolerancia = "1.1";
     const source = registro || defaults;
-    setForm(Object.fromEntries(Object.keys(emptyForm).map((key) => [key, source[key] == null ? defaults[key] || "" : String(source[key])]))) as any;
+    const read = (key: keyof typeof emptyForm) => source[key] == null ? defaults[key] || "" : String(source[key]);
+    setForm({
+      setor_id: read("setor_id"),
+      funcao_id: read("funcao_id"),
+      agente_id: read("agente_id"),
+      data_avaliacao: read("data_avaliacao"),
+      nen: read("nen"),
+      lavg: read("lavg"),
+      aren: read("aren"),
+      vdvr: read("vdvr"),
+      concentracao: read("concentracao"),
+      taxa_metabolica: read("taxa_metabolica"),
+      componentes: read("componentes"),
+      amostrador: read("amostrador"),
+      exposicao: read("exposicao"),
+      limite_tolerancia: read("limite_tolerancia"),
+    });
   }, [open, registro, tipo]);
 
   useEffect(() => {
@@ -57,6 +73,11 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
       toast.error("Preencha setor, função, agente e limite de tolerância.");
       return;
     }
+    if (tipo === "ruido" && (!form.nen || !form.lavg)) return toast.error("Preencha NEN e LAVG.");
+    if ((tipo === "vibracao_vci" || tipo === "vibracao_vmb") && !form.aren) return toast.error("Preencha o AREN.");
+    if (tipo === "vibracao_vci" && !form.vdvr) return toast.error("Preencha o VDVR.");
+    if (tipo === "calor" && (!form.concentracao || !form.taxa_metabolica.trim())) return toast.error("Preencha concentração e taxa metabólica.");
+    if (isFichaQuimica(tipo) && (!form.componentes.trim() || !form.amostrador.trim() || !form.exposicao)) return toast.error("Preencha componentes, amostrador e exposição.");
     setSaving(true);
     try {
       const payload = {
@@ -89,7 +110,7 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader><DialogTitle>{registro ? "Editar" : "Novo resultado"} — {fichaTipoLabel(tipo)}</DialogTitle></DialogHeader>
         <div className="grid gap-4 sm:grid-cols-2 py-2">
-          <Field label="Setor"><Select value={form.setor_id} onValueChange={(value) => setForm((current) => ({ ...current, setor_id: value, funcao_id: "" }))}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{setores.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}</SelectContent></Select></Field>
+          <Field label="Setor"><Select value={form.setor_id} onValueChange={(value) => setForm((current) => ({ ...current, setor_id: value, funcao_id: "" }))}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{setores.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome_setor}</SelectItem>)}</SelectContent></Select></Field>
           <Field label="Função"><Select value={form.funcao_id} onValueChange={(value) => set("funcao_id", value)} disabled={!form.setor_id}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{funcoesDisponiveis.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome_funcao}</SelectItem>)}</SelectContent></Select></Field>
           <Field label="Agente"><Select value={form.agente_id} onValueChange={(value) => set("agente_id", value)}><SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger><SelectContent>{agentesDisponiveis.map((item) => <SelectItem key={item.id} value={item.id}>{item.nome}</SelectItem>)}</SelectContent></Select></Field>
           <Field label="Data da avaliação"><Input type="date" value={form.data_avaliacao} onChange={(e) => set("data_avaliacao", e.target.value)} /></Field>

@@ -30,7 +30,7 @@ export default function FichaTecnicaContrato() {
       const [{ data: empresa }, { data: contrato }, { data: setores }, { data: agentes }] = await Promise.all([
         supabase.from("empresas").select("id, razao_social, nome_fantasia").eq("id", empresaId).single(),
         supabase.from("contratos").select("id, empresa_id, numero_contrato, nome_contratante, local_trabalho").eq("id", contratoId).eq("empresa_id", empresaId).single(),
-        supabase.from("setores").select("id, nome, empresa_id, contrato_id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("nome"),
+        supabase.from("setores").select("id, nome_setor, empresa_id, contrato_id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("nome_setor"),
         supabase.from("riscos").select("id, nome, tipo").order("nome"),
       ]);
       if (!empresa || !contrato) throw new Error("Empresa ou contrato inválido.");
@@ -73,13 +73,14 @@ export default function FichaTecnicaContrato() {
 
   return <div className="space-y-6">
     <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-      <div><button className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 mb-3" onClick={() => navigate("/ficha-tecnica")}><ArrowLeft className="h-4 w-4" /> Ficha Técnica</button><h1 className="font-heading text-2xl font-bold">{contexto.empresa.nome_fantasia || contexto.empresa.razao_social}</h1><p className="text-sm text-muted-foreground">Contrato {contexto.contrato.numero_contrato || contexto.contrato.nome_contratante || "sem número"}</p></div>
+      <div><Button variant="ghost" className="px-0 text-muted-foreground mb-3" onClick={() => navigate("/ficha-tecnica")}><ArrowLeft className="h-4 w-4 mr-1" /> Ficha Técnica</Button><h1 className="font-heading text-2xl font-bold">{contexto.empresa.nome_fantasia || contexto.empresa.razao_social}</h1><p className="text-sm text-muted-foreground">Contrato {contexto.contrato.numero_contrato || contexto.contrato.nome_contratante || "sem número"}</p></div>
       <DropdownMenu><DropdownMenuTrigger asChild><Button><Plus className="h-4 w-4 mr-2" />Resultados</Button></DropdownMenuTrigger><DropdownMenuContent align="end" className="w-72">{FICHA_TIPOS.map((item) => <DropdownMenuItem key={item.value} onClick={() => openNew(item.value)}>{item.label}</DropdownMenuItem>)}</DropdownMenuContent></DropdownMenu>
     </div>
     <Card className="overflow-hidden">
       {isLoading ? <div className="flex justify-center py-16"><Loader2 className="h-6 w-6 animate-spin" /></div> : resultados.length === 0 ? <div className="py-16 text-center text-muted-foreground">Nenhum resultado cadastrado neste contrato.</div> : <Table><TableHeader><TableRow><TableHead>Agente</TableHead><TableHead>Setor</TableHead><TableHead>Função</TableHead><TableHead>Resultado</TableHead><TableHead>LT</TableHead><TableHead className="w-24">Ações</TableHead></TableRow></TableHeader><TableBody>{resultados.map((row) => {
         const setor = contexto.setores.find((item: any) => item.id === row.setor_id); const funcao = contexto.funcoes.find((item: any) => item.id === row.funcao_id);
-        return <TableRow key={row.id}><TableCell><div className="font-medium">{fichaTipoLabel(row.tipo)}</div>{isFichaQuimica(row.tipo) && <div className="text-xs text-muted-foreground">{row.amostrador}</div>}</TableCell><TableCell>{setor?.nome}</TableCell><TableCell>{funcao?.nome_funcao}</TableCell><TableCell>{value(row)}</TableCell><TableCell>{row.limite_tolerancia}</TableCell><TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openEdit(row)} aria-label="Editar"><Edit2 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => remove(row)} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button></div></TableCell></TableRow>;
+        const agente = contexto.agentes.find((item: any) => item.id === row.agente_id);
+        return <TableRow key={row.id}><TableCell><div className="font-medium">{fichaTipoLabel(row.tipo)}</div><div className="text-xs text-muted-foreground">{agente?.nome}{isFichaQuimica(row.tipo) && row.amostrador ? ` · ${row.amostrador}` : ""}</div></TableCell><TableCell>{setor?.nome_setor}</TableCell><TableCell>{funcao?.nome_funcao}</TableCell><TableCell>{value(row)}</TableCell><TableCell>{row.limite_tolerancia}</TableCell><TableCell><div className="flex gap-1"><Button variant="ghost" size="icon" onClick={() => openEdit(row)} aria-label="Editar"><Edit2 className="h-4 w-4" /></Button><Button variant="ghost" size="icon" onClick={() => remove(row)} aria-label="Excluir"><Trash2 className="h-4 w-4 text-destructive" /></Button></div></TableCell></TableRow>;
       })}</TableBody></Table>}
     </Card>
     <ResultadoModal open={modalOpen} onOpenChange={setModalOpen} empresaId={empresaId} contratoId={contratoId} tipo={tipo} setores={contexto.setores} funcoes={contexto.funcoes} agentes={contexto.agentes} registro={editing} onSaved={() => queryClient.invalidateQueries({ queryKey })} />
