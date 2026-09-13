@@ -10,4 +10,4 @@
 - [x] Gerar relatório preliminar do contrato
 - [x] Adicionar série/identificação aos amostradores químicos
 - [x] Criar pesquisa e relatório de amostradores usados
-- [ ] Validar persistência, importação, PDFs e ausência de regressões
+- [x] Validar persistência, importação, PDFs e ausência de regressões
