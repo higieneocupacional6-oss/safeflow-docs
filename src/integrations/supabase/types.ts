@@ -862,6 +862,7 @@ export type Database = {
         Row: {
           agente_id: string
           amostrador: string | null
+          amostrador_serie: string | null
           aren: number | null
           componentes: string | null
           concentracao: number | null
@@ -869,6 +870,8 @@ export type Database = {
           created_at: string
           created_by: string
           data_avaliacao: string
+          dose_q3: number | null
+          dose_q5: number | null
           empresa_id: string
           exposicao: number | null
           funcao_id: string
@@ -887,6 +890,7 @@ export type Database = {
         Insert: {
           agente_id: string
           amostrador?: string | null
+          amostrador_serie?: string | null
           aren?: number | null
           componentes?: string | null
           concentracao?: number | null
@@ -894,6 +898,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           data_avaliacao?: string
+          dose_q3?: number | null
+          dose_q5?: number | null
           empresa_id: string
           exposicao?: number | null
           funcao_id: string
@@ -912,6 +918,7 @@ export type Database = {
         Update: {
           agente_id?: string
           amostrador?: string | null
+          amostrador_serie?: string | null
           aren?: number | null
           componentes?: string | null
           concentracao?: number | null
@@ -919,6 +926,8 @@ export type Database = {
           created_at?: string
           created_by?: string
           data_avaliacao?: string
+          dose_q3?: number | null
+          dose_q5?: number | null
           empresa_id?: string
           exposicao?: number | null
           funcao_id?: string
