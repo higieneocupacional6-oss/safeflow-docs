@@ -20,7 +20,7 @@ export default function ChangePassword() {
 
   const submit = async (event: FormEvent) => {
     event.preventDefault();
-    if (password.length < 8) return toast.error("A nova senha deve ter pelo menos 8 caracteres.");
+    if (password.length < 6) return toast.error("A nova senha deve ter pelo menos 6 caracteres.");
     if (password !== confirm) return toast.error("As novas senhas não coincidem.");
     setSaving(true);
     const { error } = await supabase.auth.updateUser({

@@ -40,7 +40,7 @@ Deno.serve(async (req) => {
       const password = String(body.password || "");
       const nome = String(body.nome || "").trim();
       const role = body.role === "admin" ? "admin" : "usuario";
-      if (!email || !nome || password.length < 8) return json({ error: "Nome, email e senha de 8 caracteres são obrigatórios" }, 400);
+      if (!email || !nome || password.length < 6) return json({ error: "Nome, email e senha de 6 caracteres são obrigatórios" }, 400);
 
       const { data, error } = await admin.auth.admin.createUser({
         email,
@@ -80,7 +80,7 @@ Deno.serve(async (req) => {
 
     if (action === "reset_password") {
       const password = String(body.password || "");
-      if (password.length < 8) return json({ error: "A senha deve ter pelo menos 8 caracteres" }, 400);
+      if (password.length < 6) return json({ error: "A senha deve ter pelo menos 6 caracteres" }, 400);
       const { error } = await admin.auth.admin.updateUserById(userId, {
         password,
         user_metadata: { must_change_password: true },
