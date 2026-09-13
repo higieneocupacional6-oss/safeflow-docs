@@ -207,13 +207,14 @@ export default function Usuarios() {
             )}
             <div className="space-y-2">
               <Label>Perfil</Label>
-              <Select value={form.role} onValueChange={(v) => setForm({ ...form, role: v as AppRole })}>
+              <Select value={form.role} disabled>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="admin">Administrador</SelectItem>
                   <SelectItem value="usuario">Usuário</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-xs text-muted-foreground">Larissa Monteiro é a única administradora.</p>
             </div>
             <div className="flex items-center justify-between rounded-lg border p-3">
               <div>
