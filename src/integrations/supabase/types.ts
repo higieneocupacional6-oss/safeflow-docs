@@ -858,6 +858,120 @@ export type Database = {
         }
         Relationships: []
       }
+      ficha_tecnica_resultados: {
+        Row: {
+          agente_id: string
+          amostrador: string | null
+          aren: number | null
+          componentes: string | null
+          concentracao: number | null
+          contrato_id: string
+          created_at: string
+          created_by: string
+          data_avaliacao: string
+          empresa_id: string
+          exposicao: number | null
+          funcao_id: string
+          id: string
+          last_modified_by: string | null
+          lavg: number | null
+          limite_tolerancia: number
+          nen: number | null
+          row_version: number
+          setor_id: string
+          taxa_metabolica: string | null
+          tipo: string
+          updated_at: string
+          vdvr: number | null
+        }
+        Insert: {
+          agente_id: string
+          amostrador?: string | null
+          aren?: number | null
+          componentes?: string | null
+          concentracao?: number | null
+          contrato_id: string
+          created_at?: string
+          created_by?: string
+          data_avaliacao?: string
+          empresa_id: string
+          exposicao?: number | null
+          funcao_id: string
+          id?: string
+          last_modified_by?: string | null
+          lavg?: number | null
+          limite_tolerancia: number
+          nen?: number | null
+          row_version?: number
+          setor_id: string
+          taxa_metabolica?: string | null
+          tipo: string
+          updated_at?: string
+          vdvr?: number | null
+        }
+        Update: {
+          agente_id?: string
+          amostrador?: string | null
+          aren?: number | null
+          componentes?: string | null
+          concentracao?: number | null
+          contrato_id?: string
+          created_at?: string
+          created_by?: string
+          data_avaliacao?: string
+          empresa_id?: string
+          exposicao?: number | null
+          funcao_id?: string
+          id?: string
+          last_modified_by?: string | null
+          lavg?: number | null
+          limite_tolerancia?: number
+          nen?: number | null
+          row_version?: number
+          setor_id?: string
+          taxa_metabolica?: string | null
+          tipo?: string
+          updated_at?: string
+          vdvr?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ficha_tecnica_resultados_agente_id_fkey"
+            columns: ["agente_id"]
+            isOneToOne: false
+            referencedRelation: "riscos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ficha_tecnica_resultados_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ficha_tecnica_resultados_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ficha_tecnica_resultados_funcao_id_fkey"
+            columns: ["funcao_id"]
+            isOneToOne: false
+            referencedRelation: "funcoes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ficha_tecnica_resultados_setor_id_fkey"
+            columns: ["setor_id"]
+            isOneToOne: false
+            referencedRelation: "setores"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
@@ -1422,6 +1536,7 @@ export type Database = {
           dose_percentual: number | null
           empresa_id: string | null
           equipamento_id: string | null
+          ficha_tecnica_resultado_id: string | null
           fonte_geradora: string | null
           funcao_id: string | null
           funcoes_ges: string | null
@@ -1459,6 +1574,7 @@ export type Database = {
           dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
+          ficha_tecnica_resultado_id?: string | null
           fonte_geradora?: string | null
           funcao_id?: string | null
           funcoes_ges?: string | null
@@ -1496,6 +1612,7 @@ export type Database = {
           dose_percentual?: number | null
           empresa_id?: string | null
           equipamento_id?: string | null
+          ficha_tecnica_resultado_id?: string | null
           fonte_geradora?: string | null
           funcao_id?: string | null
           funcoes_ges?: string | null
@@ -1551,6 +1668,13 @@ export type Database = {
             columns: ["equipamento_id"]
             isOneToOne: false
             referencedRelation: "equipamentos_ho"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ltcat_avaliacoes_ficha_tecnica_resultado_id_fkey"
+            columns: ["ficha_tecnica_resultado_id"]
+            isOneToOne: false
+            referencedRelation: "ficha_tecnica_resultados"
             referencedColumns: ["id"]
           },
           {
@@ -2462,6 +2586,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      import_ficha_tecnica_resultados: {
+        Args: {
+          _contrato_id: string
+          _documento_id: string
+          _empresa_id: string
+          _tipo_documento: string
+        }
+        Returns: Json
       }
       psico_get_public_link: { Args: { _token: string }; Returns: Json }
       psico_submit_resposta: {
