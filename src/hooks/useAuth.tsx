@@ -10,6 +10,7 @@ interface AuthContextValue {
   role: AppRole | null;
   loading: boolean;
   isAdmin: boolean;
+  mustChangePassword: boolean;
   signIn: (email: string, password: string) => Promise<{ error: string | null }>;
   signOut: () => Promise<void>;
 }
@@ -77,8 +78,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
   };
 
+  const mustChangePassword = user?.user_metadata?.must_change_password === true;
+
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, isAdmin: role === "admin", signIn, signOut }}>
+    <AuthContext.Provider value={{ session, user, role, loading, isAdmin: role === "admin", mustChangePassword, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   );

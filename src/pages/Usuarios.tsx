@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Plus, Pencil, Trash2, Loader2, ShieldCheck, User as UserIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, ShieldCheck, User as UserIcon, KeyRound } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -71,36 +71,18 @@ export default function Usuarios() {
     setSaving(true);
     try {
       if (editing) {
-        // Atualiza profile
-        const { error: pErr } = await supabase.from("profiles")
-          .update({ nome: form.nome, ativo: form.ativo })
-          .eq("user_id", editing.user_id);
-        if (pErr) throw pErr;
-        // Atualiza role
-        if (form.role !== editing.role) {
-          await supabase.from("user_roles").delete().eq("user_id", editing.user_id);
-          await supabase.from("user_roles").insert({ user_id: editing.user_id, role: form.role });
-        }
-        toast.success("Usuário atualizado");
-      } else {
-        if (form.password.length < 6) { toast.error("Senha mínima 6 caracteres"); setSaving(false); return; }
-        const redirectUrl = `${window.location.origin}/`;
-        const { data, error } = await supabase.auth.signUp({
-          email: form.email.trim(),
-          password: form.password,
-          options: { emailRedirectTo: redirectUrl, data: { nome: form.nome } },
+        const { error } = await supabase.functions.invoke("manage-users", {
+          body: { action: "update", user_id: editing.user_id, nome: form.nome.trim(), role: form.role, ativo: form.ativo },
         });
         if (error) throw error;
-        // Promove para admin se necessário (trigger sempre cria como 'usuario')
-        if (form.role === "admin" && data.user) {
-          await supabase.from("user_roles").delete().eq("user_id", data.user.id);
-          await supabase.from("user_roles").insert({ user_id: data.user.id, role: "admin" });
-        }
-        // Ajusta ativo se necessário
-        if (!form.ativo && data.user) {
-          await supabase.from("profiles").update({ ativo: false }).eq("user_id", data.user.id);
-        }
-        toast.success("Usuário criado. Email de confirmação enviado.");
+        toast.success("Usuário atualizado");
+      } else {
+        if (form.password.length < 8) { toast.error("Senha mínima 8 caracteres"); setSaving(false); return; }
+        const { error } = await supabase.functions.invoke("manage-users", {
+          body: { action: "create", nome: form.nome.trim(), email: form.email.trim(), password: form.password, role: form.role },
+        });
+        if (error) throw error;
+        toast.success("Usuário criado. A troca da senha será exigida no primeiro acesso.");
       }
       setOpen(false);
       load();
@@ -109,6 +91,17 @@ export default function Usuarios() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleResetPassword = async (row: UsuarioRow) => {
+    const password = window.prompt(`Informe a nova senha inicial para ${row.nome}:`);
+    if (!password) return;
+    if (password.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
+    const { error } = await supabase.functions.invoke("manage-users", {
+      body: { action: "reset_password", user_id: row.user_id, password },
+    });
+    if (error) return toast.error(error.message);
+    toast.success("Senha inicial redefinida. A troca será exigida no próximo acesso.");
   };
 
   const handleDelete = async (row: UsuarioRow) => {
@@ -174,6 +167,9 @@ export default function Usuarios() {
                         <Button size="icon" variant="ghost" onClick={() => openEdit(r)}>
                           <Pencil className="h-4 w-4" />
                         </Button>
+                        <Button size="icon" variant="ghost" onClick={() => handleResetPassword(r)} title="Redefinir senha inicial">
+                          <KeyRound className="h-4 w-4" />
+                        </Button>
                         <Button size="icon" variant="ghost" onClick={() => handleDelete(r)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
@@ -204,9 +200,9 @@ export default function Usuarios() {
             </div>
             {!editing && (
               <div className="space-y-2">
-                <Label>Senha</Label>
+                <Label>Senha inicial</Label>
                 <Input type="password" value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 6 caracteres" />
+                  onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Mínimo 8 caracteres" />
               </div>
             )}
             <div className="space-y-2">

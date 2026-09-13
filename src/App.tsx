@@ -30,6 +30,7 @@ import PsicossocialAvaliacao from "./pages/PsicossocialAvaliacao";
 import PsicossocialRelatorio from "./pages/PsicossocialRelatorio";
 import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
 import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
+import ChangePassword from "./pages/ChangePassword";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -60,6 +61,7 @@ const App = () => (
           <Routes>
 
             <Route path="/login" element={<Login />} />
+            <Route path="/alterar-senha" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
             <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
             <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
             <Route path="/empresas" element={<Protected><Empresas /></Protected>} />

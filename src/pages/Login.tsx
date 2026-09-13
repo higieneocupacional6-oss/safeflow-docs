@@ -8,7 +8,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export default function Login() {
-  const { signIn, user, loading: authLoading } = useAuth();
+  const { signIn, user, loading: authLoading, mustChangePassword } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState("");
@@ -17,6 +17,7 @@ export default function Login() {
   const [error, setError] = useState<string | null>(null);
 
   if (!authLoading && user) {
+    if (mustChangePassword) return <Navigate to="/alterar-senha" replace />;
     const from = (location.state as any)?.from?.pathname || "/empresas";
     return <Navigate to={from} replace />;
   }
@@ -34,8 +35,7 @@ export default function Login() {
       return;
     }
     toast.success("Bem-vindo!");
-    const from = (location.state as any)?.from?.pathname || "/empresas";
-    navigate(from, { replace: true });
+    navigate("/empresas", { replace: true });
   };
 
   return (
