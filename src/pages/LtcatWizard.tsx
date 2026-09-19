@@ -3690,6 +3690,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
+      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
+      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
       const baseFields: any = {
         empresa_id: empresaId || null,
         empresa_nome: empresaNome,
