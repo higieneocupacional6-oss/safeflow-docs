@@ -15,6 +15,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
+import { useAuth } from "@/hooks/useAuth";
 
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
@@ -38,6 +39,15 @@ import {
   type LtcatPersistenceBaseline,
   type LtcatSerializedEvaluation,
 } from "@/lib/ltcatPersistence";
+import {
+  createIndexedDbLtcatQueue,
+  createPendingOperation,
+  isTransientSaveError,
+  isVersionConflictMessage,
+  pendingOperationKey,
+  retryDelayMs,
+  type LtcatPendingOperation,
+} from "@/lib/ltcatOfflineQueue";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -626,6 +636,7 @@ type WizardModo = "ltcat" | "insalubridade" | "periculosidade";
 
 export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = {}) {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { documentoId } = useParams<{ documentoId?: string }>();
   const isEditMode = !!documentoId;
   const tipoDocumento: WizardModo = modo;
@@ -1024,13 +1035,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [savingDraft, setSavingDraft] = useState(false);
   const isPersistingRef = useRef(false);
   const saveQueueRef = useRef(createSerialSaveQueue());
+  const durableQueueRef = useRef(createIndexedDbLtcatQueue());
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingProtectedRef = useRef(false);
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
   const [lastSavedAt, setLastSavedAt] = useState("");
   const [lastSaveMode, setLastSaveMode] = useState<"manual" | "auto" | null>(null);
   // Estado REAL da persistência no banco (não apenas da interface)
-  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "pending" | "offline" | "syncing" | "conflict" | "error">("idle");
   const [saveError, setSaveError] = useState<string>("");
   const lastSavedFingerprintRef = useRef("");
 
