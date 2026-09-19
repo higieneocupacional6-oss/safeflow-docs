@@ -128,7 +128,7 @@ export const isVersionConflictMessage = (message: string) =>
 export const isTransientSaveError = (error: unknown) => {
   const message = error instanceof Error ? error.message : String(error || "");
   return !isVersionConflictMessage(message) &&
-    /fetch|network|rede|offline|timeout|tempo esgotado|temporar|503|502|504|api indisponível/i.test(message);
+    /fetch|network|rede|offline|timeout|tempo esgotado|temporar|internal server|gateway|500|503|502|504|api indisponível/i.test(message);
 };
 
 export const createMemoryLtcatQueue = (): LtcatQueueStorage => {

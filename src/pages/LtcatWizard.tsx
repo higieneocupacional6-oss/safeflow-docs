@@ -1170,7 +1170,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const { data: doc, error: docErr } = await supabase
           .from("documentos").select("*").eq("id", documentoId).single();
         if (docErr || !doc) {
-          if (initialPending?.createDocument && canApplyResponse()) {
+          if (initialPending && canApplyResponse()) {
             setCurrentDraftId(initialPending.documentId);
             currentDraftIdRef.current = initialPending.documentId;
             documentVersionRef.current = initialPending.expectedVersion;
@@ -4653,7 +4653,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               </Button>
               {saveState === "saving" ? (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
+                  <Loader2 className="w-3 h-3 animate-spin" /> 🟡 Salvando...
                 </span>
               ) : saveState === "syncing" ? (
                 <span className="text-xs text-muted-foreground flex items-center gap-1">

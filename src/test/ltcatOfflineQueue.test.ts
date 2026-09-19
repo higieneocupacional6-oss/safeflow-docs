@@ -79,6 +79,7 @@ describe("fila persistente LTCAT/Insalubridade", () => {
 
   it("distingue falha transitória de conflito que exige revisão", () => {
     expect(isTransientSaveError(new Error("Failed to fetch"))).toBe(true);
+    expect(isTransientSaveError(new Error("500 Internal Server Error"))).toBe(true);
     expect(isVersionConflictMessage("Existem alterações mais recentes neste documento")).toBe(true);
     expect(isTransientSaveError(new Error("Existem alterações mais recentes neste documento"))).toBe(false);
   });
