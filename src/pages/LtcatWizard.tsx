@@ -1552,12 +1552,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: (editRisk as any).unidade_tempo_coleta || "",
         parecer_tecnico: editRisk.parecer_tecnico || "",
         aposentadoria_especial: editRisk.aposentadoria_especial || "",
+        epi_epc_id: editRisk.epi_epc_id || "",
         nen_calc: (editRisk as any).nen_calc,
         quimico_calc: (editRisk as any).quimico_calc,
       } as any);
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
-        epi_epc_id: editRisk.epi_epc_id || "",
         epi_ca: editRisk.epi_ca || "",
         epi_atenuacao: editRisk.epi_atenuacao || "",
         epi_eficaz: editRisk.epi_eficaz || "",
@@ -1603,10 +1603,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: "",
         parecer_tecnico: "",
         aposentadoria_especial: "",
+        epi_epc_id: "",
       });
       setEpiEpcRiskForm({
         epi_id: "",
-        epi_epc_id: "",
         epi_ca: "",
         epi_atenuacao: "",
         epi_eficaz: "",
@@ -3690,9 +3690,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         return;
       }
 
-      const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
-      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
-
       const baseFields: any = {
         empresa_id: empresaId || null,
         empresa_nome: empresaNome,
@@ -3708,19 +3705,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         status: "rascunho",
       };
 
-      let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
-      if (docId) {
-        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
-      } else {
-        const { data: inserted } = await supabase.from("documentos").insert({
-          tipo: tipoDocLabel,
-          file_path: null,
-          ...baseFields,
-        } as any).select("id").single();
-        docId = inserted?.id;
-        if (docId) setCurrentDraftId(docId);
-      }
-      if (docId) await persistAvaliacoes(docId);
+      const saved = await handleSaveDraft(false, baseFields, true);
+      if (!saved) throw new Error("O banco não confirmou o salvamento do documento.");
 
       if (allErrors.length > 0) {
         setSmartErrors(allErrors);
@@ -3775,32 +3761,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         setDocumentValidated(true);
 
         // Update status in documentos table
-        const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
-        const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
-
-        let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
-        if (docId) {
-          await supabase.from("documentos").update({ status: "concluido" }).eq("id", docId);
-        } else {
-          const { data: inserted } = await supabase.from("documentos").insert({
-            tipo: tipoDocLabel,
-            empresa_id: empresaId || null,
-            empresa_nome: empresaNome,
-            contrato_id: contratoId || null,
-            template_id: selectedTemplate,
-            responsavel_tecnico: responsavel || null,
-            crea: crea || null,
-            cargo: cargo || null,
-            data_elaboracao: dataElab || null,
-            alteracoes_documento: alteracoesDoc || null,
-            revisoes: (revisoes || []) as any,
-            current_step: step,
-            status: "concluido",
-          } as any).select("id").single();
-          docId = inserted?.id;
-          if (docId) setCurrentDraftId(docId);
-        }
-        if (docId) await persistAvaliacoes(docId);
+        const saved = await handleSaveDraft(false, { status: "concluido" }, true);
+        if (!saved) throw new Error("O banco não confirmou a validação do documento.");
 
         toast.success("Documento validado com sucesso!", {
           description: "Você já pode clicar em 'Gerar Documento' para baixar o arquivo final.",
