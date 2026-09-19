@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   createMemoryLtcatQueue,
   createPendingOperation,
+  canReusePendingOperation,
   isTransientSaveError,
   isVersionConflictMessage,
   retryDelayMs,
@@ -92,5 +93,11 @@ describe("fila persistente LTCAT/Insalubridade", () => {
     await queue.put(large);
     expect((await queue.listForUser("user-1"))).toHaveLength(1);
     expect((await queue.get(large.key))?.evaluations).toHaveLength(1_000);
+  });
+
+  it("reutiliza o checkpoint consolidado em vez de gravá-lo novamente", () => {
+    const pending = { ...operation(1), snapshotFingerprint: "snapshot-1" };
+    expect(canReusePendingOperation(pending, "snapshot-1")).toBe(true);
+    expect(canReusePendingOperation(pending, "snapshot-2")).toBe(false);
   });
 });
