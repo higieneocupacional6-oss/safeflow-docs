@@ -353,7 +353,7 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
 
 /** Verificação mínima de sanidade do XML resultante. */
 function xmlLooksValid(original: string, next: string): boolean {
-  if (!next || next.length < 200) return false;
+  if (!next || next.trim().length === 0) return false;
   const rootMatch = original.match(/<(?:\w+:)?(document|hdr|ftr)[\s>]/);
   const root = rootMatch?.[1];
   if (root && !next.includes(`${root}`)) return false;
