@@ -2610,6 +2610,19 @@ export type Database = {
         Args: { _payload: Json; _token: string }
         Returns: Json
       }
+      save_ltcat_documento_v2: {
+        Args: {
+          _avaliacoes: Json
+          _delete_avaliacao_ids: string[]
+          _delete_child_ids: Json
+          _document_patch: Json
+          _documento_id: string
+          _empresa_id: string
+          _expected_row_version: number
+          _tipo_documento: string
+        }
+        Returns: Json
+      }
       sync_ltcat_avaliacoes: {
         Args: {
           _avaliacoes: Json
