@@ -1423,16 +1423,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         if (!canApplyResponse()) return;
 
-        const loadedBaseline = createLtcatBaseline([]);
-        avaliacoes.forEach((av: any) => {
-          loadedBaseline.childIds.componentes.set(av.id, new Set((compByAv[av.id] || []).map((row: any) => row.id)));
-          loadedBaseline.childIds.calor.set(av.id, new Set((calorByAv[av.id] || []).map((row: any) => row.id)));
-          loadedBaseline.childIds.vibracao.set(av.id, new Set((vibByAv[av.id] || []).map((row: any) => row.id)));
-          loadedBaseline.childIds.resultados.set(av.id, new Set((resByAv[av.id] || []).map((row: any) => row.id)));
-          loadedBaseline.childIds.equipamentos.set(av.id, new Set((eqByAv[av.id] || []).map((row: any) => row.id)));
-          loadedBaseline.childIds.epi_epc.set(av.id, new Set(epiByAv[av.id]?.id ? [epiByAv[av.id].id] : []));
-        });
-        evaluationBaselineRef.current = loadedBaseline;
+        evaluationBaselineRef.current = createLtcatBaseline(buildAvaliacoesPayload(loadedRiscos));
         explicitDeletedEvaluationIdsRef.current.clear();
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
@@ -1918,6 +1909,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (!riskToDeleteItems || selectedItemsToDelete.length === 0) return;
 
     const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    selectedItemsToDelete.forEach((id) => explicitDeletedEvaluationIdsRef.current.add(id));
     const nextRiscos = riscos.map(r => {
       if (r.id === riskToDeleteItems.id) {
         const remainingItems = r.items.filter(i => !selectedItemsToDelete.includes(i.id));
@@ -1944,6 +1937,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setDeleteItemsModalOpen(false);
       toast.success("Itens removidos com sucesso");
     } catch (error) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
       setRiscos(previousRiscos);
       toast.error(error instanceof Error ? error.message : "Erro ao excluir avaliação");
     }
@@ -3238,7 +3232,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   };
 
   const buildAvaliacoesPayload = (riscosSource: RiscoEntry[] = riscos) => {
-    if (!docId || !empresaId) return;
     const asNumber = (value: any) => {
       if (value == null || value === "") return null;
       const parsed = Number(String(value).replace(",", "."));
@@ -3494,6 +3487,47 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     overrides: Record<string, any> = {},
     force = false,
   ): Promise<boolean> => saveQueueRef.current(() => handleSaveDraftInner(silent, overrides, force));
+
+  const deleteRiskEntries = async (entries: RiscoEntry[], successMessage: string) => {
+    const idsToRemove = entries.flatMap((entry) => entry.items.map((item) => item.id));
+    const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    idsToRemove.forEach((id) => explicitDeletedEvaluationIdsRef.current.add(id));
+    const nextRiscos = riscos.filter((risk) => !idsToRemove.includes(risk.id));
+    setRiscos(nextRiscos);
+    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (!saved) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
+      setRiscos(previousRiscos);
+      return;
+    }
+    toast.success(successMessage);
+  };
+
+  const deleteRiskItem = async (agenteId: string, setorId: string, itemId: string) => {
+    const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    explicitDeletedEvaluationIdsRef.current.add(itemId);
+    const nextRiscos = riscos.map((risk) => {
+      if (risk.agente_id !== agenteId || risk.setor_id !== setorId) return risk;
+      return {
+        ...risk,
+        items: risk.items.filter((item) => item.id !== itemId),
+        resultados_calor: risk.resultados_calor?.filter((row) => row.id !== itemId),
+        resultados_vibracao: risk.resultados_vibracao?.filter((row) => row.id !== itemId),
+        resultados_componentes: risk.resultados_componentes?.filter((row) => row.id !== itemId),
+        resultados_detalhados: risk.resultados_detalhados?.filter((row) => row.id !== itemId),
+      };
+    }).filter((risk) => risk.items.length > 0);
+    setRiscos(nextRiscos);
+    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (!saved) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
+      setRiscos(previousRiscos);
+      return;
+    }
+    toast.success("Avaliação removida com sucesso");
+  };
 
   const importFichaTecnica = async () => {
     if (!empresaId || !contratoId) return;
@@ -4201,11 +4235,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                     </Button>
                                     <Button
                                       variant="ghost" size="sm" className="h-8 gap-2 text-[10px] font-bold uppercase text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        const idsToRemove = entriesForAgent.map(e => e.id);
-                                        setRiscos(prev => prev.filter(r => !idsToRemove.includes(r.id)));
-                                        toast.success("Agente removido do setor");
-                                      }}
+                                      onClick={() => void deleteRiskEntries(entriesForAgent, "Agente removido do setor")}
+                                      disabled={savingDraft}
                                     >
                                       <Trash2 className="w-3.5 h-3.5" /> Excluir Card
                                     </Button>
@@ -4264,21 +4295,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                           </Button>
                                           <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
-                                            onClick={() => {
-                                              setRiscos(prev => prev.map(r => {
-                                                if (r.agente_id === agenteId && r.setor_id === setorId) {
-                                                  return {
-                                                    ...r,
-                                                    items: r.items.filter(i => i.id !== item.id),
-                                                    resultados_calor: r.resultados_calor?.filter(x => x.id !== item.id),
-                                                    resultados_vibracao: r.resultados_vibracao?.filter(x => x.id !== item.id),
-                                                    resultados_componentes: r.resultados_componentes?.filter(x => x.id !== item.id),
-                                                    resultados_detalhados: r.resultados_detalhados?.filter(x => x.id !== item.id),
-                                                  };
-                                                }
-                                                return r;
-                                              }).filter(r => r.items.length > 0));
-                                            }}
+                                            onClick={() => void deleteRiskItem(agenteId, setorId, item.id)}
+                                            disabled={savingDraft}
                                           >
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </Button>
