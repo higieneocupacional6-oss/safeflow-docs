@@ -3803,6 +3803,27 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   };
 
   // Autosave consolidado: uma única gravação após a sequência de alterações.
+  // O checkpoint local é criado rapidamente e não gera chamada ao banco.
+  useEffect(() => {
+    if (!empresaId || !hasUnsavedChanges || savingDraft || !user?.id) return;
+    if (isEditMode && !docLoaded) return;
+    const snapshot = currentDraftSnapshot;
+    const timer = setTimeout(() => {
+      stagePendingSnapshot(snapshot)
+        .then(() => {
+          setSaveState(navigator.onLine ? "pending" : "offline");
+          setSaveError("Alterações protegidas e pendentes de sincronização.");
+        })
+        .catch((error) => {
+          console.error("[LTCAT checkpoint local]", error);
+          setSaveState("error");
+          setSaveError("Não foi possível proteger as alterações neste dispositivo.");
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded, user?.id]);
+
   useEffect(() => {
     if (!empresaId || !hasUnsavedChanges || savingDraft) return;
     if (isEditMode && !docLoaded) return;
