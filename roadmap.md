@@ -31,4 +31,4 @@
 - [x] Condicionar fumos e poeiras metálicas a resultado quantitativo
 - [x] Reconhecer marcadores divididos em runs e dentro de tabelas
 - [x] Remover todos os marcadores do documento final
-- [ ] Validar fumos, poeiras, ambos e nenhum
+- [x] Validar fumos, poeiras, ambos e nenhum

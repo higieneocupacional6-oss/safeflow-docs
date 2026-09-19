@@ -3067,8 +3067,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       numero_contrato: cf("numero_contrato"),
       cnpj_contratante: cf("cnpj_contratante"),
       nome_contratante: cf("nome_contratante"),
-      vigencia_inicio: fmtDate(contrato?.vigencia_inicio || empresa?.vigencia_inicio),
-      vigencia_fim: fmtDate(contrato?.vigencia_fim || empresa?.vigencia_fim),
+      vigencia_inicio: fmtDate(contrato?.vigencia_inicio),
+      vigencia_fim: fmtDate(contrato?.vigencia_fim),
       escopo_contrato: cf("escopo_contrato"),
 
       // Responsáveis
