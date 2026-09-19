@@ -30,6 +30,14 @@ import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCa
 import { sortByGes, gesOrder } from "@/lib/sortGes";
 import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
+import {
+  createLtcatBaseline,
+  createSerialSaveQueue,
+  diffLtcatEvaluations,
+  LatestRequestGuard,
+  type LtcatPersistenceBaseline,
+  type LtcatSerializedEvaluation,
+} from "@/lib/ltcatPersistence";
 
 const steps = ["Identificação", "Riscos", "Listagem", "Gerar Documento"];
 
@@ -78,6 +86,7 @@ interface RiscoEntry {
   epi_eficaz?: string;
   epc_id?: string;
   epc_eficaz?: string;
+  epi_epc_id?: string;
   equipamentos_avaliacao?: any[];
 }
 
@@ -775,6 +784,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const fichaPromptedRef = useRef(new Set<string>());
   const [currentDraftId, setCurrentDraftId] = useState<string | null>(documentoId || null);
   const currentDraftIdRef = useRef<string | null>(documentoId || null);
+  const documentVersionRef = useRef<number | null>(null);
+  const evaluationBaselineRef = useRef<LtcatPersistenceBaseline>(createLtcatBaseline([]));
+  const explicitDeletedEvaluationIdsRef = useRef(new Set<string>());
+  const loadGuardRef = useRef(new LatestRequestGuard());
+  const localEditGenerationRef = useRef(0);
 
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
@@ -1008,14 +1022,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   });
 
   const [savingDraft, setSavingDraft] = useState(false);
-  // 🔒 Mutex síncrono para evitar saves concorrentes (autosave + manual + onHide).
-  // Sem isso, dois saves em paralelo passam pelo guard `if (savingDraft) return;`
-  // (setState é assíncrono) e ambos rodam persistAvaliacoes → DUPLICAÇÃO de equipamentos
-  // e demais subdados, pois o delete-then-insert não é atômico entre processos.
   const isPersistingRef = useRef(false);
-  // 🔒 Fila serial de persistência: garante que dois `persistAvaliacoes` nunca
-  // rodem em paralelo (delete-then-insert não é atômico → duplicava riscos).
-  const persistQueueRef = useRef<Promise<any>>(Promise.resolve());
+  const saveQueueRef = useRef(createSerialSaveQueue());
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
@@ -1074,6 +1082,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const hasUnsavedChanges =
     !!empresaId && currentDraftFingerprint !== lastSavedFingerprintRef.current;
 
+  useEffect(() => {
+    if (!docLoaded || !hasUnsavedChanges) return;
+    localEditGenerationRef.current += 1;
+    loadGuardRef.current.invalidate();
+  }, [currentDraftFingerprint, docLoaded, hasUnsavedChanges]);
+
   const markSnapshotAsSaved = (
     snapshot: Record<string, any>,
     mode: "manual" | "auto" | "load" = "manual",
@@ -1110,6 +1124,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (Date.now() < suppressReloadUntilRef.current) return;
     const isReload = docLoaded && reloadTick > 0;
     const loadDocument = async () => {
+      const requestGeneration = loadGuardRef.current.begin();
+      const editGeneration = localEditGenerationRef.current;
+      const canApplyResponse = () =>
+        loadGuardRef.current.isCurrent(requestGeneration) &&
+        localEditGenerationRef.current === editGeneration &&
+        !isPersistingRef.current;
       try {
         const { data: doc, error: docErr } = await supabase
           .from("documentos").select("*").eq("id", documentoId).single();
@@ -1118,6 +1138,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           toast.error("Documento não encontrado");
           return;
         }
+        if (!canApplyResponse()) return;
+        documentVersionRef.current = Number((doc as any).row_version || 1);
         let draftSnapshot: any = null;
         if (!isReload) {
           setCurrentDraftId(doc.id);
@@ -1153,6 +1175,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (avErr) throw avErr;
 
         if (avaliacoes.length === 0) {
+          if (!canApplyResponse()) return;
+          evaluationBaselineRef.current = createLtcatBaseline([]);
+          explicitDeletedEvaluationIdsRef.current.clear();
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
           markSnapshotAsSaved(
             draftSnapshot && typeof draftSnapshot === "object"
@@ -1390,6 +1415,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               };
             }),
             epi_id: epi.epi_id || "",
+            epi_epc_id: epi.id || "",
             epi_ca: epi.epi_ca || "",
             epi_atenuacao: epi.epi_atenuacao || "",
             epi_eficaz: epi.epi_eficaz || "",
@@ -1397,6 +1423,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             epc_eficaz: epi.epc_eficaz || "",
           } as RiscoEntry;
         });
+
+        if (!canApplyResponse()) return;
+
+        evaluationBaselineRef.current = createLtcatBaseline(buildAvaliacoesPayload(loadedRiscos));
+        explicitDeletedEvaluationIdsRef.current.clear();
 
         console.log("📋 [LTCAT EDIT DATA]", { doc, avaliacoes: avaliacoes.length, loadedRiscos });
         console.log("📦 [RASCUNHO CARREGADO]", {
@@ -1521,6 +1552,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: (editRisk as any).unidade_tempo_coleta || "",
         parecer_tecnico: editRisk.parecer_tecnico || "",
         aposentadoria_especial: editRisk.aposentadoria_especial || "",
+        epi_epc_id: editRisk.epi_epc_id || "",
         nen_calc: (editRisk as any).nen_calc,
         quimico_calc: (editRisk as any).quimico_calc,
       } as any);
@@ -1571,6 +1603,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         unidade_tempo_coleta: "",
         parecer_tecnico: "",
         aposentadoria_especial: "",
+        epi_epc_id: "",
       });
       setEpiEpcRiskForm({
         epi_id: "",
@@ -1780,6 +1813,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       resultados_vibracao: finalVibracao,
       resultados_calor: finalCalor,
       epi_id: epiEpcRiskForm.epi_id,
+      epi_epc_id: (riskForm as any).epi_epc_id || "",
       epi_ca: epiEpcRiskForm.epi_ca,
       epi_atenuacao: epiEpcRiskForm.epi_atenuacao,
       epi_eficaz: epiEpcRiskForm.epi_eficaz,
@@ -1857,7 +1891,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nextRiscos = [...propagated, ...newRisks];
         setRiscos(nextRiscos);
       }
-      await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
+      const saved = await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
+      if (!saved) throw new Error("O banco não confirmou o salvamento da avaliação.");
       toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
@@ -1881,6 +1916,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (!riskToDeleteItems || selectedItemsToDelete.length === 0) return;
 
     const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    selectedItemsToDelete.forEach((id) => explicitDeletedEvaluationIdsRef.current.add(id));
     const nextRiscos = riscos.map(r => {
       if (r.id === riskToDeleteItems.id) {
         const remainingItems = r.items.filter(i => !selectedItemsToDelete.includes(i.id));
@@ -1907,6 +1944,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       setDeleteItemsModalOpen(false);
       toast.success("Itens removidos com sucesso");
     } catch (error) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
       setRiscos(previousRiscos);
       toast.error(error instanceof Error ? error.message : "Erro ao excluir avaliação");
     }
@@ -3200,24 +3238,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return doc;
   };
 
-  // Persiste o conjunto em uma única transação no banco. Cada item representa
-  // uma avaliação independente e conserva seu UUID em todos os salvamentos.
-  const persistAvaliacoes = (docId: string, riscosSource: RiscoEntry[] = riscos) => {
-    const next = persistQueueRef.current
-      .catch(() => {})
-      .then(() => persistAvaliacoesInner(docId, riscosSource));
-    persistQueueRef.current = next.catch(() => {});
-    return next;
-  };
-
-  const persistAvaliacoesInner = async (docId: string, riscosSource: RiscoEntry[] = riscos) => {
-    if (!docId || !empresaId) return;
-    if (isEditMode && !docLoaded) {
-      throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
-    }
-
-    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
-    const tipoPersistido = tipoDocumento === "insalubridade" ? "insalubridade" : tipoDocumento;
+  const buildAvaliacoesPayload = (riscosSource: RiscoEntry[] = riscos) => {
     const asNumber = (value: any) => {
       if (value == null || value === "") return null;
       const parsed = Number(String(value).replace(",", "."));
@@ -3234,8 +3255,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const components = Array.isArray(row.componentes) && row.componentes.length
         ? row.componentes
         : (row.componente || row.componente_avaliado || row.resultado != null ? [row] : []);
-      return components.map((component: any) => ({
+      return components.map((component: any, ordem: number) => ({
         id: component.id || crypto.randomUUID(),
+        ordem,
         componente: component.componente_avaliado || component.componente || row.componente || "",
         cas: component.cas || "",
         resultado: asNumber(component.resultado ?? row.resultado),
@@ -3258,7 +3280,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }));
     });
 
-    const avaliacoes = riscosSource.flatMap((risk) => (risk.items || []).map((item, index) => {
+    return riscosSource.flatMap((risk) => (risk.items || []).map((item, index) => {
       const filter = (rows?: any[]) => (rows || []).filter((row) => belongsToItem(row, item, index === 0));
       return {
         id: item.id,
@@ -3292,57 +3314,92 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         tempo_coleta: risk.tempo_coleta || "",
         unidade_tempo_coleta: risk.unidade_tempo_coleta || "",
         componentes: flattenComponentes(filter(risk.resultados_componentes)),
-        calor: filter(risk.resultados_calor).map((row) => ({
+        calor: filter(risk.resultados_calor).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           ibutg_medido: asNumber(row.ibutg_resultado ?? row.ibutg_medido ?? row.exposicao ?? row.resultado_calor),
           ibutg_limite: asNumber(row.ibutg_limite ?? row.limite_tolerancia ?? row.limite_tolerancia_calor),
           m_kcal_h: asNumber(row.m_kcal_h),
         })),
-        vibracao: filter(risk.resultados_vibracao).map((row) => ({
+        vibracao: filter(risk.resultados_vibracao).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           aren: asNumber(row.aren_resultado ?? row.aren),
           vdvr: asNumber(row.vdvr_resultado ?? row.vdvr),
           aren_limite: asNumber(row.aren_limite),
           vdvr_limite: asNumber(row.vdvr_limite),
           tempo_exposicao: row.tempo_exposicao || row.tempo_coleta || "",
         })),
-        resultados: filter(risk.resultados_detalhados).map((row) => ({
+        resultados: filter(risk.resultados_detalhados).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           resultado: asNumber(row.resultado),
           limite_tolerancia: asNumber(row.limite_tolerancia),
           dose_percentual: asNumber(row.dose_percentual),
         })),
-        equipamentos: index === 0 ? (risk.equipamentos_avaliacao || []).map((row) => ({
+        equipamentos: index === 0 ? (risk.equipamentos_avaliacao || []).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
         })) : [],
         epi_epc: risk.epi_id || risk.epc_id || risk.epi_eficaz || risk.epc_eficaz ? {
+          id: risk.epi_epc_id || "",
           epi_id: risk.epi_id || "", epi_ca: risk.epi_ca || "",
           epi_atenuacao: risk.epi_atenuacao || "", epi_eficaz: risk.epi_eficaz || "",
           epc_id: risk.epc_id || "", epc_eficaz: risk.epc_eficaz || "",
         } : {},
       };
-    }));
+    })) as LtcatSerializedEvaluation[];
+  };
 
+  const persistAvaliacoesInner = async (
+    docId: string,
+    expectedVersion: number,
+    documentPatch: Record<string, any>,
+    riscosSource: RiscoEntry[] = riscos,
+  ) => {
+    if (!docId || !empresaId) throw new Error("Documento e empresa são obrigatórios.");
+    if (isEditMode && !docLoaded) {
+      throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
+    }
+
+    suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
+    const tipoPersistido = tipoDocumento === "insalubridade" ? "insalubridade" : tipoDocumento;
+    const avaliacoes = buildAvaliacoesPayload(riscosSource) || [];
     const ids = avaliacoes.map((row) => row.id);
     if (new Set(ids).size !== ids.length) {
       throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
     }
 
-    const { data, error } = await (supabase as any).rpc("sync_ltcat_avaliacoes", {
+    const changes = diffLtcatEvaluations(
+      avaliacoes,
+      evaluationBaselineRef.current,
+      explicitDeletedEvaluationIdsRef.current,
+    );
+    const { data, error } = await (supabase as any).rpc("save_ltcat_documento_v2", {
       _documento_id: docId,
       _empresa_id: empresaId,
       _tipo_documento: tipoPersistido,
-      _avaliacoes: avaliacoes,
+      _expected_row_version: expectedVersion,
+      _document_patch: documentPatch,
+      _avaliacoes: changes.upserts,
+      _delete_avaliacao_ids: changes.deleteEvaluationIds,
+      _delete_child_ids: changes.deleteChildIds,
     });
     if (error) throw new Error(`Falha ao gravar avaliações: ${error.message}`);
-    if (!data?.ok || data.count !== avaliacoes.length) {
-      throw new Error("O banco não confirmou todas as avaliações enviadas.");
+    if (data?.conflict) {
+      throw new Error("Existem alterações mais recentes neste documento. Seus dados locais foram preservados; revise antes de sincronizar novamente.");
     }
-    console.log(`💾 [${tipoDocLabel}] ${data.count} avaliação(ões) persistida(s) para o documento ${docId}`);
+    if (!data?.ok || data.count !== changes.upserts.length) {
+      throw new Error("O banco não confirmou todas as alterações enviadas.");
+    }
+    documentVersionRef.current = Number(data.row_version);
+    evaluationBaselineRef.current = createLtcatBaseline(avaliacoes);
+    explicitDeletedEvaluationIdsRef.current.clear();
+    console.log(`💾 [${tipoDocLabel}] ${data.count} avaliação(ões) alterada(s), ${data.deleted || 0} excluída(s)`);
   };
 
   // SALVAR - persiste snapshot completo + avaliações normalizadas
-  const handleSaveDraft = async (
+  const handleSaveDraftInner = async (
     silent = false,
     overrides: Record<string, any> = {},
     force = false,
@@ -3360,15 +3417,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return true; // já persistido no banco
     }
 
-    // 🔒 Mutex: se já há um save em andamento, aguarda a fila terminar em vez de
-    // ignorar a chamada (ignorar silenciosamente causava perda de dados).
-    if (isPersistingRef.current) {
-      try { await persistQueueRef.current; } catch {}
-      if (isPersistingRef.current) {
-        console.warn("[handleSaveDraft] Save concorrente ainda em andamento");
-        return false;
-      }
-    }
     isPersistingRef.current = true;
     // Suprime re-hidratações realtime/foco até ~5s após o save terminar,
     // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
@@ -3399,16 +3447,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       let docId = currentDraftId;
       if (docId) {
-        const { error } = await supabase.from("documentos").update(baseFields as any).eq("id", docId);
-        if (error) throw error;
+        if (documentVersionRef.current == null) {
+          throw new Error("Versão do documento indisponível. Recarregue o documento antes de salvar.");
+        }
+        await persistAvaliacoesInner(docId, documentVersionRef.current, baseFields, snapshot.riscos || []);
       } else {
         const { data: inserted, error } = await supabase.from("documentos").insert({
           tipo: tipoDocLabel,
           file_path: null,
           ...baseFields,
-        } as any).select("id").single();
+        } as any).select("id, row_version").single();
         if (error) throw error;
         docId = inserted?.id || null;
+        documentVersionRef.current = Number(inserted?.row_version || 1);
         setCurrentDraftId(docId);
         currentDraftIdRef.current = docId;
         if (docId && !documentoId) {
@@ -3417,7 +3468,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
 
       if (!docId) throw new Error("Não foi possível obter o identificador do documento.");
-      await persistAvaliacoes(docId, snapshot.riscos || []);
+      if (!currentDraftId && documentVersionRef.current != null) {
+        await persistAvaliacoesInner(docId, documentVersionRef.current, baseFields, snapshot.riscos || []);
+      }
 
       // ✅ Só marca como salvo APÓS a confirmação de gravação no banco.
       markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
@@ -3440,6 +3493,53 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       suppressReloadUntilRef.current = Date.now() + 5_000;
     }
 
+  };
+
+  const handleSaveDraft = (
+    silent = false,
+    overrides: Record<string, any> = {},
+    force = false,
+  ): Promise<boolean> => saveQueueRef.current(() => handleSaveDraftInner(silent, overrides, force));
+
+  const deleteRiskEntries = async (entries: RiscoEntry[], successMessage: string) => {
+    const idsToRemove = entries.flatMap((entry) => entry.items.map((item) => item.id));
+    const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    idsToRemove.forEach((id) => explicitDeletedEvaluationIdsRef.current.add(id));
+    const nextRiscos = riscos.filter((risk) => !idsToRemove.includes(risk.id));
+    setRiscos(nextRiscos);
+    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (!saved) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
+      setRiscos(previousRiscos);
+      return;
+    }
+    toast.success(successMessage);
+  };
+
+  const deleteRiskItem = async (agenteId: string, setorId: string, itemId: string) => {
+    const previousRiscos = riscos;
+    const previousDeletedIds = new Set(explicitDeletedEvaluationIdsRef.current);
+    explicitDeletedEvaluationIdsRef.current.add(itemId);
+    const nextRiscos = riscos.map((risk) => {
+      if (risk.agente_id !== agenteId || risk.setor_id !== setorId) return risk;
+      return {
+        ...risk,
+        items: risk.items.filter((item) => item.id !== itemId),
+        resultados_calor: risk.resultados_calor?.filter((row) => row.id !== itemId),
+        resultados_vibracao: risk.resultados_vibracao?.filter((row) => row.id !== itemId),
+        resultados_componentes: risk.resultados_componentes?.filter((row) => row.id !== itemId),
+        resultados_detalhados: risk.resultados_detalhados?.filter((row) => row.id !== itemId),
+      };
+    }).filter((risk) => risk.items.length > 0);
+    setRiscos(nextRiscos);
+    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (!saved) {
+      explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
+      setRiscos(previousRiscos);
+      return;
+    }
+    toast.success("Avaliação removida com sucesso");
   };
 
   const importFichaTecnica = async () => {
@@ -3592,7 +3692,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
       const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
-
       const baseFields: any = {
         empresa_id: empresaId || null,
         empresa_nome: empresaNome,
@@ -3608,19 +3707,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         status: "rascunho",
       };
 
-      let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
-      if (docId) {
-        await supabase.from("documentos").update(baseFields as any).eq("id", docId);
-      } else {
-        const { data: inserted } = await supabase.from("documentos").insert({
-          tipo: tipoDocLabel,
-          file_path: null,
-          ...baseFields,
-        } as any).select("id").single();
-        docId = inserted?.id;
-        if (docId) setCurrentDraftId(docId);
-      }
-      if (docId) await persistAvaliacoes(docId);
+      const saved = await handleSaveDraft(false, baseFields, true);
+      if (!saved) throw new Error("O banco não confirmou o salvamento do documento.");
 
       if (allErrors.length > 0) {
         setSmartErrors(allErrors);
@@ -3675,32 +3763,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         setDocumentValidated(true);
 
         // Update status in documentos table
-        const selectedEmpObj = empresas.find((e: any) => e.id === empresaId);
-        const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
-
-        let docId: string | undefined = currentDraftId || (isEditMode ? documentoId : undefined);
-        if (docId) {
-          await supabase.from("documentos").update({ status: "concluido" }).eq("id", docId);
-        } else {
-          const { data: inserted } = await supabase.from("documentos").insert({
-            tipo: tipoDocLabel,
-            empresa_id: empresaId || null,
-            empresa_nome: empresaNome,
-            contrato_id: contratoId || null,
-            template_id: selectedTemplate,
-            responsavel_tecnico: responsavel || null,
-            crea: crea || null,
-            cargo: cargo || null,
-            data_elaboracao: dataElab || null,
-            alteracoes_documento: alteracoesDoc || null,
-            revisoes: (revisoes || []) as any,
-            current_step: step,
-            status: "concluido",
-          } as any).select("id").single();
-          docId = inserted?.id;
-          if (docId) setCurrentDraftId(docId);
-        }
-        if (docId) await persistAvaliacoes(docId);
+        const saved = await handleSaveDraft(false, { status: "concluido" }, true);
+        if (!saved) throw new Error("O banco não confirmou a validação do documento.");
 
         toast.success("Documento validado com sucesso!", {
           description: "Você já pode clicar em 'Gerar Documento' para baixar o arquivo final.",
@@ -3779,21 +3843,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
       const docId = currentDraftId || (isEditMode ? documentoId : undefined);
       if (docId) {
-        await supabase.from("documentos").update({
+        const saved = await handleSaveDraft(false, {
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        }).eq("id", docId);
+        }, true);
+        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
       } else {
-        const { data: ins } = await supabase.from("documentos").insert({
-          tipo: tipoDocLabel,
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          contrato_id: contratoId || null,
-          template_id: selectedTemplate,
+        const saved = await handleSaveDraft(false, {
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        } as any).select("id").single();
-        if (ins?.id) setCurrentDraftId(ins.id);
+        }, true);
+        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
       }
 
       saveAs(output, fileName);
@@ -4148,11 +4208,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                     </Button>
                                     <Button
                                       variant="ghost" size="sm" className="h-8 gap-2 text-[10px] font-bold uppercase text-destructive hover:bg-destructive/10"
-                                      onClick={() => {
-                                        const idsToRemove = entriesForAgent.map(e => e.id);
-                                        setRiscos(prev => prev.filter(r => !idsToRemove.includes(r.id)));
-                                        toast.success("Agente removido do setor");
-                                      }}
+                                      onClick={() => void deleteRiskEntries(entriesForAgent, "Agente removido do setor")}
+                                      disabled={savingDraft}
                                     >
                                       <Trash2 className="w-3.5 h-3.5" /> Excluir Card
                                     </Button>
@@ -4211,21 +4268,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                           </Button>
                                           <Button
                                             size="sm" variant="ghost" className="h-8 w-8 p-0 text-destructive opacity-0 group-hover/line:opacity-100 transition-all hover:bg-destructive/10 rounded-lg"
-                                            onClick={() => {
-                                              setRiscos(prev => prev.map(r => {
-                                                if (r.agente_id === agenteId && r.setor_id === setorId) {
-                                                  return {
-                                                    ...r,
-                                                    items: r.items.filter(i => i.id !== item.id),
-                                                    resultados_calor: r.resultados_calor?.filter(x => x.id !== item.id),
-                                                    resultados_vibracao: r.resultados_vibracao?.filter(x => x.id !== item.id),
-                                                    resultados_componentes: r.resultados_componentes?.filter(x => x.id !== item.id),
-                                                    resultados_detalhados: r.resultados_detalhados?.filter(x => x.id !== item.id),
-                                                  };
-                                                }
-                                                return r;
-                                              }).filter(r => r.items.length > 0));
-                                            }}
+                                            onClick={() => void deleteRiskItem(agenteId, setorId, item.id)}
+                                            disabled={savingDraft}
                                           >
                                             <Trash2 className="w-3.5 h-3.5" />
                                           </Button>
