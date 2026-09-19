@@ -34,7 +34,6 @@ import {
   createLtcatBaseline,
   createSerialSaveQueue,
   diffLtcatEvaluations,
-  hasLtcatPersistenceChanges,
   LatestRequestGuard,
   type LtcatPersistenceBaseline,
   type LtcatSerializedEvaluation,
@@ -1176,6 +1175,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
         if (avaliacoes.length === 0) {
           if (!canApplyResponse()) return;
+          evaluationBaselineRef.current = createLtcatBaseline([]);
+          explicitDeletedEvaluationIdsRef.current.clear();
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
           markSnapshotAsSaved(
             draftSnapshot && typeof draftSnapshot === "object"
@@ -1885,7 +1886,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nextRiscos = [...propagated, ...newRisks];
         setRiscos(nextRiscos);
       }
-      await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
+      const saved = await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
+      if (!saved) throw new Error("O banco não confirmou o salvamento da avaliação.");
       toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
