@@ -1163,9 +1163,26 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         localEditGenerationRef.current === editGeneration &&
         !isPersistingRef.current;
       try {
+        const initialPendingKey = user?.id && documentoId
+          ? pendingOperationKey(user.id, tipoDocumento, documentoId)
+          : "";
+        const initialPending = initialPendingKey ? await durableQueueRef.current.get(initialPendingKey) : null;
         const { data: doc, error: docErr } = await supabase
           .from("documentos").select("*").eq("id", documentoId).single();
         if (docErr || !doc) {
+          if (initialPending?.createDocument && canApplyResponse()) {
+            setCurrentDraftId(initialPending.documentId);
+            currentDraftIdRef.current = initialPending.documentId;
+            documentVersionRef.current = initialPending.expectedVersion;
+            evaluationBaselineRef.current = createLtcatBaseline([]);
+            explicitDeletedEvaluationIdsRef.current = new Set(initialPending.changes.deleteEvaluationIds);
+            applyRecoveredSnapshot(initialPending.snapshot);
+            pendingProtectedRef.current = true;
+            setSaveState(navigator.onLine ? "pending" : "offline");
+            setSaveError("Alterações locais protegidas aguardando sincronização.");
+            setDocLoaded(true);
+            return;
+          }
           console.error("📋 [LTCAT EDIT] Documento não encontrado:", docErr);
           toast.error("Documento não encontrado");
           return;
@@ -3508,6 +3525,59 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }, delay);
   };
 
+  const stagePendingSnapshot = async (snapshot: Record<string, any>) => {
+    if (!user?.id || !snapshot.empresaId) throw new Error("Sessão e empresa são obrigatórias.");
+    if (isEditMode && documentVersionRef.current == null) {
+      throw new Error("Versão do documento indisponível. Recarregue o documento antes de salvar.");
+    }
+    const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
+    const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+    const documentPatch = {
+      empresa_id: snapshot.empresaId,
+      empresa_nome: empresaNome,
+      contrato_id: snapshot.contratoId || null,
+      template_id: snapshot.selectedTemplate || null,
+      responsavel_tecnico: snapshot.responsavel || null,
+      crea: snapshot.crea || null,
+      cargo: snapshot.cargo || null,
+      data_elaboracao: snapshot.dataElab || null,
+      alteracoes_documento: snapshot.alteracoesDoc || null,
+      revisoes: snapshot.revisoes || [],
+      current_step: snapshot.step ?? 0,
+      draft_snapshot: snapshot,
+      status: "rascunho",
+    };
+    const docId = currentDraftIdRef.current || crypto.randomUUID();
+    const expectedVersion = documentVersionRef.current ?? 1;
+    const evaluations = buildAvaliacoesPayload(snapshot.riscos || []) || [];
+    const ids = evaluations.map((row) => row.id);
+    if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
+    const key = pendingOperationKey(user.id, tipoDocumento, docId);
+    const previous = await durableQueueRef.current.get(key);
+    const operation = createPendingOperation({
+      userId: user.id,
+      documentId: docId,
+      empresaId: snapshot.empresaId,
+      tipoDocumento,
+      tipoDocLabel,
+      expectedVersion,
+      createDocument: previous?.createDocument ?? !currentDraftIdRef.current,
+      documentPatch,
+      changes: diffLtcatEvaluations(evaluations, evaluationBaselineRef.current, explicitDeletedEvaluationIdsRef.current),
+      evaluations,
+      snapshot,
+    }, previous);
+    await durableQueueRef.current.put(operation);
+    pendingProtectedRef.current = true;
+    if (!currentDraftIdRef.current) {
+      setCurrentDraftId(docId);
+      currentDraftIdRef.current = docId;
+      documentVersionRef.current = expectedVersion;
+      navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
+    }
+    return operation;
+  };
+
   // SALVAR - persiste snapshot completo + avaliações normalizadas
   const handleSaveDraftInner = async (
     silent = false,
@@ -3536,57 +3606,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     setSaveError("");
     try {
 
-      const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
-      const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
-
-      const baseFields: any = {
-        empresa_id: snapshot.empresaId,
-        empresa_nome: empresaNome,
-        contrato_id: snapshot.contratoId || null,
-        template_id: snapshot.selectedTemplate || null,
-        responsavel_tecnico: snapshot.responsavel || null,
-        crea: snapshot.crea || null,
-        cargo: snapshot.cargo || null,
-        data_elaboracao: snapshot.dataElab || null,
-        alteracoes_documento: snapshot.alteracoesDoc || null,
-        revisoes: snapshot.revisoes || [],
-        current_step: snapshot.step ?? 0,
-        draft_snapshot: snapshot,
-        status: "rascunho",
-      };
-
-      if (!user?.id) throw new Error("Sessão do usuário indisponível.");
-      const docId = currentDraftId || crypto.randomUUID();
-      const expectedVersion = documentVersionRef.current ?? 1;
-      const avaliacoes = buildAvaliacoesPayload(snapshot.riscos || []) || [];
-      const ids = avaliacoes.map((row) => row.id);
-      if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
-      if (isEditMode && documentVersionRef.current == null) {
-        throw new Error("Versão do documento indisponível. Recarregue o documento antes de salvar.");
-      }
-      const key = pendingOperationKey(user.id, tipoDocumento, docId);
-      const previous = await durableQueueRef.current.get(key);
-      const createDocument = previous?.createDocument ?? !currentDraftId;
-      const operation = createPendingOperation({
-        userId: user.id,
-        documentId: docId,
-        empresaId: snapshot.empresaId,
-        tipoDocumento,
-        tipoDocLabel,
-        expectedVersion,
-        createDocument,
-        documentPatch: baseFields,
-        changes: diffLtcatEvaluations(avaliacoes, evaluationBaselineRef.current, explicitDeletedEvaluationIdsRef.current),
-        evaluations: avaliacoes,
-        snapshot,
-      }, previous);
-      await durableQueueRef.current.put(operation);
-      pendingProtectedRef.current = true;
-      if (!currentDraftId) {
-        setCurrentDraftId(docId);
-        currentDraftIdRef.current = docId;
-        documentVersionRef.current = expectedVersion;
-      }
+      const operation = await stagePendingSnapshot(snapshot);
+      const docId = operation.documentId;
+      const createDocument = operation.createDocument;
       setSaveState(navigator.onLine ? "saving" : "offline");
       if (!navigator.onLine) {
         schedulePendingRetry(operation);
@@ -3615,9 +3637,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             schedulePendingRetry(rebased);
           }
           return true;
-        }
-        if (createDocument) {
-          navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
         }
         markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
         if (!silent) toast.success("Salvo com sucesso");
