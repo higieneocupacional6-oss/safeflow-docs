@@ -36,6 +36,7 @@ import {
   createSerialSaveQueue,
   diffLtcatEvaluations,
   LatestRequestGuard,
+  stableFingerprint,
   type LtcatPersistenceBaseline,
   type LtcatSerializedEvaluation,
 } from "@/lib/ltcatPersistence";
@@ -1117,6 +1118,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     );
   };
 
+  const applyRecoveredSnapshot = (snapshot: Record<string, any>) => {
+    if (snapshot.empresaId) setEmpresaId(snapshot.empresaId);
+    setContratoId(snapshot.contratoId || "");
+    setSelectedTemplate(snapshot.selectedTemplate || "");
+    setResponsavel(snapshot.responsavel || "");
+    setCrea(snapshot.crea || "");
+    setCargo(snapshot.cargo || "");
+    setDataElab(snapshot.dataElab || "");
+    setAlteracoesDoc(snapshot.alteracoesDoc || "");
+    setRevisoes(Array.isArray(snapshot.revisoes) ? snapshot.revisoes : []);
+    if (typeof snapshot.step === "number") setStep(snapshot.step);
+    if (Array.isArray(snapshot.riscos)) setRiscos(snapshot.riscos as RiscoEntry[]);
+    if (snapshot.riskForm) setRiskForm(snapshot.riskForm);
+    if (snapshot.currentRiskSetor) setCurrentRiskSetor(snapshot.currentRiskSetor);
+    setEditingRiskId(snapshot.editingRiskId || null);
+  };
+
   // Aviso ao sair com possíveis alterações não salvas
   useEffect(() => {
     const handler = (e: BeforeUnloadEvent) => {
@@ -1153,6 +1171,16 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           return;
         }
         if (!canApplyResponse()) return;
+
+        const pendingKey = user?.id && documentoId
+          ? pendingOperationKey(user.id, tipoDocumento, documentoId)
+          : "";
+        const pending = pendingKey ? await durableQueueRef.current.get(pendingKey) : null;
+        if (!canApplyResponse()) return;
+        if (pending && stableFingerprint((doc as any).draft_snapshot) === stableFingerprint(pending.snapshot)) {
+          await durableQueueRef.current.removeIfRevision(pending.key, pending.revision);
+          pendingProtectedRef.current = false;
+        }
         documentVersionRef.current = Number((doc as any).row_version || 1);
         let draftSnapshot: any = null;
         if (!isReload) {
@@ -1452,8 +1480,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             funcoes: r.items.map(i => ({ funcao_id: i.funcao_id, funcao_nome: i.funcao_nome })),
           })),
         });
-        setRiscos(loadedRiscos);
-        markSnapshotAsSaved(buildDraftSnapshot({
+        const loadedSnapshot = buildDraftSnapshot({
           empresaId: doc.empresa_id || "",
           contratoId: (doc as any).contrato_id || "",
           selectedTemplate: doc.template_id || "",
@@ -1465,7 +1492,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           revisoes: (doc as any).revisoes || [],
           step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
           riscos: loadedRiscos,
-        }), "load");
+        });
+        const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.snapshot)
+          ? pending
+          : null;
+        if (activePending) {
+          applyRecoveredSnapshot(activePending.snapshot);
+          explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
+          pendingProtectedRef.current = true;
+          setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+          setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
+            ? "Alterações locais protegidas aguardando sincronização."
+            : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+          lastSavedFingerprintRef.current = stableFingerprint(loadedSnapshot);
+        } else {
+          setRiscos(loadedRiscos);
+          markSnapshotAsSaved(loadedSnapshot, "load");
+        }
         setDocLoaded(true);
         if (isReload) {
           console.log(`🔄 [LISTAGEM] Re-hidratada com ${loadedRiscos.length} avaliação(ões) do banco`);
@@ -1478,7 +1521,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
     };
     loadDocument();
-  }, [isEditMode, documentoId, docLoaded, reloadTick]);
+  }, [isEditMode, documentoId, docLoaded, reloadTick, user?.id]);
 
   // 🔄 Re-hidratar Listagem ao retornar para etapa, focar na aba ou detectar
   // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
