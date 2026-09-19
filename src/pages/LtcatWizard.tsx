@@ -86,6 +86,7 @@ interface RiscoEntry {
   epi_eficaz?: string;
   epc_id?: string;
   epc_eficaz?: string;
+  epi_epc_id?: string;
   equipamentos_avaliacao?: any[];
 }
 
@@ -1414,6 +1415,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               };
             }),
             epi_id: epi.epi_id || "",
+            epi_epc_id: epi.id || "",
             epi_ca: epi.epi_ca || "",
             epi_atenuacao: epi.epi_atenuacao || "",
             epi_eficaz: epi.epi_eficaz || "",
@@ -1555,6 +1557,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       } as any);
       setEpiEpcRiskForm({
         epi_id: editRisk.epi_id || "",
+        epi_epc_id: editRisk.epi_epc_id || "",
         epi_ca: editRisk.epi_ca || "",
         epi_atenuacao: editRisk.epi_atenuacao || "",
         epi_eficaz: editRisk.epi_eficaz || "",
@@ -1603,6 +1606,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       });
       setEpiEpcRiskForm({
         epi_id: "",
+        epi_epc_id: "",
         epi_ca: "",
         epi_atenuacao: "",
         epi_eficaz: "",
@@ -1809,6 +1813,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       resultados_vibracao: finalVibracao,
       resultados_calor: finalCalor,
       epi_id: epiEpcRiskForm.epi_id,
+      epi_epc_id: (riskForm as any).epi_epc_id || "",
       epi_ca: epiEpcRiskForm.epi_ca,
       epi_atenuacao: epiEpcRiskForm.epi_atenuacao,
       epi_eficaz: epiEpcRiskForm.epi_eficaz,
@@ -3250,8 +3255,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const components = Array.isArray(row.componentes) && row.componentes.length
         ? row.componentes
         : (row.componente || row.componente_avaliado || row.resultado != null ? [row] : []);
-      return components.map((component: any) => ({
+      return components.map((component: any, ordem: number) => ({
         id: component.id || crypto.randomUUID(),
+        ordem,
         componente: component.componente_avaliado || component.componente || row.componente || "",
         cas: component.cas || "",
         resultado: asNumber(component.resultado ?? row.resultado),
@@ -3308,30 +3314,35 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         tempo_coleta: risk.tempo_coleta || "",
         unidade_tempo_coleta: risk.unidade_tempo_coleta || "",
         componentes: flattenComponentes(filter(risk.resultados_componentes)),
-        calor: filter(risk.resultados_calor).map((row) => ({
+        calor: filter(risk.resultados_calor).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           ibutg_medido: asNumber(row.ibutg_resultado ?? row.ibutg_medido ?? row.exposicao ?? row.resultado_calor),
           ibutg_limite: asNumber(row.ibutg_limite ?? row.limite_tolerancia ?? row.limite_tolerancia_calor),
           m_kcal_h: asNumber(row.m_kcal_h),
         })),
-        vibracao: filter(risk.resultados_vibracao).map((row) => ({
+        vibracao: filter(risk.resultados_vibracao).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           aren: asNumber(row.aren_resultado ?? row.aren),
           vdvr: asNumber(row.vdvr_resultado ?? row.vdvr),
           aren_limite: asNumber(row.aren_limite),
           vdvr_limite: asNumber(row.vdvr_limite),
           tempo_exposicao: row.tempo_exposicao || row.tempo_coleta || "",
         })),
-        resultados: filter(risk.resultados_detalhados).map((row) => ({
+        resultados: filter(risk.resultados_detalhados).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
           resultado: asNumber(row.resultado),
           limite_tolerancia: asNumber(row.limite_tolerancia),
           dose_percentual: asNumber(row.dose_percentual),
         })),
-        equipamentos: index === 0 ? (risk.equipamentos_avaliacao || []).map((row) => ({
+        equipamentos: index === 0 ? (risk.equipamentos_avaliacao || []).map((row, ordem) => ({
           ...row, id: row.id || crypto.randomUUID(),
+          ordem,
         })) : [],
         epi_epc: risk.epi_id || risk.epc_id || risk.epi_eficaz || risk.epc_eficaz ? {
+          id: risk.epi_epc_id || "",
           epi_id: risk.epi_id || "", epi_ca: risk.epi_ca || "",
           epi_atenuacao: risk.epi_atenuacao || "", epi_eficaz: risk.epi_eficaz || "",
           epc_id: risk.epc_id || "", epc_eficaz: risk.epc_eficaz || "",
