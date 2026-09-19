@@ -1257,11 +1257,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (activePending) {
             applyRecoveredSnapshot(activePending.snapshot);
             explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-            pendingProtectedRef.current = true;
-            setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-            setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
-              ? "Alterações locais protegidas aguardando sincronização."
-              : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+            pendingProtectedRef.current = activePending.needsSync !== false;
+            setSaveState(activePending.needsSync === false
+              ? "saved"
+              : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+            setSaveError(activePending.needsSync === false
+              ? ""
+              : Number((doc as any).row_version || 1) === activePending.expectedVersion
+                ? "Alterações locais protegidas aguardando sincronização."
+                : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
             lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(emptySnapshot));
           } else {
             explicitDeletedEvaluationIdsRef.current.clear();
@@ -1527,11 +1531,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (activePending) {
           applyRecoveredSnapshot(activePending.snapshot);
           explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-          pendingProtectedRef.current = true;
-          setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-          setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
-            ? "Alterações locais protegidas aguardando sincronização."
-            : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+          pendingProtectedRef.current = activePending.needsSync !== false;
+          setSaveState(activePending.needsSync === false
+            ? "saved"
+            : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+          setSaveError(activePending.needsSync === false
+            ? ""
+            : Number((doc as any).row_version || 1) === activePending.expectedVersion
+              ? "Alterações locais protegidas aguardando sincronização."
+              : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
           lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(loadedSnapshot));
         } else {
           setRiscos(loadedRiscos);
@@ -3557,7 +3565,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
     const key = pendingOperationKey(user.id, tipoDocumento, docId);
     const previous = await durableQueueRef.current.get(key);
-    const needsSync = currentPersistedFingerprint !== lastSavedFingerprintRef.current || Boolean(previous?.needsSync);
+    const needsSync = stableFingerprint(createLtcatPersistedSnapshot(snapshot)) !== lastSavedFingerprintRef.current || Boolean(previous?.needsSync);
     const operation = createPendingOperation({
       userId: user.id,
       documentId: docId,
@@ -3576,7 +3584,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }, previous);
     await durableQueueRef.current.put(operation);
     lastCheckpointFingerprintRef.current = JSON.stringify(snapshot);
-    pendingProtectedRef.current = true;
+    pendingProtectedRef.current = needsSync;
     if (!currentDraftIdRef.current) {
       setCurrentDraftId(docId);
       currentDraftIdRef.current = docId;
