@@ -24,7 +24,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
-import { buildAgentFlags, aggregateAgentFlags } from "@/lib/agentFlags";
+import { buildAgentFlags, buildMetalQuantitativeFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import { createAgentScopedParser } from "@/lib/setorLoopScope";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
@@ -2678,6 +2678,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           is_hidroxido_sodio,
           // Flags automáticas por agente (escalável — ver src/lib/agentFlags.ts)
           ...buildAgentFlags(first.agente_nome),
+          // Fumos/poeiras metálicas exigem avaliação quantitativa com resultado.
+          ...buildMetalQuantitativeFlags({
+            ...first,
+            is_quantitativo,
+            avaliacoes: avaliacoesEnriched,
+            resultados_componentes: agentEntries.flatMap((entry: any) => entry.resultados_componentes || []),
+          }),
           is_qualitativo,
           is_quantitativo,
           // Blocos condicionais Qualitativa + tipo de agente (mesmo contexto de is_qualitativo)
@@ -2965,6 +2972,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           || normalized_agente_nome.includes("soda caustica")
           || normalized_agente_nome.replace(/\s/g, "").includes("naoh"),
         ...buildAgentFlags(r.agente_nome),
+        ...buildMetalQuantitativeFlags({
+          ...r,
+          is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+          avaliacoes: [
+            ...(r.resultados_detalhados || []),
+            ...(r.resultados_componentes || []),
+          ],
+        }),
         is_qualitativo: _isQual,
         is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
         is_qualitativo_quimico: _isQual && _aQ,

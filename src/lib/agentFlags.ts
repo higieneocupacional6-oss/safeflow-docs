@@ -52,6 +52,47 @@ export const AGENT_FLAG_MAP: AgentFlagDef[] = [
 
 export const AGENT_FLAG_KEYS = AGENT_FLAG_MAP.map((d) => d.flag);
 
+const RESULT_FIELDS = [
+  "resultado",
+  "exposicao",
+  "concentracao",
+  "media_concentracao",
+] as const;
+
+const hasValue = (value: any): boolean =>
+  value != null && String(value).trim() !== "" && String(value).trim().toLowerCase() !== "null";
+
+/** Confirma que existe uma medição quantitativa real, inclusive em componentes químicos. */
+export const hasQuantitativeResult = (risco: any): boolean => {
+  const candidates = [
+    risco,
+    ...(Array.isArray(risco?.avaliacoes) ? risco.avaliacoes : []),
+    ...(Array.isArray(risco?.resultados_componentes) ? risco.resultados_componentes : []),
+  ];
+
+  return candidates.some((candidate: any) => {
+    if (!candidate) return false;
+    if (RESULT_FIELDS.some((field) => hasValue(candidate[field]))) return true;
+    const components = [
+      ...(Array.isArray(candidate.componentes) ? candidate.componentes : []),
+      ...(Array.isArray(candidate.componentes_amostra) ? candidate.componentes_amostra : []),
+    ];
+    return components.some((component: any) => RESULT_FIELDS.some((field) => hasValue(component?.[field])));
+  });
+};
+
+/** Flags cujo bloco só pode existir com avaliação quantitativa e resultado preenchido. */
+export const buildMetalQuantitativeFlags = (risco: any): Record<string, boolean> => {
+  const flags = buildAgentFlags(risco?.agente_nome ?? risco?.agente ?? risco);
+  const tipo = String(risco?.tipo_avaliacao || "").toLowerCase();
+  const isQuantitative = risco?.is_quantitativo === true || tipo.includes("quantitativ");
+  const enabled = isQuantitative && hasQuantitativeResult(risco);
+  return {
+    is_fumosmetalicos: enabled && flags.is_fumosmetalicos,
+    is_poeirasmetalicas: enabled && flags.is_poeirasmetalicas,
+  };
+};
+
 /** Flags de um único agente (todas as chaves presentes: true/false). */
 export const buildAgentFlags = (agenteNome: any): Record<string, boolean> => {
   const n = normalizeAgente(agenteNome);
@@ -76,7 +117,11 @@ export const aggregateAgentFlags = (riscos: any[]): Record<string, boolean> => {
   (riscos || []).forEach((r: any) => {
     const flags = buildAgentFlags(r?.agente_nome ?? r?.agente ?? r);
     AGENT_FLAG_KEYS.forEach((k) => {
-      if (flags[k] || r?.[k] === true) out[k] = true;
+      const requiresQuantitativeResult = k === "is_fumosmetalicos" || k === "is_poeirasmetalicas";
+      const matches = requiresQuantitativeResult
+        ? buildMetalQuantitativeFlags(r)[k]
+        : flags[k] || r?.[k] === true;
+      if (matches) out[k] = true;
     });
   });
   return out;

@@ -27,7 +27,12 @@
  */
 
 import PizZip from "pizzip";
-import { AGENT_FLAG_MAP, buildAgentFlags } from "@/lib/agentFlags";
+import {
+  AGENT_FLAG_MAP,
+  buildAgentFlags,
+  buildMetalQuantitativeFlags,
+  hasQuantitativeResult,
+} from "@/lib/agentFlags";
 
 const BASE_BLOCK_KEYS = [
   "risco_ruido",
@@ -77,7 +82,7 @@ export function computePresentBlocks(templateData: any): Set<string> {
 
   for (const r of allRiscos) {
     const nome = norm(r?.agente_nome);
-    const isQuant = !!r?.is_quantitativo;
+    const isQuant = !!r?.is_quantitativo || norm(r?.tipo_avaliacao).includes("quantitativ");
     const isQual = !!r?.is_qualitativo;
     const isFisico = !!(r?.is_fisico || r?.is_agente_fisico);
     const isQuimico = !!(r?.is_quimico || r?.is_agente_quimico);
@@ -107,11 +112,12 @@ export function computePresentBlocks(templateData: any): Set<string> {
     if (isBiologico && isQual) present.add("risco_biologico");
 
     // Blocos quantitativos por agente químico específico (escaláveis via AGENT_FLAG_MAP)
-    const agentFlags = buildAgentFlags(r?.agente_nome);
-    const temResultado =
-      Array.isArray(r?.avaliacoes) &&
-      r.avaliacoes.some((a: any) => a?.resultado != null && String(a.resultado).trim() !== "");
-    if (isQuant || temResultado) {
+    const agentFlags = {
+      ...buildAgentFlags(r?.agente_nome),
+      ...buildMetalQuantitativeFlags(r),
+    };
+    const temResultado = hasQuantitativeResult(r);
+    if (isQuant && temResultado) {
       for (const def of AGENT_FLAG_MAP) {
         if (agentFlags[def.flag] || r?.[def.flag] === true) {
           present.add(`${def.flag.replace(/^is_/, "")}_quantitativo`);
@@ -297,7 +303,8 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
     removeSiblingsRange(a, b);
   }
 
-  // Para os blocos que permaneceram, remove apenas os marcadores.
+  // Para os blocos que permaneceram, remove apenas os marcadores. A leitura
+  // concatenada cobre marcadores que o Word dividiu entre vários runs.
   const remainingParas = Array.from(doc.getElementsByTagNameNS("*", "p")) as Element[];
   for (const p of remainingParas) {
     const text = paragraphText(p);
@@ -321,6 +328,16 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
         p.parentNode?.removeChild(p);
       }
     }
+  }
+
+  // Segurança final: nenhum marcador pode aparecer no arquivo entregue,
+  // inclusive um marcador órfão ou inserido em uma célula sem o seu par.
+  const allTextNodes = Array.from(doc.getElementsByTagNameNS("*", "t"));
+  for (const textNode of allTextNodes) {
+    textNode.textContent = (textNode.textContent || "").replace(
+      /#(?:inicio|fim)_texto_[a-z0-9_]+/gi,
+      "",
+    );
   }
 
   let out = new XMLSerializer().serializeToString(doc);
