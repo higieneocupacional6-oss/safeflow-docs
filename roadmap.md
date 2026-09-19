@@ -26,3 +26,9 @@
 - [x] Enviar somente metadados e avaliações realmente alterados
 - [x] Preservar fila offline, recuperação, retry e conflitos
 - [x] Validar documentos pequenos e grandes, reload, offline e concorrência
+
+# Condições químicas no DOCX
+- [x] Condicionar fumos e poeiras metálicas a resultado quantitativo
+- [x] Reconhecer marcadores divididos em runs e dentro de tabelas
+- [x] Remover todos os marcadores do documento final
+- [x] Validar fumos, poeiras, ambos e nenhum
