@@ -789,6 +789,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const explicitDeletedEvaluationIdsRef = useRef(new Set<string>());
   const loadGuardRef = useRef(new LatestRequestGuard());
   const localEditGenerationRef = useRef(0);
+  const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
@@ -1036,6 +1037,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "pending" | "offline" | "syncing" | "conflict" | "error">("idle");
   const [saveError, setSaveError] = useState<string>("");
   const lastSavedFingerprintRef = useRef("");
+  const lastCheckpointFingerprintRef = useRef("");
 
 
   const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
@@ -1088,6 +1090,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   const hasUnsavedChanges =
     !!empresaId && currentPersistedFingerprint !== lastSavedFingerprintRef.current;
+  const hasLocalRecoveryChanges =
+    !!empresaId && currentDraftFingerprint !== lastCheckpointFingerprintRef.current;
 
   useEffect(() => {
     if (!docLoaded || !hasUnsavedChanges) return;
@@ -1100,6 +1104,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     mode: "manual" | "auto" | "load" = "manual",
   ) => {
     lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(snapshot));
+    lastCheckpointFingerprintRef.current = JSON.stringify(snapshot);
     if (mode === "load") return;
     setLastSaveMode(mode === "auto" ? "auto" : "manual");
     setLastSavedAt(
@@ -1555,7 +1560,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // Ignora gatilhos disparados pelo próprio save (realtime ecoa nossas escritas).
       if (isPersistingRef.current) return;
       if (Date.now() < suppressReloadUntilRef.current) return;
-      setReloadTick(t => t + 1);
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      reloadDebounceRef.current = setTimeout(() => setReloadTick(t => t + 1), 500);
     };
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
@@ -1590,6 +1596,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3550,6 +3557,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
     const key = pendingOperationKey(user.id, tipoDocumento, docId);
     const previous = await durableQueueRef.current.get(key);
+    const needsSync = currentPersistedFingerprint !== lastSavedFingerprintRef.current || Boolean(previous?.needsSync);
     const operation = createPendingOperation({
       userId: user.id,
       documentId: docId,
@@ -3564,9 +3572,10 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       snapshot,
       snapshotFingerprint,
       databaseSnapshot,
-      needsSync: true,
+      needsSync,
     }, previous);
     await durableQueueRef.current.put(operation);
+    lastCheckpointFingerprintRef.current = JSON.stringify(snapshot);
     pendingProtectedRef.current = true;
     if (!currentDraftIdRef.current) {
       setCurrentDraftId(docId);
@@ -3699,12 +3708,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!docId) return;
       const key = pendingOperationKey(user.id, tipoDocumento, docId);
       const pending = await durableQueueRef.current.get(key);
-      if (!pending || pending.conflict || cancelled) return;
+      if (!pending || !pending.needsSync || pending.conflict || cancelled) return;
       pendingProtectedRef.current = true;
       setSaveState("syncing");
       await saveQueueRef.current(async () => {
         const latest = await durableQueueRef.current.get(key);
-        if (!latest || latest.conflict || cancelled) return false;
+        if (!latest || !latest.needsSync || latest.conflict || cancelled) return false;
         try {
           const result = await sendPendingOperation(latest);
           const confirmed = await confirmPendingOperation(latest, result.rowVersion);
@@ -3810,7 +3819,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // Autosave consolidado: uma única gravação após a sequência de alterações.
   // O checkpoint local é criado rapidamente e não gera chamada ao banco.
   useEffect(() => {
-    if (!empresaId || !hasUnsavedChanges || savingDraft || !user?.id) return;
+    if (!empresaId || !hasLocalRecoveryChanges || savingDraft || !user?.id) return;
     if (isEditMode && !docLoaded) return;
     const snapshot = currentDraftSnapshot;
     const timer = setTimeout(() => {
@@ -3827,7 +3836,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded, user?.id]);
+  }, [currentDraftFingerprint, empresaId, hasLocalRecoveryChanges, savingDraft, docLoaded, user?.id]);
 
   useEffect(() => {
     if (!empresaId || !hasUnsavedChanges || savingDraft) return;
