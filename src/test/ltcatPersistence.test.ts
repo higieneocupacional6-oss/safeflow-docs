@@ -1,10 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   createLtcatBaseline,
+  createLtcatDatabaseSnapshot,
+  createLtcatPersistedSnapshot,
   createSerialSaveQueue,
   diffLtcatEvaluations,
   hasLtcatPersistenceChanges,
   LatestRequestGuard,
+  serializedByteLength,
   type LtcatSerializedEvaluation,
 } from "@/lib/ltcatPersistence";
 
@@ -109,5 +112,27 @@ describe("persistência incremental LTCAT/Insalubridade", () => {
     const second = evaluation("existing", 3);
     expect(diffLtcatEvaluations([first], createLtcatBaseline([initial]), []).upserts[0]).toEqual(first);
     expect(diffLtcatEvaluations([second], createLtcatBaseline([first]), []).upserts[0]).toEqual(second);
+  });
+
+  it("ignora mudanças visuais ao decidir se existe conteúdo persistível", () => {
+    const base = { empresaId: "empresa", riscos: [evaluation("a", 1)], step: 1, riskForm: { resultado: "1" } };
+    const visual = { ...base, step: 2, riskForm: { resultado: "123" }, editingRiskId: "a" };
+    expect(createLtcatPersistedSnapshot(visual)).toEqual(createLtcatPersistedSnapshot(base));
+  });
+
+  it("mantém avaliações fora do snapshot enviado ao banco", () => {
+    const snapshot = { empresaId: "empresa", riscos: Array.from({ length: 500 }, (_, i) => evaluation(`a-${i}`, i)), riskForm: { texto: "rascunho" } };
+    const databaseSnapshot = createLtcatDatabaseSnapshot(snapshot);
+    expect(databaseSnapshot).not.toHaveProperty("riscos");
+    expect(databaseSnapshot).not.toHaveProperty("riskForm");
+    expect(serializedByteLength(databaseSnapshot)).toBeLessThan(serializedByteLength(snapshot) / 100);
+  });
+
+  it("payload incremental cresce com a alteração, não com o documento completo", () => {
+    const original = Array.from({ length: 1_000 }, (_, i) => evaluation(`a-${i}`, i, [`c-${i}`]));
+    const changed = original.map((row, index) => index === 500 ? evaluation(row.id, 9999, ["c-500"]) : row);
+    const changes = diffLtcatEvaluations(changed, createLtcatBaseline(original), []);
+    expect(changes.upserts).toHaveLength(1);
+    expect(serializedByteLength(changes)).toBeLessThan(serializedByteLength(changed) / 100);
   });
 });

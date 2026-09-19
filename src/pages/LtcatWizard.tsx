@@ -33,6 +33,8 @@ import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import {
   createLtcatBaseline,
+  createLtcatDatabaseSnapshot,
+  createLtcatPersistedSnapshot,
   createSerialSaveQueue,
   diffLtcatEvaluations,
   LatestRequestGuard,
@@ -43,6 +45,8 @@ import {
 import {
   createIndexedDbLtcatQueue,
   createPendingOperation,
+  canReusePendingOperation,
+  operationNeedsSync,
   isTransientSaveError,
   isVersionConflictMessage,
   pendingOperationKey,
@@ -754,21 +758,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     enabled: !!empresaId,
   });
 
-  const { data: dbEvaluations = [] } = useQuery({
-    queryKey: ["ltcat_avaliacoes", empresaId, tipoEscopoLeitura],
-    queryFn: async () => {
-      if (!empresaId) return [];
-      const { data, error } = await supabase
-        .from("ltcat_avaliacoes")
-        .select("*")
-        .eq("empresa_id", empresaId)
-        .eq("tipo_documento", tipoEscopoLeitura);
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!empresaId,
-  });
-
   // Realtime: invalida cache quando LTCAT/Insalubridade da mesma empresa muda
   useRealtimeSync(
     [
@@ -801,6 +790,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const explicitDeletedEvaluationIdsRef = useRef(new Set<string>());
   const loadGuardRef = useRef(new LatestRequestGuard());
   const localEditGenerationRef = useRef(0);
+  const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
@@ -825,7 +815,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!contratoId) return null;
       const { data, error } = await supabase
         .from("contratos")
-        .select("*")
+        .select("id, tipo, nome, epi_epc_riscos(risco_id)")
         .eq("id", contratoId)
         .maybeSingle();
       if (error) throw error;
@@ -936,7 +926,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: templates = [] } = useQuery({
     queryKey: ["templates"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("templates").select("*").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("templates").select("id, title, file_path, created_at, is_system").order("created_at", { ascending: false });
       if (error) throw error;
       return data;
     },
@@ -945,7 +935,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("*").order("razao_social");
+      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, cnae_principal, grau_risco, endereco, numero_funcionarios_fem, numero_funcionarios_masc, total_funcionarios, jornada_trabalho").order("razao_social");
       if (error) throw error;
       return data;
     },
@@ -955,7 +945,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryKey: ["setores", empresaId, contratoId],
     queryFn: async (): Promise<any[]> => {
       if (!empresaId) return [];
-      let q = (supabase as any).from("setores").select("*");
+      let q = (supabase as any).from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, descricao_ambiente");
       if (contratoId) q = q.eq("contrato_id", contratoId);
       else q = q.eq("empresa_id", empresaId);
       const { data, error } = await q;
@@ -970,7 +960,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryFn: async () => {
       if (!empresaId || setores.length === 0) return [];
       const setorIds = setores.map((s: any) => s.id);
-      const { data, error } = await supabase.from("funcoes").select("*").in("setor_id", setorIds).order("nome_funcao");
+      const { data, error } = await supabase.from("funcoes").select("id, setor_id, nome_funcao, cbo_codigo, cbo_descricao, descricao_atividades, expostos").in("setor_id", setorIds).order("nome_funcao");
       if (error) throw error;
       return data;
     },
@@ -984,7 +974,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: catRiscos = [] } = useQuery({
     queryKey: ["riscos-catalog"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("riscos").select("*").order("nome");
+      const { data, error } = await supabase.from("riscos").select("id, nome, tipo, codigo_esocial, descricao_esocial, propagacao, tipo_exposicao, fonte_geradora, danos_saude, medidas_controle, tipo_epi, epi_eficaz").order("nome");
       if (error) throw error;
       return data;
     },
@@ -993,7 +983,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: tecnicas = [] } = useQuery({
     queryKey: ["tecnicas_amostragem"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("tecnicas_amostragem").select("*").order("nome");
+      const { data, error } = await supabase.from("tecnicas_amostragem").select("id, nome, referencia").order("nome");
       if (error) throw error;
       return data;
     },
@@ -1004,13 +994,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
-        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao)")
+        .select("id, nome, marca, tipo, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao, situacao_operacional)")
         .order("nome");
       if (error) throw error;
       return data;
     },
-    refetchOnMount: "always",
-    refetchOnWindowFocus: true,
+      staleTime: 5 * 60 * 1000,
+      refetchOnWindowFocus: false,
   });
 
   const { data: pareceresCadastro = [] } = useQuery({
@@ -1018,7 +1008,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("pareceres_tecnicos")
-        .select("*");
+        .select("id, documento, situacao, parecer_tecnico, risco_id");
       if (error) throw error;
       return data || [];
     },
@@ -1027,7 +1017,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: unidades = [] } = useQuery({
     queryKey: ["unidades"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("unidades").select("*").order("simbolo");
+      const { data, error } = await supabase.from("unidades").select("id, simbolo, nome").order("simbolo");
       if (error) throw error;
       return data;
     },
@@ -1048,6 +1038,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "pending" | "offline" | "syncing" | "conflict" | "error">("idle");
   const [saveError, setSaveError] = useState<string>("");
   const lastSavedFingerprintRef = useRef("");
+  const lastCheckpointFingerprintRef = useRef("");
 
 
   const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
@@ -1093,9 +1084,15 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     () => JSON.stringify(currentDraftSnapshot),
     [currentDraftSnapshot],
   );
+  const currentPersistedFingerprint = useMemo(
+    () => stableFingerprint(createLtcatPersistedSnapshot(currentDraftSnapshot)),
+    [currentDraftSnapshot],
+  );
 
   const hasUnsavedChanges =
-    !!empresaId && currentDraftFingerprint !== lastSavedFingerprintRef.current;
+    !!empresaId && currentPersistedFingerprint !== lastSavedFingerprintRef.current;
+  const hasLocalRecoveryChanges =
+    !!empresaId && currentDraftFingerprint !== lastCheckpointFingerprintRef.current;
 
   useEffect(() => {
     if (!docLoaded || !hasUnsavedChanges) return;
@@ -1107,7 +1104,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     snapshot: Record<string, any>,
     mode: "manual" | "auto" | "load" = "manual",
   ) => {
-    lastSavedFingerprintRef.current = JSON.stringify(snapshot);
+    lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(snapshot));
+    lastCheckpointFingerprintRef.current = JSON.stringify(snapshot);
     if (mode === "load") return;
     setLastSaveMode(mode === "auto" ? "auto" : "manual");
     setLastSavedAt(
@@ -1168,7 +1166,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           : "";
         const initialPending = initialPendingKey ? await durableQueueRef.current.get(initialPendingKey) : null;
         const { data: doc, error: docErr } = await supabase
-          .from("documentos").select("*").eq("id", documentoId).single();
+          .from("documentos")
+          .select("id, empresa_id, contrato_id, template_id, responsavel_tecnico, crea, cargo, data_elaboracao, alteracoes_documento, revisoes, current_step, draft_snapshot, row_version")
+          .eq("id", documentoId).single();
         if (docErr || !doc) {
           if (initialPending && canApplyResponse()) {
             setCurrentDraftId(initialPending.documentId);
@@ -1194,7 +1194,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           : "";
         const pending = pendingKey ? await durableQueueRef.current.get(pendingKey) : null;
         if (!canApplyResponse()) return;
-        if (pending && stableFingerprint((doc as any).draft_snapshot) === stableFingerprint(pending.snapshot)) {
+        if (pending && stableFingerprint((doc as any).draft_snapshot) === stableFingerprint(pending.databaseSnapshot ?? pending.snapshot)) {
           await durableQueueRef.current.removeIfRevision(pending.key, pending.revision);
           pendingProtectedRef.current = false;
         }
@@ -1252,18 +1252,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
                   riscos: [],
                 });
-          const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.snapshot)
+          const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.databaseSnapshot ?? pending.snapshot)
             ? pending
             : null;
           if (activePending) {
             applyRecoveredSnapshot(activePending.snapshot);
             explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-            pendingProtectedRef.current = true;
-            setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-            setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
-              ? "Alterações locais protegidas aguardando sincronização."
-              : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
-            lastSavedFingerprintRef.current = stableFingerprint(emptySnapshot);
+            pendingProtectedRef.current = operationNeedsSync(activePending);
+            setSaveState(!operationNeedsSync(activePending)
+              ? "saved"
+              : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+            setSaveError(!operationNeedsSync(activePending)
+              ? ""
+              : Number((doc as any).row_version || 1) === activePending.expectedVersion
+                ? "Alterações locais protegidas aguardando sincronização."
+                : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+            lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(emptySnapshot));
           } else {
             explicitDeletedEvaluationIdsRef.current.clear();
             markSnapshotAsSaved(emptySnapshot, "load");
@@ -1522,18 +1526,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
           riscos: loadedRiscos,
         });
-        const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.snapshot)
+        const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.databaseSnapshot ?? pending.snapshot)
           ? pending
           : null;
         if (activePending) {
           applyRecoveredSnapshot(activePending.snapshot);
           explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-          pendingProtectedRef.current = true;
-          setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-          setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
-            ? "Alterações locais protegidas aguardando sincronização."
-            : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
-          lastSavedFingerprintRef.current = stableFingerprint(loadedSnapshot);
+          pendingProtectedRef.current = operationNeedsSync(activePending);
+          setSaveState(!operationNeedsSync(activePending)
+            ? "saved"
+            : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+          setSaveError(!operationNeedsSync(activePending)
+            ? ""
+            : Number((doc as any).row_version || 1) === activePending.expectedVersion
+              ? "Alterações locais protegidas aguardando sincronização."
+              : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+          lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(loadedSnapshot));
         } else {
           setRiscos(loadedRiscos);
           markSnapshotAsSaved(loadedSnapshot, "load");
@@ -1561,7 +1569,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // Ignora gatilhos disparados pelo próprio save (realtime ecoa nossas escritas).
       if (isPersistingRef.current) return;
       if (Date.now() < suppressReloadUntilRef.current) return;
-      setReloadTick(t => t + 1);
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
+      reloadDebounceRef.current = setTimeout(() => setReloadTick(t => t + 1), 500);
     };
 
     // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
@@ -1596,6 +1605,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     return () => {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVisibility);
+      if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
       supabase.removeChannel(channel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -3468,7 +3478,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .select("row_version, draft_snapshot")
         .eq("id", operation.documentId)
         .maybeSingle();
-      if (stableFingerprint((current as any)?.draft_snapshot) === stableFingerprint(operation.snapshot)) {
+      if (stableFingerprint((current as any)?.draft_snapshot) === stableFingerprint(operation.databaseSnapshot ?? operation.snapshot)) {
         return { rowVersion: Number((current as any)?.row_version || data.current_row_version), alreadyConfirmed: true };
       }
       throw new Error("Existem alterações mais recentes neste documento. Seus dados locais foram preservados; revise antes de sincronizar novamente.");
@@ -3532,6 +3542,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
     const selectedEmpObj = empresas.find((e: any) => e.id === snapshot.empresaId);
     const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
+    const databaseSnapshot = createLtcatDatabaseSnapshot(snapshot);
+    const snapshotFingerprint = stableFingerprint(snapshot);
     const documentPatch = {
       empresa_id: snapshot.empresaId,
       empresa_nome: empresaNome,
@@ -3544,7 +3556,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       alteracoes_documento: snapshot.alteracoesDoc || null,
       revisoes: snapshot.revisoes || [],
       current_step: snapshot.step ?? 0,
-      draft_snapshot: snapshot,
+      draft_snapshot: databaseSnapshot,
       status: "rascunho",
     };
     const docId = currentDraftIdRef.current || crypto.randomUUID();
@@ -3554,6 +3566,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
     const key = pendingOperationKey(user.id, tipoDocumento, docId);
     const previous = await durableQueueRef.current.get(key);
+    const needsSync = stableFingerprint(createLtcatPersistedSnapshot(snapshot)) !== lastSavedFingerprintRef.current || Boolean(previous?.needsSync);
     const operation = createPendingOperation({
       userId: user.id,
       documentId: docId,
@@ -3566,9 +3579,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       changes: diffLtcatEvaluations(evaluations, evaluationBaselineRef.current, explicitDeletedEvaluationIdsRef.current),
       evaluations,
       snapshot,
+      snapshotFingerprint,
+      databaseSnapshot,
+      needsSync,
     }, previous);
     await durableQueueRef.current.put(operation);
-    pendingProtectedRef.current = true;
+    lastCheckpointFingerprintRef.current = JSON.stringify(snapshot);
+    pendingProtectedRef.current = needsSync;
     if (!currentDraftIdRef.current) {
       setCurrentDraftId(docId);
       currentDraftIdRef.current = docId;
@@ -3585,7 +3602,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     force = false,
   ): Promise<boolean> => {
     const snapshot = buildDraftSnapshot(overrides);
-    const fingerprint = JSON.stringify(snapshot);
+    const fingerprint = stableFingerprint(createLtcatPersistedSnapshot(snapshot));
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
@@ -3606,7 +3623,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     setSaveError("");
     try {
 
-      const operation = await stagePendingSnapshot(snapshot);
+      const pendingKey = user?.id && currentDraftIdRef.current
+        ? pendingOperationKey(user.id, tipoDocumento, currentDraftIdRef.current)
+        : "";
+      const staged = pendingKey ? await durableQueueRef.current.get(pendingKey) : null;
+      const operation = canReusePendingOperation(staged, stableFingerprint(snapshot))
+        ? staged as LtcatPendingOperation
+        : await stagePendingSnapshot(snapshot);
       const docId = operation.documentId;
       const createDocument = operation.createDocument;
       setSaveState(navigator.onLine ? "saving" : "offline");
@@ -3694,12 +3717,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!docId) return;
       const key = pendingOperationKey(user.id, tipoDocumento, docId);
       const pending = await durableQueueRef.current.get(key);
-      if (!pending || pending.conflict || cancelled) return;
+      if (!pending || !operationNeedsSync(pending) || pending.conflict || cancelled) return;
       pendingProtectedRef.current = true;
       setSaveState("syncing");
       await saveQueueRef.current(async () => {
         const latest = await durableQueueRef.current.get(key);
-        if (!latest || latest.conflict || cancelled) return false;
+        if (!latest || !operationNeedsSync(latest) || latest.conflict || cancelled) return false;
         try {
           const result = await sendPendingOperation(latest);
           const confirmed = await confirmPendingOperation(latest, result.rowVersion);
@@ -3805,7 +3828,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // Autosave consolidado: uma única gravação após a sequência de alterações.
   // O checkpoint local é criado rapidamente e não gera chamada ao banco.
   useEffect(() => {
-    if (!empresaId || !hasUnsavedChanges || savingDraft || !user?.id) return;
+    if (!empresaId || !hasLocalRecoveryChanges || savingDraft || !user?.id) return;
     if (isEditMode && !docLoaded) return;
     const snapshot = currentDraftSnapshot;
     const timer = setTimeout(() => {
@@ -3822,7 +3845,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }, 400);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded, user?.id]);
+  }, [currentDraftFingerprint, empresaId, hasLocalRecoveryChanges, savingDraft, docLoaded, user?.id]);
 
   useEffect(() => {
     if (!empresaId || !hasUnsavedChanges || savingDraft) return;
@@ -3832,31 +3855,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded]);
 
-
-  // 💾 Salva imediatamente ao sair da aba/rota para evitar perda de dados.
-  // Usa um ref para sempre chamar a versão mais recente de handleSaveDraft.
-  const saveDraftRef = useRef(handleSaveDraft);
-  useEffect(() => { saveDraftRef.current = handleSaveDraft; });
-  const hasUnsavedRef = useRef(hasUnsavedChanges);
-  useEffect(() => { hasUnsavedRef.current = hasUnsavedChanges; });
-
-  useEffect(() => {
-    if (!empresaId) return;
-    const flush = () => {
-      if (hasUnsavedRef.current) {
-        try { saveDraftRef.current(true); } catch {}
-      }
-    };
-    const onHide = () => { if (document.visibilityState === "hidden") flush(); };
-    window.addEventListener("pagehide", flush);
-    document.addEventListener("visibilitychange", onHide);
-    return () => {
-      window.removeEventListener("pagehide", flush);
-      document.removeEventListener("visibilitychange", onHide);
-      // Salva ao desmontar a tela (navegação interna SPA)
-      flush();
-    };
-  }, [empresaId]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
@@ -4074,20 +4072,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .upload(storagePath, output);
 
       // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
-      const docId = currentDraftId || (isEditMode ? documentoId : undefined);
-      if (docId) {
-        const saved = await handleSaveDraft(false, {
-          file_path: storagePath,
-          status: uploadErr ? "erro" : "concluido",
-        }, true);
-        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
-      } else {
-        const saved = await handleSaveDraft(false, {
-          file_path: storagePath,
-          status: uploadErr ? "erro" : "concluido",
-        }, true);
-        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
-      }
+      const saved = await handleSaveDraft(false, {
+        file_path: storagePath,
+        status: uploadErr ? "erro" : "concluido",
+      }, true);
+      if (!saved) throw new Error("O banco não confirmou a geração do documento.");
 
       saveAs(output, fileName);
       toast.success("📄 Documento gerado e salvo com sucesso!");

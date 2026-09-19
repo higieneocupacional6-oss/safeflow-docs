@@ -20,9 +20,9 @@
 - [x] Testar quedas, retries, cliques repetidos e documentos grandes
 
 # Performance LTCAT e Insalubridade
-- [ ] Medir chamadas e payloads antes das otimizações
-- [ ] Reduzir consultas iniciais e carregar cadastros pesados sob demanda
-- [ ] Remover persistências duplicadas e gatilhos involuntários
-- [ ] Enviar somente metadados e avaliações realmente alterados
-- [ ] Preservar fila offline, recuperação, retry e conflitos
-- [ ] Validar documentos pequenos e grandes, reload, offline e concorrência
+- [x] Medir chamadas e payloads antes das otimizações
+- [x] Reduzir consultas iniciais e colunas dos cadastros pesados
+- [x] Remover persistências duplicadas e gatilhos involuntários
+- [x] Enviar somente metadados e avaliações realmente alterados
+- [x] Preservar fila offline, recuperação, retry e conflitos
+- [x] Validar documentos pequenos e grandes, reload, offline e concorrência

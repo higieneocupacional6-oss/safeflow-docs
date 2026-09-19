@@ -21,6 +21,41 @@ export type LtcatIncrementalChanges = {
   deleteChildIds: Record<LtcatChildKey, string[]>;
 };
 
+const LTCAT_PERSISTED_SNAPSHOT_KEYS = [
+  "empresaId",
+  "contratoId",
+  "selectedTemplate",
+  "responsavel",
+  "crea",
+  "cargo",
+  "dataElab",
+  "alteracoesDoc",
+  "revisoes",
+  "riscos",
+  "tipoDocumento",
+] as const;
+
+const LTCAT_DATABASE_SNAPSHOT_KEYS = LTCAT_PERSISTED_SNAPSHOT_KEYS.filter((key) => key !== "riscos");
+
+const pickSnapshotKeys = (snapshot: Record<string, unknown>, keys: readonly string[]) =>
+  keys.reduce<Record<string, unknown>>((result, key) => {
+    result[key] = snapshot[key];
+    return result;
+  }, {});
+
+/** Content that can produce a database write. UI-only state is intentionally excluded. */
+export const createLtcatPersistedSnapshot = (snapshot: Record<string, unknown>) =>
+  pickSnapshotKeys(snapshot, LTCAT_PERSISTED_SNAPSHOT_KEYS);
+
+/** Small compatibility snapshot stored in documentos; evaluations live in normalized tables. */
+export const createLtcatDatabaseSnapshot = (snapshot: Record<string, unknown>) => ({
+  schemaVersion: 2,
+  ...pickSnapshotKeys(snapshot, LTCAT_DATABASE_SNAPSHOT_KEYS),
+});
+
+export const serializedByteLength = (value: unknown) =>
+  new TextEncoder().encode(JSON.stringify(value)).byteLength;
+
 const stableValue = (value: unknown): unknown => {
   if (Array.isArray(value)) return value.map(stableValue);
   if (value && typeof value === "object") {

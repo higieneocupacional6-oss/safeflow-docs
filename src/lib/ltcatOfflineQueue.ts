@@ -18,6 +18,9 @@ export type LtcatPendingOperation = {
   changes: LtcatIncrementalChanges;
   evaluations: LtcatSerializedEvaluation[];
   snapshot: Record<string, unknown>;
+  snapshotFingerprint?: string;
+  databaseSnapshot?: Record<string, unknown>;
+  needsSync?: boolean;
   createdAt: number;
   updatedAt: number;
   attempts: number;
@@ -116,6 +119,15 @@ export const createPendingOperation = (
   nextAttemptAt: now,
   conflict: false,
 });
+
+export const canReusePendingOperation = (
+  operation: LtcatPendingOperation | null,
+  snapshotFingerprint: string,
+) => Boolean(operation && operation.snapshotFingerprint === snapshotFingerprint);
+
+/** Operations created before the performance upgrade remain pending by default. */
+export const operationNeedsSync = (operation: LtcatPendingOperation) =>
+  operation.needsSync !== false;
 
 export const retryDelayMs = (attempt: number, random = Math.random) => {
   const base = Math.min(60_000, 1_000 * 2 ** Math.max(0, attempt));
