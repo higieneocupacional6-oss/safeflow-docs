@@ -1219,10 +1219,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (avaliacoes.length === 0) {
           if (!canApplyResponse()) return;
           evaluationBaselineRef.current = createLtcatBaseline([]);
-          explicitDeletedEvaluationIdsRef.current.clear();
           console.log("📋 [LTCAT EDIT] Documento sem avaliações:", doc);
-          markSnapshotAsSaved(
-            draftSnapshot && typeof draftSnapshot === "object"
+          const emptySnapshot = draftSnapshot && typeof draftSnapshot === "object"
               ? draftSnapshot
               : buildDraftSnapshot({
                   empresaId: doc.empresa_id || "",
@@ -1236,9 +1234,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   revisoes: (doc as any).revisoes || [],
                   step: typeof (doc as any).current_step === "number" ? (doc as any).current_step : 0,
                   riscos: [],
-                }),
-            "load",
-          );
+                });
+          const activePending = pending && stableFingerprint((doc as any).draft_snapshot) !== stableFingerprint(pending.snapshot)
+            ? pending
+            : null;
+          if (activePending) {
+            applyRecoveredSnapshot(activePending.snapshot);
+            explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
+            pendingProtectedRef.current = true;
+            setSaveState(Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
+            setSaveError(Number((doc as any).row_version || 1) === activePending.expectedVersion
+              ? "Alterações locais protegidas aguardando sincronização."
+              : "Existe uma versão mais recente no banco. Suas alterações locais foram preservadas.");
+            lastSavedFingerprintRef.current = stableFingerprint(emptySnapshot);
+          } else {
+            explicitDeletedEvaluationIdsRef.current.clear();
+            markSnapshotAsSaved(emptySnapshot, "load");
+          }
           setDocLoaded(true);
           return;
         }
@@ -3585,7 +3597,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       try {
         const result = await sendPendingOperation(operation);
         const confirmed = await confirmPendingOperation(operation, result.rowVersion);
-        if (!confirmed) return true;
+        if (!confirmed) {
+          const latest = await durableQueueRef.current.get(operation.key);
+          if (latest) {
+            const rebased = {
+              ...latest,
+              expectedVersion: result.rowVersion,
+              createDocument: false,
+              changes: diffLtcatEvaluations(
+                latest.evaluations,
+                createLtcatBaseline(operation.evaluations),
+                latest.changes.deleteEvaluationIds,
+              ),
+            };
+            await durableQueueRef.current.put(rebased);
+            setSaveState("pending");
+            schedulePendingRetry(rebased);
+          }
+          return true;
+        }
         if (createDocument) {
           navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
         }
@@ -3753,23 +3783,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
   };
 
-  // 🔁 Autosave silencioso: a cada 30 segundos + somente quando houver alteração
-  useEffect(() => {
-    if (!empresaId) return;
-    const id = setInterval(() => {
-      if (savingDraft || !hasUnsavedChanges) return;
-      handleSaveDraft(true);
-    }, 30 * 1000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [empresaId, hasUnsavedChanges, savingDraft]);
-
-  // 🔁 Autosave por alteração (debounce 3s): grava no banco assim que o usuário
-  // para de digitar/selecionar, sem depender do botão "Salvar".
+  // Autosave consolidado: uma única gravação após a sequência de alterações.
   useEffect(() => {
     if (!empresaId || !hasUnsavedChanges || savingDraft) return;
     if (isEditMode && !docLoaded) return;
-    const t = setTimeout(() => { handleSaveDraft(true); }, 3000);
+    const t = setTimeout(() => { handleSaveDraft(true); }, 5000);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentDraftFingerprint, empresaId, hasUnsavedChanges, savingDraft, docLoaded]);
@@ -3799,15 +3817,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       flush();
     };
   }, [empresaId]);
-
-  // Salvar ao trocar de etapa (debounced)
-  useEffect(() => {
-    if (!empresaId) return;
-    if (savingDraft || !hasUnsavedChanges) return;
-    const t = setTimeout(() => { handleSaveDraft(true); }, 600);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [step, empresaId, hasUnsavedChanges, savingDraft]);
 
   // SALVAR DOCUMENTO - Smart validation + save
   const handleSaveDocument = async () => {
