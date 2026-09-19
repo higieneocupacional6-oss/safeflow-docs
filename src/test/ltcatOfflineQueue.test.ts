@@ -3,6 +3,7 @@ import {
   createMemoryLtcatQueue,
   createPendingOperation,
   canReusePendingOperation,
+  operationNeedsSync,
   isTransientSaveError,
   isVersionConflictMessage,
   retryDelayMs,
@@ -99,5 +100,11 @@ describe("fila persistente LTCAT/Insalubridade", () => {
     const pending = { ...operation(1), snapshotFingerprint: "snapshot-1" };
     expect(canReusePendingOperation(pending, "snapshot-1")).toBe(true);
     expect(canReusePendingOperation(pending, "snapshot-2")).toBe(false);
+  });
+
+  it("mantém compatibilidade com pendências criadas antes do campo needsSync", () => {
+    const legacy = operation(1);
+    expect(operationNeedsSync(legacy)).toBe(true);
+    expect(operationNeedsSync({ ...legacy, needsSync: false })).toBe(false);
   });
 });

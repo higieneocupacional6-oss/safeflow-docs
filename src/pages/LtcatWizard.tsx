@@ -46,6 +46,7 @@ import {
   createIndexedDbLtcatQueue,
   createPendingOperation,
   canReusePendingOperation,
+  operationNeedsSync,
   isTransientSaveError,
   isVersionConflictMessage,
   pendingOperationKey,
@@ -1257,11 +1258,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (activePending) {
             applyRecoveredSnapshot(activePending.snapshot);
             explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-            pendingProtectedRef.current = activePending.needsSync !== false;
-            setSaveState(activePending.needsSync === false
+            pendingProtectedRef.current = operationNeedsSync(activePending);
+            setSaveState(!operationNeedsSync(activePending)
               ? "saved"
               : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-            setSaveError(activePending.needsSync === false
+            setSaveError(!operationNeedsSync(activePending)
               ? ""
               : Number((doc as any).row_version || 1) === activePending.expectedVersion
                 ? "Alterações locais protegidas aguardando sincronização."
@@ -1531,11 +1532,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         if (activePending) {
           applyRecoveredSnapshot(activePending.snapshot);
           explicitDeletedEvaluationIdsRef.current = new Set(activePending.changes.deleteEvaluationIds);
-          pendingProtectedRef.current = activePending.needsSync !== false;
-          setSaveState(activePending.needsSync === false
+          pendingProtectedRef.current = operationNeedsSync(activePending);
+          setSaveState(!operationNeedsSync(activePending)
             ? "saved"
             : Number((doc as any).row_version || 1) === activePending.expectedVersion ? "pending" : "conflict");
-          setSaveError(activePending.needsSync === false
+          setSaveError(!operationNeedsSync(activePending)
             ? ""
             : Number((doc as any).row_version || 1) === activePending.expectedVersion
               ? "Alterações locais protegidas aguardando sincronização."
@@ -3716,12 +3717,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!docId) return;
       const key = pendingOperationKey(user.id, tipoDocumento, docId);
       const pending = await durableQueueRef.current.get(key);
-      if (!pending || !pending.needsSync || pending.conflict || cancelled) return;
+      if (!pending || !operationNeedsSync(pending) || pending.conflict || cancelled) return;
       pendingProtectedRef.current = true;
       setSaveState("syncing");
       await saveQueueRef.current(async () => {
         const latest = await durableQueueRef.current.get(key);
-        if (!latest || !latest.needsSync || latest.conflict || cancelled) return false;
+        if (!latest || !operationNeedsSync(latest) || latest.conflict || cancelled) return false;
         try {
           const result = await sendPendingOperation(latest);
           const confirmed = await confirmPendingOperation(latest, result.rowVersion);

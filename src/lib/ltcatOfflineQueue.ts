@@ -125,6 +125,10 @@ export const canReusePendingOperation = (
   snapshotFingerprint: string,
 ) => Boolean(operation && operation.snapshotFingerprint === snapshotFingerprint);
 
+/** Operations created before the performance upgrade remain pending by default. */
+export const operationNeedsSync = (operation: LtcatPendingOperation) =>
+  operation.needsSync !== false;
+
 export const retryDelayMs = (attempt: number, random = Math.random) => {
   const base = Math.min(60_000, 1_000 * 2 ** Math.max(0, attempt));
   return Math.round(base * (0.85 + random() * 0.3));
