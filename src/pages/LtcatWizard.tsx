@@ -3841,21 +3841,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
       const docId = currentDraftId || (isEditMode ? documentoId : undefined);
       if (docId) {
-        await supabase.from("documentos").update({
+        const saved = await handleSaveDraft(false, {
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        }).eq("id", docId);
+        }, true);
+        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
       } else {
-        const { data: ins } = await supabase.from("documentos").insert({
-          tipo: tipoDocLabel,
-          empresa_id: empresaId || null,
-          empresa_nome: empresaNome,
-          contrato_id: contratoId || null,
-          template_id: selectedTemplate,
+        const saved = await handleSaveDraft(false, {
           file_path: storagePath,
           status: uploadErr ? "erro" : "concluido",
-        } as any).select("id").single();
-        if (ins?.id) setCurrentDraftId(ins.id);
+        }, true);
+        if (!saved) throw new Error("O banco não confirmou a geração do documento.");
       }
 
       saveAs(output, fileName);
