@@ -3545,7 +3545,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
       if (!user?.id) throw new Error("Sessão do usuário indisponível.");
       const docId = currentDraftId || crypto.randomUUID();
-      const createDocument = !currentDraftId;
       const expectedVersion = documentVersionRef.current ?? 1;
       const avaliacoes = buildAvaliacoesPayload(snapshot.riscos || []) || [];
       const ids = avaliacoes.map((row) => row.id);
@@ -3555,6 +3554,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }
       const key = pendingOperationKey(user.id, tipoDocumento, docId);
       const previous = await durableQueueRef.current.get(key);
+      const createDocument = previous?.createDocument ?? !currentDraftId;
       const operation = createPendingOperation({
         userId: user.id,
         documentId: docId,
@@ -3570,6 +3570,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       }, previous);
       await durableQueueRef.current.put(operation);
       pendingProtectedRef.current = true;
+      if (!currentDraftId) {
+        setCurrentDraftId(docId);
+        currentDraftIdRef.current = docId;
+        documentVersionRef.current = expectedVersion;
+      }
       setSaveState(navigator.onLine ? "saving" : "offline");
       if (!navigator.onLine) {
         schedulePendingRetry(operation);
@@ -3582,8 +3587,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const confirmed = await confirmPendingOperation(operation, result.rowVersion);
         if (!confirmed) return true;
         if (createDocument) {
-          setCurrentDraftId(docId);
-          currentDraftIdRef.current = docId;
           navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
         }
         markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
@@ -3629,6 +3632,58 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     overrides: Record<string, any> = {},
     force = false,
   ): Promise<boolean> => saveQueueRef.current(() => handleSaveDraftInner(silent, overrides, force));
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    const syncPending = async () => {
+      if (cancelled || !navigator.onLine) {
+        if (!navigator.onLine && pendingProtectedRef.current) setSaveState("offline");
+        return;
+      }
+      const docId = currentDraftIdRef.current || documentoId;
+      if (!docId) return;
+      const key = pendingOperationKey(user.id, tipoDocumento, docId);
+      const pending = await durableQueueRef.current.get(key);
+      if (!pending || pending.conflict || cancelled) return;
+      pendingProtectedRef.current = true;
+      setSaveState("syncing");
+      await saveQueueRef.current(async () => {
+        const latest = await durableQueueRef.current.get(key);
+        if (!latest || latest.conflict || cancelled) return false;
+        try {
+          const result = await sendPendingOperation(latest);
+          const confirmed = await confirmPendingOperation(latest, result.rowVersion);
+          if (confirmed && latest.createDocument) {
+            navigate(`/documentos/${tipoDocumento}/editar/${latest.documentId}`, { replace: true });
+          }
+          if (confirmed) setSaveState("saved");
+          return confirmed;
+        } catch (error) {
+          if (isVersionConflictMessage(error instanceof Error ? error.message : String(error))) {
+            await durableQueueRef.current.put({ ...latest, conflict: true });
+            setSaveState("conflict");
+            setSaveError("Existe uma versão mais recente no banco. Suas alterações locais continuam protegidas.");
+          } else {
+            setSaveState(navigator.onLine ? "pending" : "offline");
+            schedulePendingRetry(latest);
+          }
+          return false;
+        }
+      });
+    };
+    const online = () => { void syncPending(); };
+    const offline = () => { if (pendingProtectedRef.current) setSaveState("offline"); };
+    window.addEventListener("online", online);
+    window.addEventListener("offline", offline);
+    void syncPending();
+    return () => {
+      cancelled = true;
+      window.removeEventListener("online", online);
+      window.removeEventListener("offline", offline);
+      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    };
+  }, [user?.id, documentoId, tipoDocumento, docLoaded]);
 
   const deleteRiskEntries = async (entries: RiscoEntry[], successMessage: string) => {
     const idsToRemove = entries.flatMap((entry) => entry.items.map((item) => item.id));
