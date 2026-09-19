@@ -24,7 +24,20 @@ const makeDocx = () => {
     ${splitMarker("#fim_texto_poeiras", "metalicas_quantitativo")}
     <w:sectPr/>
   </w:body></w:document>`);
-  return zip.generate({ type: "blob" });
+  const bytes = zip.generate({ type: "uint8array" });
+  return {
+    arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+  } as Blob;
+};
+
+const readBlob = (blob: Blob): Promise<ArrayBuffer> => {
+  if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(reader.error);
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.readAsArrayBuffer(blob);
+  });
 };
 
 const risk = (name: string, result = "1") => ({
@@ -40,7 +53,7 @@ const renderScenario = async (risks: any[]) => {
     ...buildMetalQuantitativeFlags(item),
   })) }];
   const output = await stripConditionalBlocksDocx(makeDocx(), computePresentBlocks({ setores }));
-  const zip = new PizZip(await output.arrayBuffer());
+  const zip = new PizZip(await readBlob(output));
   return zip.file("word/document.xml")?.asText() || "";
 };
 
