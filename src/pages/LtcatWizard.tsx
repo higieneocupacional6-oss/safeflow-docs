@@ -3408,51 +3408,92 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     })) as LtcatSerializedEvaluation[];
   };
 
-  const persistAvaliacoesInner = async (
-    docId: string,
-    expectedVersion: number,
-    documentPatch: Record<string, any>,
-    riscosSource: RiscoEntry[] = riscos,
-  ) => {
-    if (!docId || !empresaId) throw new Error("Documento e empresa são obrigatórios.");
-    if (isEditMode && !docLoaded) {
-      throw new Error("Aguarde o documento terminar de carregar antes de salvar.");
-    }
-
+  const sendPendingOperation = async (operation: LtcatPendingOperation) => {
+    if (!navigator.onLine) throw new Error("offline");
     suppressReloadUntilRef.current = Math.max(suppressReloadUntilRef.current, Date.now() + 60_000);
-    const tipoPersistido = tipoDocumento === "insalubridade" ? "insalubridade" : tipoDocumento;
-    const avaliacoes = buildAvaliacoesPayload(riscosSource) || [];
-    const ids = avaliacoes.map((row) => row.id);
-    if (new Set(ids).size !== ids.length) {
-      throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
+
+    if (operation.createDocument) {
+      const { error: insertError } = await supabase.from("documentos").insert({
+        id: operation.documentId,
+        tipo: operation.tipoDocLabel,
+        file_path: null,
+        ...operation.documentPatch,
+      } as any);
+      if (insertError && !/duplicate|unique/i.test(insertError.message)) throw insertError;
     }
 
-    const changes = diffLtcatEvaluations(
-      avaliacoes,
-      evaluationBaselineRef.current,
-      explicitDeletedEvaluationIdsRef.current,
-    );
     const { data, error } = await (supabase as any).rpc("save_ltcat_documento_v2", {
-      _documento_id: docId,
-      _empresa_id: empresaId,
-      _tipo_documento: tipoPersistido,
-      _expected_row_version: expectedVersion,
-      _document_patch: documentPatch,
-      _avaliacoes: changes.upserts,
-      _delete_avaliacao_ids: changes.deleteEvaluationIds,
-      _delete_child_ids: changes.deleteChildIds,
+      _documento_id: operation.documentId,
+      _empresa_id: operation.empresaId,
+      _tipo_documento: operation.tipoDocumento,
+      _expected_row_version: operation.expectedVersion,
+      _document_patch: operation.documentPatch,
+      _avaliacoes: operation.changes.upserts,
+      _delete_avaliacao_ids: operation.changes.deleteEvaluationIds,
+      _delete_child_ids: operation.changes.deleteChildIds,
     });
     if (error) throw new Error(`Falha ao gravar avaliações: ${error.message}`);
     if (data?.conflict) {
+      const { data: current } = await supabase
+        .from("documentos")
+        .select("row_version, draft_snapshot")
+        .eq("id", operation.documentId)
+        .maybeSingle();
+      if (stableFingerprint((current as any)?.draft_snapshot) === stableFingerprint(operation.snapshot)) {
+        return { rowVersion: Number((current as any)?.row_version || data.current_row_version), alreadyConfirmed: true };
+      }
       throw new Error("Existem alterações mais recentes neste documento. Seus dados locais foram preservados; revise antes de sincronizar novamente.");
     }
-    if (!data?.ok || data.count !== changes.upserts.length) {
+    if (!data?.ok || data.count !== operation.changes.upserts.length) {
       throw new Error("O banco não confirmou todas as alterações enviadas.");
     }
-    documentVersionRef.current = Number(data.row_version);
-    evaluationBaselineRef.current = createLtcatBaseline(avaliacoes);
+    return { rowVersion: Number(data.row_version), alreadyConfirmed: false };
+  };
+
+  const confirmPendingOperation = async (operation: LtcatPendingOperation, rowVersion: number) => {
+    const removed = await durableQueueRef.current.removeIfRevision(operation.key, operation.revision);
+    if (!removed) return false;
+    documentVersionRef.current = rowVersion;
+    evaluationBaselineRef.current = createLtcatBaseline(operation.evaluations);
     explicitDeletedEvaluationIdsRef.current.clear();
-    console.log(`💾 [${tipoDocLabel}] ${data.count} avaliação(ões) alterada(s), ${data.deleted || 0} excluída(s)`);
+    pendingProtectedRef.current = false;
+    markSnapshotAsSaved(operation.snapshot, "auto");
+    setSaveState("saved");
+    setSaveError("");
+    return true;
+  };
+
+  const schedulePendingRetry = (operation: LtcatPendingOperation) => {
+    if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+    const attempts = operation.attempts + 1;
+    const delay = retryDelayMs(attempts - 1);
+    const next = { ...operation, attempts, nextAttemptAt: Date.now() + delay };
+    durableQueueRef.current.put(next).catch(console.error);
+    retryTimerRef.current = setTimeout(() => {
+      if (!navigator.onLine) return;
+      setSaveState("syncing");
+      saveQueueRef.current(async () => {
+        const latest = await durableQueueRef.current.get(operation.key);
+        if (!latest || latest.conflict) return false;
+        try {
+          const result = await sendPendingOperation(latest);
+          return confirmPendingOperation(latest, result.rowVersion);
+        } catch (error) {
+          if (isVersionConflictMessage(error instanceof Error ? error.message : String(error))) {
+            await durableQueueRef.current.put({ ...latest, conflict: true });
+            setSaveState("conflict");
+            setSaveError("Existe uma versão mais recente no banco. Suas alterações locais continuam protegidas.");
+          } else if (isTransientSaveError(error)) {
+            setSaveState(navigator.onLine ? "pending" : "offline");
+            schedulePendingRetry(latest);
+          } else {
+            setSaveState("pending");
+            setSaveError(error instanceof Error ? error.message : "Falha temporária ao sincronizar.");
+          }
+          return false;
+        }
+      });
+    }, delay);
   };
 
   // SALVAR - persiste snapshot completo + avaliações normalizadas
@@ -3469,7 +3510,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return false;
     }
 
-    if (!force && fingerprint === lastSavedFingerprintRef.current) {
+    if (!force && fingerprint === lastSavedFingerprintRef.current && !pendingProtectedRef.current) {
       if (!silent) toast.info("Nenhuma alteração para salvar");
       return true; // já persistido no banco
     }
@@ -3479,7 +3520,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     // tempo suficiente para os eventos de delete/insert ecoarem sem disparar reload.
     suppressReloadUntilRef.current = Date.now() + 60_000;
     setSavingDraft(true);
-    setSaveState("saving");
+    setSaveState(navigator.onLine ? "saving" : "offline");
     setSaveError("");
     try {
 
@@ -3502,41 +3543,72 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         status: "rascunho",
       };
 
-      let docId = currentDraftId;
-      if (docId) {
-        if (documentVersionRef.current == null) {
-          throw new Error("Versão do documento indisponível. Recarregue o documento antes de salvar.");
-        }
-        await persistAvaliacoesInner(docId, documentVersionRef.current, baseFields, snapshot.riscos || []);
-      } else {
-        const { data: inserted, error } = await supabase.from("documentos").insert({
-          tipo: tipoDocLabel,
-          file_path: null,
-          ...baseFields,
-        } as any).select("id, row_version").single();
-        if (error) throw error;
-        docId = inserted?.id || null;
-        documentVersionRef.current = Number(inserted?.row_version || 1);
-        setCurrentDraftId(docId);
-        currentDraftIdRef.current = docId;
-        if (docId && !documentoId) {
+      if (!user?.id) throw new Error("Sessão do usuário indisponível.");
+      const docId = currentDraftId || crypto.randomUUID();
+      const createDocument = !currentDraftId;
+      const expectedVersion = documentVersionRef.current ?? 1;
+      const avaliacoes = buildAvaliacoesPayload(snapshot.riscos || []) || [];
+      const ids = avaliacoes.map((row) => row.id);
+      if (new Set(ids).size !== ids.length) throw new Error("Foram encontrados identificadores repetidos nas avaliações.");
+      if (isEditMode && documentVersionRef.current == null) {
+        throw new Error("Versão do documento indisponível. Recarregue o documento antes de salvar.");
+      }
+      const key = pendingOperationKey(user.id, tipoDocumento, docId);
+      const previous = await durableQueueRef.current.get(key);
+      const operation = createPendingOperation({
+        userId: user.id,
+        documentId: docId,
+        empresaId: snapshot.empresaId,
+        tipoDocumento,
+        tipoDocLabel,
+        expectedVersion,
+        createDocument,
+        documentPatch: baseFields,
+        changes: diffLtcatEvaluations(avaliacoes, evaluationBaselineRef.current, explicitDeletedEvaluationIdsRef.current),
+        evaluations: avaliacoes,
+        snapshot,
+      }, previous);
+      await durableQueueRef.current.put(operation);
+      pendingProtectedRef.current = true;
+      setSaveState(navigator.onLine ? "saving" : "offline");
+      if (!navigator.onLine) {
+        schedulePendingRetry(operation);
+        if (!silent) toast.info("Sem conexão — suas alterações estão protegidas e serão sincronizadas automaticamente.");
+        return true;
+      }
+
+      try {
+        const result = await sendPendingOperation(operation);
+        const confirmed = await confirmPendingOperation(operation, result.rowVersion);
+        if (!confirmed) return true;
+        if (createDocument) {
+          setCurrentDraftId(docId);
+          currentDraftIdRef.current = docId;
           navigate(`/documentos/${tipoDocumento}/editar/${docId}`, { replace: true });
         }
+        markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
+        if (!silent) toast.success("Salvo com sucesso");
+        return true;
+      } catch (error) {
+        if (isVersionConflictMessage(error instanceof Error ? error.message : String(error))) {
+          await durableQueueRef.current.put({ ...operation, conflict: true });
+          setSaveState("conflict");
+          setSaveError("Existe uma versão mais recente no banco. Suas alterações locais continuam protegidas.");
+          toast.error("Existe uma alteração mais recente. Seus dados locais foram preservados para revisão.");
+          return false;
+        }
+        if (isTransientSaveError(error) || !navigator.onLine) {
+          setSaveState(navigator.onLine ? "pending" : "offline");
+          setSaveError("Alterações protegidas e pendentes de sincronização.");
+          schedulePendingRetry(operation);
+          if (!silent) toast.info("Alterações protegidas. A sincronização continuará automaticamente.");
+          return true;
+        }
+        throw error;
       }
-
-      if (!docId) throw new Error("Não foi possível obter o identificador do documento.");
-      if (!currentDraftId && documentVersionRef.current != null) {
-        await persistAvaliacoesInner(docId, documentVersionRef.current, baseFields, snapshot.riscos || []);
-      }
-
-      // ✅ Só marca como salvo APÓS a confirmação de gravação no banco.
-      markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
-      setSaveState("saved");
-      if (!silent) toast.success("Salvo com sucesso");
-      return true;
     } catch (err: any) {
       console.error("[handleSaveDraft]", err);
-      setSaveState("error");
+      if (!pendingProtectedRef.current) setSaveState("error");
       setSaveError(err?.message || "Erro desconhecido");
       toast.error(
         "Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." +
