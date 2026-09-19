@@ -11,3 +11,10 @@
 - [x] Adicionar série/identificação aos amostradores químicos
 - [x] Criar pesquisa e relatório de amostradores usados
 - [x] Validar persistência, importação, PDFs e ausência de regressões
+
+# Proteção offline LTCAT e Insalubridade
+- [ ] Criar fila durável e consolidada por usuário/documento
+- [ ] Integrar persistência local antes do envio e recuperação após recarga
+- [ ] Implementar reconexão, retry progressivo e conflito preservado
+- [ ] Exibir estados confiáveis de sincronização
+- [ ] Testar quedas, retries, cliques repetidos e documentos grandes
