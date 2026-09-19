@@ -4615,11 +4615,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 <span className="text-xs text-muted-foreground flex items-center gap-1">
                   <Loader2 className="w-3 h-3 animate-spin" /> Salvando...
                 </span>
+              ) : saveState === "syncing" ? (
+                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                  <Loader2 className="w-3 h-3 animate-spin" /> 🔄 Sincronizando...
+                </span>
+              ) : saveState === "offline" ? (
+                <span className="text-xs text-destructive flex items-center gap-1" title={saveError}>
+                  <CloudOff className="w-3 h-3" /> 🔴 Sem conexão — alterações protegidas
+                </span>
+              ) : saveState === "pending" ? (
+                <span className="text-xs text-accent-foreground" title={saveError}>🟠 Alterações pendentes</span>
+              ) : saveState === "conflict" ? (
+                <span className="text-xs text-destructive" title={saveError}>🟠 Alteração mais recente — revisão necessária</span>
               ) : saveState === "error" ? (
                 <span className="text-xs text-destructive" title={saveError}>Erro ao salvar</span>
               ) : lastSavedAt ? (
                 <span className="text-xs text-muted-foreground">
-                  {lastSaveMode === "auto" ? "Salvo automaticamente" : "Salvo"} • Última atualização: {lastSavedAt}
+                  🟢 {lastSaveMode === "auto" ? "Sincronizado" : "Salvo"} • Última atualização: {lastSavedAt}
                 </span>
               ) : null}
               {step < steps.length - 1 && (
