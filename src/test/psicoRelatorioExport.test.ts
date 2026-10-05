@@ -18,6 +18,13 @@ const payload = (grupos: GrupoRelatorio[]): PdfPayload => ({
   titulo: "Avaliação Psicossocial", interpretacaoIndicadores: "Sem indicadores", introPlanoAcao: "Plano",
 });
 
+const lerBlob = (blob: Blob) => new Promise<ArrayBuffer>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as ArrayBuffer);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsArrayBuffer(blob);
+});
+
 describe("Ordenação e exportação dos relatórios Psicossociais", () => {
   it("ordena Setores e GHE/GES numericamente, sem alterar os registros", () => {
     const entrada = [grupo("GERE 10", "GHE 10"), grupo("GERE 02", "GHE 2"), grupo("GERE 01", "GHE 1")];
@@ -43,7 +50,7 @@ describe("Ordenação e exportação dos relatórios Psicossociais", () => {
 
   it("gera DOCX válido com documento, cabeçalho, rodapé e tabelas", async () => {
     const { blob, nome } = await gerarDocxPsicossocial(payload([grupo("GERE 01", "GHE 1")]));
-    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const zip = await JSZip.loadAsync(await lerBlob(blob));
     const documento = await zip.file("word/document.xml")?.async("string");
     expect(nome).toMatch(/\.docx$/);
     expect(documento).toContain("GERE 01");
