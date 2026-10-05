@@ -11,10 +11,14 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Download, Loader2, Save, Settings2, Sparkles } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Download, Loader2, RefreshCw, Save, Settings2, Sparkles, Trash2 } from "lucide-react";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
-  construirGrupos, medidasDosGrupos, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
+  construirGrupos, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
   INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
   indicadoresPreenchidos, interpretarIndicadores,
@@ -189,6 +193,8 @@ export default function PsicossocialRelatorio() {
   const [metodologia, setMetodologia] = useState("");
   const [grupos, setGrupos] = useState<GrupoRelatorio[]>([]);
   const [medidas, setMedidas] = useState<MedidaControle[]>([]);
+  const [medidasExcluidas, setMedidasExcluidas] = useState<string[]>([]);
+  const [medidaParaExcluir, setMedidaParaExcluir] = useState<MedidaControle | null>(null);
   const [conclusao, setConclusao] = useState("");
   const [introPlano, setIntroPlano] = useState("");
   const [historico, setHistorico] = useState("");
@@ -240,13 +246,9 @@ export default function PsicossocialRelatorio() {
     const gs = gsBase;
     setGrupos(gs);
 
-    const baseMed = medidasDosGrupos(gs);
-    setMedidas(
-      baseMed.map((m) => {
-        const old = (s.medidas as MedidaControle[] | undefined)?.find((x) => x.key === m.key);
-        return old ? { ...m, ...old } : m;
-      }),
-    );
+    const excluidas = Array.isArray(s.medidasExcluidas) ? s.medidasExcluidas : [];
+    setMedidasExcluidas(excluidas);
+    setMedidas(mesclarMedidasPlano(gs, s.medidas as MedidaControle[] | undefined, excluidas));
 
     setConclusao(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa"));
     setIntroPlano(s.introPlano || planoAcaoTexto(gs, empresa?.razao_social || "a empresa avaliada"));
@@ -393,9 +395,16 @@ export default function PsicossocialRelatorio() {
   };
 
 
-  const salvar = async () => {
+  const persistirRelatorio = async (
+    proximasMedidas = medidas,
+    proximasExcluidas = medidasExcluidas,
+    mostrarSucesso = true,
+  ) => {
     setSalvando(true);
-    const dados = { ident, metInfo, metodologia, grupos, medidas, conclusao, introPlano, historico, registros };
+    const dados = {
+      ident, metInfo, metodologia, grupos, medidas: proximasMedidas,
+      medidasExcluidas: proximasExcluidas, conclusao, introPlano, historico, registros,
+    };
     const { error } = await supabase.from("psico_relatorios").upsert({
       avaliacao_id: avaliacaoId!,
       empresa_id: empresaId!,
@@ -404,8 +413,37 @@ export default function PsicossocialRelatorio() {
       dados: dados as any,
     } as any, { onConflict: "avaliacao_id" });
     setSalvando(false);
-    if (error) { toast.error(error.message); return; }
-    toast.success("Relatório salvo.");
+    if (error) { toast.error(error.message); return false; }
+    if (mostrarSucesso) toast.success("Relatório salvo.");
+    return true;
+  };
+
+  const salvar = async () => { await persistirRelatorio(); };
+
+  const excluirMedida = async () => {
+    if (!medidaParaExcluir) return;
+    const alvo = medidaParaExcluir;
+    const anteriores = medidas;
+    const excluidasAnteriores = medidasExcluidas;
+    const proximas = medidas.filter((m) => m.key !== alvo.key);
+    const proximasExcluidas = Array.from(new Set([...medidasExcluidas, alvo.key]));
+    setMedidas(proximas);
+    setMedidasExcluidas(proximasExcluidas);
+    setMedidaParaExcluir(null);
+    const ok = await persistirRelatorio(proximas, proximasExcluidas, false);
+    if (!ok) {
+      setMedidas(anteriores);
+      setMedidasExcluidas(excluidasAnteriores);
+      return;
+    }
+    toast.success("Ação excluída do Plano de Ação.");
+  };
+
+  const recriarPlano = () => {
+    setMedidas(medidasDosGrupos(grupos));
+    setMedidasExcluidas([]);
+    setIntroPlano(planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"));
+    toast.success("Plano de Ação recriado com os riscos elegíveis atuais. Salve as edições para confirmar.");
   };
 
   const baixarPdf = () => {
@@ -972,7 +1010,11 @@ export default function PsicossocialRelatorio() {
       </Secao>
 
       {/* 11 - Plano de ação */}
-      <Secao n="11" titulo="Plano de ação">
+      <Secao n="11" titulo="Plano de ação" acao={(
+        <Button variant="outline" size="sm" onClick={recriarPlano}>
+          <RefreshCw className="w-4 h-4 mr-1.5" />Recriar Plano de Ação
+        </Button>
+      )}>
         <div className="grid gap-1.5">
           <Label>Texto técnico do plano de ação</Label>
           <Textarea
@@ -988,7 +1030,7 @@ export default function PsicossocialRelatorio() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm border">
             <thead className="bg-muted">
-              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status"].map((h) => <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>)}</tr>
+              <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Excluir"].map((h) => <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>)}</tr>
             </thead>
             <tbody>
               {medidas.map((m) => (
@@ -999,13 +1041,33 @@ export default function PsicossocialRelatorio() {
                   <td className="border p-2 min-w-[130px]"><Input value={m.prazo} onChange={(e) => setMedida(m.key, { prazo: e.target.value })} /></td>
                   <td className="border p-2 min-w-[120px]"><Input value={m.prioridade} onChange={(e) => setMedida(m.key, { prioridade: e.target.value })} /></td>
                   <td className="border p-2 min-w-[140px]"><Input value={m.status} placeholder="A preencher" onChange={(e) => setMedida(m.key, { status: e.target.value })} /></td>
+                  <td className="border p-2 text-center">
+                    <Button variant="ghost" size="icon" onClick={() => setMedidaParaExcluir(m)} aria-label={`Excluir ação ${m.risco}`} title="Excluir ação">
+                      <Trash2 className="w-4 h-4 text-destructive" />
+                    </Button>
+                  </td>
                 </tr>
               ))}
-              {!medidas.length && <tr><td colSpan={6} className="p-4 text-center text-muted-foreground">—</td></tr>}
+              {!medidas.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nenhuma ação prioritária para riscos Médios ou Altos.</td></tr>}
             </tbody>
           </table>
         </div>
       </Secao>
+
+      <AlertDialog open={!!medidaParaExcluir} onOpenChange={(open) => { if (!open) setMedidaParaExcluir(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Tem certeza que deseja excluir esta ação?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A ação será removida do Plano de Ação e não reaparecerá ao reabrir o relatório.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={excluirMedida}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
 
       {/* 12 - Responsáveis */}
