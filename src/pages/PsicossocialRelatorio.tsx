@@ -24,7 +24,7 @@ import {
   indicadoresPreenchidos, interpretarIndicadores,
   type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
 } from "@/lib/psicoRelatorio";
-import { gerarPdfPsicossocial } from "@/lib/psicoRelatorioPdf";
+import { gerarPdfPsicossocial, type PdfPayload } from "@/lib/psicoRelatorioPdf";
 import { gerarDocxPsicossocial } from "@/lib/psicoRelatorioDocx";
 import { sortGroupsNumerically } from "@/lib/sortGes";
 import { saveAs } from "file-saver";
@@ -460,15 +460,17 @@ export default function PsicossocialRelatorio() {
     toast.success("Plano de Ação recriado com os riscos elegíveis atuais. Salve as edições para confirmar.");
   };
 
+  const montarPayloadRelatorio = (): PdfPayload => ({
+    empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
+    conclusao, indicadores, historico, registros,
+    interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
+    introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    titulo: avaliacao?.titulo || "Avaliação Psicossocial",
+  });
+
   const baixarPdf = () => {
     try {
-      gerarPdfPsicossocial({
-        empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
-        conclusao, indicadores, historico, registros,
-        interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-        introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
-        titulo: avaliacao?.titulo || "Avaliação Psicossocial",
-      });
+      gerarPdfPsicossocial(montarPayloadRelatorio());
     } catch (e: any) {
       toast.error("Erro ao gerar PDF: " + (e?.message || ""));
     }
@@ -477,13 +479,7 @@ export default function PsicossocialRelatorio() {
   const baixarWord = async () => {
     setGerandoWord(true);
     try {
-      const { blob, nome } = await gerarDocxPsicossocial({
-        empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
-        conclusao, indicadores, historico, registros,
-        interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-        introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
-        titulo: avaliacao?.titulo || "Avaliação Psicossocial",
-      });
+      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio());
       saveAs(blob, nome);
     } catch (e: any) {
       toast.error("Erro ao gerar Word: " + (e?.message || ""));
