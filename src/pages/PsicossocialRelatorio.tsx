@@ -201,6 +201,10 @@ export default function PsicossocialRelatorio() {
   const [registros, setRegistros] = useState<Record<string, string>>({
     aplicador: "", responsavel_empresa: "", data: "", versao: "1.0",
   });
+  const medidasPlano = useMemo(
+    () => mesclarMedidasPlano(grupos, medidas, medidasExcluidas),
+    [grupos, medidas, medidasExcluidas],
+  );
 
   const indicadores = indicadoresDb || {};
 
@@ -269,7 +273,7 @@ export default function PsicossocialRelatorio() {
       try {
         const contexto = montarContexto({
           empresa, contrato, avaliacao, setores, indicadores,
-          respondentes: respostas.length, grupos, medidas, metInfo,
+          respondentes: respostas.length, grupos, medidas: medidasPlano, metInfo,
         });
         const out = await gerarTextosIa(contexto);
         if (out.metodologia) setMetodologia(out.metodologia);
@@ -350,7 +354,7 @@ export default function PsicossocialRelatorio() {
     }
     for (const [k] of prevMap) if (!atualMap.has(k)) reduzidos.push(`${k.split("::")[0].replace("||", " — ")} / ${k.split("::")[1]}`);
 
-    const concl = medidas.filter((m) => m.status === "Concluída").length;
+    const concl = medidasPlano.filter((m) => m.status === "Concluída").length;
     setHistorico([
       `Comparativo com a avaliação anterior "${anterior.avaliacao.titulo}" (${new Date(anterior.avaliacao.created_at).toLocaleDateString("pt-BR")}).`,
       `Riscos novos: ${novos.length ? novos.join("; ") : "nenhum"}.`,
@@ -396,7 +400,7 @@ export default function PsicossocialRelatorio() {
 
 
   const persistirRelatorio = async (
-    proximasMedidas = medidas,
+    proximasMedidas = medidasPlano,
     proximasExcluidas = medidasExcluidas,
     mostrarSucesso = true,
   ) => {
@@ -425,7 +429,7 @@ export default function PsicossocialRelatorio() {
     const alvo = medidaParaExcluir;
     const anteriores = medidas;
     const excluidasAnteriores = medidasExcluidas;
-    const proximas = medidas.filter((m) => m.key !== alvo.key);
+    const proximas = medidasPlano.filter((m) => m.key !== alvo.key);
     const proximasExcluidas = Array.from(new Set([...medidasExcluidas, alvo.key]));
     setMedidas(proximas);
     setMedidasExcluidas(proximasExcluidas);
@@ -449,7 +453,7 @@ export default function PsicossocialRelatorio() {
   const baixarPdf = () => {
     try {
       gerarPdfPsicossocial({
-        empresa, contrato, identificacao: ident, metodologia, grupos, medidas,
+        empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
         conclusao, indicadores, historico, registros,
         interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
         introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
@@ -854,7 +858,7 @@ export default function PsicossocialRelatorio() {
       {/* 7 - Medidas */}
       <Secao n="7" titulo="Medidas de prevenção e controle">
         <div className="space-y-4">
-          {medidas.map((m) => (
+          {medidasPlano.map((m) => (
             <Card key={m.key} className="p-5 space-y-4 bg-muted/20">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold text-sm">{m.grupo} — {m.risco}</p>
@@ -896,7 +900,7 @@ export default function PsicossocialRelatorio() {
               </div>
             </Card>
           ))}
-          {!medidas.length && <p className="text-sm text-muted-foreground">Nenhuma medida aplicável.</p>}
+          {!medidasPlano.length && <p className="text-sm text-muted-foreground">Nenhuma medida aplicável.</p>}
         </div>
       </Secao>
 
@@ -1033,7 +1037,7 @@ export default function PsicossocialRelatorio() {
               <tr>{["Risco", "Ação", "Responsável", "Prazo", "Prioridade", "Status", "Excluir"].map((h) => <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>)}</tr>
             </thead>
             <tbody>
-              {medidas.map((m) => (
+              {medidasPlano.map((m) => (
                 <tr key={m.key} className="align-top">
                   <td className="border p-2.5 min-w-[180px]">{m.grupo} — {m.risco}</td>
                   <td className="border p-2 min-w-[340px]"><Textarea value={m.medida} onChange={(e) => setMedida(m.key, { medida: e.target.value })} /></td>
@@ -1048,7 +1052,7 @@ export default function PsicossocialRelatorio() {
                   </td>
                 </tr>
               ))}
-              {!medidas.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nenhuma ação prioritária para riscos Médios ou Altos.</td></tr>}
+              {!medidasPlano.length && <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nenhuma ação prioritária para riscos Médios ou Altos.</td></tr>}
             </tbody>
           </table>
         </div>
