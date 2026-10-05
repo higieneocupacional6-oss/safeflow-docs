@@ -255,7 +255,13 @@ export default function PsicossocialRelatorio() {
     setMedidas(mesclarMedidasPlano(gs, s.medidas as MedidaControle[] | undefined, excluidas));
 
     setConclusao(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa"));
-    setIntroPlano(s.introPlano || planoAcaoTexto(gs, empresa?.razao_social || "a empresa avaliada"));
+    const introSalva = String(s.introPlano || "");
+    const introLegadaIncluiManutencao = /aç(?:ão|ões) de manutenção|manutenção e monitoramento|melhoria contínua, sem prioridade/i.test(introSalva);
+    setIntroPlano(
+      introSalva && !introLegadaIncluiManutencao
+        ? introSalva
+        : planoAcaoTexto(gs, empresa?.razao_social || "a empresa avaliada"),
+    );
     setRegistros({ aplicador: "", responsavel_empresa: "", data: "", versao: salvo?.versao || "1.0", ...(s.registros || {}) });
 
     abrirMetRef.current = !s.metInfo?.periodo;
@@ -471,7 +477,13 @@ export default function PsicossocialRelatorio() {
       ? { ...g, fatores: g.fatores.map((f) => (f.key === key ? { ...f, ...patch, nivel: nivelDeRisco(patch.probabilidade ?? f.probabilidade, patch.severidade ?? f.severidade) } : f)) }
       : g)));
   const setMedida = (key: string, patch: Partial<MedidaControle>) =>
-    setMedidas((p) => p.map((m) => (m.key === key ? { ...m, ...patch } : m)));
+    setMedidas((p) => {
+      if (p.some((m) => m.key === key)) {
+        return p.map((m) => (m.key === key ? { ...m, ...patch } : m));
+      }
+      const base = medidasPlano.find((m) => m.key === key);
+      return base ? [...p, { ...base, ...patch }] : p;
+    });
 
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0) || 1;
   // A matriz representa apenas os riscos caracterizados (exclui Baixo e não identificados).
