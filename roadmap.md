@@ -32,3 +32,9 @@
 - [x] Reconhecer marcadores divididos em runs e dentro de tabelas
 - [x] Remover todos os marcadores do documento final
 - [x] Validar fumos, poeiras, ambos e nenhum
+
+# Plano de Ação Psicossocial
+- [x] Gerar ações somente para classificações Média e Alta
+- [x] Excluir ações individualmente com confirmação
+- [x] Persistir exclusões e permitir recriação voluntária
+- [x] Validar geração, exclusão, recarga, IA e PDF

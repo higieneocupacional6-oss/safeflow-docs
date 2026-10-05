@@ -24,9 +24,10 @@ REGRAS NÃO NEGOCIÁVEIS:
 
 PLANO DE AÇÃO:
 - Para cada medida recebida, proponha uma AÇÃO CONCRETA, aplicável e diretamente relacionada ao fator, ao setor/GHE, à atividade da função, à organização do trabalho, à causa/fonte e aos controles já existentes.
+- As medidas recebidas correspondem exclusivamente a fatores classificados como MÉDIO ou ALTO. Não crie medidas adicionais nem ações para outras classificações.
 - Evite recomendações vagas como "realizar treinamentos" sem indicar conteúdo, público, periodicidade e o efeito esperado sobre o risco.
 - Exemplos de linhas de ação, quando pertinentes ao risco real: ajustes na organização do trabalho, redistribuição de demandas, revisão de prazos e metas, melhoria de comunicação, definição de responsabilidades, melhoria de pausas, ações de liderança, fluxos de tratamento de conflitos, medidas de prevenção ao assédio, melhorias na gestão de equipes e acompanhamento periódico. Escolha conforme o risco encontrado; nunca aplique uma lista padrão a todos.
-- Quando o fator for Baixo ou não identificado, a ação deve ser de manutenção e monitoramento, específica ao que sustentou o resultado favorável.
+- Não gere ações de manutenção, monitoramento ou continuidade e não gere ações para fatores Baixos, aceitáveis, não identificados ou Críticos.
 - O campo "status" NÃO deve ser preenchido por você.
 
 FORMATO: responda EXCLUSIVAMENTE em JSON válido conforme o schema, em português do Brasil, linguagem técnica formal, sem markdown.`;
@@ -37,7 +38,7 @@ const RESPONSE_SCHEMA = {
   properties: {
     metodologia: { type: "string", description: "Texto técnico da metodologia (métodos, abrangência, população, período, critérios de risco)." },
     conclusao: { type: "string", description: "Conclusão técnica analítica: situação geral, fatores críticos, setores prioritários e reavaliação." },
-    intro_plano_acao: { type: "string", description: "Texto técnico introdutório do plano de ação, incluindo manutenção e monitoramento quando não houver risco relevante." },
+    intro_plano_acao: { type: "string", description: "Texto técnico introdutório restrito às ações prioritárias para fatores Médios e Altos." },
     lacunas: {
       type: "array",
       description: "Informações necessárias que não estavam disponíveis nos dados enviados.",

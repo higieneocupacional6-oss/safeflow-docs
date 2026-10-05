@@ -101,26 +101,6 @@ const META: Record<string, {
   },
 };
 
-/** Texto de manutenção/monitoramento específico por dimensão (usado quando o nível é Baixo). */
-const MANUTENCAO: Record<string, string> = {
-  exigencias:
-    "Manter o dimensionamento atual de efetivo, metas e prazos, monitorando periodicamente o volume de demandas e o cumprimento das pausas previstas na NR-17, de modo a preservar o equilíbrio de carga verificado nesta avaliação.",
-  controle:
-    "Preservar a autonomia atualmente concedida quanto a método, ritmo e pausas, acompanhando eventuais mudanças de processo que possam reduzir a margem de decisão dos trabalhadores.",
-  apoio:
-    "Manter as práticas de cooperação entre pares e o suporte da chefia imediata, acompanhando periodicamente a percepção de apoio social por meio de reavaliações e do canal de comunicação interno.",
-  reconhecimento:
-    "Manter as rotinas de retorno de desempenho e os critérios de reconhecimento existentes, monitorando sua regularidade para que o resultado favorável observado se sustente ao longo do tempo.",
-  seguranca:
-    "Manter a comunicação antecipada de mudanças organizacionais e a previsibilidade quanto às funções, acompanhando a percepção de estabilidade em reavaliações periódicas.",
-  conflitos:
-    "Manter a política de convivência e de prevenção ao assédio, com divulgação periódica do canal de denúncia e acompanhamento de registros, preservando o clima organizacional identificado.",
-  sintomas:
-    "Manter o acompanhamento de saúde no âmbito do PCMSO e o monitoramento de indicadores de absenteísmo e fadiga, de forma a detectar precocemente qualquer alteração do quadro favorável observado.",
-  lideranca:
-    "Manter as práticas atuais de liderança e a capacitação periódica dos gestores em comunicação e fatores psicossociais, acompanhando a percepção da equipe em reavaliações.",
-};
-
 /** Interpretação técnica de fator investigado sem evidência de agravamento. */
 const investigadoTexto = (titulo: string, media: number, houveResposta: boolean) =>
   houveResposta
@@ -462,33 +442,40 @@ export function construirGrupos(
 
 
 export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
-  const out: MedidaControle[] = [];
+  const out = new Map<string, MedidaControle>();
   for (const g of grupos) {
     for (const f of g.fatores) {
+      if (f.sustentado === false || (f.nivel !== "Médio" && f.nivel !== "Alto")) continue;
       const meta = META[f.key];
-      const manutencao = !f.sustentado || f.nivel === "Baixo";
-      const prioridade = manutencao
-        ? "Manutenção"
-        : f.nivel === "Crítico" ? "Imediata" : f.nivel === "Alto" ? "Alta" : "Média";
-      const prazo = manutencao
-        ? "Contínuo (12 meses)"
-        : f.nivel === "Crítico" ? "30 dias" : f.nivel === "Alto" ? "60 dias" : "90 dias";
-      out.push({
-        key: `${g.id}::${f.key}`,
+      if (!meta) continue;
+      const key = `${g.id}::${f.key}`;
+      out.set(key, {
+        key,
         grupo: `${g.setor} — ${g.ghe}`,
         risco: f.fator,
-        medida: manutencao
-          ? (MANUTENCAO[f.key] || "Manter as medidas organizacionais existentes e realizar acompanhamento periódico das condições de trabalho, visando preservar os resultados favoráveis identificados na avaliação.")
-          : meta.medida,
-        tipo: manutencao ? "Monitoramento" : meta.tipoControle,
+        medida: meta.medida,
+        tipo: meta.tipoControle,
         responsavel: "",
-        prazo,
-        prioridade,
+        prazo: f.nivel === "Alto" ? "60 dias" : "90 dias",
+        prioridade: f.nivel === "Alto" ? "Alta" : "Média",
         status: "",
       });
     }
   }
-  return out;
+  return Array.from(out.values());
+}
+
+/** Mescla ações elegíveis com edições salvas e respeita exclusões persistidas. */
+export function mesclarMedidasPlano(
+  grupos: GrupoRelatorio[],
+  salvas: MedidaControle[] = [],
+  excluidas: string[] = [],
+): MedidaControle[] {
+  const salvasPorChave = new Map(salvas.map((medida) => [medida.key, medida]));
+  const chavesExcluidas = new Set(excluidas);
+  return medidasDosGrupos(grupos)
+    .filter((medida) => !chavesExcluidas.has(medida.key))
+    .map((medida) => ({ ...medida, ...(salvasPorChave.get(medida.key) || {}) }));
 }
 
 
@@ -665,33 +652,22 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
 /** Texto técnico do plano de ação, adaptado aos resultados reais da avaliação. */
 export function planoAcaoTexto(grupos: GrupoRelatorio[], empresaNome: string) {
   const fatores = grupos.flatMap((g) => g.fatores);
-  const caracterizados = fatores.filter(fatorCaracterizado);
+  const priorizaveis = fatores.filter(
+    (f) => f.sustentado !== false && (f.nivel === "Médio" || f.nivel === "Alto"),
+  );
   const nomeGrupo = (g: GrupoRelatorio) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (${g.ghe})` : ""}`;
 
-  if (caracterizados.length) {
-    const prio = grupos.filter((g) => g.fatores.some((f) => f.nivel === "Alto" || f.nivel === "Crítico"));
+  if (priorizaveis.length) {
+    const prio = grupos.filter((g) => g.fatores.some((f) => f.sustentado !== false && f.nivel === "Alto"));
     return [
-      `O plano de ação a seguir consolida as medidas de prevenção e controle decorrentes dos ${caracterizados.length} fator(es) caracterizado(s) na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
+      `O plano de ação a seguir consolida exclusivamente as medidas corretivas e preventivas que exigem priorização, decorrentes dos ${priorizaveis.length} fator(es) classificados em nível Médio ou Alto na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
       prio.length
         ? `A execução deve ser priorizada nos grupos ${prio.map(nomeGrupo).join("; ")}, em razão do nível de risco identificado.`
-        : "As medidas possuem caráter de melhoria contínua, sem prioridade imediata entre os grupos avaliados.",
-      "Para os fatores classificados em nível Baixo ou não identificados, o plano registra ações de manutenção e monitoramento, de modo a preservar as condições favoráveis verificadas e detectar precocemente eventual alteração.",
+        : "As medidas apresentadas correspondem aos grupos com classificação Média e exigem tratamento preventivo planejado.",
     ].join(" ");
   }
 
-  const grupoTxt = grupos.length === 1
-    ? `no grupo ${nomeGrupo(grupos[0])}`
-    : `nos ${grupos.length} grupos homogêneos avaliados (${grupos.map(nomeGrupo).join("; ")})`;
-  const dims = Array.from(new Set(fatores.filter((f) => f.sustentado !== false).map((f) => f.fator)));
-
-  return [
-    `Considerando os resultados obtidos ${grupoTxt} em ${empresaNome}, não foram identificados fatores psicossociais que demandem medidas corretivas específicas no momento.`,
-    dims.length
-      ? `As dimensões com resultado favorável — ${dims.join("; ")} — indicam condições organizacionais adequadas quanto à carga de trabalho, à autonomia, ao apoio social e às relações interpessoais.`
-      : "As dimensões investigadas não apresentaram evidências de exposição psicossocial relevante.",
-    "Recomenda-se, portanto, a manutenção das condições organizacionais favoráveis identificadas, o acompanhamento periódico dos fatores avaliados por meio de indicadores organizacionais e de reavaliações programadas, e a continuidade das práticas de gestão existentes, de modo a prevenir alterações futuras nas condições de trabalho.",
-    "As ações de manutenção e monitoramento detalhadas na tabela a seguir integram o gerenciamento de riscos ocupacionais previsto na NR-01 e devem ser registradas com evidência de execução.",
-  ].join(" ");
+  return `Considerando os resultados obtidos em ${empresaNome}, não foram identificados fatores classificados em nível Médio ou Alto que exijam inclusão no Plano de Ação neste momento.`;
 }
 
 export function metodologiaTexto(opts: {
