@@ -1,6 +1,7 @@
 // Motor de consolidação do Relatório Técnico Psicossocial (NR-01 / NR-17)
 // Reutiliza integralmente a metodologia COPSOQ já existente no sistema.
 import { BLOCOS_COPSOQ, valorRiscoPergunta } from "@/lib/copsoqBlocos";
+import { sortGroupsNumerically } from "@/lib/sortGes";
 
 export type NivelRisco = "Baixo" | "Médio" | "Alto" | "Crítico";
 
@@ -347,7 +348,7 @@ export function construirGrupos(
     mapa.set(id, g);
   }
 
-  return Array.from(mapa.entries()).map(([id, g]) => {
+  const grupos = Array.from(mapa.entries()).map(([id, g]) => {
     const funcoes = Array.from(g.funcoes);
     const trabalhadores = funcoes.reduce(
       (a, f) => a + (vinculos.get(normalizarFuncao(f))?.expostos || 0), 0,
@@ -437,7 +438,8 @@ export function construirGrupos(
       fatores,
       respondentes: g.itens.length,
     };
-  }).sort((a, b) => a.setor.localeCompare(b.setor));
+  });
+  return sortGroupsNumerically(grupos);
 }
 
 

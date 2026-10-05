@@ -5,6 +5,7 @@ import {
   hexNivel, nivelDeRisco, resumoPorGrupo, riscosParaPgr, matrizOcupada,
   indicadoresPreenchidos,
 } from "@/lib/psicoRelatorio";
+import { sortGroupsNumerically } from "@/lib/sortGes";
 
 const AZUL: [number, number, number] = [23, 58, 94];
 const CINZA: [number, number, number] = [240, 243, 247];
@@ -53,6 +54,7 @@ export function textoPdf(v: any): string {
 const cel = (v: any) => textoPdf(v) || "—";
 
 export function gerarPdfPsicossocial(p: PdfPayload) {
+  p = { ...p, grupos: sortGroupsNumerically(p.grupos) };
   const doc = new jsPDF({ unit: "pt", format: "a4", compress: true });
   doc.setProperties({ title: textoPdf(p.titulo), subject: "Relatório Técnico de Avaliação Psicossocial" });
 
