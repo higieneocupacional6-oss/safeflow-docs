@@ -11,7 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Download, Loader2, RefreshCw, Save, Settings2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronsDownUp, ChevronsUpDown, Download, FileText, Loader2, RefreshCw, Save, Settings2, Sparkles, Trash2 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -24,7 +24,10 @@ import {
   indicadoresPreenchidos, interpretarIndicadores,
   type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
 } from "@/lib/psicoRelatorio";
-import { gerarPdfPsicossocial } from "@/lib/psicoRelatorioPdf";
+import { gerarPdfPsicossocial, type PdfPayload } from "@/lib/psicoRelatorioPdf";
+import { gerarDocxPsicossocial } from "@/lib/psicoRelatorioDocx";
+import { sortGroupsNumerically } from "@/lib/sortGes";
+import { saveAs } from "file-saver";
 import { MetodologiaModal, type MetodologiaInfo } from "@/components/psico/MetodologiaModal";
 import { montarContexto, gerarTextosIa } from "@/lib/psicoIa";
 import {
@@ -68,6 +71,7 @@ export default function PsicossocialRelatorio() {
   const location = useLocation();
   const usarIa = Boolean((location.state as any)?.usarIa);
   const [salvando, setSalvando] = useState(false);
+  const [gerandoWord, setGerandoWord] = useState(false);
   const [metOpen, setMetOpen] = useState(false);
   const [pronto, setPronto] = useState(false);
   const [iaRodando, setIaRodando] = useState(false);
@@ -247,7 +251,7 @@ export default function PsicossocialRelatorio() {
         }),
     );
 
-    const gs = gsBase;
+    const gs = sortGroupsNumerically(gsBase);
     setGrupos(gs);
 
     const excluidas = Array.isArray(s.medidasExcluidas) ? s.medidasExcluidas : [];
@@ -456,17 +460,31 @@ export default function PsicossocialRelatorio() {
     toast.success("Plano de Ação recriado com os riscos elegíveis atuais. Salve as edições para confirmar.");
   };
 
+  const montarPayloadRelatorio = (): PdfPayload => ({
+    empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
+    conclusao, indicadores, historico, registros,
+    interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
+    introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    titulo: avaliacao?.titulo || "Avaliação Psicossocial",
+  });
+
   const baixarPdf = () => {
     try {
-      gerarPdfPsicossocial({
-        empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
-        conclusao, indicadores, historico, registros,
-        interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-        introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
-        titulo: avaliacao?.titulo || "Avaliação Psicossocial",
-      });
+      gerarPdfPsicossocial(montarPayloadRelatorio());
     } catch (e: any) {
       toast.error("Erro ao gerar PDF: " + (e?.message || ""));
+    }
+  };
+
+  const baixarWord = async () => {
+    setGerandoWord(true);
+    try {
+      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio());
+      saveAs(blob, nome);
+    } catch (e: any) {
+      toast.error("Erro ao gerar Word: " + (e?.message || ""));
+    } finally {
+      setGerandoWord(false);
     }
   };
 
@@ -522,6 +540,9 @@ export default function PsicossocialRelatorio() {
             Salvar edições
           </Button>
           <Button onClick={baixarPdf}><Download className="w-4 h-4 mr-1.5" /> Baixar PDF</Button>
+          <Button variant="outline" onClick={baixarWord} disabled={gerandoWord}>
+            {gerandoWord ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />} Baixar Word
+          </Button>
         </div>
       </div>
 
@@ -1154,6 +1175,9 @@ export default function PsicossocialRelatorio() {
           {salvando ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Save className="w-4 h-4 mr-1.5" />} Salvar edições
         </Button>
         <Button size="lg" onClick={baixarPdf}><Download className="w-4 h-4 mr-1.5" /> Baixar PDF</Button>
+        <Button size="lg" variant="outline" onClick={baixarWord} disabled={gerandoWord}>
+          {gerandoWord ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileText className="w-4 h-4 mr-1.5" />} Baixar Word
+        </Button>
       </div>
 
       <MetodologiaModal open={metOpen} onOpenChange={setMetOpen} valor={metInfo} onConfirm={aplicarMetodologia} />

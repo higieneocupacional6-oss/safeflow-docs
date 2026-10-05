@@ -8,6 +8,25 @@ export function gesOrder(value?: string | null): number {
   return isNaN(n) ? 999999 : n;
 }
 
+/** Compara textos somente pelo primeiro número encontrado, sem reordenar alfabeticamente. */
+export function numericTextOrder(a?: string | null, b?: string | null): number {
+  return gesOrder(a) - gesOrder(b);
+}
+
+export type NumericGroup = { setor?: string | null; ghe?: string | null };
+
+/** Ordenação estável Setor → GHE/GES, baseada nos números contidos nos nomes. */
+export function sortGroupsNumerically<T extends NumericGroup>(groups: readonly T[]): T[] {
+  return groups
+    .map((group, index) => ({ group, index }))
+    .sort((a, b) =>
+      numericTextOrder(a.group.setor, b.group.setor)
+      || numericTextOrder(a.group.ghe, b.group.ghe)
+      || a.index - b.index,
+    )
+    .map(({ group }) => group);
+}
+
 export function sortByGes<T extends { ghe_ges?: string | null }>(arr: T[]): T[] {
   return [...arr].sort((a, b) => {
     const da = gesOrder(a.ghe_ges);

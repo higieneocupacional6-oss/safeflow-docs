@@ -40,8 +40,8 @@
 - [x] Validar geração, exclusão, recarga, IA e PDF
 
 # Relatórios Psicossociais — ordenação e Word
-- [ ] Ordenar numericamente setores e GHE/GES na fonte exibida
-- [ ] Reutilizar a mesma ordem na tela, no PDF e no Word
-- [ ] Gerar relatório Word completo, editável, com cabeçalho e rodapé
-- [ ] Adicionar os botões Baixar Word nos dois pontos de emissão
-- [ ] Validar GERE/GHE/GES com 1, 2 e 10, além de PDF e DOCX
+- [x] Ordenar numericamente setores e GHE/GES na fonte exibida
+- [x] Reutilizar a mesma ordem na tela, no PDF e no Word
+- [x] Gerar relatório Word completo, editável, com cabeçalho e rodapé
+- [x] Adicionar os botões Baixar Word nos dois pontos de emissão
+- [x] Validar GERE/GHE/GES com 1, 2 e 10, além de PDF e DOCX
