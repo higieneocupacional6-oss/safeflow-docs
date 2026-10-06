@@ -28,6 +28,7 @@ export type NivelRiscoAepApresentacao = "Baixo" | "Médio" | "Alto" | "";
 export type RiscoErgonomico = {
   tipo_agente: string;
   fator_risco: string;
+  justificativa: string;
   fonte_geradora: string;
   possiveis_danos: string;
   controle_existente: string;
@@ -40,6 +41,7 @@ export type RiscoErgonomico = {
 export const emptyRiscoErgonomico = (): RiscoErgonomico => ({
   tipo_agente: "",
   fator_risco: "",
+  justificativa: "",
   fonte_geradora: "",
   possiveis_danos: "",
   controle_existente: "",
