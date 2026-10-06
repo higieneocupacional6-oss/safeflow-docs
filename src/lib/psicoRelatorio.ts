@@ -400,6 +400,7 @@ export function construirGrupos(
 
     for (const b of BLOCOS_COPSOQ) {
       const a = acc[b.key];
+      if (!g.itens.length) continue;
       const meta = META[b.key];
       const houveResposta = a.n > 0;
       const media = houveResposta ? Math.round(a.soma / a.n) : 0;
@@ -511,7 +512,7 @@ export function sincronizarGruposComCadastro(
       respondentes: g.respondentes,
       atividades: cadastroIgual && old.atividades ? old.atividades : g.atividades,
       atividadesBase: g.atividades,
-      organizacao: cadastroIgual ? old.organizacao : g.organizacao,
+      organizacao: old.funcoes.some((f) => !g.funcoes.includes(f) && old.organizacao.includes(f)) ? g.organizacao : old.organizacao,
       fatores: fatores.length ? fatores : g.fatores,
     };
   });
