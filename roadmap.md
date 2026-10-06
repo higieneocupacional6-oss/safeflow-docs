@@ -65,4 +65,4 @@
 - [x] Exigir fatores aplicáveis por agente sem inventar conteúdo para completar mínimos
 - [x] Cruzar função, atividade, empresa, setor/GHE/GES, contexto salvo e Psicossociais
 - [x] Agrupar a apresentação em Baixo, Médio e Alto preservando o cálculo interno
-- [ ] Validar geração, preservação manual, tipos, testes e função de IA
+- [x] Validar geração, preservação manual, tipos, testes e função de IA
