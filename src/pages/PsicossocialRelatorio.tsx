@@ -207,8 +207,12 @@ export default function PsicossocialRelatorio() {
     const info: MetodologiaInfo = { periodo: "", participacao: "", observacao: "", ...(s.metInfo || {}) };
     setMetInfo(info);
     const gsBase = sincronizarGruposComCadastro(gruposBase, s.grupos as GrupoRelatorio[] | undefined);
+    const removidos = ((s.grupos || []) as GrupoRelatorio[]).filter((g) => !gruposBase.some((atual) => atual.id === g.id));
+    const textoAtual = (texto: string | undefined) => removidos.some((g) =>
+      (g.ghe !== "—" && texto?.includes(g.ghe)) || texto?.includes(g.setor),
+    ) ? "" : texto;
     setMetodologia(
-      normalizarTextoPsicossocial(s.metodologia ||
+      normalizarTextoPsicossocial(textoAtual(s.metodologia) ||
         metodologiaTexto({
           ...info,
           respondentes: respostas.length,
@@ -237,8 +241,8 @@ export default function PsicossocialRelatorio() {
     setMedidasExcluidas(excluidas);
     setMedidas(mesclarMedidasPlano(gs, s.medidas as MedidaControle[] | undefined, excluidas));
 
-    setConclusao(normalizarTextoPsicossocial(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa")));
-    const introSalva = normalizarTextoPsicossocial(s.introPlano || "");
+    setConclusao(normalizarTextoPsicossocial(textoAtual(s.conclusao) || conclusaoTecnica(gs, empresa?.razao_social || "a empresa")));
+    const introSalva = normalizarTextoPsicossocial(textoAtual(s.introPlano) || "");
     const introLegadaIncluiManutencao = /aç(?:ão|ões) de manutenção|manutenção e monitoramento|melhoria contínua, sem prioridade/i.test(introSalva);
     setIntroPlano(
       introSalva && !introLegadaIncluiManutencao
