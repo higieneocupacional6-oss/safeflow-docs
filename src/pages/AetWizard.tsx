@@ -2459,6 +2459,7 @@ export default function AetWizard() {
                       setorNome: setor.setor_nome,
                       ghe: setor.ges,
                       funcoes: setor.funcoes_selecionadas.map((f) => f.nome),
+                      funcaoIds: setor.funcoes_selecionadas.map((f) => f.id).filter(Boolean),
                     });
                     setAepCtx(aep.disponivel ? aep : null);
 
@@ -2495,6 +2496,12 @@ export default function AetWizard() {
                       cronoanalise_previa: setor.cronoanalise,
                       descricao_imagens_ambiente: setor.descricao_imagens_ambiente,
                       descricao_imagens_funcao: setor.descricao_imagens_funcao,
+                      textos_atuais_aet: {
+                        descricao_atividade: setor.descricao_atividade,
+                        analise_organizacional: setor.analise_organizacional,
+                        diagnostico_ergonomico: setor.diagnostico_ergonomico,
+                        conclusao: setor.conclusao,
+                      },
                     };
 
                     let out: any;

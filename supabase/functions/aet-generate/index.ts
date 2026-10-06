@@ -3,6 +3,7 @@
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
+import { extrairFocoAep } from "../_shared/aepAprofundamento.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR com vasta experiência em Análise Ergonômica do Trabalho (AET), pareceres judiciais e programas ergonômicos corporativos.
 
@@ -28,7 +29,7 @@ OBJETIVO DE CADA CAMPO (cada campo tem PROPÓSITO ÚNICO e conteúdo EXCLUSIVO �
 - ritmo_complexidade: intensidade, repetitividade, variabilidade, exigência física e cognitiva, pressão por produtividade, complexidade.
 - jornada_aspectos: jornada, pausas, intervalos, horas extras, turnos, rodízios, distribuição temporal — aderência à NR-17.6.
 - caracterizacao_biomecanica: posturas, amplitudes articulares, esforços, repetitividade, cargas, deslocamentos, sobrecarga musculoesquelética — interpretar escores RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg com faixas de risco, citando ISO 11226/11228.
-- cronoanalise: 4 a 8 tarefas do ciclo real, com tempo realista e risco classificado (Baixo/Moderado/Alto/Crítico) com justificativa curta.
+- cronoanalise: tarefas do ciclo real documentado, com risco classificado (Baixo/Moderado/Alto/Crítico) e justificativa curta. Não criar tarefas para atingir quantidade; se tempo não medido/informado, usar "Depende de cronometragem em campo", nunca estimativa apresentada como medição.
 - avaliacoes_dimensionais: compatibilidade antropométrica de mobiliário/equipamentos vs. trabalhador; se medida não informada, escrever "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
 - avaliacoes_quantitativas_analise: comparar valores medidos (ruído, iluminância, temperatura) com limites NHO-01, NBR ISO 8995, ISO 7730, NR-17 — classificando conformidade e citando limite.
 - diagnostico_ergonomico: CONSOLIDAÇÃO integrada (físico + organizacional + psicossocial), causas, consequências, nível de exposição, fundamentada em NRs e ISOs. Não repetir literalmente os campos anteriores — sintetizar.
@@ -144,12 +145,17 @@ ${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resum
 const aepRules = `# INTEGRAÇÃO AEP → AET
 - Os dados abaixo pertencem a uma AEP salva da MESMA empresa, contrato, setor/GHE e função.
 - Use a AEP como análise preliminar anterior: aprofunde tecnicamente na AET, sem copiar literalmente e sem tratar conclusões preliminares como medições não realizadas.
+- A AEP correspondente é o PONTO DE PARTIDA PRINCIPAL obrigatório da investigação. Leia a decisão: conduta_2 NÃO significa ausência de solução rápida e encaminhamento à AET; SIM indica solução preliminar/plano de ação, não recomendação de AET. Se decisão não informada, não invente encaminhamento.
+- Identifique o MOTIVO registrado em parecer_conduta_2, inadequações, fatores de risco, checklist, situações que exigem investigação e medidas preliminares. Não afirme que uma medida falhou, foi implementada ou resolveu o problema sem evidência atual.
+- Organize a AET em torno desses pontos: organização, demandas físicas/cognitivas, posturas, movimentos, esforços, repetitividade, ritmo, exposição, pausas, mobiliário, equipamentos, ferramentas, ambiente, método e interação trabalhador–atividade–ambiente, somente conforme evidências disponíveis.
+- No diagnostico_ergonomico, explicite o vínculo "problema identificado na AEP → análise aprofundada na AET", distinguindo achados comprovados de hipóteses e investigações pendentes. Na conclusao, posicione-se sobre o motivo da indicação e o que permanece a investigar, sem repetir o diagnóstico.
+- Cada ação deve vincular sua justificativa ao problema da AEP e detalhar solução prática, humana e aplicável, método de implantação e verificação da eficácia. Priorize eliminar/reduzir/mitigar o risco com processo, organização, equipamento, ambiente e método; evite "treinar o trabalhador" como solução genérica ou substituta de melhoria estrutural.
 - A hierarquia é PSICOSSOCIAIS → AEP → AET. Preserve a coerência de identificação, atividade, organização, riscos e medidas.
 - Não invente informações nem altere a AEP. Quando houver conflito, os dados atuais observados na AET e as edições do responsável técnico prevalecem.`;
 
 function aepBlock(a: any): string {
   if (!a?.disponivel || !a?.setor) return "";
-  return `${aepRules}\n\n## AEP CORRESPONDENTE\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(compactarContexto(a.setor), null, 2)}\n\`\`\`\n\n`;
+  return `${aepRules}\n\n## DECISÃO E FOCO DO APROFUNDAMENTO\n${JSON.stringify(compactarContexto(extrairFocoAep(a.setor)), null, 2)}\n\n## AEP CORRESPONDENTE (documento: ${a.documento_id || "não informado"})\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(compactarContexto(a.setor), null, 2)}\n\`\`\`\n\n`;
 }
 
 
@@ -237,7 +243,7 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 - "ritmo_complexidade": intensidade, repetitividade, exigência cognitiva/física, pressão.
 - "jornada_aspectos": jornada, pausas, turnos, rodízios — aderência à NR-17.6.
 - "caracterizacao_biomecanica": posturas, amplitudes, cargas — interpretar escores (RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg) com faixas de risco, citando ISO 11226/11228.
-- "cronoanalise": 4 a 8 tarefas do ciclo real, tempo realista, risco justificado. Nunca genérico.
+- "cronoanalise": somente tarefas reais documentadas, risco justificado; tempo ausente = "Depende de cronometragem em campo". Não inventar duração ou tarefas.
 - "avaliacoes_dimensionais": cada chave = TEXTO técnico (Adequado/Inadequado + justificativa antropométrica citando norma). Se não informado: "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
 - "avaliacoes_quantitativas_analise": parágrafo comparando valores medidos com limites (NHO-01, NBR ISO 8995, ISO 7730, NR-17), classificando conformidade.
 - "diagnostico_ergonomico": SINTETIZAR físico + organizacional + psicossocial em consolidação nova, com causas/consequências/nível de exposição — não copiar campos anteriores.

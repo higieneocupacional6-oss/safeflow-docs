@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { extrairFocoAep } from "../../supabase/functions/_shared/aepAprofundamento";
 
 export type AepContextoIa = {
   disponivel: boolean;
@@ -7,6 +8,7 @@ export type AepContextoIa = {
   atualizado_em: string;
   alvo: { setor_id: string; setor: string; ghe: string; funcoes: string[] };
   setor: Record<string, unknown> | null;
+  aprofundamento?: ReturnType<typeof extrairFocoAep>;
   observacao: string;
 };
 
@@ -32,7 +34,7 @@ const nomesFuncoes = (setor: any): string[] => {
 
 export function selecionarSetorAep(
   documentos: any[],
-  alvo: { setorId?: string | null; setorNome?: string | null; ghe?: string | null; funcoes?: string[] },
+  alvo: { setorId?: string | null; setorNome?: string | null; ghe?: string | null; funcoes?: string[]; funcaoIds?: string[] },
 ): { documento: any; setor: any } | null {
   const funcoesAlvo = new Set((alvo.funcoes || []).map(norm).filter(Boolean));
   const candidatos = documentos.flatMap((documento) =>
@@ -40,6 +42,10 @@ export function selecionarSetorAep(
   );
   
   const pontuar = ({ setor }: { setor: any }) => {
+    // Qualquer identidade conflitante exclui o candidato, mesmo com nomes iguais.
+    if (alvo.setorId && setor?.setor_id && setor.setor_id !== alvo.setorId) return { pontos: 0, temFuncaoCompativel: false };
+    if (alvo.setorNome && norm(setor?.setor_nome) !== norm(alvo.setorNome)) return { pontos: 0, temFuncaoCompativel: false };
+    if (alvo.ghe && norm(setor?.ges) !== norm(alvo.ghe)) return { pontos: 0, temFuncaoCompativel: false };
     let pontos = 0;
     // Matching por ID é o mais forte para evitar homônimos
     if (alvo.setorId && setor?.setor_id === alvo.setorId) pontos += 100;
@@ -47,7 +53,10 @@ export function selecionarSetorAep(
     if (alvo.ghe && norm(setor?.ges) === norm(alvo.ghe)) pontos += 20;
     
     const funcoes = nomesFuncoes(setor).map(norm);
-    const temFuncaoCompativel = funcoesAlvo.size === 0 || funcoes.some((f) => funcoesAlvo.has(f));
+    const ids = (setor?.funcoes_selecionadas || []).map((f: any) => f?.id).filter(Boolean);
+    const temFuncaoCompativel = alvo.funcaoIds?.length && ids.length
+      ? alvo.funcaoIds.every((id) => ids.includes(id))
+      : [...funcoesAlvo].every((f) => funcoes.includes(f));
     if (funcoesAlvo.size && temFuncaoCompativel) pontos += 10;
     
     return { pontos, temFuncaoCompativel };
@@ -73,6 +82,7 @@ export async function carregarContextoAep(args: {
   setorNome?: string | null;
   ghe?: string | null;
   funcoes?: string[];
+  funcaoIds?: string[];
 }): Promise<AepContextoIa> {
   const alvo = {
     setor_id: args.setorId || "",
@@ -84,17 +94,22 @@ export async function carregarContextoAep(args: {
   if (!args.empresaId || !args.contratoId) return { ...AEP_CONTEXTO_VAZIO, alvo };
   
   try {
+    const documentos: any[] = [];
+    for (let offset = 0; ; offset += 100) {
     const { data, error } = await supabase
       .from("aep_documentos")
       .select("id, setores, status, updated_at")
       .eq("empresa_id", args.empresaId)
       .eq("contrato_id", args.contratoId)
       .order("updated_at", { ascending: false })
-      .limit(20);
+      .range(offset, offset + 99);
       
     if (error) throw error;
+    documentos.push(...(data || []));
+    if (!data || data.length < 100) break;
+    }
     
-    const encontrado = selecionarSetorAep((data as any[]) || [], args);
+    const encontrado = selecionarSetorAep(documentos, args);
     if (!encontrado) return { ...AEP_CONTEXTO_VAZIO, alvo };
     
     const s = encontrado.setor;
@@ -103,6 +118,7 @@ export async function carregarContextoAep(args: {
       origem: "setor",
       documento_id: encontrado.documento.id || "",
       atualizado_em: encontrado.documento.updated_at || "",
+      aprofundamento: extrairFocoAep(s),
       alvo,
       setor: {
         setor_id: s.setor_id || "",
@@ -111,6 +127,8 @@ export async function carregarContextoAep(args: {
         funcoes: nomesFuncoes(s),
         atividade: s.descricao_atividade || "",
         turno: s.turno || "",
+        descricao_ambiente: s.descricao_ambiente || "",
+        checklist: s.checklist || {},
         riscos_lista: Array.isArray(s.riscos_lista) ? s.riscos_lista : [],
         parecer_ambiente: s.parecer_ambiente || "",
         parecer_ergonomia: s.parecer_ergonomia || "",
