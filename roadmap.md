@@ -45,3 +45,10 @@
 - [x] Gerar relatório Word completo, editável, com cabeçalho e rodapé
 - [x] Adicionar os botões Baixar Word nos dois pontos de emissão
 - [x] Validar GERE/GHE/GES com 1, 2 e 10, além de PDF e DOCX
+
+# Relatórios Psicossociais — textos e classificações
+- [x] Revisar textos padrão e instruções gramaticais da IA
+- [x] Remover Evolução histórica da tela, persistência, PDF e Word
+- [x] Tratar resultados não sustentados como Baixo em todas as apresentações
+- [x] Restringir frequência a Eventual, Intermitente ou Habitual
+- [x] Corrigir e validar o download DOCX no navegador

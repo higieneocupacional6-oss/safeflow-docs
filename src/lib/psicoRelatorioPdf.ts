@@ -20,7 +20,6 @@ export type PdfPayload = {
   medidas: MedidaControle[];
   conclusao: string;
   indicadores: Record<string, string>;
-  historico: string;
   registros: Record<string, string>;
   titulo: string;
   /** Texto técnico interpretativo dos indicadores organizacionais. */
@@ -205,7 +204,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   // ---------- 3. Fatores ----------
   y = sec("3. Fatores de risco psicossocial investigados", y);
   y = paragrafo(
-    "Todas as dimensões investigadas no instrumento aplicado estão apresentadas a seguir, independentemente do resultado obtido. Fator investigado não se confunde com fator de risco caracterizado: quando não há evidências suficientes de agravamento, o fator é registrado como investigado e classificado em nível Baixo ou como não identificado, mantendo-se a rastreabilidade integral da avaliação.",
+    "Todas as dimensões investigadas no instrumento aplicado estão apresentadas a seguir, independentemente do resultado obtido. Fator investigado não se confunde com fator de risco caracterizado: quando o resultado está abaixo do limiar técnico, o fator é considerado em conformidade e classificado em nível Baixo, mantendo-se a rastreabilidade integral da avaliação.",
     y, 9.5,
   );
 
@@ -213,7 +212,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
     if (!g.fatores.length) continue;
     y = subtitulo(`${g.setor} — ${g.ghe}`, y);
     for (const f of g.fatores) {
-      const nivelTxt = f.sustentado === false ? `${f.nivel} — não identificado` : f.nivel;
+      const nivelTxt = f.nivel;
       y = tabela({
         startY: garantir(y, 180),
         columnStyles: { 0: { cellWidth: 140, fontStyle: "bold", fillColor: CINZA }, 1: { cellWidth: CONT - 140 } },
@@ -240,17 +239,17 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   const totalTrab = p.grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0) || 1;
   y = tabela({
     startY: y,
-    head: [["Setor / GHE", "Investig.", "Baixo", "Não ident.", "Médio", "Alto", "Crítico", "Predominante", "% trab."].map(textoPdf)],
+    head: [["Setor / GHE", "Investig.", "Baixo", "Médio", "Alto", "Crítico", "Predominante", "% trab."].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 118 }, 1: { cellWidth: 46, halign: "center" }, 2: { cellWidth: 38, halign: "center" },
-      3: { cellWidth: 50, halign: "center" }, 4: { cellWidth: 38, halign: "center" }, 5: { cellWidth: 34, halign: "center" },
-      6: { cellWidth: 40, halign: "center" }, 7: { cellWidth: 82 }, 8: { cellWidth: 45, halign: "center" },
+      0: { cellWidth: 128 }, 1: { cellWidth: 50, halign: "center" }, 2: { cellWidth: 44, halign: "center" },
+      3: { cellWidth: 44, halign: "center" }, 4: { cellWidth: 40, halign: "center" },
+      5: { cellWidth: 46, halign: "center" }, 6: { cellWidth: 88 }, 7: { cellWidth: 51, halign: "center" },
     },
     body: p.grupos.map((g) => {
       const r = resumoPorGrupo(g);
       return [
         cel(`${g.setor} — ${g.ghe}`), String(r.investigados),
-        String(r.cont.Baixo), String(r.naoIdentificado), String(r.cont["Médio"]),
+        String(r.cont.Baixo), String(r.cont["Médio"]),
         String(r.cont.Alto), String(r.cont["Crítico"]),
         cel(r.predominante),
         `${Math.round(((g.trabalhadores || 0) / totalTrab) * 100)}%`,
@@ -276,7 +275,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   y = garantir(y, alturaMatriz + 60);
   y = subtitulo("Matriz de risco — Probabilidade x Severidade", y);
   y = paragrafo(
-    "A matriz representa somente os riscos caracterizados que demandam representação metodológica. Fatores classificados em nível Baixo e fatores não identificados não são plotados, permanecendo registrados nas seções 3 e 4.1 para fins de rastreabilidade.",
+    "A matriz representa somente os riscos caracterizados que demandam representação metodológica. Fatores classificados em nível Baixo não são plotados, permanecendo registrados nas seções 3 e 4.1 para fins de rastreabilidade.",
     y, 9,
   );
 
@@ -323,7 +322,7 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   y = garantir(y, 110);
   y = subtitulo("4.1 Riscos recomendados para gerenciamento no PGR", y);
   y = paragrafo(
-    "Constam todos os fatores investigados, com distinção entre o resultado da avaliação e a necessidade de intervenção. Fatores classificados como Baixo ou não identificados permanecem registrados para assegurar a rastreabilidade completa da avaliação.",
+    "Constam todos os fatores investigados, com distinção entre o resultado da avaliação e a necessidade de intervenção. Fatores classificados como Baixo permanecem registrados para assegurar a rastreabilidade completa da avaliação.",
     y, 9,
   );
   y = tabela({
@@ -408,26 +407,22 @@ export function gerarPdfPsicossocial(p: PdfPayload) {
   y = tabela({
     startY: y,
     styles: { fontSize: 8, cellPadding: 5, overflow: "linebreak", valign: "top", lineWidth: 0.4, lineColor: BORDA },
-    head: [["Setor / GHE", "Fatores investigados", "Baixo", "Não identificado", "Médio", "Alto", "Crítico", "Trab. envolvidos"].map(textoPdf)],
+    head: [["Setor / GHE", "Fatores investigados", "Baixo", "Médio", "Alto", "Crítico", "Trab. envolvidos"].map(textoPdf)],
     columnStyles: {
-      0: { cellWidth: 126 }, 1: { cellWidth: 62, halign: "center" }, 2: { cellWidth: 40, halign: "center" },
-      3: { cellWidth: 66, halign: "center" }, 4: { cellWidth: 40, halign: "center" },
-      5: { cellWidth: 36, halign: "center" }, 6: { cellWidth: 42, halign: "center" }, 7: { cellWidth: 79, halign: "center" },
+      0: { cellWidth: 136 }, 1: { cellWidth: 72, halign: "center" }, 2: { cellWidth: 48, halign: "center" },
+      3: { cellWidth: 48, halign: "center" }, 4: { cellWidth: 44, halign: "center" },
+      5: { cellWidth: 50, halign: "center" }, 6: { cellWidth: 93, halign: "center" },
     },
     body: p.grupos.map((g) => {
       const r = resumoPorGrupo(g);
       return [
         cel(`${g.setor} — ${g.ghe}`), String(r.investigados),
-        String(r.cont.Baixo), String(r.naoIdentificado), String(r.cont["Médio"]),
+        String(r.cont.Baixo), String(r.cont["Médio"]),
         String(r.cont.Alto), String(r.cont["Crítico"]),
         String(g.trabalhadores || "—"),
       ];
     }),
   });
-  y = garantir(y, 80);
-  y = subtitulo("Evolução histórica", y);
-  y = paragrafo(p.historico, y);
-
   // ---------- 8. Conclusão ----------
   y = sec("8. Conclusão técnica", y);
   y = paragrafo(p.conclusao, y);

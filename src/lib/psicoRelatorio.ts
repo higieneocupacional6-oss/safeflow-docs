@@ -6,6 +6,22 @@ import { sortGroupsNumerically } from "@/lib/sortGes";
 export type NivelRisco = "Baixo" | "Médio" | "Alto" | "Crítico";
 
 export const NIVEIS: NivelRisco[] = ["Baixo", "Médio", "Alto", "Crítico"];
+export const FREQUENCIAS_PSICOSSOCIAIS = ["Eventual", "Intermitente", "Habitual"] as const;
+
+/** Corrige nomenclaturas legadas antes de exibir, salvar ou exportar o relatório. */
+export function normalizarTextoPsicossocial(value: unknown): string {
+  return String(value ?? "")
+    .replace(/investigado,\s*sem evidências? suficientes?/gi, "Investigado, considerado em conformidade")
+    .replace(/não identificado/gi, "Baixo");
+}
+
+export function normalizarFrequenciaPsicossocial(value: unknown, media = 0): typeof FREQUENCIAS_PSICOSSOCIAIS[number] {
+  const texto = String(value ?? "").trim().toLowerCase();
+  if (/habitual|permanente|frequente/.test(texto)) return "Habitual";
+  if (/intermitente/.test(texto)) return "Intermitente";
+  if (/eventual|ocasional|pontual/.test(texto)) return "Eventual";
+  return media >= 62 ? "Habitual" : media >= 50 ? "Intermitente" : "Eventual";
+}
 
 export const PROB_LABELS = ["Improvável", "Possível", "Provável", "Muito provável"];
 export const SEV_LABELS = ["Leve", "Moderada", "Grave", "Muito grave"];
@@ -105,8 +121,8 @@ const META: Record<string, {
 /** Interpretação técnica de fator investigado sem evidência de agravamento. */
 const investigadoTexto = (titulo: string, media: number, houveResposta: boolean) =>
   houveResposta
-    ? `Fator investigado por meio das respostas coletadas (índice consolidado de risco de ${media}/100, inferior ao limiar técnico de ${LIMIAR_FATOR}/100), sem evidências suficientes para caracterização de exposição psicossocial relevante no grupo avaliado.`
-    : `Fator investigado no questionário aplicado, sem respostas válidas suficientes no grupo avaliado que sustentem a caracterização de exposição psicossocial relevante em ${titulo.toLowerCase()}.`;
+    ? `Investigado, considerado em conformidade: as respostas coletadas apresentaram índice consolidado de risco de ${media}/100, inferior ao limiar técnico de ${LIMIAR_FATOR}/100, sem indicação de exposição psicossocial relevante no grupo avaliado.`
+    : `Investigado, considerado em conformidade nesta avaliação: não houve respostas válidas suficientes no grupo avaliado que indicassem exposição psicossocial relevante em ${titulo.toLowerCase()}.`;
 
 export type FatorRisco = {
   key: string;
@@ -381,14 +397,12 @@ export function construirGrupos(
         .filter((x) => x.pol === "pos" && x.m >= 0 && x.m <= 25)
         .map((x) => x.p);
 
-      // Fator investigado e não caracterizado → registrado como Baixo (rastreabilidade).
+      // Resultado abaixo do limiar técnico → registrado como Baixo (rastreabilidade).
       const probabilidade = !sustentado ? 1 : media < 62 ? 2 : media < 75 ? 3 : 4;
       const severidade = !sustentado
         ? Math.min(2, meta.severidadeBase)
         : Math.min(4, meta.severidadeBase + (media >= 75 ? 1 : 0));
-      const frequencia = !sustentado
-        ? "Não caract."
-        : media >= 75 ? "Habitual e permanente" : media >= 62 ? "Frequente" : "Intermitente";
+      const frequencia = normalizarFrequenciaPsicossocial("", media);
       const interpretacao = sustentado
         ? `Fator caracterizado como risco psicossocial a partir das respostas coletadas (índice consolidado de ${media}/100), classificado no nível ${nivelDeRisco(probabilidade, severidade)}.`
         : investigadoTexto(b.titulo, media, houveResposta);
@@ -486,17 +500,15 @@ export const fatorCaracterizado = (f: FatorRisco) => f.sustentado !== false && f
 
 export function resumoPorGrupo(g: GrupoRelatorio) {
   const cont: Record<NivelRisco, number> = { Baixo: 0, "Médio": 0, Alto: 0, "Crítico": 0 };
-  let naoIdentificado = 0;
   g.fatores.forEach((f) => {
-    if (f.sustentado === false) { naoIdentificado += 1; return; }
+    if (f.sustentado === false) { cont.Baixo += 1; return; }
     cont[f.nivel] += 1;
   });
   const ordenado = Object.entries(cont).sort((a, b) => b[1] - a[1]);
-  const predominante = (ordenado[0]?.[1] ? ordenado[0][0] : "Não identificado") as string;
+  const predominante = (ordenado[0]?.[1] ? ordenado[0][0] : "Baixo") as string;
   const criticos = g.fatores.filter((f) => f.nivel === "Alto" || f.nivel === "Crítico").map((f) => f.fator);
   return {
     cont,
-    naoIdentificado,
     investigados: g.fatores.length,
     caracterizados: g.fatores.filter(fatorCaracterizado).length,
     predominante: g.fatores.length ? predominante : "—",
@@ -506,8 +518,7 @@ export function resumoPorGrupo(g: GrupoRelatorio) {
 
 /**
  * Ocupação da matriz de risco. Por definição metodológica, a matriz representa
- * apenas os riscos que demandam representação: fatores não identificados
- * (não sustentados) e fatores de nível Baixo são excluídos.
+ * apenas os riscos que demandam representação; fatores de nível Baixo são excluídos.
  */
 export function matrizOcupada(grupos: GrupoRelatorio[]) {
   const m: Record<string, number> = {};
@@ -536,10 +547,10 @@ export type LinhaPgr = {
 export function riscosParaPgr(grupos: GrupoRelatorio[]): LinhaPgr[] {
   const out: LinhaPgr[] = [];
   for (const g of grupos) for (const f of g.fatores) {
-    const naoIdentificado = f.sustentado === false;
+    const emConformidade = f.sustentado === false;
     const caracterizado = fatorCaracterizado(f);
-    const resultado = naoIdentificado
-      ? "Não identificado (investigado, sem evidência suficiente)"
+    const resultado = emConformidade
+      ? "Baixo (investigado, considerado em conformidade)"
       : f.nivel === "Baixo"
         ? "Baixo (fator caracterizado em nível não prioritário)"
         : `${f.nivel} (P${f.probabilidade} x S${f.severidade})`;
@@ -569,26 +580,27 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
   const investigados = grupos.flatMap((g) => g.fatores);
   const caracterizados = investigados.filter(fatorCaracterizado);
   const baixos = investigados.filter((f) => f.sustentado !== false && f.nivel === "Baixo");
-  const naoIdentificados = investigados.filter((f) => f.sustentado === false);
+  const baixosEmConformidade = investigados.filter((f) => f.sustentado === false);
   const dimensoes = Array.from(new Set(investigados.map((f) => f.fator)));
   const criticos = caracterizados.filter((f) => f.nivel === "Crítico");
   const altos = caracterizados.filter((f) => f.nivel === "Alto");
   const medios = caracterizados.filter((f) => f.nivel === "Médio");
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0);
   const nomeGrupo = (g: GrupoRelatorio) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (${g.ghe})` : ""}`;
+  const termo = (quantidade: number, singular: string, plural: string) => quantidade === 1 ? singular : plural;
 
   const partes: string[] = [];
 
   // Situação geral
   partes.push(
-    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição, ${totalTrab || "os"} trabalhador(es) envolvido(s) e ${dimensoes.length} dimensão(ões) do instrumento aplicado (${dimensoes.join("; ")}). Do total de ${investigados.length} fator(es) investigado(s), ${caracterizados.length} foi(ram) caracterizado(s) como risco psicossocial demandando gestão, ${baixos.length} foi(ram) classificado(s) em nível Baixo e ${naoIdentificados.length} não foi(ram) identificado(s) por ausência de evidências suficientes nas respostas coletadas.`,
+    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} ${termo(grupos.length, "grupo homogêneo", "grupos homogêneos")} de exposição, ${totalTrab || 0} ${termo(totalTrab, "trabalhador envolvido", "trabalhadores envolvidos")} e ${dimensoes.length} ${termo(dimensoes.length, "dimensão", "dimensões")} do instrumento aplicado (${dimensoes.join("; ")}). Dos ${investigados.length} ${termo(investigados.length, "fator investigado", "fatores investigados")}, ${caracterizados.length} ${termo(caracterizados.length, "foi caracterizado", "foram caracterizados")} como risco psicossocial que demanda gestão e ${baixos.length + baixosEmConformidade.length} ${termo(baixos.length + baixosEmConformidade.length, "foi classificado", "foram classificados")} em nível Baixo.`,
   );
 
   // Principais resultados
   if (criticos.length || altos.length) {
     const dimAlt = Array.from(new Set([...criticos, ...altos].map((f) => f.fator)));
     partes.push(
-      `Os principais resultados concentram-se em ${dimAlt.join("; ")}, com ${criticos.length} fator(es) em nível Crítico e ${altos.length} em nível Alto, o que caracteriza necessidade de adoção de medidas de prevenção e controle com prioridade, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
+      `Os principais resultados concentram-se em ${dimAlt.join("; ")}, com ${criticos.length} ${termo(criticos.length, "fator", "fatores")} em nível Crítico e ${altos.length} em nível Alto, o que caracteriza a necessidade de adoção prioritária de medidas de prevenção e controle, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
     );
   } else if (medios.length) {
     partes.push(
@@ -600,15 +612,15 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
     );
   }
 
-  // Baixos e não identificados
+  // Fatores classificados em nível Baixo
   if (baixos.length) {
     partes.push(
       `Os fatores classificados em nível Baixo (${Array.from(new Set(baixos.map((f) => f.fator))).join("; ")}) permanecem registrados no relatório, indicando condições atualmente controladas cuja manutenção depende da preservação das práticas organizacionais vigentes.`,
     );
   }
-  if (naoIdentificados.length) {
+  if (baixosEmConformidade.length) {
     partes.push(
-      `Os fatores não identificados (${Array.from(new Set(naoIdentificados.map((f) => f.fator))).join("; ")}) foram efetivamente investigados; a ausência de caracterização não equivale à ausência de avaliação, sendo mantidos no inventário para assegurar a rastreabilidade metodológica.`,
+      `Os fatores ${Array.from(new Set(baixosEmConformidade.map((f) => f.fator))).join("; ")} foram investigados e considerados em conformidade, com classificação Baixa, permanecendo registrados para assegurar a rastreabilidade metodológica.`,
     );
   }
 
@@ -617,12 +629,12 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
     const r = resumoPorGrupo(g);
     const pri = g.fatores.filter((f) => f.nivel === "Alto" || f.nivel === "Crítico").map((f) => f.fator);
     if (pri.length) {
-      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), destacam-se ${pri.join(" e ")} em nível de maior atenção`;
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, destacam-se ${pri.join(" e ")} em nível de maior atenção`;
     }
     if (r.caracterizados) {
-      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), os fatores caracterizados situam-se em níveis intermediários, com predominância ${r.predominante}`;
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, os fatores caracterizados situam-se em níveis intermediários, com predominância ${r.predominante}`;
     }
-    return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), não houve caracterização de fator que demande intervenção corretiva`;
+    return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, não houve caracterização de fator que demande intervenção corretiva`;
   });
   partes.push(`Na análise por grupo homogêneo, ${linhas.join("; ")}.`);
 
@@ -662,7 +674,7 @@ export function planoAcaoTexto(grupos: GrupoRelatorio[], empresaNome: string) {
   if (priorizaveis.length) {
     const prio = grupos.filter((g) => g.fatores.some((f) => f.sustentado !== false && f.nivel === "Alto"));
     return [
-      `O plano de ação a seguir consolida exclusivamente as medidas corretivas e preventivas que exigem priorização, decorrentes dos ${priorizaveis.length} fator(es) classificados em nível Médio ou Alto na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
+      `O plano de ação a seguir consolida exclusivamente as medidas corretivas e preventivas que exigem priorização, decorrentes de ${priorizaveis.length} ${priorizaveis.length === 1 ? "fator classificado" : "fatores classificados"} em nível Médio ou Alto na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
       prio.length
         ? `A execução deve ser priorizada nos grupos ${prio.map(nomeGrupo).join("; ")}, em razão do nível de risco identificado.`
         : "As medidas apresentadas correspondem aos grupos com classificação Média e exigem tratamento preventivo planejado.",
@@ -699,16 +711,16 @@ export function metodologiaTexto(opts: {
 
   const p2 =
     (grupos.length
-      ? `A abrangência da avaliação compreendeu ${grupos.length} grupo(s) homogêneo(s) de exposição, correspondente(s) a ${listaGrupos}, envolvendo ${funcoes.length} função(ões) — ${funcoes.join(", ")}. `
+      ? `A abrangência da avaliação compreendeu ${grupos.length} ${grupos.length === 1 ? "grupo homogêneo" : "grupos homogêneos"} de exposição, ${grupos.length === 1 ? "correspondente" : "correspondentes"} a ${listaGrupos}, envolvendo ${funcoes.length} ${funcoes.length === 1 ? "função" : "funções"} — ${funcoes.join(", ")}. `
       : "A abrangência da avaliação compreendeu os setores e grupos homogêneos de exposição registrados no cadastro da empresa. ") +
     (totalTrab
-      ? `A população avaliada totaliza ${totalTrab} trabalhador(es) envolvido(s) nas funções analisadas. `
+      ? `A população avaliada totaliza ${totalTrab} ${totalTrab === 1 ? "trabalhador envolvido" : "trabalhadores envolvidos"} nas funções analisadas. `
       : "A população avaliada corresponde aos trabalhadores das funções analisadas. ") +
     `A coleta de respostas ocorreu de forma individual, voluntária e anônima${opts.periodo ? `, no período de ${opts.periodo}` : ""}, sendo os dados tratados exclusivamente de forma agregada por grupo homogêneo, preservando a confidencialidade dos participantes.`;
 
   const p3 =
     "Os critérios de avaliação adotam matriz de risco que combina Probabilidade × Severidade, resultando no nível de risco de cada fator. As respostas de cada dimensão foram convertidas em índice de risco de 0 a 100, considerando a polaridade de cada questão; a probabilidade decorre do índice consolidado da dimensão e a severidade decorre da natureza do agravo potencial associado, obtendo-se os níveis Baixo, Médio, Alto e Crítico. " +
-    `Dimensões com índice igual ou superior a ${LIMIAR_FATOR} são caracterizadas como fatores de risco psicossocial; abaixo desse limiar, o fator é registrado como investigado e classificado em nível Baixo ou como não identificado, assegurando a rastreabilidade integral da avaliação. Fator investigado não se confunde com fator de risco caracterizado, nem a ausência de caracterização equivale à ausência de avaliação.`;
+    `Dimensões com índice igual ou superior a ${LIMIAR_FATOR} são caracterizadas como fatores de risco psicossocial; abaixo desse limiar, o fator é registrado como investigado, considerado em conformidade e classificado em nível Baixo, assegurando a rastreabilidade integral da avaliação. Fator investigado não se confunde com fator de risco caracterizado, nem a classificação Baixa equivale à ausência de avaliação.`;
 
   const p4 =
     `Foram investigadas as seguintes categorias de fatores psicossociais: ${dimensoesTxt}. Cada categoria foi analisada à luz das condições de organização do trabalho de cada grupo homogêneo, considerando jornada, ritmo, autonomia, apoio social, relações interpessoais e liderança, em conformidade com a NR-01 (Gerenciamento de Riscos Ocupacionais) e a NR-17 (Ergonomia).`;
@@ -758,7 +770,7 @@ export function interpretarIndicadores(
   const partes: string[] = [];
 
   partes.push(
-    `Foram considerados ${numericos.length + qualitativos.length} indicador(es) organizacional(is) informado(s) pela empresa, apresentados de forma agregada: ${[...numericos.map((n) => `${n.label}: ${n.texto}`), ...qualitativos.map((q) => `${q.label}: ${q.texto}`)].join("; ")}.`,
+    `Foram considerados ${numericos.length + qualitativos.length} ${(numericos.length + qualitativos.length) === 1 ? "indicador organizacional informado" : "indicadores organizacionais informados"} pela empresa, apresentados de forma agregada: ${[...numericos.map((n) => `${n.label}: ${n.texto}`), ...qualitativos.map((q) => `${q.label}: ${q.texto}`)].join("; ")}.`,
   );
 
   const atencao: string[] = [];
@@ -783,29 +795,29 @@ export function interpretarIndicadores(
   if (he !== undefined) {
     (he >= 20 ? atencao : favoraveis).push(
       he >= 20
-        ? `a média de ${he} hora(s) extra(s) por mês sinaliza prolongamento habitual da jornada`
-        : `a média de ${he} hora(s) extra(s) por mês indica jornada predominantemente regular`,
+        ? `a média de ${he} ${he === 1 ? "hora extra" : "horas extras"} por mês sinaliza prolongamento habitual da jornada`
+        : `a média de ${he} ${he === 1 ? "hora extra" : "horas extras"} por mês indica jornada predominantemente regular`,
     );
   }
   const afa = val("afastamentos");
   if (afa !== undefined) {
     (afa > 0 ? atencao : favoraveis).push(
       afa > 0
-        ? `registram-se ${afa} afastamento(s) relacionado(s) ao trabalho no período`
+        ? afa === 1 ? "registra-se 1 afastamento relacionado ao trabalho no período" : `registram-se ${afa} afastamentos relacionados ao trabalho no período`
         : "não há registro de afastamentos relacionados ao trabalho no período",
     );
   }
   const qx = val("queixas");
   if (qx !== undefined) {
     (qx > 0 ? atencao : favoraveis).push(
-      qx > 0 ? `foram registradas ${qx} queixa(s)/reclamação(ões)` : "não foram registradas queixas ou reclamações",
+      qx > 0 ? qx === 1 ? "foi registrada 1 queixa ou reclamação" : `foram registradas ${qx} queixas ou reclamações` : "não foram registradas queixas ou reclamações",
     );
   }
   const ac = val("acidentes");
   if (ac !== undefined) {
     (ac > 0 ? atencao : favoraveis).push(
       ac > 0
-        ? `há ${ac} acidente(s)/incidente(s) associado(s) a fatores organizacionais`
+        ? ac === 1 ? "há 1 acidente ou incidente associado a fatores organizacionais" : `há ${ac} acidentes ou incidentes associados a fatores organizacionais`
         : "não há acidentes ou incidentes associados a fatores organizacionais",
     );
   }

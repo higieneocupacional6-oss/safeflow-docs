@@ -1,6 +1,7 @@
 import { supabase } from "@/integrations/supabase/client";
 import { BUCKET_BASE_TECNICA } from "@/components/psico/IaBaseTecnicaModal";
 import type { GrupoRelatorio, MedidaControle } from "@/lib/psicoRelatorio";
+import { normalizarFrequenciaPsicossocial } from "@/lib/psicoRelatorio";
 
 export type SaidaIaPsico = {
   metodologia: string;
@@ -19,6 +20,7 @@ export type SaidaIaPsico = {
       interpretacao: string;
       consequencias: string;
       controles: string;
+      frequencia: "Eventual" | "Intermitente" | "Habitual";
     }[];
   }[];
   medidas: {
@@ -122,7 +124,7 @@ export function montarContexto(args: {
         sustentado: f.sustentado !== false,
         media: (f as any).media ?? null,
         expostos: f.expostos,
-        frequencia: f.frequencia,
+        frequencia: normalizarFrequenciaPsicossocial(f.frequencia, (f as any).media ?? 0),
         controles_registrados: f.controles,
       })),
     })),

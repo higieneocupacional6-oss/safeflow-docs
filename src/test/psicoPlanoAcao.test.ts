@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  medidasDosGrupos, mesclarMedidasPlano, type FatorRisco, type GrupoRelatorio,
+  medidasDosGrupos, mesclarMedidasPlano, normalizarFrequenciaPsicossocial,
+  normalizarTextoPsicossocial, resumoPorGrupo, riscosParaPgr,
+  type FatorRisco, type GrupoRelatorio,
 } from "@/lib/psicoRelatorio";
 
 const fator = (key: string, nivel: FatorRisco["nivel"], sustentado = true): FatorRisco => ({
@@ -35,6 +37,20 @@ const grupo = (fatores: FatorRisco[]): GrupoRelatorio => ({
 });
 
 describe("Plano de Ação Psicossocial", () => {
+  it("normaliza nomenclaturas e frequências legadas", () => {
+    expect(normalizarTextoPsicossocial("Não identificado — investigado, sem evidência suficiente"))
+      .toBe("Baixo — Investigado, considerado em conformidade");
+    expect(normalizarFrequenciaPsicossocial("Não caract.", 20)).toBe("Eventual");
+    expect(normalizarFrequenciaPsicossocial("Frequente", 70)).toBe("Habitual");
+    expect(normalizarFrequenciaPsicossocial("Intermitente", 55)).toBe("Intermitente");
+  });
+
+  it("contabiliza resultado não sustentado como Baixo e usa a expressão de conformidade", () => {
+    const g = grupo([fator("exigencias", "Baixo", false)]);
+    expect(resumoPorGrupo(g).cont.Baixo).toBe(1);
+    expect(riscosParaPgr([g])[0].resultado).toBe("Baixo (investigado, considerado em conformidade)");
+  });
+
   it("gera ações somente para riscos Médios e Altos", () => {
     const medidas = medidasDosGrupos([
       grupo([
