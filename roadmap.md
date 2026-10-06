@@ -72,3 +72,9 @@
 - [x] Atualizar contexto da IA e compartilhar dados atuais entre tela/PDF/Word
 - [x] Validar Florestas/S11D na tela e PDF, conteúdo Word, exclusões, recarga e ausência de gravação automática
 - [ ] Validar geração real com IA e download Word completo: contexto e conteúdo verificados; geração não executada e clique Word sem download no teste
+
+# Integração inteligente AEP → AET
+- [ ] Reforçar correspondência por setor, GHE/GES e IDs de função
+- [ ] Estruturar decisão, motivos e pontos da AEP a aprofundar na AET
+- [ ] Vincular diagnóstico e soluções aos problemas da AEP, sem inventar medições
+- [ ] Validar testes de isolamento e geração real da AET
