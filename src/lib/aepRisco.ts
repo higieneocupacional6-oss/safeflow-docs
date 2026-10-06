@@ -22,13 +22,12 @@ export const TIPOS_AGENTE_ERGONOMICO = [
   "Ergonômico psicossocial",
 ] as const;
 
-export type ClassificacaoAep = "Baixo" | "Médio" | "Alto" | "";
 export type NivelRiscoAep = "Trivial" | "Moderado" | "Alto" | "Crítico" | "";
+export type NivelRiscoAepApresentacao = "Baixo" | "Médio" | "Alto" | "";
 
 export type RiscoErgonomico = {
   tipo_agente: string;
   fator_risco: string;
-  justificativa: string;
   fonte_geradora: string;
   possiveis_danos: string;
   controle_existente: string;
@@ -41,7 +40,6 @@ export type RiscoErgonomico = {
 export const emptyRiscoErgonomico = (): RiscoErgonomico => ({
   tipo_agente: "",
   fator_risco: "",
-  justificativa: "",
   fonte_geradora: "",
   possiveis_danos: "",
   controle_existente: "",
@@ -76,16 +74,8 @@ export function calcularNivelRiscoAep(probabilidade: string, severidade: string)
   return "Crítico";
 }
 
-export type NivelRiscoAepApresentacao = "Baixo" | "Médio" | "Alto" | "";
-
 /** Mantém a matriz técnica original e agrupa apenas o rótulo apresentado. */
-export function nivelRiscoAepApresentacao(nivel: NivelRiscoAep): NivelRiscoAepApresentacao {
-  if (nivel === "Trivial") return "Baixo";
-  if (nivel === "Moderado") return "Médio";
-  if (nivel === "Alto" || nivel === "Crítico") return "Alto";
-  return "";
-}
-export function obterClassificacaoAep(nivel: NivelRiscoAep): ClassificacaoAep {
+export function obterNivelApresentacao(nivel: NivelRiscoAep): NivelRiscoAepApresentacao {
   if (nivel === "Trivial") return "Baixo";
   if (nivel === "Moderado") return "Médio";
   if (nivel === "Alto" || nivel === "Crítico") return "Alto";
