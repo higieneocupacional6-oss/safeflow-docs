@@ -51,15 +51,16 @@ const nomes = (value: unknown): string[] =>
 
 export function selecionarGrupoPsicossocial(
   grupos: any[],
-  alvo: { setorNome?: string | null; ghe?: string | null; funcoes?: string[] },
+  alvo: { setorId?: string | null; setorNome?: string | null; ghe?: string | null; funcoes?: string[] },
 ): any | null {
   const funcoesAlvo = new Set((alvo.funcoes || []).map(norm).filter(Boolean));
   return grupos
     .map((grupo) => {
       let pontos = 0;
+      if (alvo.setorId && grupo?.setor_id === alvo.setorId) pontos += 100;
       if (alvo.setorNome && norm(grupo?.setor) === norm(alvo.setorNome)) pontos += 30;
       if (alvo.ghe && norm(grupo?.ghe) === norm(alvo.ghe)) pontos += 20;
-      const funcoesGrupo = nomes(grupo?.funcoes).map(norm);
+      const funcoesGrupo = nomes(grupo?.funcoes).map(norm); if (grupo?.funcao_ges) funcoesGrupo.push(norm(grupo.funcao_ges));
       const funcaoCompativel = !funcoesAlvo.size || funcoesGrupo.some((f) => funcoesAlvo.has(f));
       if (funcoesAlvo.size && funcaoCompativel) pontos += 10;
       return { grupo, pontos, funcaoCompativel };
@@ -133,7 +134,7 @@ export async function carregarContextoPsicossocial(args: {
     const dados: any = data.dados || {};
     const grupos = Array.isArray(dados.grupos) ? dados.grupos : [];
     const grupo = selecionarGrupoPsicossocial(grupos, {
-      setorNome: args.setorNome,
+      setorId: args.setorId, setorNome: args.setorNome,
       ghe: args.ghe,
       funcoes: args.funcoes,
     });
