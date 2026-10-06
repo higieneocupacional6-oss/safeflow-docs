@@ -457,6 +457,43 @@ export function construirGrupos(
 }
 
 
+/**
+ * Combina os grupos recalculados a partir do cadastro ATUAL de Setores e Funções com
+ * os textos já editados de um relatório salvo. Identificação (setor, GHE, funções,
+ * trabalhadores, jornada) vem sempre do cadastro; grupos/funções removidos somem.
+ * As atividades editadas só são mantidas se o cadastro não mudou desde o salvamento.
+ */
+export function sincronizarGruposComCadastro(
+  gruposBase: GrupoRelatorio[],
+  salvos: GrupoRelatorio[] | undefined,
+): GrupoRelatorio[] {
+  const lista = Array.isArray(salvos) ? salvos : [];
+  return gruposBase.map((g) => {
+    const old = lista.find((x) => x.id === g.id);
+    const base = { ...g, atividadesBase: g.atividades };
+    if (!old) return base;
+    const cadastroIgual = old.atividadesBase !== undefined && old.atividadesBase === g.atividades;
+    const fatores = old.fatores?.length
+      ? old.fatores
+          .filter((f) => g.fatores.some((b) => b.key === f.key))
+          .map((f) => ({ ...f, expostos: g.trabalhadores }))
+      : g.fatores;
+    return {
+      ...old,
+      id: g.id,
+      setor: g.setor,
+      ghe: g.ghe,
+      funcoes: g.funcoes,
+      trabalhadores: g.trabalhadores,
+      jornada: g.jornada,
+      respondentes: g.respondentes,
+      atividades: cadastroIgual && old.atividades ? old.atividades : g.atividades,
+      atividadesBase: g.atividades,
+      fatores: fatores.length ? fatores : g.fatores,
+    };
+  });
+}
+
 export function medidasDosGrupos(grupos: GrupoRelatorio[]): MedidaControle[] {
   const out = new Map<string, MedidaControle>();
   for (const g of grupos) {
