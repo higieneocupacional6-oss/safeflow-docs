@@ -1,4 +1,4 @@
-// Edge function: Gera automaticamente uma AET via Lovable AI (Google Gemini 2.5 Pro)
+// Edge function: Gera automaticamente uma AET via Lovable AI (Google Gemini 1.5 Pro)
 // Recebe o contexto da AET + texto livre + anexos (imagens/PDFs). Retorna JSON com os campos.
 
 const corsHeaders = {
@@ -288,7 +288,7 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
         "X-Lovable-AIG-SDK": "fetch",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-1.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },

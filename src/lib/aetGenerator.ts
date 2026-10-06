@@ -358,9 +358,9 @@ function gerarDiagnostico(ctx: any, kb: FuncaoConhecimento, biom: string, quant:
   const riscos = kb.riscos.join("; ");
   return j(
     "Diagnóstico ergonômico integrado (físico + organizacional + psicossocial):",
-    `Do ponto de vista biomecânico: ${biom.slice(0, 500)}`,
+    `Do ponto de vista biomecânico: ${biom}`,
     `Do ponto de vista das medições quantitativas: ${quant}`,
-    `Do ponto de vista organizacional/psicossocial: ${org.slice(0, 500)}`,
+    `Do ponto de vista organizacional/psicossocial: ${org}`,
     `Riscos ergonômicos típicos identificados para esta natureza de trabalho: ${riscos}.`,
     "A análise integrada aponta para pontos de atenção que exigem intervenções conforme o plano de ação apresentado, alinhadas à NR-17 e às normas ISO aplicáveis.",
   );

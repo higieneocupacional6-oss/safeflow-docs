@@ -54,8 +54,8 @@
 - [x] Corrigir e validar o download DOCX no navegador
 
 # Integração Psicossociais → AEP → AET
-- [ ] Consultar somente relatório Psicossocial salvo da mesma empresa e contrato
-- [ ] Correlacionar setor, GHE/GES e função sem misturar escopos
-- [ ] Usar contexto Psicossocial para complementar a AEP sem sobrescrever edições manuais
-- [ ] Usar contexto Psicossocial e AEP salva para complementar a AET
-- [ ] Validar isolamento, preservação manual e geração com e sem contexto
+- [x] Consultar somente relatório Psicossocial salvo da mesma empresa e contrato
+- [x] Correlacionar setor, GHE/GES e função sem misturar escopos
+- [x] Usar contexto Psicossocial para complementar a AEP sem sobrescrever edições manuais
+- [x] Usar contexto Psicossocial e AEP salva para complementar a AET
+- [x] Validar isolamento, preservação manual e geração com e sem contexto
