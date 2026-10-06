@@ -795,29 +795,29 @@ export function interpretarIndicadores(
   if (he !== undefined) {
     (he >= 20 ? atencao : favoraveis).push(
       he >= 20
-        ? `a média de ${he} hora(s) extra(s) por mês sinaliza prolongamento habitual da jornada`
-        : `a média de ${he} hora(s) extra(s) por mês indica jornada predominantemente regular`,
+        ? `a média de ${he} ${he === 1 ? "hora extra" : "horas extras"} por mês sinaliza prolongamento habitual da jornada`
+        : `a média de ${he} ${he === 1 ? "hora extra" : "horas extras"} por mês indica jornada predominantemente regular`,
     );
   }
   const afa = val("afastamentos");
   if (afa !== undefined) {
     (afa > 0 ? atencao : favoraveis).push(
       afa > 0
-        ? `registram-se ${afa} afastamento(s) relacionado(s) ao trabalho no período`
+        ? afa === 1 ? "registra-se 1 afastamento relacionado ao trabalho no período" : `registram-se ${afa} afastamentos relacionados ao trabalho no período`
         : "não há registro de afastamentos relacionados ao trabalho no período",
     );
   }
   const qx = val("queixas");
   if (qx !== undefined) {
     (qx > 0 ? atencao : favoraveis).push(
-      qx > 0 ? `foram registradas ${qx} queixa(s)/reclamação(ões)` : "não foram registradas queixas ou reclamações",
+      qx > 0 ? qx === 1 ? "foi registrada 1 queixa ou reclamação" : `foram registradas ${qx} queixas ou reclamações` : "não foram registradas queixas ou reclamações",
     );
   }
   const ac = val("acidentes");
   if (ac !== undefined) {
     (ac > 0 ? atencao : favoraveis).push(
       ac > 0
-        ? `há ${ac} acidente(s)/incidente(s) associado(s) a fatores organizacionais`
+        ? ac === 1 ? "há 1 acidente ou incidente associado a fatores organizacionais" : `há ${ac} acidentes ou incidentes associados a fatores organizacionais`
         : "não há acidentes ou incidentes associados a fatores organizacionais",
     );
   }

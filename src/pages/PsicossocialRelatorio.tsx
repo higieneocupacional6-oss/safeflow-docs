@@ -654,7 +654,7 @@ export default function PsicossocialRelatorio() {
                       <Badge className="bg-primary">{g.setor}</Badge>
                       <Badge variant="outline">GHE/GES: {g.ghe}</Badge>
                       <Badge variant="outline" className="font-normal">
-                        {g.trabalhadores || 0} trabalhador(es)
+                        {g.trabalhadores || 0} {(g.trabalhadores || 0) === 1 ? "trabalhador" : "trabalhadores"}
                       </Badge>
                     </div>
                     <p className="text-xs text-muted-foreground line-clamp-2">
