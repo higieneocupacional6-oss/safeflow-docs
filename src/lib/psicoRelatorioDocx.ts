@@ -97,7 +97,7 @@ export async function gerarDocxPsicossocial(payload: PdfPayload): Promise<{ blob
   const header = `<p style="font-family:Arial;font-size:8pt;color:#6e7682;border-bottom:1px solid #dce2ea">${text(payload.empresa?.razao_social)} — Relatório Técnico de Avaliação Psicossocial</p>`;
   const footer = `<p style="font-family:Arial;font-size:8pt;color:#6e7682;text-align:center">NR-01 · NR-17 — ${text(payload.identificacao.data_avaliacao)}</p>`;
   if (typeof window !== "undefined") {
-    const browserGlobal = window as Window & typeof globalThis & { global?: Window; process?: { env: Record<string, string> } };
+    const browserGlobal = window as any;
     browserGlobal.global = browserGlobal;
     browserGlobal.process ||= { env: {} };
   }
