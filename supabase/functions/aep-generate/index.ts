@@ -324,18 +324,15 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
     if (!resp.ok) {
       const errText = await resp.text();
       console.error("Gateway error", resp.status, errText);
-      if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições atingido. Tente novamente em instantes." }), {
-          status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
+      let safeMessage = errText.slice(0, 400);
+      try {
+        const parsedError = JSON.parse(errText);
+        safeMessage = parsedError?.message || parsedError?.error?.message || safeMessage;
+      } catch {
+        // Mantém somente o texto seguro e limitado retornado pelo gateway.
       }
-      if (resp.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), {
-          status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "Falha ao gerar AEP: " + errText.slice(0, 400) }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(JSON.stringify({ error: safeMessage || "A geração não pôde ser concluída." }), {
+        status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
