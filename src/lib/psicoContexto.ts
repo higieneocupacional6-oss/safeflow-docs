@@ -1,16 +1,17 @@
-// Integração Psicossocial → AET / AEP.
-// Consulta (somente leitura) as avaliações psicossociais já cadastradas para a
-// empresa e monta um contexto correlacionável por Empresa → Setor → GHE → Função.
-// Nunca altera dados do módulo Psicossocial.
-
+// Integração Psicossocial → AEP / AET. Usa exclusivamente o relatório salvo.
 import { supabase } from "@/integrations/supabase/client";
-import { BLOCOS_COPSOQ, valorRiscoPergunta } from "@/lib/copsoqBlocos";
 
 export type PsicoFator = {
   bloco: string;
   titulo: string;
   media: number | null;
   classificacao: string;
+  frequencia?: string;
+  descricao?: string;
+  situacao?: string;
+  interpretacao?: string;
+  consequencias?: string;
+  controles?: string;
 };
 
 export type PsicoResumoEscopo = {
@@ -22,99 +23,77 @@ export type PsicoResumoEscopo = {
   fatores: PsicoFator[];
   riscos: string[];
   resumos: string[];
+  atividades?: string;
+  organizacao?: string;
+  jornada?: string;
+  medidas?: any[];
 };
 
 export type PsicoContextoIa = {
   disponivel: boolean;
   origem: "setor" | "empresa" | "nenhum";
   total_respostas_empresa: number;
-  alvo: { setor: string; ghe: string };
+  alvo: { setor: string; ghe: string; funcoes?: string[] };
   avaliacoes: { titulo: string; data: string }[];
   indicadores: Record<string, any>;
   setor_resumo: PsicoResumoEscopo | null;
   empresa_resumo: PsicoResumoEscopo | null;
   observacao: string;
+  relatorio_id?: string;
+  atualizado_em?: string;
 };
 
-const norm = (v: any) =>
-  String(v ?? "")
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .trim()
-    .toLowerCase();
+const norm = (value: unknown) =>
+  String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
-function classificar(media: number): string {
-  if (media >= 75) return "Crítico";
-  if (media >= 50) return "Alto";
-  if (media >= 25) return "Moderado";
-  return "Baixo";
+const nomes = (value: unknown): string[] =>
+  (Array.isArray(value) ? value : []).map((v: any) => String(v?.nome ?? v ?? "").trim()).filter(Boolean);
+
+export function selecionarGrupoPsicossocial(
+  grupos: any[],
+  alvo: { setorNome?: string | null; ghe?: string | null; funcoes?: string[] },
+): any | null {
+  const funcoesAlvo = new Set((alvo.funcoes || []).map(norm).filter(Boolean));
+  return grupos
+    .map((grupo) => {
+      let pontos = 0;
+      if (alvo.setorNome && norm(grupo?.setor) === norm(alvo.setorNome)) pontos += 30;
+      if (alvo.ghe && norm(grupo?.ghe) === norm(alvo.ghe)) pontos += 20;
+      const funcoesGrupo = nomes(grupo?.funcoes).map(norm);
+      const funcaoCompativel = !funcoesAlvo.size || funcoesGrupo.some((f) => funcoesAlvo.has(f));
+      if (funcoesAlvo.size && funcaoCompativel) pontos += 10;
+      return { grupo, pontos, funcaoCompativel };
+    })
+    .filter((x) => x.pontos >= 20 && x.funcaoCompativel)
+    .sort((a, b) => b.pontos - a.pontos)[0]?.grupo || null;
 }
 
-/** Média de risco por bloco a partir de `blocos` gravados ou, na falta, das respostas cruas. */
-function fatoresDaResposta(row: any): Record<string, number> {
-  const out: Record<string, number> = {};
-  const blocos = row?.blocos && typeof row.blocos === "object" ? row.blocos : null;
-  for (const b of BLOCOS_COPSOQ) {
-    const gravado = blocos?.[b.key];
-    if (gravado && typeof gravado.media === "number") {
-      out[b.key] = gravado.media;
-      continue;
-    }
-    const respostas: any[] = row?.respostas?.[b.key] || [];
-    const validas = respostas
-      .map((r, i) => ({ r, i }))
-      .filter((x) => typeof x.r === "number" && x.r >= 0);
-    if (!validas.length) continue;
-    out[b.key] =
-      validas.reduce((acc, x) => acc + valorRiscoPergunta(x.r, b.key, x.i), 0) / validas.length;
-  }
-  return out;
-}
-
-function resumirGrupo(
-  rows: any[],
-  escopo: "setor" | "empresa",
-  info?: { setor?: string; ghe?: string },
-): PsicoResumoEscopo {
-  const acc: Record<string, number[]> = {};
-  const funcoes = new Set<string>();
-  const riscos = new Set<string>();
-  const resumos = new Set<string>();
-
-  for (const r of rows) {
-    if (r.funcao_nome) funcoes.add(r.funcao_nome);
-    const rs = r.copsoq_resultado_resumido || r.resultado_psicossocial;
-    if (rs) resumos.add(String(rs).trim());
-    const rk = r.copsoq_riscos_identificados || r.riscos_psicossociais;
-    if (rk)
-      String(rk)
-        .split(/[,;]/)
-        .map((x) => x.trim())
-        .filter(Boolean)
-        .forEach((x) => riscos.add(x));
-    const f = fatoresDaResposta(r);
-    for (const [k, v] of Object.entries(f)) (acc[k] ||= []).push(v);
-  }
-
-  const fatores: PsicoFator[] = BLOCOS_COPSOQ.filter((b) => acc[b.key]?.length).map((b) => {
-    const media = acc[b.key].reduce((a, c) => a + c, 0) / acc[b.key].length;
-    return {
-      bloco: b.key,
-      titulo: b.titulo,
-      media: Math.round(media * 10) / 10,
-      classificacao: classificar(media),
-    };
-  });
-
+function resumoGrupo(grupo: any, medidas: any[]): PsicoResumoEscopo {
+  const fatores = (Array.isArray(grupo?.fatores) ? grupo.fatores : []).map((f: any) => ({
+    bloco: String(f.key || f.fator_key || f.fator || ""),
+    titulo: String(f.fator || f.titulo || f.descricao || "Fator psicossocial"),
+    media: typeof f.media === "number" ? f.media : null,
+    classificacao: String(f.nivel || f.classificacao || ""),
+    frequencia: f.frequencia || "",
+    descricao: f.descricao || "",
+    situacao: f.situacao || "",
+    interpretacao: f.interpretacao || "",
+    consequencias: f.consequencias || "",
+    controles: f.controles || "",
+  }));
   return {
-    escopo,
-    setor: info?.setor,
-    ghe: info?.ghe,
-    respostas: rows.length,
-    funcoes: Array.from(funcoes),
+    escopo: "setor",
+    setor: grupo?.setor || "",
+    ghe: grupo?.ghe || "",
+    respostas: Number(grupo?.trabalhadores || grupo?.respondentes || 0),
+    funcoes: nomes(grupo?.funcoes),
     fatores,
-    riscos: Array.from(riscos).slice(0, 12),
-    resumos: Array.from(resumos).slice(0, 4),
+    riscos: fatores.filter((f) => /alto|m[eé]dio|moderado|cr[ií]tico/i.test(f.classificacao)).map((f) => f.titulo),
+    resumos: [grupo?.organizacao, grupo?.interpretacao].filter(Boolean),
+    atividades: grupo?.atividades || "",
+    organizacao: grupo?.organizacao || "",
+    jornada: grupo?.jornada || "",
+    medidas,
   };
 }
 
@@ -122,110 +101,61 @@ export const PSICO_CONTEXTO_VAZIO: PsicoContextoIa = {
   disponivel: false,
   origem: "nenhum",
   total_respostas_empresa: 0,
-  alvo: { setor: "", ghe: "" },
+  alvo: { setor: "", ghe: "", funcoes: [] },
   avaliacoes: [],
   indicadores: {},
   setor_resumo: null,
   empresa_resumo: null,
-  observacao: "Nenhum dado psicossocial cadastrado para esta empresa.",
+  observacao: "Nenhum relatório psicossocial salvo para esta empresa e contrato.",
 };
 
-/**
- * Carrega o contexto psicossocial da empresa priorizando o setor/GHE avaliado.
- * Falhas de consulta nunca bloqueiam a geração: retorna contexto vazio.
- */
 export async function carregarContextoPsicossocial(args: {
   empresaId?: string | null;
   contratoId?: string | null;
   setorNome?: string | null;
   ghe?: string | null;
   setorId?: string | null;
+  funcoes?: string[];
 }): Promise<PsicoContextoIa> {
-  const { empresaId, contratoId, setorNome, ghe, setorId } = args;
-  if (!empresaId) return PSICO_CONTEXTO_VAZIO;
-
+  const alvo = { setor: args.setorNome || "", ghe: args.ghe || "", funcoes: args.funcoes || [] };
+  if (!args.empresaId || !args.contratoId) return { ...PSICO_CONTEXTO_VAZIO, alvo };
   try {
-    const { data: respostas } = await supabase
-      .from("psico_respostas")
-      .select(
-        "id, funcao_id, funcao_nome, contrato_id, data_avaliacao, blocos, respostas, resultado_psicossocial, riscos_psicossociais, copsoq_resultado_resumido, copsoq_riscos_identificados",
-      )
-      .eq("empresa_id", empresaId)
-      .order("data_avaliacao", { ascending: false })
-      .limit(2000);
-
-    const rows = (respostas as any[]) || [];
-    if (!rows.length) return { ...PSICO_CONTEXTO_VAZIO, alvo: { setor: setorNome || "", ghe: ghe || "" } };
-
-    // Mapa função → setor/GHE (para correlacionar respostas ao setor avaliado)
-    const funcaoIds = Array.from(new Set(rows.map((r) => r.funcao_id).filter(Boolean)));
-    const funcaoInfo = new Map<string, { setor_id: string; setor: string; ghe: string }>();
-    if (funcaoIds.length) {
-      const { data: funcoes } = await supabase
-        .from("funcoes")
-        .select("id, nome_funcao, setor_id, setores!inner(id, nome_setor, ghe_ges)")
-        .in("id", funcaoIds as string[]);
-      for (const f of ((funcoes as any[]) || [])) {
-        const s: any = Array.isArray(f.setores) ? f.setores[0] : f.setores;
-        funcaoInfo.set(f.id, {
-          setor_id: s?.id || f.setor_id,
-          setor: s?.nome_setor || "",
-          ghe: s?.ghe_ges || "",
-        });
-      }
-    }
-
-    const alvoSetor = norm(setorNome);
-    const alvoGhe = norm(ghe);
-    const doSetor = rows.filter((r) => {
-      const info = r.funcao_id ? funcaoInfo.get(r.funcao_id) : undefined;
-      if (!info) return false;
-      if (setorId && info.setor_id === setorId) return true;
-      if (alvoSetor && norm(info.setor) === alvoSetor) return true;
-      if (alvoGhe && info.ghe && norm(info.ghe) === alvoGhe) return true;
-      return false;
-    });
-
-    const doContrato = contratoId ? rows.filter((r) => r.contrato_id === contratoId) : [];
-    const baseEmpresa = doContrato.length ? doContrato : rows;
-
-    const { data: avals } = await supabase
-      .from("psico_avaliacoes")
-      .select("titulo, data_avaliacao")
-      .eq("empresa_id", empresaId)
-      .order("data_avaliacao", { ascending: false })
-      .limit(5);
-
-    const { data: inds } = await supabase
-      .from("psico_indicadores")
-      .select("dados")
-      .eq("empresa_id", empresaId)
+    const { data, error } = await supabase
+      .from("psico_relatorios")
+      .select("id, dados, updated_at, avaliacao_id")
+      .eq("empresa_id", args.empresaId)
+      .eq("contrato_id", args.contratoId)
       .order("updated_at", { ascending: false })
-      .limit(1);
-
-    const setorResumo = doSetor.length
-      ? resumirGrupo(doSetor, "setor", { setor: setorNome || "", ghe: ghe || "" })
-      : null;
-    const empresaResumo = resumirGrupo(baseEmpresa, "empresa");
-
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return { ...PSICO_CONTEXTO_VAZIO, alvo };
+    const dados: any = data.dados || {};
+    const grupos = Array.isArray(dados.grupos) ? dados.grupos : [];
+    const grupo = selecionarGrupoPsicossocial(grupos, {
+      setorNome: args.setorNome,
+      ghe: args.ghe,
+      funcoes: args.funcoes,
+    });
+    if (!grupo) return { ...PSICO_CONTEXTO_VAZIO, alvo, observacao: "O relatório salvo não possui grupo correspondente ao setor/GHE e função avaliados." };
+    const medidas = (Array.isArray(dados.medidas) ? dados.medidas : []).filter((m: any) =>
+      !m?.grupo || norm(m.grupo) === norm(grupo.id) || norm(m.grupo) === norm(grupo.setor),
+    );
     return {
       disponivel: true,
-      origem: setorResumo ? "setor" : "empresa",
-      total_respostas_empresa: rows.length,
-      alvo: { setor: setorNome || "", ghe: ghe || "" },
-      avaliacoes: ((avals as any[]) || []).map((a) => ({
-        titulo: a.titulo || "",
-        data: a.data_avaliacao || "",
-      })),
-      indicadores: (inds as any[])?.[0]?.dados || {},
-      setor_resumo: setorResumo,
-      empresa_resumo: empresaResumo,
-      observacao: setorResumo
-        ? "Dados específicos do setor/GHE avaliado — prioridade máxima na correlação."
-        : "Não há avaliação psicossocial específica deste setor. Os dados abaixo são GERAIS DA EMPRESA e só podem ser usados quando tecnicamente pertinentes, sinalizando que se trata de informação geral.",
+      origem: "setor",
+      total_respostas_empresa: Number(grupo.trabalhadores || grupo.respondentes || 0),
+      alvo,
+      avaliacoes: [],
+      indicadores: {},
+      setor_resumo: resumoGrupo(grupo, medidas),
+      empresa_resumo: null,
+      observacao: "Relatório psicossocial salvo correspondente à mesma empresa, contrato, setor/GHE e função.",
+      relatorio_id: data.id,
+      atualizado_em: data.updated_at,
     };
-  } catch (e) {
-    console.warn("[psicoContexto] falha ao consultar dados psicossociais:", e);
-    return PSICO_CONTEXTO_VAZIO;
+  } catch (error) {
+    console.warn("[psicoContexto] falha ao consultar relatório psicossocial:", error);
+    return { ...PSICO_CONTEXTO_VAZIO, alvo };
   }
 }
