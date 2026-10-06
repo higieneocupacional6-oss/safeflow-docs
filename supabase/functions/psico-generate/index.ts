@@ -23,10 +23,9 @@ REGRAS NÃO NEGOCIÁVEIS:
 - Você é assistente técnico: o profissional responsável revisará e editará todo o conteúdo antes da emissão.
 - Escreva todos os campos em português do Brasil correto, com acentuação, pontuação, concordância verbal e nominal, ortografia, clareza e coerência.
 - Produza frases completas, naturais e profissionais; não use respostas telegráficas, palavras soltas ou fragmentos de oração.
-- Nunca use as expressões "Não identificado", "Não caract.", "Não caracterizado", "Não informado" ou "Investigado, sem evidência suficiente".
 - Para resultado abaixo do limiar técnico, use exclusivamente "Baixo" e a redação "Investigado, considerado em conformidade".
-- Não produza conteúdo sobre evolução histórica.
-- Ao redigir textos relacionados à exposição, considere a frequência enviada no contexto, que deve ser Eventual, Intermitente ou Habitual.
+- Não produza comparações com avaliações anteriores.
+- Para cada fator, analise a atividade, situação, causa, descrição e forma de exposição e classifique a frequência exclusivamente como Eventual, Intermitente ou Habitual. Eventual corresponde a ocorrências ocasionais ou pontuais; Intermitente, a ocorrências repetidas alternadas com períodos sem exposição; Habitual, à rotina normal ou contínua da jornada. Não escolha aleatoriamente.
 
 PLANO DE AÇÃO:
 - Para cada medida recebida, proponha uma AÇÃO CONCRETA, aplicável e diretamente relacionada ao fator, ao setor/GHE, à atividade da função, à organização do trabalho, à causa/fonte e aos controles já existentes.
@@ -72,8 +71,9 @@ const RESPONSE_SCHEMA = {
                 interpretacao: { type: "string" },
                 consequencias: { type: "string" },
                 controles: { type: "string" },
+                  frequencia: { type: "string", enum: ["Eventual", "Intermitente", "Habitual"] },
               },
-              required: ["fator_key", "descricao", "fonte", "situacao", "interpretacao", "consequencias", "controles"],
+                required: ["fator_key", "descricao", "fonte", "situacao", "interpretacao", "consequencias", "controles", "frequencia"],
             },
           },
         },

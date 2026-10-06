@@ -303,6 +303,7 @@ export default function PsicossocialRelatorio() {
                   interpretacao: fi.interpretacao || f.interpretacao,
                   consequencias: fi.consequencias || f.consequencias,
                   controles: fi.controles || f.controles,
+                  frequencia: normalizarFrequenciaPsicossocial(fi.frequencia, f.media),
                 };
               }),
             };

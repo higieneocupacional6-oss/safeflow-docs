@@ -20,6 +20,7 @@ export type SaidaIaPsico = {
       interpretacao: string;
       consequencias: string;
       controles: string;
+      frequencia: "Eventual" | "Intermitente" | "Habitual";
     }[];
   }[];
   medidas: {
