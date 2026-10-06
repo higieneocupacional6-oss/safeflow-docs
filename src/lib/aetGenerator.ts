@@ -248,6 +248,7 @@ function gerarAnaliseOrganizacional(ctx: any, kb: FuncaoConhecimento): string {
     kb.organizacao,
     !resumo && !riscosPsico ? "A avaliação psicossocial (COPSOQ III) deve ser considerada como parte da análise organizacional." : null,
   );
+}
 
 function gerarRitmoComplexidade(kb: FuncaoConhecimento, obs: string, ferramentas: any[]): string {
   const usuFrases = extrairFrasesRelevantes(obs, ["ritmo", "repet", "concentr", "atenção", "atencao", "meta", "pressão", "pressao"]);
@@ -277,7 +278,6 @@ function gerarBiomecanica(ctx: any, kb: FuncaoConhecimento, obs: string): string
   const usuFrases = extrairFrasesRelevantes(obs, KEYWORDS.postura.concat(KEYWORDS.carga));
 
   return j(
-  return j(
     interpretacoes.length
       ? `Interpretação técnica das ferramentas ergonômicas aplicadas neste posto: ${interpretacoes.join(" ")}` 
       : "Recomenda-se aplicação de ferramentas ergonômicas (RULA, REBA, OCRA, NIOSH) para quantificação do risco biomecânico.",
@@ -285,6 +285,7 @@ function gerarBiomecanica(ctx: any, kb: FuncaoConhecimento, obs: string): string
     kb.biomecanica,
     "A análise deve ser interpretada em conjunto com as normas ISO 11226 (posturas estáticas) e ISO 11228-1/2/3 (manuseio de cargas).",
   );
+}
 
 function gerarCronoanalise(ctx: any, kb: FuncaoConhecimento): { tarefa: string; tempo: string; risco: string }[] {
   const existente = ctx.cronoanalise_previa || [];
