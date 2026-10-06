@@ -15,7 +15,7 @@ describe("Mapeamento Psicossocial -> AEP", () => {
     expect(mapearSeveridadeParaAep(4)).toBe("Grave");
   });
 
-  it("deve filtrar apenas riscos sustentados e converter para RiscoErgonomico", () => {
+  it("deve incluir todos os riscos sustentados, inclusive os baixos", () => {
     const mockFator: FatorRisco = {
       key: "exigencias",
       fator: "Exigências Quantitativas",
@@ -45,16 +45,20 @@ describe("Mapeamento Psicossocial -> AEP", () => {
       organizacao: "Org",
       fatores: [
         mockFator,
-        { ...mockFator, sustentado: false, nivel: "Baixo" } // Não deve ser mapeado
+        { ...mockFator, fator: "Apoio social", probabilidade: 1, severidade: 1, sustentado: true, nivel: "Baixo" },
+        { ...mockFator, fator: "Não sustentado", sustentado: false, nivel: "Baixo" },
       ],
       respondentes: 5
     };
 
     const resultado = mapearPsicoParaAep(mockGrupo, []);
-    expect(resultado).toHaveLength(1);
+    expect(resultado).toHaveLength(2);
     expect(resultado[0].fator_risco).toBe("Psicossocial: Exigências Quantitativas");
     expect(resultado[0].probabilidade).toBe("Alta");
     expect(resultado[0].severidade).toBe("Moderada");
     expect(resultado[0].nivel_risco).toBe("Alto");
+    expect(resultado[0].justificativa).toContain("Sit Y");
+    expect(resultado[1].fator_risco).toBe("Psicossocial: Apoio social");
+    expect(resultado[1].nivel_risco).toBe("Trivial");
   });
 });

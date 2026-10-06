@@ -25,7 +25,7 @@ export function mapearSeveridadeParaAep(s: number): string {
  */
 export function mapearPsicoParaAep(grupo: GrupoRelatorio, medidas: MedidaControle[]): RiscoErgonomico[] {
   return grupo.fatores
-    .filter(f => f.sustentado && f.nivel !== "Baixo")
+    .filter(f => f.sustentado)
     .map(f => {
       const p = mapearProbabilidadeParaAep(f.probabilidade);
       const s = mapearSeveridadeParaAep(f.severidade);
@@ -39,6 +39,7 @@ export function mapearPsicoParaAep(grupo: GrupoRelatorio, medidas: MedidaControl
       return {
         tipo_agente: "Ergonômico psicossocial",
         fator_risco: `Psicossocial: ${f.fator}`,
+        justificativa: [f.situacao, f.interpretacao].filter(Boolean).join(" — "),
         fonte_geradora: f.fonte,
         possiveis_danos: f.consequencias,
         controle_existente: f.controles,
@@ -59,7 +60,7 @@ export function prepararContextoPsicoParaAet(grupo: GrupoRelatorio) {
     descricao_atividade: grupo.atividades,
     jornada_aspectos: grupo.jornada,
     riscos_identificados: grupo.fatores
-      .filter(f => f.sustentado && f.nivel !== "Baixo")
+      .filter(f => f.sustentado)
       .map(f => `${f.fator} (${f.nivel}): ${f.interpretacao}`)
   };
 }
