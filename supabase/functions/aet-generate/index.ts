@@ -49,6 +49,7 @@ REGRAS OBRIGATÓRIAS — NÃO NEGOCIÁVEIS:
 - Fotografias: descrever objetivamente (mobiliário, postura, EPIs, layout) e integrar à análise biomecânica.
 - PDFs: extrair dados relevantes (jornada, POPs, laudos, OS) e citá-los como fonte.
 - Quando houver poucas informações, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos, sem citar "documento não anexado" desnecessariamente.
+- PROTEÇÃO ANTI-INVENÇÃO: Se uma informação não existe no contexto, nos anexos ou no relato e não pode ser inferida tecnicamente com segurança, declare que a informação depende de coleta complementar ou use termos como "conforme relatado" ou "observado preliminarmente".
 
 FORMATO DE RESPOSTA:
 Responder EXCLUSIVAMENTE em JSON VÁLIDO conforme o schema, em português do Brasil formal técnico, sem markdown, sem comentários fora do JSON.`;
@@ -84,6 +85,7 @@ const RESPONSE_SCHEMA = {
         distancia_olho_monitor: { type: "string" },
         espaco_pernas: { type: "string" },
       },
+      required: ["altura_mesa", "altura_assento", "profundidade_assento", "monitor", "distancia_olho_monitor", "espaco_pernas"],
     },
     avaliacoes_quantitativas_analise: { type: "string" },
     diagnostico_ergonomico: { type: "string", description: "Diagnóstico integrado (físico + organizacional + psicossocial) fundamentado em NRs e ISOs." },
@@ -101,7 +103,7 @@ const RESPONSE_SCHEMA = {
           responsavel: { type: "string" },
           prazo: { type: "string" },
         },
-        required: ["o_que", "como", "responsavel", "prazo"],
+        required: ["o_que", "como", "responsavel", "prazo", "justificativa", "prioridade", "resultado_esperado"],
       },
     },
   },
@@ -114,6 +116,7 @@ const RESPONSE_SCHEMA = {
     "caracterizacao_biomecanica",
     "cronoanalise",
     "avaliacoes_dimensionais",
+    "avaliacoes_quantitativas_analise",
     "diagnostico_ergonomico",
     "conclusao",
     "plano_acao",
@@ -323,6 +326,13 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 
     const data = await resp.json();
     const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) {
+      return new Response(JSON.stringify({ error: "A IA retornou uma resposta vazia." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let parsed: unknown;
     try {
       parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
