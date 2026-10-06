@@ -22,6 +22,7 @@ export const TIPOS_AGENTE_ERGONOMICO = [
   "Ergonômico psicossocial",
 ] as const;
 
+export type ClassificacaoAep = "Baixo" | "Médio" | "Alto" | "";
 export type NivelRiscoAep = "Trivial" | "Moderado" | "Alto" | "Crítico" | "";
 
 export type RiscoErgonomico = {
@@ -79,6 +80,12 @@ export type NivelRiscoAepApresentacao = "Baixo" | "Médio" | "Alto" | "";
 
 /** Mantém a matriz técnica original e agrupa apenas o rótulo apresentado. */
 export function nivelRiscoAepApresentacao(nivel: NivelRiscoAep): NivelRiscoAepApresentacao {
+  if (nivel === "Trivial") return "Baixo";
+  if (nivel === "Moderado") return "Médio";
+  if (nivel === "Alto" || nivel === "Crítico") return "Alto";
+  return "";
+}
+export function obterClassificacaoAep(nivel: NivelRiscoAep): ClassificacaoAep {
   if (nivel === "Trivial") return "Baixo";
   if (nivel === "Moderado") return "Médio";
   if (nivel === "Alto" || nivel === "Crítico") return "Alto";
