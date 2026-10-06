@@ -24,7 +24,8 @@ import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoC
 import { sortByGes } from "@/lib/sortGes";
 import {
   TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
-  calcularNivelRiscoAep, emptyRiscoErgonomico, CORES_NIVEL_RISCO,
+  calcularNivelRiscoAep, emptyRiscoErgonomico, nivelRiscoAepApresentacao,
+  CORES_NIVEL_RISCO_APRESENTACAO,
   type RiscoErgonomico,
 } from "@/lib/aepRisco";
 
@@ -494,6 +495,7 @@ export default function AepWizard() {
           cnae: empresa.cnae_principal || "",
           grau_risco: empresa.grau_risco || "",
           endereco: empresa.endereco || "",
+          atividades_empresa: contrato.escopo_contrato || empresa.escopo_contrato || "",
           total_funcionarios: empresa.total_funcionarios ?? "",
           jornada_trabalho: empresa.jornada_trabalho || "",
           contrato: {
@@ -523,6 +525,9 @@ export default function AepWizard() {
         cadastro_empresa: {
           setores: (setoresEmpresa as any[]).map((s) => ({ setor: s.nome_setor, ges: s.ghe_ges || "" })),
           funcoes_do_setor: funcoesCadastroSetor,
+          atividades_das_funcoes_avaliadas: funcoesCadastroSetor
+            .filter((f) => setor.funcoes_selecionadas.some((selecionada) => selecionada.nome === f.nome))
+            .map((f) => ({ funcao: f.nome, atividades: f.descricao_atividades })),
         },
 
         // ETAPA 6 — fotografias (metadados; imagens seguem como anexos multimodais)
@@ -573,6 +578,7 @@ export default function AepWizard() {
               ...emptyRiscoErgonomico(),
               tipo_agente: x.tipo_agente || "",
               fator_risco: x.fator_risco || "",
+              justificativa: x.justificativa || "",
               fonte_geradora: x.fonte_geradora || "",
               possiveis_danos: x.possiveis_danos || "",
               controle_existente: x.controle_existente || "",
@@ -703,12 +709,13 @@ export default function AepWizard() {
       riscos_ergonomicos: s.riscos_lista.map((r) => ({
         tipo_agente: r.tipo_agente || "",
         fator_risco: r.fator_risco || "",
+        justificativa: r.justificativa || "",
         fonte_geradora: r.fonte_geradora || "",
         possiveis_danos: r.possiveis_danos || "",
         controle_existente: r.controle_existente || "",
         probabilidade: r.probabilidade || "",
         severidade: r.severidade || "",
-        nivel_risco: r.nivel_risco || "",
+        nivel_risco: nivelRiscoAepApresentacao(r.nivel_risco),
         medidas: r.medidas || "",
       })),
       parecer_ambiente_trabalho: s.parecer_ambiente || "",
@@ -1239,11 +1246,12 @@ export default function AepWizard() {
             </Button>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm min-w-[1400px]">
+            <table className="w-full text-sm min-w-[1600px]">
               <thead>
                 <tr className="text-left text-xs uppercase text-muted-foreground">
                   <th className="p-2 w-48">Tipo de agente</th>
                   <th className="p-2 w-52">Fator de risco</th>
+                  <th className="p-2 w-64">Justificativa</th>
                   <th className="p-2 w-52">Fonte geradora</th>
                   <th className="p-2 w-52">Possíveis danos</th>
                   <th className="p-2 w-52">Controle existente</th>
@@ -1278,6 +1286,10 @@ export default function AepWizard() {
                           onChange={(e) => patch({ fator_risco: e.target.value })} />
                       </td>
                       <td className="p-2">
+                        <Textarea className="min-h-[64px]" value={r.justificativa || ""}
+                          onChange={(e) => patch({ justificativa: e.target.value })} />
+                      </td>
+                      <td className="p-2">
                         <Textarea className="min-h-[64px]" value={r.fonte_geradora}
                           onChange={(e) => patch({ fonte_geradora: e.target.value })} />
                       </td>
@@ -1306,9 +1318,9 @@ export default function AepWizard() {
                         </Select>
                       </td>
                       <td className="p-2">
-                        {r.nivel_risco ? (
-                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO[r.nivel_risco]}`}>
-                            {r.nivel_risco}
+                        {nivelRiscoAepApresentacao(r.nivel_risco) ? (
+                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO_APRESENTACAO[nivelRiscoAepApresentacao(r.nivel_risco) as "Baixo" | "Médio" | "Alto"]}`}>
+                            {nivelRiscoAepApresentacao(r.nivel_risco)}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>
@@ -1329,7 +1341,7 @@ export default function AepWizard() {
                   );
                 })}
                 {setor.riscos_lista.length === 0 && (
-                  <tr><td colSpan={10} className="p-4 text-center text-sm text-muted-foreground">
+                  <tr><td colSpan={11} className="p-4 text-center text-sm text-muted-foreground">
                     Nenhum risco cadastrado. Adicione manualmente ou gere com IA.
                   </td></tr>
                 )}
@@ -1337,7 +1349,7 @@ export default function AepWizard() {
             </table>
           </div>
           <p className="text-xs text-muted-foreground mt-2">
-            O nível de risco é calculado automaticamente pela matriz do sistema (Probabilidade × Severidade).
+            O nível é calculado pela matriz do sistema e apresentado de forma agrupada em Baixo, Médio ou Alto.
           </p>
         </Card>
 
