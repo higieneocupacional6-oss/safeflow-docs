@@ -397,7 +397,7 @@ export function construirGrupos(
         .filter((x) => x.pol === "pos" && x.m >= 0 && x.m <= 25)
         .map((x) => x.p);
 
-      // Fator investigado e não caracterizado → registrado como Baixo (rastreabilidade).
+      // Resultado abaixo do limiar técnico → registrado como Baixo (rastreabilidade).
       const probabilidade = !sustentado ? 1 : media < 62 ? 2 : media < 75 ? 3 : 4;
       const severidade = !sustentado
         ? Math.min(2, meta.severidadeBase)
@@ -518,8 +518,7 @@ export function resumoPorGrupo(g: GrupoRelatorio) {
 
 /**
  * Ocupação da matriz de risco. Por definição metodológica, a matriz representa
- * apenas os riscos que demandam representação: fatores não identificados
- * (não sustentados) e fatores de nível Baixo são excluídos.
+ * apenas os riscos que demandam representação; fatores de nível Baixo são excluídos.
  */
 export function matrizOcupada(grupos: GrupoRelatorio[]) {
   const m: Record<string, number> = {};

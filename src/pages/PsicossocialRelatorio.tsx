@@ -223,13 +223,13 @@ export default function PsicossocialRelatorio() {
         })
       : gruposBase;
     setMetodologia(
-      s.metodologia ||
+      normalizarTextoPsicossocial(s.metodologia ||
         metodologiaTexto({
           ...info,
           respondentes: respostas.length,
           empresaNome: empresa?.razao_social || "a empresa avaliada",
           grupos: gsBase,
-        }),
+        })),
     );
 
     const gs = sortGroupsNumerically(gsBase).map((g) => ({
@@ -252,8 +252,8 @@ export default function PsicossocialRelatorio() {
     setMedidasExcluidas(excluidas);
     setMedidas(mesclarMedidasPlano(gs, s.medidas as MedidaControle[] | undefined, excluidas));
 
-    setConclusao(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa"));
-    const introSalva = String(s.introPlano || "");
+    setConclusao(normalizarTextoPsicossocial(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa")));
+    const introSalva = normalizarTextoPsicossocial(s.introPlano || "");
     const introLegadaIncluiManutencao = /aç(?:ão|ões) de manutenção|manutenção e monitoramento|melhoria contínua, sem prioridade/i.test(introSalva);
     setIntroPlano(
       introSalva && !introLegadaIncluiManutencao
@@ -280,9 +280,9 @@ export default function PsicossocialRelatorio() {
           respondentes: respostas.length, grupos, medidas: medidasPlano, metInfo,
         });
         const out = await gerarTextosIa(contexto);
-        if (out.metodologia) setMetodologia(out.metodologia);
-        if (out.conclusao) setConclusao(out.conclusao);
-        if (out.intro_plano_acao) setIntroPlano(out.intro_plano_acao);
+        if (out.metodologia) setMetodologia(normalizarTextoPsicossocial(out.metodologia));
+        if (out.conclusao) setConclusao(normalizarTextoPsicossocial(out.conclusao));
+        if (out.intro_plano_acao) setIntroPlano(normalizarTextoPsicossocial(out.intro_plano_acao));
         setLacunasIa(out.lacunas || []);
         if (out.grupos?.length) {
           setGrupos((prev) => prev.map((g) => {
@@ -297,12 +297,12 @@ export default function PsicossocialRelatorio() {
                 if (!fi) return f;
                 return {
                   ...f,
-                  descricao: fi.descricao || f.descricao,
-                  fonte: fi.fonte || f.fonte,
-                  situacao: fi.situacao || f.situacao,
-                  interpretacao: fi.interpretacao || f.interpretacao,
-                  consequencias: fi.consequencias || f.consequencias,
-                  controles: fi.controles || f.controles,
+                  descricao: normalizarTextoPsicossocial(fi.descricao || f.descricao),
+                  fonte: normalizarTextoPsicossocial(fi.fonte || f.fonte),
+                  situacao: normalizarTextoPsicossocial(fi.situacao || f.situacao),
+                  interpretacao: normalizarTextoPsicossocial(fi.interpretacao || f.interpretacao),
+                  consequencias: normalizarTextoPsicossocial(fi.consequencias || f.consequencias),
+                  controles: normalizarTextoPsicossocial(fi.controles || f.controles),
                   frequencia: normalizarFrequenciaPsicossocial(fi.frequencia, f.media),
                 };
               }),
@@ -465,7 +465,7 @@ export default function PsicossocialRelatorio() {
     });
 
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0) || 1;
-  // A matriz representa apenas os riscos caracterizados (exclui Baixo e não identificados).
+  // A matriz representa apenas os riscos caracterizados acima do nível Baixo.
   const ocup = useMemo(() => matrizOcupada(grupos), [grupos]);
   const totalMatriz = useMemo(
     () => grupos.flatMap((g) => g.fatores).filter(fatorCaracterizado).length,
