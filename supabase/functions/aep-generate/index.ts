@@ -269,48 +269,55 @@ Devolver esses valores EXATAMENTE e reescrever riscos, medidas, pareceres, parec
 Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP, riscos baixos, médios e altos específicos da função/atividade, cada qual com justificativa e medida coerentes, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
-    const userContent: any[] = [{ type: "text", text: userText }];
+    const userContent: any[] = [{ type: "input_text", text: userText }];
     const conhecAnexos: ConhecimentoAnexo[] = Array.isArray(conhecimento?.anexos)
       ? conhecimento.anexos.slice(0, 10)
       : [];
     for (const a of conhecAnexos) {
       if (!a?.data) continue;
       userContent.push({
-        type: "file",
-        file: {
-          filename: a.name || "conhecimento.pdf",
-          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
-        },
+        type: "input_file",
+        filename: a.name || "conhecimento.pdf",
+        file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
       });
     }
     for (const a of anexosArr) {
       if (a.kind === "image" && a.data && a.mime) {
-        userContent.push({ type: "image_url", image_url: { url: `data:${a.mime};base64,${a.data}` } });
+        userContent.push({ type: "input_image", image_url: `data:${a.mime};base64,${a.data}` });
       } else if (a.kind === "pdf" && a.data) {
         userContent.push({
-          type: "file",
-          file: { filename: a.name || "documento.pdf", file_data: `data:${a.mime || "application/pdf"};base64,${a.data}` },
+          type: "input_file",
+          filename: a.name || "documento.pdf",
+          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
         });
       }
     }
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const gateway = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(req));
+    const resp = await gateway.fetch("https://ai.gateway.lovable.dev/v1/responses", {
       method: "POST",
+      signal: req.signal,
       headers: {
         "Content-Type": "application/json",
         "Lovable-API-Key": key,
         "X-Lovable-AIG-SDK": "fetch",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+        model: "openai/gpt-6-astra",
+        input: [
+          { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
           { role: "user", content: userContent },
         ],
-        response_format: {
+        stream: true,
+        store: false,
+        reasoning: { effort: "medium", summary: "auto" },
+        include: ["reasoning.encrypted_content"],
+        text: { format: {
           type: "json_schema",
-          json_schema: { name: "aep_output", strict: true, schema: RESPONSE_SCHEMA },
-        },
+          name: "aep_output",
+          strict: true,
+          schema: RESPONSE_SCHEMA,
+        } },
       }),
     });
 
@@ -332,8 +339,28 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
       });
     }
 
-    const data = await resp.json();
-    const raw = data?.choices?.[0]?.message?.content;
+    const reader = resp.body?.getReader();
+    if (!reader) throw new Error("A IA retornou uma resposta sem conteúdo.");
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let raw = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const events = buffer.split("\n\n");
+      buffer = events.pop() || "";
+      for (const event of events) {
+        const dataLine = event.split("\n").find((line) => line.startsWith("data:"));
+        if (!dataLine || dataLine.slice(5).trim() === "[DONE]") continue;
+        const payload = JSON.parse(dataLine.slice(5).trim());
+        if (payload.type === "response.output_text.delta") raw += payload.delta || "";
+        if (payload.type === "error" || payload.type === "response.failed") {
+          throw new Error(payload.error?.message || payload.response?.error?.message || "A IA não concluiu a geração.");
+        }
+      }
+    }
+    if (!raw.trim()) throw new Error("A IA retornou uma resposta vazia.");
     let parsed: unknown;
     try {
       parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
@@ -343,10 +370,14 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
       });
     }
 
+    const responseHeaders = getLovableAiGatewayResponseHeaders(resp.headers, { ...corsHeaders, "Content-Type": "application/json" });
     return new Response(JSON.stringify({ output: parsed }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: responseHeaders,
     });
   } catch (e) {
+    if (req.signal.aborted && e instanceof Error && e.name === "AbortError") {
+      return new Response(null, { status: 499, headers: corsHeaders });
+    }
     console.error(e);
     return new Response(JSON.stringify({ error: (e as Error).message || "Erro inesperado" }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
