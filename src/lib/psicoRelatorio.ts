@@ -587,19 +587,20 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
   const medios = caracterizados.filter((f) => f.nivel === "Médio");
   const totalTrab = grupos.reduce((a, g) => a + (g.trabalhadores || 0), 0);
   const nomeGrupo = (g: GrupoRelatorio) => `${g.setor}${g.ghe && g.ghe !== "—" ? ` (${g.ghe})` : ""}`;
+  const termo = (quantidade: number, singular: string, plural: string) => quantidade === 1 ? singular : plural;
 
   const partes: string[] = [];
 
   // Situação geral
   partes.push(
-    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} grupo(s) homogêneo(s) de exposição, ${totalTrab || "os"} trabalhador(es) envolvido(s) e ${dimensoes.length} dimensão(ões) do instrumento aplicado (${dimensoes.join("; ")}). Do total de ${investigados.length} fator(es) investigado(s), ${caracterizados.length} foi(ram) caracterizado(s) como risco psicossocial que demanda gestão e ${baixos.length + baixosEmConformidade.length} foi(ram) classificado(s) em nível Baixo.`,
+    `A avaliação dos fatores de risco psicossocial de ${empresaNome} abrangeu ${grupos.length} ${termo(grupos.length, "grupo homogêneo", "grupos homogêneos")} de exposição, ${totalTrab || 0} ${termo(totalTrab, "trabalhador envolvido", "trabalhadores envolvidos")} e ${dimensoes.length} ${termo(dimensoes.length, "dimensão", "dimensões")} do instrumento aplicado (${dimensoes.join("; ")}). Dos ${investigados.length} ${termo(investigados.length, "fator investigado", "fatores investigados")}, ${caracterizados.length} ${termo(caracterizados.length, "foi caracterizado", "foram caracterizados")} como risco psicossocial que demanda gestão e ${baixos.length + baixosEmConformidade.length} ${termo(baixos.length + baixosEmConformidade.length, "foi classificado", "foram classificados")} em nível Baixo.`,
   );
 
   // Principais resultados
   if (criticos.length || altos.length) {
     const dimAlt = Array.from(new Set([...criticos, ...altos].map((f) => f.fator)));
     partes.push(
-      `Os principais resultados concentram-se em ${dimAlt.join("; ")}, com ${criticos.length} fator(es) em nível Crítico e ${altos.length} em nível Alto, o que caracteriza necessidade de adoção de medidas de prevenção e controle com prioridade, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
+      `Os principais resultados concentram-se em ${dimAlt.join("; ")}, com ${criticos.length} ${termo(criticos.length, "fator", "fatores")} em nível Crítico e ${altos.length} em nível Alto, o que caracteriza a necessidade de adoção prioritária de medidas de prevenção e controle, nos termos da NR-01 (gerenciamento de riscos ocupacionais) e da NR-17 (adequação da organização do trabalho às características psicofisiológicas dos trabalhadores).`,
     );
   } else if (medios.length) {
     partes.push(
@@ -628,12 +629,12 @@ export function conclusaoTecnica(grupos: GrupoRelatorio[], empresaNome: string) 
     const r = resumoPorGrupo(g);
     const pri = g.fatores.filter((f) => f.nivel === "Alto" || f.nivel === "Crítico").map((f) => f.fator);
     if (pri.length) {
-      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), destacam-se ${pri.join(" e ")} em nível de maior atenção`;
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, destacam-se ${pri.join(" e ")} em nível de maior atenção`;
     }
     if (r.caracterizados) {
-      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), os fatores caracterizados situam-se em níveis intermediários, com predominância ${r.predominante}`;
+      return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, os fatores caracterizados situam-se em níveis intermediários, com predominância ${r.predominante}`;
     }
-    return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} trabalhador(es), não houve caracterização de fator que demande intervenção corretiva`;
+    return `em ${nomeGrupo(g)}, com ${g.trabalhadores || 0} ${termo(g.trabalhadores || 0, "trabalhador", "trabalhadores")}, não houve caracterização de fator que demande intervenção corretiva`;
   });
   partes.push(`Na análise por grupo homogêneo, ${linhas.join("; ")}.`);
 
@@ -673,7 +674,7 @@ export function planoAcaoTexto(grupos: GrupoRelatorio[], empresaNome: string) {
   if (priorizaveis.length) {
     const prio = grupos.filter((g) => g.fatores.some((f) => f.sustentado !== false && f.nivel === "Alto"));
     return [
-      `O plano de ação a seguir consolida exclusivamente as medidas corretivas e preventivas que exigem priorização, decorrentes dos ${priorizaveis.length} fator(es) classificados em nível Médio ou Alto na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
+      `O plano de ação a seguir consolida exclusivamente as medidas corretivas e preventivas que exigem priorização, decorrentes de ${priorizaveis.length} ${priorizaveis.length === 1 ? "fator classificado" : "fatores classificados"} em nível Médio ou Alto na avaliação de ${empresaNome}, com definição de responsável, prazo e prioridade; o campo de status é preenchido pela empresa ao longo da execução.`,
       prio.length
         ? `A execução deve ser priorizada nos grupos ${prio.map(nomeGrupo).join("; ")}, em razão do nível de risco identificado.`
         : "As medidas apresentadas correspondem aos grupos com classificação Média e exigem tratamento preventivo planejado.",
@@ -710,10 +711,10 @@ export function metodologiaTexto(opts: {
 
   const p2 =
     (grupos.length
-      ? `A abrangência da avaliação compreendeu ${grupos.length} grupo(s) homogêneo(s) de exposição, correspondente(s) a ${listaGrupos}, envolvendo ${funcoes.length} função(ões) — ${funcoes.join(", ")}. `
+      ? `A abrangência da avaliação compreendeu ${grupos.length} ${grupos.length === 1 ? "grupo homogêneo" : "grupos homogêneos"} de exposição, ${grupos.length === 1 ? "correspondente" : "correspondentes"} a ${listaGrupos}, envolvendo ${funcoes.length} ${funcoes.length === 1 ? "função" : "funções"} — ${funcoes.join(", ")}. `
       : "A abrangência da avaliação compreendeu os setores e grupos homogêneos de exposição registrados no cadastro da empresa. ") +
     (totalTrab
-      ? `A população avaliada totaliza ${totalTrab} trabalhador(es) envolvido(s) nas funções analisadas. `
+      ? `A população avaliada totaliza ${totalTrab} ${totalTrab === 1 ? "trabalhador envolvido" : "trabalhadores envolvidos"} nas funções analisadas. `
       : "A população avaliada corresponde aos trabalhadores das funções analisadas. ") +
     `A coleta de respostas ocorreu de forma individual, voluntária e anônima${opts.periodo ? `, no período de ${opts.periodo}` : ""}, sendo os dados tratados exclusivamente de forma agregada por grupo homogêneo, preservando a confidencialidade dos participantes.`;
 
@@ -769,7 +770,7 @@ export function interpretarIndicadores(
   const partes: string[] = [];
 
   partes.push(
-    `Foram considerados ${numericos.length + qualitativos.length} indicador(es) organizacional(is) informado(s) pela empresa, apresentados de forma agregada: ${[...numericos.map((n) => `${n.label}: ${n.texto}`), ...qualitativos.map((q) => `${q.label}: ${q.texto}`)].join("; ")}.`,
+    `Foram considerados ${numericos.length + qualitativos.length} ${(numericos.length + qualitativos.length) === 1 ? "indicador organizacional informado" : "indicadores organizacionais informados"} pela empresa, apresentados de forma agregada: ${[...numericos.map((n) => `${n.label}: ${n.texto}`), ...qualitativos.map((q) => `${q.label}: ${q.texto}`)].join("; ")}.`,
   );
 
   const atencao: string[] = [];
