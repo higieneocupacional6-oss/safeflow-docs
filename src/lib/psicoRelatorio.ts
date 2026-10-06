@@ -175,6 +175,10 @@ export type MedidaControle = {
 };
 
 export type VinculoFuncao = {
+  funcaoId?: string;
+  funcaoNome?: string;
+  setorId?: string;
+  ambiente?: string;
   setor: string;
   ghe: string;
   expostos: number;
@@ -355,13 +359,26 @@ export function construirGrupos(
   vinculos: Map<string, VinculoFuncao>,
   jornadaEmpresa: string,
 ): GrupoRelatorio[] {
-  const mapa = new Map<string, { setor: string; ghe: string; funcoes: Set<string>; itens: any[] }>();
+  const mapa = new Map<string, { setor: string; ghe: string; funcoes: Set<string>; itens: any[]; vinculos: Map<string, VinculoFuncao> }>();
+  const atuais = Array.from(new Set(vinculos.values()));
+  for (const v of atuais) {
+    const id = `${v.setor}||${v.ghe || "—"}`;
+    const g = mapa.get(id) || { setor: v.setor, ghe: v.ghe || "—", funcoes: new Set<string>(), itens: [], vinculos: new Map<string, VinculoFuncao>() };
+    const nome = v.funcaoNome || Array.from(vinculos.entries()).find(([, value]) => value === v)?.[0] || "";
+    g.funcoes.add(nome);
+    g.vinculos.set(normalizarFuncao(nome), v);
+    mapa.set(id, g);
+  }
   for (const r of respostas) {
-    const v = vinculos.get(normalizarFuncao(r.funcao_nome));
+    // Um ID removido nunca é recuperado pelo nome; legados sem ID exigem nome único.
+    const candidatos = atuais.filter((v) => normalizarFuncao(v.funcaoNome || "") === normalizarFuncao(r.funcao_nome));
+    const v = r.funcao_id
+      ? atuais.find((v) => v.funcaoId === r.funcao_id)
+      : candidatos.length === 1 ? candidatos[0] : candidatos.length === 0 ? vinculos.get(normalizarFuncao(r.funcao_nome)) : undefined;
     if (!v) continue;
     const id = `${v.setor}||${v.ghe || "—"}`;
-    const g = mapa.get(id) || { setor: v.setor, ghe: v.ghe || "—", funcoes: new Set<string>(), itens: [] };
-    g.funcoes.add(r.funcao_nome);
+    const g = mapa.get(id);
+    if (!g) continue;
     g.itens.push(r);
     mapa.set(id, g);
   }
@@ -369,13 +386,14 @@ export function construirGrupos(
   const grupos = Array.from(mapa.entries()).map(([id, g]) => {
     const funcoes = Array.from(g.funcoes);
     const trabalhadores = funcoes.reduce(
-      (a, f) => a + (vinculos.get(normalizarFuncao(f))?.expostos || 0), 0,
+      (a, f) => a + (g.vinculos.get(normalizarFuncao(f))?.expostos || 0), 0,
     );
-    const atividades = descreverAtividades(g.setor, g.ghe, funcoes, vinculos);
+    const atividades = descreverAtividades(g.setor, g.ghe, funcoes, g.vinculos);
 
     const acc = mediasPorBloco(g.itens);
     const medias: Record<string, number | null> = {};
     for (const b of BLOCOS_COPSOQ) {
+      if (!g.itens.length) continue;
       medias[b.key] = acc[b.key].n ? Math.round(acc[b.key].soma / acc[b.key].n) : null;
     }
     const fatores: FatorRisco[] = [];
@@ -450,7 +468,9 @@ export function construirGrupos(
       trabalhadores,
       atividades,
       jornada: jornadaEmpresa || "Jornada conforme cadastro da empresa/contrato.",
-      organizacao: descreverOrganizacao(g.setor, g.ghe, funcoes, jornadaEmpresa, medias),
+      organizacao: g.itens.length
+        ? descreverOrganizacao(g.setor, g.ghe, funcoes, jornadaEmpresa, medias)
+        : "Não há respostas vinculadas às funções atuais deste grupo; não é possível concluir sobre os fatores psicossociais. " + Array.from(new Set(Array.from(g.vinculos.values()).map((v) => v.ambiente).filter(Boolean))).join(" "),
       fatores,
       respondentes: g.itens.length,
     };
@@ -475,7 +495,7 @@ export function sincronizarGruposComCadastro(
     const base = { ...g, atividadesBase: g.atividades };
     if (!old) return base;
     const cadastroIgual = old.atividadesBase !== undefined && old.atividadesBase === g.atividades;
-    const fatores = old.fatores?.length
+    const fatores = cadastroIgual && old.fatores?.length
       ? old.fatores
           .filter((f) => g.fatores.some((b) => b.key === f.key))
           .map((f) => ({ ...f, expostos: g.trabalhadores }))
@@ -491,6 +511,7 @@ export function sincronizarGruposComCadastro(
       respondentes: g.respondentes,
       atividades: cadastroIgual && old.atividades ? old.atividades : g.atividades,
       atividadesBase: g.atividades,
+      organizacao: cadastroIgual ? old.organizacao : g.organizacao,
       fatores: fatores.length ? fatores : g.fatores,
     };
   });
