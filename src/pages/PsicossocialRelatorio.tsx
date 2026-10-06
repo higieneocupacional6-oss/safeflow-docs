@@ -18,12 +18,12 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
-  construirGrupos, sincronizarGruposComCadastro, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
+  construirGrupos, sincronizarGruposComCadastro, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
   INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
   indicadoresPreenchidos, interpretarIndicadores, FREQUENCIAS_PSICOSSOCIAIS,
   normalizarFrequenciaPsicossocial, normalizarTextoPsicossocial,
-  type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
+  type GrupoRelatorio, type MedidaControle, type NivelRisco,
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial, type PdfPayload } from "@/lib/psicoRelatorioPdf";
 import { gerarDocxPsicossocial } from "@/lib/psicoRelatorioDocx";
@@ -373,8 +373,11 @@ export default function PsicossocialRelatorio() {
     mostrarSucesso = true,
   ) => {
     setSalvando(true);
+    try {
+    const gruposAtuais = await atualizarCadastro();
     const dados = {
-      ident, metInfo, metodologia, grupos, medidas: proximasMedidas,
+      ident, metInfo, metodologia, grupos: gruposAtuais,
+      medidas: mesclarMedidasPlano(gruposAtuais, proximasMedidas, proximasExcluidas),
       medidasExcluidas: proximasExcluidas, conclusao, introPlano, registros,
     };
     const { error } = await supabase.from("psico_relatorios").upsert({
@@ -388,6 +391,12 @@ export default function PsicossocialRelatorio() {
     if (error) { toast.error(error.message); return false; }
     if (mostrarSucesso) toast.success("Relatório salvo.");
     return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível consultar o cadastro atual.");
+      return false;
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const salvar = async () => { await persistirRelatorio(); };
@@ -418,17 +427,28 @@ export default function PsicossocialRelatorio() {
     toast.success("Plano de Ação recriado com os riscos elegíveis atuais. Salve as edições para confirmar.");
   };
 
-  const montarPayloadRelatorio = (): PdfPayload => ({
-    empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
+  const atualizarCadastro = async () => {
+    if (!empresaRef || contratoRef === undefined) throw new Error("Avaliação não carregada.");
+    const atuais = await carregarSetoresPsicossocial(empresaRef, contratoRef);
+    const atualizados = sortGroupsNumerically(sincronizarGruposComCadastro(
+      construirGrupos(respostas, vinculosDoCadastro(atuais), empresa?.jornada_trabalho || ""), grupos,
+    ));
+    setGrupos(atualizados);
+    return atualizados;
+  };
+
+  const montarPayloadRelatorio = (gruposAtuais = grupos): PdfPayload => ({
+    empresa, contrato, identificacao: ident, metodologia, grupos: gruposAtuais,
+    medidas: mesclarMedidasPlano(gruposAtuais, medidas, medidasExcluidas),
     conclusao, indicadores, registros,
-    interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-    introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    interpretacaoIndicadores: interpretarIndicadores(indicadores, gruposAtuais),
+    introPlanoAcao: introPlano || planoAcaoTexto(gruposAtuais, empresa?.razao_social || "a empresa avaliada"),
     titulo: avaliacao?.titulo || "Avaliação Psicossocial",
   });
 
-  const baixarPdf = () => {
+  const baixarPdf = async () => {
     try {
-      gerarPdfPsicossocial(montarPayloadRelatorio());
+      gerarPdfPsicossocial(montarPayloadRelatorio(await atualizarCadastro()));
     } catch (e: any) {
       toast.error("Erro ao gerar PDF: " + (e?.message || ""));
     }
@@ -437,7 +457,7 @@ export default function PsicossocialRelatorio() {
   const baixarWord = async () => {
     setGerandoWord(true);
     try {
-      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio());
+      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio(await atualizarCadastro()));
       saveAs(blob, nome);
     } catch (e: any) {
       toast.error("Erro ao gerar Word: " + (e?.message || ""));
