@@ -1,11 +1,8 @@
-// Edge function: Gera automaticamente uma AET via Lovable AI (Google Gemini 1.5 Pro)
+// Edge function: Gera automaticamente uma AET via Lovable AI
 // Recebe o contexto da AET + texto livre + anexos (imagens/PDFs). Retorna JSON com os campos.
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR com vasta experiência em Análise Ergonômica do Trabalho (AET), pareceres judiciais e programas ergonômicos corporativos.
 
@@ -152,7 +149,7 @@ const aepRules = `# INTEGRAÇÃO AEP → AET
 
 function aepBlock(a: any): string {
   if (!a?.disponivel || !a?.setor) return "";
-  return `${aepRules}\n\n## AEP CORRESPONDENTE\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(a.setor, null, 2)}\n\`\`\`\n\n`;
+  return `${aepRules}\n\n## AEP CORRESPONDENTE\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(compactarContexto(a.setor), null, 2)}\n\`\`\`\n\n`;
 }
 
 
@@ -202,7 +199,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
+    const anexosArr: Anexo[] = Array.isArray(anexos) ? limitarAnexos(anexos, 10) : [];
     const instrTxt = typeof instrucoes_usuario === "string" ? instrucoes_usuario.trim() : "";
 
     // Bloco de instruções personalizadas é injetado como DIRETRIZ INTERNA de redação,
@@ -226,7 +223,7 @@ ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
 \`\`\`json
-${JSON.stringify(contexto || {}, null, 2)}
+${JSON.stringify(compactarContexto(contexto || {}), null, 2)}
 \`\`\`
 
 # ANEXOS
@@ -252,99 +249,39 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 - Quando faltarem dados, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos.`;
 
     // Build multimodal content array
-    const userContent: any[] = [{ type: "text", text: userText }];
+    const userContent: any[] = [{ type: "input_text", text: limitarTexto(userText) }];
     const conhecAnexos: ConhecimentoAnexo[] = Array.isArray(conhecimento?.anexos)
-      ? conhecimento.anexos.slice(0, 10)
+      ? limitarAnexos(conhecimento.anexos, 10)
       : [];
     for (const a of conhecAnexos) {
       if (!a?.data) continue;
       userContent.push({
-        type: "file",
-        file: {
-          filename: a.name || "conhecimento.pdf",
-          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
-        },
+        type: "input_file",
+        filename: a.name || "conhecimento.pdf",
+        file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
       });
     }
     for (const a of anexosArr) {
       if (a.kind === "image" && a.data && a.mime) {
         userContent.push({
-          type: "image_url",
-          image_url: { url: `data:${a.mime};base64,${a.data}` },
+          type: "input_image",
+          image_url: `data:${a.mime};base64,${a.data}`,
         });
       } else if (a.kind === "pdf" && a.data) {
         userContent.push({
-          type: "file",
-          file: {
-            filename: a.name || "documento.pdf",
-            file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
-          },
+          type: "input_file",
+          filename: a.name || "documento.pdf",
+          file_data: `data:${a.mime || "application/pdf"};base64,${a.data}`,
         });
       }
     }
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-1.5-pro",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "aet_output", strict: true, schema: RESPONSE_SCHEMA },
-        },
-      }),
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error("Gateway error", resp.status, errText);
-      if (resp.status === 429) {
-        return new Response(JSON.stringify({ error: "Limite de requisições atingido. Tente novamente em instantes." }), {
-          status: 429,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      if (resp.status === 402) {
-        return new Response(JSON.stringify({ error: "Créditos de IA esgotados. Adicione créditos no workspace." }), {
-          status: 402,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      return new Response(JSON.stringify({ error: "Falha ao gerar AET: " + errText.slice(0, 400) }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const data = await resp.json();
-    const raw = data?.choices?.[0]?.message?.content;
-    if (!raw) {
-      return new Response(JSON.stringify({ error: "A IA retornou uma resposta vazia." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    let parsed: unknown;
-    try {
-      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch {
-      return new Response(JSON.stringify({ error: "Resposta da IA não pôde ser interpretada.", raw }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ output: parsed }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return await gerarJsonEmFluxo({
+      req, corsHeaders, key,
+      systemPrompt: SYSTEM_PROMPT,
+      userContent,
+      schemaName: "aet_output",
+      schema: RESPONSE_SCHEMA,
     });
   } catch (e) {
     console.error(e);

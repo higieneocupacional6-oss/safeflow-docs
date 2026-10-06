@@ -15,6 +15,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { invocarGeracaoIa } from "@/lib/aiEdgeStream";
 import { supabase } from "@/integrations/supabase/client";
 import { carregarConhecimentoIa } from "@/lib/iaConhecimento";
 import { toast } from "sonner";
@@ -2523,8 +2524,7 @@ export default function AetWizard() {
                         : (iaObs ? iaObs + " " : "") +
                           "Elaborar AET completa a partir do contexto cadastrado, anexos e evidências disponíveis.";
                       const conhecimento = await carregarConhecimentoIa("AET");
-                      const { data: aiData, error: aiError } = await supabase.functions.invoke("aet-generate", {
-                        body: {
+                      out = await invocarGeracaoIa("aet-generate", {
                           descricao: descricaoIA,
                           conhecimento,
                           contexto,
@@ -2532,11 +2532,8 @@ export default function AetWizard() {
                           aep,
                           anexos: anexosPayload,
                           instrucoes_usuario: instrucoesUsuario,
-                        },
                       });
-                      if (aiError) throw new Error(aiError.message || "Falha ao chamar a IA");
-                      if ((aiData as any)?.error) throw new Error((aiData as any).error);
-                      out = (aiData as any)?.output || {};
+                      out = out || {};
                       out._debug = { modo: "ia", knowledge_base_utilizada: "IA", imagens_analisadas: anexosPayload.filter((a) => a.kind === "image").length, pdfs_analisados: anexosPayload.filter((a) => a.kind === "pdf").length };
                     } else {
                       // Modo determinístico local
