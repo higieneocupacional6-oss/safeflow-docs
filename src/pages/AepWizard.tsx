@@ -24,7 +24,7 @@ import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoC
 import { sortByGes } from "@/lib/sortGes";
 import {
   TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
-  calcularNivelRiscoAep, emptyRiscoErgonomico, nivelRiscoAepApresentacao,
+  calcularNivelRiscoAep, emptyRiscoErgonomico, obterNivelApresentacao,
   CORES_NIVEL_RISCO_APRESENTACAO,
   type RiscoErgonomico,
 } from "@/lib/aepRisco";
@@ -715,7 +715,7 @@ export default function AepWizard() {
         controle_existente: r.controle_existente || "",
         probabilidade: r.probabilidade || "",
         severidade: r.severidade || "",
-        nivel_risco: nivelRiscoAepApresentacao(r.nivel_risco),
+        nivel_risco: obterNivelApresentacao(r.nivel_risco),
         medidas: r.medidas || "",
       })),
       parecer_ambiente_trabalho: s.parecer_ambiente || "",
@@ -1318,9 +1318,9 @@ export default function AepWizard() {
                         </Select>
                       </td>
                       <td className="p-2">
-                        {nivelRiscoAepApresentacao(r.nivel_risco) ? (
-                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO_APRESENTACAO[nivelRiscoAepApresentacao(r.nivel_risco) as "Baixo" | "Médio" | "Alto"]}`}>
-                            {nivelRiscoAepApresentacao(r.nivel_risco)}
+                        {obterNivelApresentacao(r.nivel_risco) ? (
+                          <span className={`inline-block px-2 py-1 rounded-md border text-xs font-semibold ${CORES_NIVEL_RISCO_APRESENTACAO[obterNivelApresentacao(r.nivel_risco) as "Baixo" | "Médio" | "Alto"]}`}>
+                            {obterNivelApresentacao(r.nivel_risco)}
                           </span>
                         ) : (
                           <span className="text-xs text-muted-foreground">—</span>

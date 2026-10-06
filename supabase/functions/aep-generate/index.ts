@@ -1,11 +1,12 @@
 // Edge function: gera automaticamente a análise da AEP (Análise Ergonômica Preliminar)
 // via Lovable AI. Recebe contexto do setor/função + relato in loco + anexos (fotos/PDFs).
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import {
+  createLovableAiGatewayRunIdFetch,
+  getLovableAiGatewayResponseHeaders,
+  getLovableAiGatewayRunId,
+} from "./run-id.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR responsável pela elaboração de AEP — Análise Ergonômica Preliminar (NR-17, NR-01/GRO).
 
@@ -33,8 +34,11 @@ REGRAS OBRIGATÓRIAS:
 - Linguagem técnica, formal, em português do Brasil, citando itens específicos da NR-17 quando aplicável.
 - Não inventar responsáveis nominais: quando não informados, usar cargos genéricos adequados (ex.: "Gestão/Supervisão do setor", "SESMT", "Engenharia de Segurança").
 - Probabilidade: Baixa | Média | Alta. Severidade: Leve | Moderada | Grave. O nível de risco é calculado pelo sistema — não é necessário informá-lo.
-- riscos_ergonomicos — MAPA COMPLETO DOS 4 TIPOS DE AGENTES (OBRIGATÓRIO): a avaliação DEVE conter, para cada setor/função do GES, a análise dos 4 tipos de agentes ergonômicos — Ergonômico físico, Ergonômico organizacional, Ergonômico cognitivo e Ergonômico psicossocial. NENHUM dos 4 tipos pode ficar de fora.
-  • AGENTE APLICÁVEL: quando houver fator identificado, detalhar normalmente todos os campos (fator de risco, fonte geradora, possíveis danos, controle existente, probabilidade, severidade, medidas), com NO MÍNIMO 2 fatores de risco tecnicamente pertinentes por agente aplicável (ex.: físico → postura sentada prolongada; movimentos repetitivos de membros superiores. Organizacional → ritmo de trabalho; pressão por prazos). Pode haver mais de 2 quando a atividade justificar. PROIBIDO criar riscos artificialmente só para atingir quantidade.
+- riscos_ergonomicos — MAPA COMPLETO DOS 4 TIPOS DE AGENTES (OBRIGATÓRIO): analisar físico, organizacional, cognitivo e psicossocial para cada função avaliada no setor/GES.
+  • TODOS OS NÍVEIS: devolver fatores sustentados de nível baixo, médio e alto. É PROIBIDO omitir fatores apenas por terem menor gravidade.
+  • CRUZAMENTO OBRIGATÓRIO: para cada fator, cruzar função, atividades executadas e cadastradas, atividades/escopo da empresa, setor/GHE/GES, ambiente e condições de trabalho, checklist, conteúdo existente desta AEP, informações complementares e relatório Psicossocial correspondente.
+  • AGENTE APLICÁVEL: detalhar fator, justificativa específica, fonte geradora, possíveis danos, controle existente, probabilidade, severidade e medidas. Buscar, quando realmente sustentados, pelo menos 4 fatores físicos, 3 organizacionais, 3 cognitivos e 4 psicossociais, além de outros pertinentes. Esses números são metas de cobertura técnica, NÃO autorização para inventar: se os dados não sustentarem o mínimo, devolver somente os fatores comprováveis e explicar a limitação na justificativa do último fator aplicável.
+  • Cada fator deve ocupar um item separado. Nunca agrupar vários fatores numa única linha para aparentar cumprimento da quantidade.
   • AGENTE NÃO APLICÁVEL: quando o Checklist AEP e a análise técnica não indicarem evidência de fator de risco daquele tipo, REGISTRAR O AGENTE MESMO ASSIM, com probabilidade "Baixa" e severidade "Leve" (nível resultante Baixo/Trivial), e no campo "fator_risco" (ou na observação correspondente) a descrição técnica: "Não foram identificados fatores relevantes de [tipo do agente] para a atividade avaliada", adaptada à realidade da função (nunca texto genérico repetido). Fonte geradora/controle/medidas devem refletir essa conclusão (ex.: fonte "Não identificada", medida "Manter monitoramento das condições existentes").
   • COERÊNCIA COM O CHECKLIST: cruzar obrigatoriamente o resultado do Checklist AEP com as características reais da atividade. Se o checklist indicar 0 itens inadequados / "Não aplicado", o agente correspondente pode ser registrado como Baixo, desde que a análise técnica não identifique outro fator relevante. Se o checklist identificar inadequações, verificar se geram fatores de risco ergonômico e ajustar a classificação. PROIBIDO classificar automaticamente todos os agentes como Baixo — a classificação deve considerar atividade real, função do GES, organização do trabalho, ambiente, informações complementares, imagens e demais dados disponíveis.
 - checklist: retornar as 5 linhas fixas (chaves: organizacao_trabalho, levantamento_transporte_cargas, mobiliario, maquinas_equipamentos_ferramentas, conforto_ambiente), com quantidade de itens inadequados (número como texto; vazio se não sustentável), condição (Adequado | Parcialmente adequado | Inadequado | Não aplicado) e observação técnica objetiva.
@@ -64,7 +68,7 @@ VALIDAÇÃO CRUZADA FINAL (OBRIGATÓRIA ANTES DE RESPONDER):
 - Se o checklist apontar inadequação relevante e houver risco ergonômico correspondente, pareceres e conduta NÃO podem afirmar que não existem condições que necessitem de atenção.
 - Se não houver inadequações relevantes, não criar conduta ou plano de ação incompatíveis com o resultado.
 - A conclusão final deve ser coerente com a realidade da função avaliada, em linguagem profissional e fundamentada na NR-17 e demais referências técnicas aplicáveis.
-- Verificar se os 4 tipos de agentes ergonômicos (físico, organizacional, cognitivo, psicossocial) estão presentes em riscos_ergonomicos; se algum estiver ausente, incluí-lo como Baixo com a justificativa técnica de não aplicabilidade antes de responder.
+- Verificar se os 4 tipos estão presentes, se fatores sustentados de níveis baixo, médio e alto foram incluídos e se as metas condicionais 4/3/3/4 foram buscadas sem criação artificial. Se um tipo não for aplicável, incluir uma única linha de não aplicabilidade como Baixo, sem fabricar fatores.
 
 
 COERÊNCIA DOS RISCOS ERGONÔMICOS (OBRIGATÓRIA):
@@ -88,12 +92,13 @@ const RESPONSE_SCHEMA = {
   properties: {
     riscos_ergonomicos: {
       type: "array",
-      description: "Deve conter SEMPRE os 4 tipos de agentes (físico, organizacional, cognitivo, psicossocial): agentes aplicáveis com ≥2 fatores detalhados; agentes não aplicáveis registrados como Baixo com justificativa técnica de não identificação de fatores relevantes.",
+      description: "Todos os níveis e os 4 tipos. Quando sustentados: físico ≥4, organizacional ≥3, cognitivo ≥3 e psicossocial ≥4; nunca inventar para completar a quantidade.",
       items: {
         type: "object",
         properties: {
           tipo_agente: { type: "string", description: "Ergonômico físico | Ergonômico organizacional | Ergonômico cognitivo | Ergonômico psicossocial" },
           fator_risco: { type: "string" },
+          justificativa: { type: "string", description: "Fundamento específico que liga o fator à função, atividade, organização ou condição de trabalho informada" },
           fonte_geradora: { type: "string" },
           possiveis_danos: { type: "string" },
           controle_existente: { type: "string" },
@@ -102,7 +107,7 @@ const RESPONSE_SCHEMA = {
           medidas: { type: "string" },
         },
         required: [
-          "tipo_agente", "fator_risco", "fonte_geradora", "possiveis_danos",
+          "tipo_agente", "fator_risco", "justificativa", "fonte_geradora", "possiveis_danos",
           "controle_existente", "probabilidade", "severidade", "medidas",
         ],
         additionalProperties: false,
@@ -159,6 +164,7 @@ const psicoRules = `# INTEGRAÇÃO PSICOSSOCIAL (dados já avaliados para esta e
 - Prioridade: Empresa → Setor → GHE/GES → Função. Se houver dados do MESMO setor/GHE, use-os preferencialmente e não misture outros setores.
 - Se os dados forem gerais da empresa (origem = "empresa"), utilize somente quando tecnicamente pertinentes e deixe explícito no texto que se trata de informação psicossocial geral da empresa, não específica do setor.
 - Correlacione os fatores (exigências, ritmo, autonomia, apoio/liderança, reconhecimento, segurança, conflitos, jornada, comunicação, exigências cognitivas e emocionais) com as atividades, organização do trabalho, pausas, exigências físicas/cognitivas, riscos ergonômicos e medidas de prevenção observados.
+- Considere fatores psicossociais sustentados de classificação baixa, média e alta; não filtre os baixos apenas por não demandarem priorização imediata.
 - NUNCA invente dados psicossociais. Se não houver dados, redija normalmente sem qualquer menção a avaliação psicossocial.`;
 
 function psicoBlock(p: any): string {
@@ -260,7 +266,7 @@ Devolver esses valores EXATAMENTE e reescrever riscos, medidas, pareceres, parec
 
 `
   : ""}# ETAPA 7 — INSTRUÇÕES DE SAÍDA
-Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP (5 linhas, com "0" e condição "Não aplicado" quando não houver inadequação), riscos ergonômicos específicos da função/atividade avaliada, pareceres técnicos exclusivos (ambiente e ergonomia, cada um com conteúdo próprio), condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
+Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP, riscos baixos, médios e altos específicos da função/atividade, cada qual com justificativa e medida coerentes, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
     const userContent: any[] = [{ type: "text", text: userText }];
