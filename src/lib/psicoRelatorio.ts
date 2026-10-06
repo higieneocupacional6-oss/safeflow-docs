@@ -152,6 +152,8 @@ export type GrupoRelatorio = {
   funcoes: string[];
   trabalhadores: number;
   atividades: string;
+  /** Texto de atividades gerado do cadastro no momento do salvamento (detecta mudanças). */
+  atividadesBase?: string;
   jornada: string;
   organizacao: string;
   fatores: FatorRisco[];
