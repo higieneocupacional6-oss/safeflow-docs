@@ -44,6 +44,19 @@ export function limitarAnexos<T extends { data?: string }>(lista: T[], max = 10)
   return out;
 }
 
+/** Ajusta schema ao modo estrito: objetos fechados e todas as chaves obrigatórias. */
+export function schemaEstrito(schema: any): any {
+  if (Array.isArray(schema)) return schema.map(schemaEstrito);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: any = {};
+  for (const [k, v] of Object.entries(schema)) out[k] = k === "properties" ? Object.fromEntries(Object.entries(v as any).map(([pk, pv]) => [pk, schemaEstrito(pv)])) : schemaEstrito(v);
+  if (out.type === "object" && out.properties) {
+    out.additionalProperties = false;
+    out.required = Object.keys(out.properties);
+  }
+  return out;
+}
+
 function mensagemAmigavel(status: number, detalhe: string): string {
   if (status === 429) return "Muitas solicitações de IA no momento. Aguarde alguns instantes e tente novamente.";
   if (status === 402) return detalhe || "Créditos de IA insuficientes. Adicione créditos no workspace.";
@@ -80,7 +93,7 @@ export async function gerarJsonEmFluxo(opts: {
       store: false,
       reasoning: { effort: "low", summary: "auto" },
       include: ["reasoning.encrypted_content"],
-      text: { format: { type: "json_schema", name: opts.schemaName, strict: true, schema: opts.schema } },
+      text: { format: { type: "json_schema", name: opts.schemaName, strict: true, schema: schemaEstrito(opts.schema) } },
     }),
   });
 
