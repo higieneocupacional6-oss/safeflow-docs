@@ -49,6 +49,12 @@ const norm = (value: unknown) =>
 const nomes = (value: unknown): string[] =>
   (Array.isArray(value) ? value : []).map((v: any) => String(v?.nome ?? v ?? "").trim()).filter(Boolean);
 
+const extrairFuncoesGrupo = (grupo: any): string[] => {
+  const f = nomes(grupo?.funcoes);
+  if (grupo?.funcao_ges) f.push(String(grupo.funcao_ges).trim());
+  return Array.from(new Set(f.filter(Boolean)));
+};
+
 export function selecionarGrupoPsicossocial(
   grupos: any[],
   alvo: { setorId?: string | null; setorNome?: string | null; ghe?: string | null; funcoes?: string[] },
@@ -57,15 +63,19 @@ export function selecionarGrupoPsicossocial(
   return grupos
     .map((grupo) => {
       let pontos = 0;
+      // Matching por ID é prioritário para evitar problemas com setores homônimos
       if (alvo.setorId && grupo?.setor_id === alvo.setorId) pontos += 100;
       if (alvo.setorNome && norm(grupo?.setor) === norm(alvo.setorNome)) pontos += 30;
       if (alvo.ghe && norm(grupo?.ghe) === norm(alvo.ghe)) pontos += 20;
-      const funcoesGrupo = nomes(grupo?.funcoes).map(norm); if (grupo?.funcao_ges) funcoesGrupo.push(norm(grupo.funcao_ges));
-      const funcaoCompativel = !funcoesAlvo.size || funcoesGrupo.some((f) => funcoesAlvo.has(f));
-      if (funcoesAlvo.size && funcaoCompativel) pontos += 10;
-      return { grupo, pontos, funcaoCompativel };
+      
+      const funcoesGrupo = extrairFuncoesGrupo(grupo).map(norm);
+      const temFuncaoCompativel = funcoesAlvo.size === 0 || funcoesGrupo.some((f) => funcoesAlvo.has(f));
+      
+      if (funcoesAlvo.size && temFuncaoCompativel) pontos += 10;
+      
+      return { grupo, pontos, temFuncaoCompativel };
     })
-    .filter((x) => x.pontos >= 20 && x.funcaoCompativel)
+    .filter((x) => x.pontos >= 20 && x.temFuncaoCompativel)
     .sort((a, b) => b.pontos - a.pontos)[0]?.grupo || null;
 }
 
@@ -82,12 +92,13 @@ function resumoGrupo(grupo: any, medidas: any[]): PsicoResumoEscopo {
     consequencias: f.consequencias || "",
     controles: f.controles || "",
   }));
+  
   return {
     escopo: "setor",
     setor: grupo?.setor || "",
     ghe: grupo?.ghe || "",
-    respostas: Number(grupo?.trabalhadores || grupo?.respondentes || 0),
-    funcoes: nomes(grupo?.funcoes),
+    respostas: Number(grupo?.respondentes || grupo?.trabalhadores || 0),
+    funcoes: extrairFuncoesGrupo(grupo),
     fatores,
     riscos: fatores.filter((f) => /alto|m[eé]dio|moderado|cr[ií]tico/i.test(f.classificacao)).map((f) => f.titulo),
     resumos: [grupo?.organizacao, grupo?.interpretacao].filter(Boolean),
@@ -118,8 +129,14 @@ export async function carregarContextoPsicossocial(args: {
   setorId?: string | null;
   funcoes?: string[];
 }): Promise<PsicoContextoIa> {
-  const alvo = { setor: args.setorNome || "", ghe: args.ghe || "", funcoes: args.funcoes || [] };
+  const alvo = { 
+    setor: args.setorNome || "", 
+    ghe: args.ghe || "", 
+    funcoes: args.funcoes || [] 
+  };
+  
   if (!args.empresaId || !args.contratoId) return { ...PSICO_CONTEXTO_VAZIO, alvo };
+  
   try {
     const { data, error } = await supabase
       .from("psico_relatorios")
@@ -129,23 +146,34 @@ export async function carregarContextoPsicossocial(args: {
       .order("updated_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+      
     if (error) throw error;
     if (!data) return { ...PSICO_CONTEXTO_VAZIO, alvo };
+    
     const dados: any = data.dados || {};
     const grupos = Array.isArray(dados.grupos) ? dados.grupos : [];
-    const grupo = selecionarGrupoPsicossocial(grupos, {
-      setorId: args.setorId, setorNome: args.setorNome,
-      ghe: args.ghe,
-      funcoes: args.funcoes,
-    });
-    if (!grupo) return { ...PSICO_CONTEXTO_VAZIO, alvo, observacao: "O relatório salvo não possui grupo correspondente ao setor/GHE e função avaliados." };
+    
+    const grupo = selecionarGrupoPsicossocial(grupos, args);
+    
+    if (!grupo) {
+      return { 
+        ...PSICO_CONTEXTO_VAZIO, 
+        alvo, 
+        observacao: "O relatório salvo não possui grupo correspondente ao setor/GHE e função avaliados." 
+      };
+    }
+    
     const medidas = (Array.isArray(dados.medidas) ? dados.medidas : []).filter((m: any) =>
-      !m?.grupo || norm(m.grupo) === norm(grupo.id) || norm(m.grupo) === norm(grupo.setor),
+      !m?.grupo || 
+      norm(m.grupo) === norm(grupo.id) || 
+      norm(m.grupo) === norm(grupo.setor) ||
+      norm(m.grupo) === norm(grupo.ghe)
     );
+    
     return {
       disponivel: true,
       origem: "setor",
-      total_respostas_empresa: Number(grupo.trabalhadores || grupo.respondentes || 0),
+      total_respostas_empresa: Number(grupo.respondentes || grupo.trabalhadores || 0),
       alvo,
       avaliacoes: [],
       indicadores: {},
