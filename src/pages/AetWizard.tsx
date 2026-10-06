@@ -420,7 +420,7 @@ export default function AetWizard() {
   const [iaObs, setIaObs] = useState("");
   const [iaLoading, setIaLoading] = useState(false);
   const [iaFiles, setIaFiles] = useState<File[]>([]);
-  const [iaMode, setIaMode] = useState<"substituir" | "complementar" | "manter">("substituir");
+  const [iaMode, setIaMode] = useState<"substituir" | "complementar" | "manter">("manter");
   const [instrucoesOpen, setInstrucoesOpen] = useState(false);
   const [instrucoesUsuario, setInstrucoesUsuario] = useState("");
   const [instrucoesDraft, setInstrucoesDraft] = useState("");
