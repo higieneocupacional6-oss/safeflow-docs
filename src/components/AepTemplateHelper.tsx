@@ -77,10 +77,10 @@ const grupos: Grupo[] = [
   },
   {
     title: "Riscos ergonômicos",
-    loop: "Coloque {{#riscos_ergonomicos}} na primeira célula da linha da tabela e {{/riscos_ergonomicos}} na última. A linha é duplicada para cada risco cadastrado (1, 5, 20…).",
+    loop: "Coloque {{#riscos_ergonomicos}} na primeira célula da linha da tabela e {{/riscos_ergonomicos}} na última. A linha é duplicada para cada risco; {{nivel_risco}} apresenta Baixo, Médio ou Alto.",
     vars: [
       "{{#riscos_ergonomicos}}",
-      "{{tipo_agente}}", "{{fator_risco}}", "{{fonte_geradora}}", "{{possiveis_danos}}",
+      "{{tipo_agente}}", "{{fator_risco}}", "{{justificativa}}", "{{fonte_geradora}}", "{{possiveis_danos}}",
       "{{controle_existente}}", "{{probabilidade}}", "{{severidade}}", "{{nivel_risco}}", "{{medidas}}",
       "{{/riscos_ergonomicos}}",
     ],

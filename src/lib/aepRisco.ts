@@ -23,10 +23,12 @@ export const TIPOS_AGENTE_ERGONOMICO = [
 ] as const;
 
 export type NivelRiscoAep = "Trivial" | "Moderado" | "Alto" | "Crítico" | "";
+export type NivelRiscoAepApresentacao = "Baixo" | "Médio" | "Alto" | "";
 
 export type RiscoErgonomico = {
   tipo_agente: string;
   fator_risco: string;
+  justificativa: string;
   fonte_geradora: string;
   possiveis_danos: string;
   controle_existente: string;
@@ -39,6 +41,7 @@ export type RiscoErgonomico = {
 export const emptyRiscoErgonomico = (): RiscoErgonomico => ({
   tipo_agente: "",
   fator_risco: "",
+  justificativa: "",
   fonte_geradora: "",
   possiveis_danos: "",
   controle_existente: "",
@@ -72,6 +75,20 @@ export function calcularNivelRiscoAep(probabilidade: string, severidade: string)
   if (r <= 6) return "Alto";
   return "Crítico";
 }
+
+/** Mantém a matriz técnica original e agrupa apenas o rótulo apresentado. */
+export function obterNivelApresentacao(nivel: NivelRiscoAep): NivelRiscoAepApresentacao {
+  if (nivel === "Trivial") return "Baixo";
+  if (nivel === "Moderado") return "Médio";
+  if (nivel === "Alto" || nivel === "Crítico") return "Alto";
+  return "";
+}
+
+export const CORES_NIVEL_RISCO_APRESENTACAO: Record<Exclude<NivelRiscoAepApresentacao, "">, string> = {
+  Baixo: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",
+  Médio: "bg-amber-400/20 text-amber-700 dark:text-amber-400 border-amber-500/40",
+  Alto: "bg-red-500/20 text-red-700 dark:text-red-400 border-red-500/40",
+};
 
 export const CORES_NIVEL_RISCO: Record<Exclude<NivelRiscoAep, "">, string> = {
   Trivial: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40",

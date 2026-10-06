@@ -61,8 +61,8 @@
 - [x] Validar isolamento, preservação manual e geração com e sem contexto
 
 # AEP — Riscos Ergonômicos por atividade
-- [ ] Considerar riscos baixos, médios e altos sem filtrar somente os mais graves
-- [ ] Exigir fatores aplicáveis por agente sem inventar conteúdo para completar mínimos
-- [ ] Cruzar função, atividade, empresa, setor/GHE/GES, contexto salvo e Psicossociais
-- [ ] Agrupar a apresentação em Baixo, Médio e Alto preservando o cálculo interno
+- [x] Considerar riscos baixos, médios e altos sem filtrar somente os mais graves
+- [x] Exigir fatores aplicáveis por agente sem inventar conteúdo para completar mínimos
+- [x] Cruzar função, atividade, empresa, setor/GHE/GES, contexto salvo e Psicossociais
+- [x] Agrupar a apresentação em Baixo, Médio e Alto preservando o cálculo interno
 - [ ] Validar geração, preservação manual, tipos, testes e função de IA
