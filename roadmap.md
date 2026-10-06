@@ -68,6 +68,7 @@
 - [x] Validar geração, preservação manual, tipos, testes e função de IA
 
 # Psicossocial — cadastro atual Florestas/S11D
-- [ ] Corrigir origem dos grupos e vínculos por IDs atuais da empresa/contrato
-- [ ] Atualizar contexto da IA e compartilhar dados atuais entre tela/PDF/Word
-- [ ] Validar Florestas/S11D, exclusões, recarga e preservar históricos sem gravação automática
+- [x] Corrigir origem dos grupos e vínculos por IDs atuais da empresa/contrato
+- [x] Atualizar contexto da IA e compartilhar dados atuais entre tela/PDF/Word
+- [x] Validar Florestas/S11D na tela e PDF, conteúdo Word, exclusões, recarga e ausência de gravação automática
+- [ ] Validar geração real com IA e download Word completo: contexto e conteúdo verificados; geração não executada e clique Word sem download no teste
