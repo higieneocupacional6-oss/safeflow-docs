@@ -1,4 +1,4 @@
-// Edge function: Gera automaticamente uma AET via Lovable AI (Google Gemini 2.5 Pro)
+// Edge function: Gera automaticamente uma AET via Lovable AI (Google Gemini 1.5 Pro)
 // Recebe o contexto da AET + texto livre + anexos (imagens/PDFs). Retorna JSON com os campos.
 
 const corsHeaders = {
@@ -49,6 +49,7 @@ REGRAS OBRIGATÓRIAS — NÃO NEGOCIÁVEIS:
 - Fotografias: descrever objetivamente (mobiliário, postura, EPIs, layout) e integrar à análise biomecânica.
 - PDFs: extrair dados relevantes (jornada, POPs, laudos, OS) e citá-los como fonte.
 - Quando houver poucas informações, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos, sem citar "documento não anexado" desnecessariamente.
+- PROTEÇÃO ANTI-INVENÇÃO: Se uma informação não existe no contexto, nos anexos ou no relato e não pode ser inferida tecnicamente com segurança, declare que a informação depende de coleta complementar ou use termos como "conforme relatado" ou "observado preliminarmente".
 
 FORMATO DE RESPOSTA:
 Responder EXCLUSIVAMENTE em JSON VÁLIDO conforme o schema, em português do Brasil formal técnico, sem markdown, sem comentários fora do JSON.`;
@@ -84,6 +85,7 @@ const RESPONSE_SCHEMA = {
         distancia_olho_monitor: { type: "string" },
         espaco_pernas: { type: "string" },
       },
+      required: ["altura_mesa", "altura_assento", "profundidade_assento", "monitor", "distancia_olho_monitor", "espaco_pernas"],
     },
     avaliacoes_quantitativas_analise: { type: "string" },
     diagnostico_ergonomico: { type: "string", description: "Diagnóstico integrado (físico + organizacional + psicossocial) fundamentado em NRs e ISOs." },
@@ -101,7 +103,7 @@ const RESPONSE_SCHEMA = {
           responsavel: { type: "string" },
           prazo: { type: "string" },
         },
-        required: ["o_que", "como", "responsavel", "prazo"],
+        required: ["o_que", "como", "responsavel", "prazo", "justificativa", "prioridade", "resultado_esperado"],
       },
     },
   },
@@ -114,6 +116,7 @@ const RESPONSE_SCHEMA = {
     "caracterizacao_biomecanica",
     "cronoanalise",
     "avaliacoes_dimensionais",
+    "avaliacoes_quantitativas_analise",
     "diagnostico_ergonomico",
     "conclusao",
     "plano_acao",
@@ -139,6 +142,17 @@ ${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resum
 \`\`\`
 
 `;
+}
+
+const aepRules = `# INTEGRAÇÃO AEP → AET
+- Os dados abaixo pertencem a uma AEP salva da MESMA empresa, contrato, setor/GHE e função.
+- Use a AEP como análise preliminar anterior: aprofunde tecnicamente na AET, sem copiar literalmente e sem tratar conclusões preliminares como medições não realizadas.
+- A hierarquia é PSICOSSOCIAIS → AEP → AET. Preserve a coerência de identificação, atividade, organização, riscos e medidas.
+- Não invente informações nem altere a AEP. Quando houver conflito, os dados atuais observados na AET e as edições do responsável técnico prevalecem.`;
+
+function aepBlock(a: any): string {
+  if (!a?.disponivel || !a?.setor) return "";
+  return `${aepRules}\n\n## AEP CORRESPONDENTE\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(a.setor, null, 2)}\n\`\`\`\n\n`;
 }
 
 
@@ -180,7 +194,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial, conhecimento } = await req.json();
+    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial, aep, conhecimento } = await req.json();
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 20) {
       return new Response(
         JSON.stringify({ error: "Descreva com mais detalhes o que foi observado in loco (mínimo 20 caracteres)." }),
@@ -204,9 +218,10 @@ ${instrTxt}
       : "";
 
     const psicoTxt = psicoBlock(psicossocial);
+    const aepTxt = aepBlock(aep);
     const conhecTxt = conhecimentoBlock(conhecimento, "AET");
 
-    const userText = `${instrBlock}${conhecTxt}${psicoTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
+    const userText = `${instrBlock}${conhecTxt}${psicoTxt}${aepTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
 ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
@@ -276,7 +291,7 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
         "X-Lovable-AIG-SDK": "fetch",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-pro",
+        model: "google/gemini-1.5-pro",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           { role: "user", content: userContent },
@@ -311,6 +326,13 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 
     const data = await resp.json();
     const raw = data?.choices?.[0]?.message?.content;
+    if (!raw) {
+      return new Response(JSON.stringify({ error: "A IA retornou uma resposta vazia." }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     let parsed: unknown;
     try {
       parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
