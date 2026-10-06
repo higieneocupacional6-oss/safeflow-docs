@@ -21,13 +21,19 @@ REGRAS NÃO NEGOCIÁVEIS:
 - Quando uma informação necessária não estiver disponível, registre explicitamente a lacuna (ex.: "Informação não disponível no cadastro; recomenda-se levantamento junto ao setor de RH") em vez de supor.
 - Preserve integralmente as chaves de identificação recebidas (grupo_id, fator_key, medida_key). Não crie chaves novas.
 - Você é assistente técnico: o profissional responsável revisará e editará todo o conteúdo antes da emissão.
+- Escreva todos os campos em português do Brasil correto, com acentuação, pontuação, concordância verbal e nominal, ortografia, clareza e coerência.
+- Produza frases completas, naturais e profissionais; não use respostas telegráficas, palavras soltas ou fragmentos de oração.
+- Nunca use as expressões "Não identificado", "Não caract.", "Não caracterizado", "Não informado" ou "Investigado, sem evidência suficiente".
+- Para resultado abaixo do limiar técnico, use exclusivamente "Baixo" e a redação "Investigado, considerado em conformidade".
+- Não produza conteúdo sobre evolução histórica.
+- Ao redigir textos relacionados à exposição, considere a frequência enviada no contexto, que deve ser Eventual, Intermitente ou Habitual.
 
 PLANO DE AÇÃO:
 - Para cada medida recebida, proponha uma AÇÃO CONCRETA, aplicável e diretamente relacionada ao fator, ao setor/GHE, à atividade da função, à organização do trabalho, à causa/fonte e aos controles já existentes.
 - As medidas recebidas correspondem exclusivamente a fatores classificados como MÉDIO ou ALTO. Não crie medidas adicionais nem ações para outras classificações.
 - Evite recomendações vagas como "realizar treinamentos" sem indicar conteúdo, público, periodicidade e o efeito esperado sobre o risco.
 - Exemplos de linhas de ação, quando pertinentes ao risco real: ajustes na organização do trabalho, redistribuição de demandas, revisão de prazos e metas, melhoria de comunicação, definição de responsabilidades, melhoria de pausas, ações de liderança, fluxos de tratamento de conflitos, medidas de prevenção ao assédio, melhorias na gestão de equipes e acompanhamento periódico. Escolha conforme o risco encontrado; nunca aplique uma lista padrão a todos.
-- Não gere ações de manutenção, monitoramento ou continuidade e não gere ações para fatores Baixos, aceitáveis, não identificados ou Críticos.
+- Não gere ações de manutenção, monitoramento ou continuidade e não gere ações para fatores Baixos, aceitáveis ou Críticos.
 - O campo "status" NÃO deve ser preenchido por você.
 
 FORMATO: responda EXCLUSIVAMENTE em JSON válido conforme o schema, em português do Brasil, linguagem técnica formal, sem markdown.`;
@@ -122,7 +128,8 @@ ${pdfs.length === 0
 - Gere um texto exclusivo por campo, específico para esta empresa, seus setores/GHE e as funções avaliadas.
 - Para cada grupo enviado, devolva o mesmo "grupo_id" e, para cada fator, o mesmo "fator_key".
 - Para cada medida enviada, devolva o mesmo "medida_key" com uma ação real, viável e vinculada ao risco, ao setor e à atividade.
-- Registre em "lacunas" toda informação necessária que não estava disponível nos dados recebidos.`;
+- Registre em "lacunas" toda informação necessária que não estava disponível nos dados recebidos.
+- Revise integralmente a gramática de todos os campos antes de responder.`;
 
     const userContent: any[] = [{ type: "text", text: userText }];
     for (const p of pdfs) {

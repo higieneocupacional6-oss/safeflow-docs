@@ -21,7 +21,8 @@ import {
   construirGrupos, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
   INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
-  indicadoresPreenchidos, interpretarIndicadores,
+  indicadoresPreenchidos, interpretarIndicadores, FREQUENCIAS_PSICOSSOCIAIS,
+  normalizarFrequenciaPsicossocial, normalizarTextoPsicossocial,
   type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial, type PdfPayload } from "@/lib/psicoRelatorioPdf";
@@ -149,25 +150,6 @@ export default function PsicossocialRelatorio() {
     },
   });
 
-  const { data: anterior } = useQuery({
-    queryKey: ["rel-anterior", avaliacaoId, contratoId],
-    enabled: !!avaliacaoId && !!contratoId && !!avaliacao,
-    queryFn: async () => {
-      const { data: avs } = await supabase
-        .from("psico_avaliacoes")
-        .select("id, titulo, created_at")
-        .eq("contrato_id", contratoId!)
-        .lt("created_at", avaliacao.created_at)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      const prev = (avs as any[])?.[0];
-      if (!prev) return null;
-      const { data: resp } = await supabase
-        .from("psico_respostas").select("*").eq("avaliacao_id", prev.id);
-      return { avaliacao: prev, respostas: (resp as any[]) || [] };
-    },
-  });
-
   const vinculos = useMemo(() => {
     const m = new Map<string, VinculoFuncao>();
     for (const s of setores) {
@@ -201,7 +183,6 @@ export default function PsicossocialRelatorio() {
   const [medidaParaExcluir, setMedidaParaExcluir] = useState<MedidaControle | null>(null);
   const [conclusao, setConclusao] = useState("");
   const [introPlano, setIntroPlano] = useState("");
-  const [historico, setHistorico] = useState("");
   const [registros, setRegistros] = useState<Record<string, string>>({
     aplicador: "", responsavel_empresa: "", data: "", versao: "1.0",
   });
@@ -251,7 +232,20 @@ export default function PsicossocialRelatorio() {
         }),
     );
 
-    const gs = sortGroupsNumerically(gsBase);
+    const gs = sortGroupsNumerically(gsBase).map((g) => ({
+      ...g,
+      fatores: g.fatores.map((f) => ({
+        ...f,
+        nivel: f.sustentado === false ? "Baixo" : f.nivel,
+        frequencia: normalizarFrequenciaPsicossocial(f.frequencia, f.media),
+        descricao: normalizarTextoPsicossocial(f.descricao),
+        fonte: normalizarTextoPsicossocial(f.fonte),
+        situacao: normalizarTextoPsicossocial(f.situacao),
+        interpretacao: normalizarTextoPsicossocial(f.interpretacao),
+        consequencias: normalizarTextoPsicossocial(f.consequencias),
+        controles: normalizarTextoPsicossocial(f.controles),
+      })),
+    }));
     setGrupos(gs);
 
     const excluidas = Array.isArray(s.medidasExcluidas) ? s.medidasExcluidas : [];
@@ -341,40 +335,6 @@ export default function PsicossocialRelatorio() {
   }, [pronto, usarIa]);
 
 
-  // Evolução histórica
-  useEffect(() => {
-    if (!pronto || historico) return;
-    if (anterior === undefined) return;
-    if (!anterior) {
-      setHistorico("Não há avaliação anterior disponível para comparação.");
-      return;
-    }
-    const prevGrupos = construirGrupos(anterior.respostas, vinculos, empresa?.jornada_trabalho || "");
-    const prevMap = new Map<string, NivelRisco>();
-    prevGrupos.forEach((g) => g.fatores.forEach((f) => prevMap.set(`${g.id}::${f.key}`, f.nivel)));
-    const atualMap = new Map<string, NivelRisco>();
-    grupos.forEach((g) => g.fatores.forEach((f) => atualMap.set(`${g.id}::${f.key}`, f.nivel)));
-
-    const novos: string[] = [], reduzidos: string[] = [], alterados: string[] = [];
-    for (const [k, n] of atualMap) {
-      const p = prevMap.get(k);
-      const nome = k.split("::")[0].replace("||", " — ");
-      if (!p) novos.push(`${nome} / ${k.split("::")[1]}`);
-      else if (p !== n) alterados.push(`${nome} / ${k.split("::")[1]}: ${p} → ${n}`);
-    }
-    for (const [k] of prevMap) if (!atualMap.has(k)) reduzidos.push(`${k.split("::")[0].replace("||", " — ")} / ${k.split("::")[1]}`);
-
-    const concl = medidasPlano.filter((m) => m.status === "Concluída").length;
-    setHistorico([
-      `Comparativo com a avaliação anterior "${anterior.avaliacao.titulo}" (${new Date(anterior.avaliacao.created_at).toLocaleDateString("pt-BR")}).`,
-      `Riscos novos: ${novos.length ? novos.join("; ") : "nenhum"}.`,
-      `Riscos reduzidos/eliminados: ${reduzidos.length ? reduzidos.join("; ") : "nenhum"}.`,
-      `Alterações no nível de risco: ${alterados.length ? alterados.join("; ") : "nenhuma"}.`,
-      `Ações concluídas registradas no plano de ação: ${concl}. Ações vencidas: conforme prazos registrados no plano de ação.`,
-    ].join(" "));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pronto, anterior, grupos]);
-
   const aplicarMetodologia = (v: MetodologiaInfo) => {
     setMetInfo(v);
     setMetodologia(metodologiaTexto({
@@ -417,7 +377,7 @@ export default function PsicossocialRelatorio() {
     setSalvando(true);
     const dados = {
       ident, metInfo, metodologia, grupos, medidas: proximasMedidas,
-      medidasExcluidas: proximasExcluidas, conclusao, introPlano, historico, registros,
+      medidasExcluidas: proximasExcluidas, conclusao, introPlano, registros,
     };
     const { error } = await supabase.from("psico_relatorios").upsert({
       avaliacao_id: avaliacaoId!,
@@ -462,7 +422,7 @@ export default function PsicossocialRelatorio() {
 
   const montarPayloadRelatorio = (): PdfPayload => ({
     empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
-    conclusao, indicadores, historico, registros,
+    conclusao, indicadores, registros,
     interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
     introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
     titulo: avaliacao?.titulo || "Avaliação Psicossocial",
@@ -759,7 +719,12 @@ export default function PsicossocialRelatorio() {
                           </div>
                           <div className="grid gap-1.5">
                             <Label className="text-xs">Frequência</Label>
-                            <Input value={f.frequencia} onChange={(e) => setFator(g.id, f.key, { frequencia: e.target.value })} />
+                            <Select value={normalizarFrequenciaPsicossocial(f.frequencia, f.media)} onValueChange={(value) => setFator(g.id, f.key, { frequencia: value })}>
+                              <SelectTrigger><SelectValue /></SelectTrigger>
+                              <SelectContent>
+                                {FREQUENCIAS_PSICOSSOCIAIS.map((frequencia) => <SelectItem key={frequencia} value={frequencia}>{frequencia}</SelectItem>)}
+                              </SelectContent>
+                            </Select>
                           </div>
                           <div className="grid gap-1.5">
                             <Label className="text-xs">Probabilidade (1-4)</Label>
@@ -1002,13 +967,13 @@ export default function PsicossocialRelatorio() {
         </div>
       </Secao>
 
-      {/* 9 - Comparativo e histórico */}
-      <Secao n="9" titulo="Comparativo entre setores e evolução histórica">
+      {/* 9 - Comparativo */}
+      <Secao n="9" titulo="Comparativo entre setores">
         <div className="overflow-x-auto">
           <table className="w-full text-sm border">
             <thead className="bg-muted">
               <tr>
-                {["Setor / GHE", "Nº de fatores investigados", "Baixo", "Não identificado", "Médio", "Alto", "Crítico", "Trabalhadores envolvidos"].map((h) => (
+                {["Setor / GHE", "Nº de fatores investigados", "Baixo", "Médio", "Alto", "Crítico", "Trabalhadores envolvidos"].map((h) => (
                   <th key={h} className="border p-2.5 text-left font-semibold align-bottom">{h}</th>
                 ))}
               </tr>
@@ -1021,7 +986,6 @@ export default function PsicossocialRelatorio() {
                     <td className="border p-2.5">{g.setor} — {g.ghe}</td>
                     <td className="border p-2.5">{r.investigados}</td>
                     <td className="border p-2.5">{r.cont.Baixo}</td>
-                    <td className="border p-2.5">{r.naoIdentificado}</td>
                     <td className="border p-2.5">{r.cont["Médio"]}</td>
                     <td className="border p-2.5">{r.cont.Alto}</td>
                     <td className="border p-2.5">{r.cont["Crítico"]}</td>
@@ -1030,14 +994,10 @@ export default function PsicossocialRelatorio() {
                 );
               })}
               {!grupos.length && (
-                <tr><td colSpan={8} className="p-4 text-center text-muted-foreground">Nenhum setor avaliado.</td></tr>
+                <tr><td colSpan={7} className="p-4 text-center text-muted-foreground">Nenhum setor avaliado.</td></tr>
               )}
             </tbody>
           </table>
-        </div>
-        <div className="grid gap-1.5">
-          <Label>Evolução histórica</Label>
-          <Textarea className="min-h-[140px]" value={historico} onChange={(e) => setHistorico(e.target.value)} />
         </div>
       </Secao>
 
