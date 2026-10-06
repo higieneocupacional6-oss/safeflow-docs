@@ -101,10 +101,12 @@ export function montarContexto(args: {
     contrato: args.contrato ? { numero: args.contrato.numero_contrato, objeto: args.contrato.objeto } : null,
     avaliacao: args.avaliacao ? { titulo: args.avaliacao.titulo, data: args.avaliacao.data_avaliacao } : null,
     setores: (args.setores || []).map((s: any) => ({
+      setor_id: s.id,
+      ambiente: s.descricao_ambiente || "",
       setor: s.nome_setor,
       ghe: s.ghe_ges,
       funcoes: (s.funcoes || []).map((f: any) => ({
-        funcao: f.nome_funcao, expostos: f.expostos, atividades: f.descricao_atividades,
+        funcao_id: f.id, funcao: f.nome_funcao, expostos: f.expostos, atividades: f.descricao_atividades,
       })),
     })),
     indicadores: args.indicadores || {},

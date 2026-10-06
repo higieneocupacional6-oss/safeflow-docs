@@ -18,16 +18,17 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import {
-  construirGrupos, sincronizarGruposComCadastro, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto, normalizarFuncao,
+  construirGrupos, sincronizarGruposComCadastro, medidasDosGrupos, mesclarMedidasPlano, conclusaoTecnica, metodologiaTexto,
   resumoPorGrupo, riscosParaPgr, nivelDeRisco, corNivel, PROB_LABELS, SEV_LABELS,
   INDICADORES_CAMPOS, matrizOcupada, fatorCaracterizado, planoAcaoTexto,
   indicadoresPreenchidos, interpretarIndicadores, FREQUENCIAS_PSICOSSOCIAIS,
   normalizarFrequenciaPsicossocial, normalizarTextoPsicossocial,
-  type GrupoRelatorio, type MedidaControle, type NivelRisco, type VinculoFuncao,
+  type GrupoRelatorio, type MedidaControle, type NivelRisco,
 } from "@/lib/psicoRelatorio";
 import { gerarPdfPsicossocial, type PdfPayload } from "@/lib/psicoRelatorioPdf";
 import { gerarDocxPsicossocial } from "@/lib/psicoRelatorioDocx";
 import { sortGroupsNumerically } from "@/lib/sortGes";
+import { carregarSetoresPsicossocial, vinculosDoCadastro } from "@/lib/psicoCadastroAtual";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import { saveAs } from "file-saver";
 import { MetodologiaModal, type MetodologiaInfo } from "@/components/psico/MetodologiaModal";
@@ -98,7 +99,7 @@ export default function PsicossocialRelatorio() {
     },
   });
 
-  const { data: respostas = [] } = useQuery({
+  const { data: respostas = [], isSuccess: respostasFetched } = useQuery({
     queryKey: ["rel-resp", avaliacaoId],
     enabled: !!avaliacaoId,
     queryFn: async () => {
@@ -110,21 +111,16 @@ export default function PsicossocialRelatorio() {
   });
 
   // Fonte oficial: módulo Setores e Funções, sempre da mesma empresa + contrato da avaliação.
-  const contratoRef = avaliacao ? (avaliacao.contrato_id ?? contratoId ?? null) : undefined;
-  const { data: setores = [], isFetched: setoresFetched } = useQuery({
-    queryKey: ["rel-setores", empresaId, contratoRef],
-    enabled: !!empresaId && contratoRef !== undefined,
+  const contratoRef = avaliacao ? (avaliacao.contrato_id ?? null) : undefined;
+  const empresaRef = avaliacao?.empresa_id as string | undefined;
+  const { data: setores = [], isSuccess: setoresFetched } = useQuery({
+    queryKey: ["rel-setores", empresaRef, contratoRef],
+    enabled: !!empresaRef && contratoRef !== undefined,
     staleTime: 0,
     refetchOnMount: "always",
     queryFn: async () => {
-      let q = supabase
-        .from("setores")
-        .select("id, nome_setor, ghe_ges, contrato_id, funcoes(id, nome_funcao, expostos, descricao_atividades)")
-        .eq("empresa_id", empresaId!);
-      q = contratoRef ? q.eq("contrato_id", contratoRef) : q.is("contrato_id", null);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data as any[];
+      if (!empresaRef || contratoRef === undefined) throw new Error("Avaliação não carregada.");
+      return carregarSetoresPsicossocial(empresaRef, contratoRef);
     },
   });
   useSetoresFuncoesSync();
@@ -158,26 +154,13 @@ export default function PsicossocialRelatorio() {
     },
   });
 
-  const vinculos = useMemo(() => {
-    const m = new Map<string, VinculoFuncao>();
-    for (const s of setores) {
-      for (const f of s.funcoes || []) {
-        m.set(normalizarFuncao(f.nome_funcao), {
-          setor: s.nome_setor,
-          ghe: s.ghe_ges || "—",
-          expostos: parseInt(String(f.expostos || "0").replace(/\D/g, "")) || 0,
-          atividades: f.descricao_atividades || "",
-        });
-      }
-    }
-    return m;
-  }, [setores]);
+  const vinculos = useMemo(() => vinculosDoCadastro(setores), [setores]);
 
   const empresa = avaliacao?.empresas;
   const contrato = avaliacao?.contratos;
 
   const gruposBase = useMemo(
-    () => (respostas.length && vinculos.size ? construirGrupos(respostas, vinculos, empresa?.jornada_trabalho || "") : []),
+    () => construirGrupos(respostas, vinculos, empresa?.jornada_trabalho || ""),
     [respostas, vinculos, empresa],
   );
 
@@ -202,8 +185,7 @@ export default function PsicossocialRelatorio() {
   const indicadores = indicadoresDb || {};
 
   useEffect(() => {
-    if (pronto || !avaliacao || !salvoFetched || !setoresFetched) return;
-    if (!gruposBase.length) return;
+    if (pronto || !avaliacao || !salvoFetched || !setoresFetched || !respostasFetched) return;
     const s = salvo?.dados || {};
 
     setIdent({
@@ -225,8 +207,12 @@ export default function PsicossocialRelatorio() {
     const info: MetodologiaInfo = { periodo: "", participacao: "", observacao: "", ...(s.metInfo || {}) };
     setMetInfo(info);
     const gsBase = sincronizarGruposComCadastro(gruposBase, s.grupos as GrupoRelatorio[] | undefined);
+    const removidos = ((s.grupos || []) as GrupoRelatorio[]).filter((g) => !gruposBase.some((atual) => atual.id === g.id));
+    const textoAtual = (texto: string | undefined) => removidos.some((g) =>
+      (g.ghe !== "—" && texto?.includes(g.ghe)) || texto?.includes(g.setor),
+    ) ? "" : texto;
     setMetodologia(
-      normalizarTextoPsicossocial(s.metodologia ||
+      normalizarTextoPsicossocial(textoAtual(s.metodologia) ||
         metodologiaTexto({
           ...info,
           respondentes: respostas.length,
@@ -255,8 +241,8 @@ export default function PsicossocialRelatorio() {
     setMedidasExcluidas(excluidas);
     setMedidas(mesclarMedidasPlano(gs, s.medidas as MedidaControle[] | undefined, excluidas));
 
-    setConclusao(normalizarTextoPsicossocial(s.conclusao || conclusaoTecnica(gs, empresa?.razao_social || "a empresa")));
-    const introSalva = normalizarTextoPsicossocial(s.introPlano || "");
+    setConclusao(normalizarTextoPsicossocial(textoAtual(s.conclusao) || conclusaoTecnica(gs, empresa?.razao_social || "a empresa")));
+    const introSalva = normalizarTextoPsicossocial(textoAtual(s.introPlano) || "");
     const introLegadaIncluiManutencao = /aç(?:ão|ões) de manutenção|manutenção e monitoramento|melhoria contínua, sem prioridade/i.test(introSalva);
     setIntroPlano(
       introSalva && !introLegadaIncluiManutencao
@@ -269,7 +255,12 @@ export default function PsicossocialRelatorio() {
     if (!usarIa && abrirMetRef.current) setMetOpen(true);
     setPronto(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [avaliacao, gruposBase, salvoFetched, setoresFetched]);
+  }, [avaliacao, gruposBase, salvoFetched, setoresFetched, respostasFetched]);
+
+  useEffect(() => {
+    if (!pronto || !setoresFetched || !respostasFetched) return;
+    setGrupos((anteriores) => sortGroupsNumerically(sincronizarGruposComCadastro(gruposBase, anteriores)));
+  }, [gruposBase, pronto, setoresFetched, respostasFetched]);
 
   // ---------- IA: gera os textos técnicos antes do modal de metodologia ----------
   useEffect(() => {
@@ -278,9 +269,16 @@ export default function PsicossocialRelatorio() {
     (async () => {
       setIaRodando(true);
       try {
+        if (!empresaRef || contratoRef === undefined) throw new Error("Avaliação não carregada.");
+        const cadastroAtual = await carregarSetoresPsicossocial(empresaRef, contratoRef);
+        const gruposAtuais = sincronizarGruposComCadastro(
+          construirGrupos(respostas, vinculosDoCadastro(cadastroAtual), empresa?.jornada_trabalho || ""), grupos,
+        );
+        setGrupos(gruposAtuais);
         const contexto = montarContexto({
-          empresa, contrato, avaliacao, setores, indicadores,
-          respondentes: respostas.length, grupos, medidas: medidasPlano, metInfo,
+          empresa, contrato, avaliacao, setores: cadastroAtual, indicadores,
+          respondentes: respostas.length, grupos: gruposAtuais,
+          medidas: mesclarMedidasPlano(gruposAtuais, medidas, medidasExcluidas), metInfo,
         });
         const out = await gerarTextosIa(contexto);
         if (out.metodologia) setMetodologia(normalizarTextoPsicossocial(out.metodologia));
@@ -379,14 +377,17 @@ export default function PsicossocialRelatorio() {
     mostrarSucesso = true,
   ) => {
     setSalvando(true);
+    try {
+    const gruposAtuais = await atualizarCadastro();
     const dados = {
-      ident, metInfo, metodologia, grupos, medidas: proximasMedidas,
+      ident, metInfo, metodologia, grupos: gruposAtuais,
+      medidas: mesclarMedidasPlano(gruposAtuais, proximasMedidas, proximasExcluidas),
       medidasExcluidas: proximasExcluidas, conclusao, introPlano, registros,
     };
     const { error } = await supabase.from("psico_relatorios").upsert({
-      avaliacao_id: avaliacaoId!,
-      empresa_id: empresaId!,
-      contrato_id: contratoId!,
+      avaliacao_id: avaliacao?.id,
+      empresa_id: empresaRef,
+      contrato_id: contratoRef,
       versao: registros.versao || "1.0",
       dados: dados as any,
     } as any, { onConflict: "avaliacao_id" });
@@ -394,6 +395,12 @@ export default function PsicossocialRelatorio() {
     if (error) { toast.error(error.message); return false; }
     if (mostrarSucesso) toast.success("Relatório salvo.");
     return true;
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível consultar o cadastro atual.");
+      return false;
+    } finally {
+      setSalvando(false);
+    }
   };
 
   const salvar = async () => { await persistirRelatorio(); };
@@ -424,17 +431,28 @@ export default function PsicossocialRelatorio() {
     toast.success("Plano de Ação recriado com os riscos elegíveis atuais. Salve as edições para confirmar.");
   };
 
-  const montarPayloadRelatorio = (): PdfPayload => ({
-    empresa, contrato, identificacao: ident, metodologia, grupos, medidas: medidasPlano,
+  const atualizarCadastro = async () => {
+    if (!empresaRef || contratoRef === undefined) throw new Error("Avaliação não carregada.");
+    const atuais = await carregarSetoresPsicossocial(empresaRef, contratoRef);
+    const atualizados = sortGroupsNumerically(sincronizarGruposComCadastro(
+      construirGrupos(respostas, vinculosDoCadastro(atuais), empresa?.jornada_trabalho || ""), grupos,
+    ));
+    setGrupos(atualizados);
+    return atualizados;
+  };
+
+  const montarPayloadRelatorio = (gruposAtuais = grupos): PdfPayload => ({
+    empresa, contrato, identificacao: ident, metodologia, grupos: gruposAtuais,
+    medidas: mesclarMedidasPlano(gruposAtuais, medidas, medidasExcluidas),
     conclusao, indicadores, registros,
-    interpretacaoIndicadores: interpretarIndicadores(indicadores, grupos),
-    introPlanoAcao: introPlano || planoAcaoTexto(grupos, empresa?.razao_social || "a empresa avaliada"),
+    interpretacaoIndicadores: interpretarIndicadores(indicadores, gruposAtuais),
+    introPlanoAcao: introPlano || planoAcaoTexto(gruposAtuais, empresa?.razao_social || "a empresa avaliada"),
     titulo: avaliacao?.titulo || "Avaliação Psicossocial",
   });
 
-  const baixarPdf = () => {
+  const baixarPdf = async () => {
     try {
-      gerarPdfPsicossocial(montarPayloadRelatorio());
+      gerarPdfPsicossocial(montarPayloadRelatorio(await atualizarCadastro()));
     } catch (e: any) {
       toast.error("Erro ao gerar PDF: " + (e?.message || ""));
     }
@@ -443,7 +461,7 @@ export default function PsicossocialRelatorio() {
   const baixarWord = async () => {
     setGerandoWord(true);
     try {
-      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio());
+      const { blob, nome } = await gerarDocxPsicossocial(montarPayloadRelatorio(await atualizarCadastro()));
       saveAs(blob, nome);
     } catch (e: any) {
       toast.error("Erro ao gerar Word: " + (e?.message || ""));

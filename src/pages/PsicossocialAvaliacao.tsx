@@ -214,10 +214,12 @@ export default function PsicossocialAvaliacao() {
   const gerarRelatorio = async () => {
     setVerificando(true);
     try {
-      const { data: setores, error } = await supabase
+      let consulta = supabase
         .from("setores")
         .select("nome_setor, ghe_ges, funcoes(nome_funcao)")
-        .eq("empresa_id", empresaId!);
+        .eq("empresa_id", avaliacao?.empresa_id || empresaId || "");
+      consulta = avaliacao?.contrato_id ? consulta.eq("contrato_id", avaliacao.contrato_id) : consulta.is("contrato_id", null);
+      const { data: setores, error } = await consulta;
       if (error) throw error;
       const cadastradas = new Set<string>();
       for (const s of (setores as any[]) || []) {
@@ -226,6 +228,7 @@ export default function PsicossocialAvaliacao() {
       const faltantes = Array.from(
         new Set(
           respostas
+            .filter((r) => !r.funcao_id)
             .map((r) => (r.funcao_nome || "").trim())
             .filter((f) => f && !cadastradas.has(normalizarFuncao(f))),
         ),
