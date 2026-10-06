@@ -2,11 +2,7 @@
 // via Lovable AI. Recebe contexto do setor/função + relato in loco + anexos (fotos/PDFs).
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
-import {
-  createLovableAiGatewayRunIdFetch,
-  getLovableAiGatewayResponseHeaders,
-  getLovableAiGatewayRunId,
-} from "./run-id.ts";
+import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR responsável pela elaboração de AEP — Análise Ergonômica Preliminar (NR-17, NR-01/GRO).
 
@@ -223,7 +219,7 @@ Deno.serve(async (req) => {
     const { descricao, anexos, instrucoes_usuario, psicossocial, conhecimento } = body;
     const ctx = body.aep_context ?? body.contexto ?? {};
 
-    const anexosArr: Anexo[] = Array.isArray(anexos) ? anexos.slice(0, 10) : [];
+    const anexosArr: Anexo[] = Array.isArray(anexos) ? limitarAnexos(anexos, 10) : [];
     const instrTxt = typeof instrucoes_usuario === "string" ? instrucoes_usuario.trim() : "";
 
     const instrBlock = instrTxt
@@ -246,7 +242,7 @@ ${typeof descricao === "string" && descricao.trim() ? descricao.trim() : "Nenhum
 Avaliação ${(ctx as any)?.avaliacao_indice ?? 1} de ${(ctx as any)?.total_avaliacoes_no_documento ?? 1} — GES: ${(ctx as any)?.avaliacao?.ges || "-"} | Setor: ${(ctx as any)?.avaliacao?.setor || "-"}.
 Analisar EXCLUSIVAMENTE esta avaliação. Não usar dados de outras avaliações do documento.
 \`\`\`json
-${JSON.stringify({ aep_context: ctx }, null, 2)}
+${JSON.stringify({ aep_context: compactarContexto(ctx) }, null, 2)}
 \`\`\`
 
 # ETAPA 6 — FOTOGRAFIAS (analisar somente após as etapas anteriores; complementar, nunca substituir)
@@ -269,9 +265,9 @@ Devolver esses valores EXATAMENTE e reescrever riscos, medidas, pareceres, parec
 Gerar JSON conforme o schema: descrição técnica da atividade da função do GES, turno conforme jornada cadastrada da empresa, checklist AEP, riscos baixos, médios e altos específicos da função/atividade, cada qual com justificativa e medida coerentes, pareceres técnicos exclusivos, condutas coerentes e plano de ação derivado das medidas recomendadas. Não inventar dados ausentes.`;
 
 
-    const userContent: any[] = [{ type: "input_text", text: userText }];
+    const userContent: any[] = [{ type: "input_text", text: limitarTexto(userText) }];
     const conhecAnexos: ConhecimentoAnexo[] = Array.isArray(conhecimento?.anexos)
-      ? conhecimento.anexos.slice(0, 10)
+      ? limitarAnexos(conhecimento.anexos, 10)
       : [];
     for (const a of conhecAnexos) {
       if (!a?.data) continue;
@@ -293,83 +289,12 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
       }
     }
 
-    const gateway = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(req));
-    const resp = await gateway.fetch("https://ai.gateway.lovable.dev/v1/responses", {
-      method: "POST",
-      signal: req.signal,
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "openai/gpt-6-astra",
-        input: [
-          { role: "system", content: [{ type: "input_text", text: SYSTEM_PROMPT }] },
-          { role: "user", content: userContent },
-        ],
-        stream: true,
-        store: false,
-        reasoning: { effort: "medium", summary: "auto" },
-        include: ["reasoning.encrypted_content"],
-        text: { format: {
-          type: "json_schema",
-          name: "aep_output",
-          strict: true,
-          schema: RESPONSE_SCHEMA,
-        } },
-      }),
-    });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error("Gateway error", resp.status, errText);
-      let safeMessage = errText.slice(0, 400);
-      try {
-        const parsedError = JSON.parse(errText);
-        safeMessage = parsedError?.message || parsedError?.error?.message || safeMessage;
-      } catch {
-        // Mantém somente o texto seguro e limitado retornado pelo gateway.
-      }
-      return new Response(JSON.stringify({ error: safeMessage || "A geração não pôde ser concluída." }), {
-        status: resp.status, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const reader = resp.body?.getReader();
-    if (!reader) throw new Error("A IA retornou uma resposta sem conteúdo.");
-    const decoder = new TextDecoder();
-    let buffer = "";
-    let raw = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
-      const events = buffer.split("\n\n");
-      buffer = events.pop() || "";
-      for (const event of events) {
-        const dataLine = event.split("\n").find((line) => line.startsWith("data:"));
-        if (!dataLine || dataLine.slice(5).trim() === "[DONE]") continue;
-        const payload = JSON.parse(dataLine.slice(5).trim());
-        if (payload.type === "response.output_text.delta") raw += payload.delta || "";
-        if (payload.type === "error" || payload.type === "response.failed") {
-          throw new Error(payload.error?.message || payload.response?.error?.message || "A IA não concluiu a geração.");
-        }
-      }
-    }
-    if (!raw.trim()) throw new Error("A IA retornou uma resposta vazia.");
-    let parsed: unknown;
-    try {
-      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch {
-      return new Response(JSON.stringify({ error: "Resposta da IA não pôde ser interpretada.", raw }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const responseHeaders = getLovableAiGatewayResponseHeaders(resp.headers, { ...corsHeaders, "Content-Type": "application/json" });
-    return new Response(JSON.stringify({ output: parsed }), {
-      headers: responseHeaders,
+    return await gerarJsonEmFluxo({
+      req, corsHeaders, key,
+      systemPrompt: SYSTEM_PROMPT,
+      userContent,
+      schemaName: "aep_output",
+      schema: RESPONSE_SCHEMA,
     });
   } catch (e) {
     if (req.signal.aborted && e instanceof Error && e.name === "AbortError") {
