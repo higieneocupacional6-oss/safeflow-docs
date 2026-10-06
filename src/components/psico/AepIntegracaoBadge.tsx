@@ -28,6 +28,8 @@ export function AepIntegracaoBadge({ contexto }: { contexto: AepContextoIa | nul
             {setor.funcoes?.length > 0 && <p><span className="font-medium">Funções:</span> {setor.funcoes.join(", ")}</p>}
             {setor.atividade && <p><span className="font-medium">Atividade:</span> {setor.atividade}</p>}
             {setor.parecer_ergonomia && <p><span className="font-medium">Parecer:</span> {setor.parecer_ergonomia}</p>}
+            {contexto.aprofundamento && <p><span className="font-medium">Encaminhamento:</span> {contexto.aprofundamento.indicacao_aet === "recomendada" ? "AET recomendada" : contexto.aprofundamento.indicacao_aet === "solucao_preliminar_indicada" ? "Solução preliminar / plano de ação indicado" : "Não informado"}</p>}
+            {contexto.aprofundamento?.motivo_registrado && <p><span className="font-medium">Motivo registrado:</span> {contexto.aprofundamento.motivo_registrado}</p>}
             <p className="text-muted-foreground">Os dados são somente consultados para aprofundar a AET. A AEP não é alterada.</p>
           </div>
         </DialogContent>
