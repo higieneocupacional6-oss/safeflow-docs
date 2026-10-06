@@ -13,7 +13,7 @@ function Resumo({ r }: { r: PsicoResumoEscopo }) {
         {r.escopo === "setor"
           ? `Setor avaliado${r.setor ? `: ${r.setor}` : ""}${r.ghe ? ` — GHE/GES ${r.ghe}` : ""}`
           : "Dados gerais da empresa"}
-        {" "}· {r.respostas} avaliação(ões)
+        {r.respostas > 0 ? ` · ${r.respostas} trabalhador(es)` : ""}
       </p>
       {r.funcoes.length > 0 && (
         <p className="text-muted-foreground">Funções: {r.funcoes.join(", ")}</p>
@@ -37,6 +37,11 @@ function Resumo({ r }: { r: PsicoResumoEscopo }) {
             <p key={i} className="text-muted-foreground">{t}</p>
           ))}
         </div>
+      )}
+      {r.atividades && <p><span className="font-medium">Atividades:</span> {r.atividades}</p>}
+      {r.organizacao && <p><span className="font-medium">Organização do trabalho:</span> {r.organizacao}</p>}
+      {r.medidas && r.medidas.length > 0 && (
+        <p><span className="font-medium">Medidas:</span> {r.medidas.map((m: any) => m.medida || m.acao).filter(Boolean).join("; ")}</p>
       )}
     </div>
   );
@@ -68,12 +73,7 @@ export function PsicoIntegracaoBadge({ contexto }: { contexto: PsicoContextoIa |
           <div className="space-y-3">
             {contexto.setor_resumo && <Resumo r={contexto.setor_resumo} />}
             {!contexto.setor_resumo && contexto.empresa_resumo && <Resumo r={contexto.empresa_resumo} />}
-            {contexto.avaliacoes.length > 0 && (
-              <p className="text-[11px] text-muted-foreground">
-                Avaliações psicossociais da empresa:{" "}
-                {contexto.avaliacoes.map((a) => `${a.titulo || "Avaliação"}${a.data ? ` (${a.data})` : ""}`).join(" · ")}
-              </p>
-            )}
+            {contexto.atualizado_em && <p className="text-[11px] text-muted-foreground">Relatório salvo atualizado em {new Date(contexto.atualizado_em).toLocaleDateString("pt-BR")}.</p>}
             <p className="text-[11px] text-muted-foreground">
               Estes dados são apenas consultados pela IA para correlação técnica. O módulo Psicossocial
               não é alterado.

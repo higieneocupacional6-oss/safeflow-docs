@@ -214,6 +214,7 @@ function gerarPostoTrabalho(ctx: any, kb: FuncaoConhecimento, dicasImg: string[]
 function gerarDescricaoAtividade(ctx: any, kb: FuncaoConhecimento, obs: string): string {
   const funcoes: any[] = ctx.funcoes || [];
   const atividadesCadastro = funcoes.map((f) => f.descricao_atividades).filter(Boolean).join(" ");
+  const atividadeAep = ctx.aep_contexto?.disponivel ? ctx.aep_contexto?.setor?.atividade : "";
   const usuFrases = extrairFrasesRelevantes(obs, ["realiz", "execut", "faz", "opera", "atende", "utiliz", "manuse"]);
 
   const lista = atividadesCadastro
@@ -222,6 +223,7 @@ function gerarDescricaoAtividade(ctx: any, kb: FuncaoConhecimento, obs: string):
 
   return j(
     lista,
+    atividadeAep ? `A AEP correspondente registrou, como contexto preliminar da atividade: ${atividadeAep}` : null,
     usuFrases.length ? `Observações complementares do avaliador em campo: ${usuFrases.join(" ")}` : null,
     "Cada tarefa deve ser executada respeitando os procedimentos operacionais padrão (POP) da empresa e as normas regulamentadoras aplicáveis.",
   );
@@ -229,6 +231,8 @@ function gerarDescricaoAtividade(ctx: any, kb: FuncaoConhecimento, obs: string):
 
 function gerarAnaliseOrganizacional(ctx: any, kb: FuncaoConhecimento): string {
   const psico = ctx.avaliacao_psicossocial || {};
+  const psicoSalvo = ctx.psicossocial_empresa?.setor_resumo || {};
+  const aep = ctx.aep_contexto?.disponivel ? ctx.aep_contexto?.setor || {} : {};
   const resumo = psico.resumo_editavel || "";
   const avals: any[] = psico.avaliacoes || [];
   const riscosPsico = avals
@@ -238,6 +242,8 @@ function gerarAnaliseOrganizacional(ctx: any, kb: FuncaoConhecimento): string {
 
   return j(
     kb.organizacao,
+    psicoSalvo.organizacao ? `O relatório psicossocial salvo registra para este grupo: ${psicoSalvo.organizacao}` : null,
+    aep.parecer_ergonomia ? `A AEP correspondente registrou como análise preliminar: ${aep.parecer_ergonomia}` : null,
     resumo ? `Síntese consolidada da avaliação psicossocial COPSOQ III do setor: ${resumo}` : null,
     riscosPsico ? `Riscos psicossociais identificados nas avaliações individuais: ${riscosPsico}` : null,
     !resumo && !riscosPsico ? "A avaliação psicossocial (COPSOQ III) deve ser considerada como parte da análise organizacional." : null,
@@ -414,9 +420,10 @@ function gerarPlanoAcao(kb: FuncaoConhecimento, ctx: any): AetGenOutput["plano_a
 
   // Se há psicossocial com risco relevante
   const psico = ctx.avaliacao_psicossocial || {};
+  const fatoresSalvos = ctx.psicossocial_empresa?.setor_resumo?.fatores || [];
   const temPsicoRisco = (psico.avaliacoes || []).some((a: any) =>
     /alto|elevad|crít|crit/i.test(String(a.resultado || "") + " " + String(a.riscos || "")),
-  );
+  ) || fatoresSalvos.some((f: any) => /alto|m[eé]dio|moderado|cr[ií]tico/i.test(String(f.classificacao || "")));
   if (temPsicoRisco) {
     base.push({
       o_que: "Programa de manejo dos fatores psicossociais",
@@ -426,6 +433,20 @@ function gerarPlanoAcao(kb: FuncaoConhecimento, ctx: any): AetGenOutput["plano_a
       resultado_esperado: "Redução dos domínios em faixa de risco em reavaliação em 12 meses.",
       responsavel: "RH + SESMT",
       prazo: "120 dias",
+    });
+  }
+
+  const aepAcoes = ctx.aep_contexto?.disponivel ? ctx.aep_contexto?.setor?.plano_acao || [] : [];
+  for (const acao of aepAcoes) {
+    if (!acao?.o_que || base.some((item) => item.o_que.toLowerCase() === String(acao.o_que).toLowerCase())) continue;
+    base.push({
+      o_que: String(acao.o_que),
+      como: String(acao.como || "Aprofundar e validar a medida preliminar registrada na AEP."),
+      justificativa: "Medida originada da AEP correspondente e submetida ao aprofundamento técnico da AET.",
+      prioridade: "Média",
+      resultado_esperado: "Controle do fator ergonômico identificado e validação da eficácia da medida.",
+      responsavel: String(acao.responsavel || "Responsável a definir"),
+      prazo: String(acao.prazo || "A definir"),
     });
   }
 

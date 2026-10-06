@@ -456,6 +456,7 @@ export default function AepWizard() {
         setorId: setor.setor_id,
         setorNome: setor.setor_nome,
         ghe: setor.ges,
+        funcoes: setor.funcoes_selecionadas.map((f) => f.nome),
       });
       setPsicoCtx(psicossocial.disponivel ? psicossocial : null);
 

@@ -141,6 +141,17 @@ ${JSON.stringify({ alvo: p.alvo, setor: p.setor_resumo, empresa: p.empresa_resum
 `;
 }
 
+const aepRules = `# INTEGRAÇÃO AEP → AET
+- Os dados abaixo pertencem a uma AEP salva da MESMA empresa, contrato, setor/GHE e função.
+- Use a AEP como análise preliminar anterior: aprofunde tecnicamente na AET, sem copiar literalmente e sem tratar conclusões preliminares como medições não realizadas.
+- A hierarquia é PSICOSSOCIAIS → AEP → AET. Preserve a coerência de identificação, atividade, organização, riscos e medidas.
+- Não invente informações nem altere a AEP. Quando houver conflito, os dados atuais observados na AET e as edições do responsável técnico prevalecem.`;
+
+function aepBlock(a: any): string {
+  if (!a?.disponivel || !a?.setor) return "";
+  return `${aepRules}\n\n## AEP CORRESPONDENTE\n${a.observacao || ""}\n\`\`\`json\n${JSON.stringify(a.setor, null, 2)}\n\`\`\`\n\n`;
+}
+
 
 const conhecimentoRules = `# BASE DE CONHECIMENTO TÉCNICO DO RESPONSÁVEL (Conhecimento IA — tipo {TIPO})
 - Os documentos abaixo foram cadastrados pelo responsável técnico como FONTE DE CONSULTA COMPLEMENTAR para {TIPO}.
@@ -180,7 +191,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial, conhecimento } = await req.json();
+    const { descricao, contexto, anexos, instrucoes_usuario, psicossocial, aep, conhecimento } = await req.json();
     if (!descricao || typeof descricao !== "string" || descricao.trim().length < 20) {
       return new Response(
         JSON.stringify({ error: "Descreva com mais detalhes o que foi observado in loco (mínimo 20 caracteres)." }),
@@ -204,9 +215,10 @@ ${instrTxt}
       : "";
 
     const psicoTxt = psicoBlock(psicossocial);
+    const aepTxt = aepBlock(aep);
     const conhecTxt = conhecimentoBlock(conhecimento, "AET");
 
-    const userText = `${instrBlock}${conhecTxt}${psicoTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
+    const userText = `${instrBlock}${conhecTxt}${psicoTxt}${aepTxt}# RELATO DA AVALIAÇÃO IN LOCO (usuário — traduzir para linguagem técnica)
 ${descricao.trim()}
 
 # CONTEXTO CADASTRADO (fonte primária — NÃO contradizer)
