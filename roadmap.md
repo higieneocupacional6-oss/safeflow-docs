@@ -66,3 +66,8 @@
 - [x] Cruzar função, atividade, empresa, setor/GHE/GES, contexto salvo e Psicossociais
 - [x] Agrupar a apresentação em Baixo, Médio e Alto preservando o cálculo interno
 - [x] Validar geração, preservação manual, tipos, testes e função de IA
+
+# Psicossocial — cadastro atual Florestas/S11D
+- [ ] Corrigir origem dos grupos e vínculos por IDs atuais da empresa/contrato
+- [ ] Atualizar contexto da IA e compartilhar dados atuais entre tela/PDF/Word
+- [ ] Validar Florestas/S11D, exclusões, recarga e preservar históricos sem gravação automática
