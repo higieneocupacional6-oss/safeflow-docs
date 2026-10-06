@@ -635,7 +635,7 @@ export default function PsicossocialRelatorio() {
         <p className="text-sm text-muted-foreground leading-relaxed">
           Todas as dimensões investigadas no questionário são apresentadas, independentemente do
           resultado. Quando não há evidências suficientes de agravamento, o fator permanece registrado
-          como investigado e classificado em nível Baixo ou como não identificado.
+          como investigado, considerado em conformidade e classificado em nível Baixo.
         </p>
 
         <Accordion type="multiple" value={fatoresAbertos} onValueChange={setFatoresAbertos} className="space-y-3">
@@ -662,7 +662,6 @@ export default function PsicossocialRelatorio() {
                     <div className="flex flex-wrap gap-1.5">
                       <Chip label="Investigados" valor={r.investigados} className="bg-muted text-foreground" />
                       <Chip label="Baixos" valor={r.cont.Baixo} className="bg-emerald-500/15 text-emerald-700" />
-                      <Chip label="Não identificados" valor={r.naoIdentificado} className="bg-muted text-muted-foreground" />
                       <Chip label="Médios" valor={r.cont["Médio"]} className="bg-yellow-500/20 text-yellow-800" />
                       <Chip label="Altos" valor={r.cont.Alto} className="bg-orange-500/20 text-orange-800" />
                       <Chip label="Críticos" valor={r.cont["Crítico"]} className="bg-red-500/15 text-red-700" />
@@ -680,7 +679,7 @@ export default function PsicossocialRelatorio() {
                           <div className="flex items-center gap-2">
                             <Badge variant="outline" className={corNivel(f.nivel)}>{f.nivel}</Badge>
                             <Badge variant="outline">
-                              {f.sustentado === false ? "Não identificado" : "Fator caracterizado"}
+                              {f.sustentado === false ? "Investigado, considerado em conformidade" : "Fator caracterizado"}
                             </Badge>
                           </div>
                         </div>
@@ -761,7 +760,7 @@ export default function PsicossocialRelatorio() {
                 <div className="grid grid-cols-2 gap-2 text-sm">
                   <span>Fatores investigados: <b>{r.investigados}</b></span>
                   <span>Caracterizados: <b>{r.caracterizados}</b></span>
-                  <span>Baixo: {r.cont.Baixo} · Não identificado: {r.naoIdentificado}</span>
+                  <span>Baixo: {r.cont.Baixo}</span>
                   <span>Médio: {r.cont["Médio"]}</span>
                   <span>Alto: {r.cont.Alto} · Crítico: {r.cont["Crítico"]}</span>
                   <span>Predominante: <b>{r.predominante}</b></span>
@@ -778,7 +777,7 @@ export default function PsicossocialRelatorio() {
       <Secao n="6" titulo="Matriz de risco (Probabilidade × Severidade)">
         <p className="text-sm text-muted-foreground leading-relaxed">
           A matriz representa somente os riscos caracterizados que demandam representação metodológica.
-          Fatores classificados como Baixo e fatores não identificados não são plotados, permanecendo
+          Fatores classificados como Baixo não são plotados, permanecendo
           registrados nas seções 4 e 6.1 para fins de rastreabilidade.
         </p>
         {totalMatriz === 0 ? (

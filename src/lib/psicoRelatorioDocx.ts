@@ -35,7 +35,7 @@ export function buildPsicossocialDocxHtml(payload: PdfPayload): string {
   const fatoresHtml = p.grupos.map((grupo) => `
     <h2>${text(grupo.setor)} — ${text(grupo.ghe)}</h2>
     ${grupo.fatores.map((fator) => `
-      <h3>${text(fator.fator)} — Nível: ${text(fator.sustentado === false ? `${fator.nivel} — não identificado` : fator.nivel)} | P${fator.probabilidade} x S${fator.severidade}</h3>
+      <h3>${text(fator.fator)} — Nível: ${text(fator.nivel)} | P${fator.probabilidade} x S${fator.severidade}</h3>
       <table class="kv"><tbody>
         ${row("Descrição", fator.descricao)}${row("Fonte / Causa", fator.fonte)}
         ${row("Situação de exposição", fator.situacao)}${row("Trabalhadores expostos", fator.expostos)}
@@ -45,7 +45,7 @@ export function buildPsicossocialDocxHtml(payload: PdfPayload): string {
 
   const resultadosHtml = p.grupos.map((grupo) => {
     const resumo = resumoPorGrupo(grupo);
-    return `<tr><td>${text(`${grupo.setor} — ${grupo.ghe}`)}</td><td>${resumo.investigados}</td><td>${resumo.cont.Baixo}</td><td>${resumo.naoIdentificado}</td><td>${resumo.cont["Médio"]}</td><td>${resumo.cont.Alto}</td><td>${resumo.cont["Crítico"]}</td><td>${text(resumo.predominante)}</td><td>${Math.round(((grupo.trabalhadores || 0) / totalTrabalhadores) * 100)}%</td></tr>`;
+    return `<tr><td>${text(`${grupo.setor} — ${grupo.ghe}`)}</td><td>${resumo.investigados}</td><td>${resumo.cont.Baixo}</td><td>${resumo.cont["Médio"]}</td><td>${resumo.cont.Alto}</td><td>${resumo.cont["Crítico"]}</td><td>${text(resumo.predominante)}</td><td>${Math.round(((grupo.trabalhadores || 0) / totalTrabalhadores) * 100)}%</td></tr>`;
   }).join("");
 
   const matrizHtml = [4, 3, 2, 1].map((severidade) => `<tr><th>Severidade ${severidade}</th>${[1, 2, 3, 4].map((probabilidade) => {
@@ -79,12 +79,12 @@ export function buildPsicossocialDocxHtml(payload: PdfPayload): string {
     ${heading("2", "Identificação dos setores / GHE-GES")}${gruposHtml || "<p>Nenhum setor avaliado.</p>"}
     ${heading("3", "Metodologia utilizada")}<p>${text(p.metodologia)}</p>
     ${heading("4", "Fatores de risco psicossocial investigados")}<p>Todas as dimensões investigadas são apresentadas, independentemente do resultado, mantendo a rastreabilidade integral da avaliação.</p>${fatoresHtml || "<p>Nenhum fator investigado.</p>"}
-    ${heading("5", "Resultado da avaliação")}<table><thead><tr><th>Setor / GHE</th><th>Investig.</th><th>Baixo</th><th>Não ident.</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Predominante</th><th>% trab.</th></tr></thead><tbody>${resultadosHtml}</tbody></table>
+    ${heading("5", "Resultado da avaliação")}<table><thead><tr><th>Setor / GHE</th><th>Investig.</th><th>Baixo</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Predominante</th><th>% trab.</th></tr></thead><tbody>${resultadosHtml}</tbody></table>
     ${heading("6", "Matriz de risco — Probabilidade x Severidade")}<table><thead><tr><th></th><th>P1</th><th>P2</th><th>P3</th><th>P4</th></tr></thead><tbody>${matrizHtml}</tbody></table>
     <h2>6.1 Riscos recomendados para gerenciamento no PGR</h2><table><thead><tr><th>Setor</th><th>GHE/GES</th><th>Fator investigado</th><th>Resultado</th><th>Intervenção</th><th>Justificativa técnica</th></tr></thead><tbody>${riscosPgr.map((risco) => `<tr><td>${text(risco.setor)}</td><td>${text(risco.ghe)}</td><td>${text(risco.fator)}</td><td>${text(risco.resultado)}</td><td>${text(risco.intervencao)}</td><td>${text(risco.justificativa)}</td></tr>`).join("")}</tbody></table>
     ${heading("7", "Medidas de prevenção e controle")}<table><thead><tr><th>Setor / GHE — Risco</th><th>Medida recomendada</th><th>Tipo</th><th>Prazo</th><th>Prioridade</th></tr></thead><tbody>${p.medidas.length ? p.medidas.map((medida) => `<tr><td>${text(`${medida.grupo} — ${medida.risco}`)}</td><td>${text(medida.medida)}</td><td>${text(medida.tipo)}</td><td>${text(medida.prazo)}</td><td>${text(medida.prioridade)}</td></tr>`).join("") : "<tr><td colspan=\"5\">Não aplicável</td></tr>"}</tbody></table>
     ${heading("8", "Indicadores organizacionais")}<table><thead><tr><th>Indicador</th><th>Informação registrada</th></tr></thead><tbody>${indicadoresHtml || "<tr><td colspan=\"2\">Não foram informados indicadores organizacionais.</td></tr>"}</tbody></table><h2>Análise técnica dos indicadores</h2><p>${text(p.interpretacaoIndicadores)}</p>
-    ${heading("9", "Comparativo entre setores e evolução histórica")}<table><thead><tr><th>Setor / GHE</th><th>Investigados</th><th>Baixo</th><th>Não identificado</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Trabalhadores</th></tr></thead><tbody>${p.grupos.map((grupo) => { const r = resumoPorGrupo(grupo); return `<tr><td>${text(`${grupo.setor} — ${grupo.ghe}`)}</td><td>${r.investigados}</td><td>${r.cont.Baixo}</td><td>${r.naoIdentificado}</td><td>${r.cont["Médio"]}</td><td>${r.cont.Alto}</td><td>${r.cont["Crítico"]}</td><td>${grupo.trabalhadores || "—"}</td></tr>`; }).join("")}</tbody></table><h2>Evolução histórica</h2><p>${text(p.historico)}</p>
+    ${heading("9", "Comparativo entre setores")}<table><thead><tr><th>Setor / GHE</th><th>Investigados</th><th>Baixo</th><th>Médio</th><th>Alto</th><th>Crítico</th><th>Trabalhadores</th></tr></thead><tbody>${p.grupos.map((grupo) => { const r = resumoPorGrupo(grupo); return `<tr><td>${text(`${grupo.setor} — ${grupo.ghe}`)}</td><td>${r.investigados}</td><td>${r.cont.Baixo}</td><td>${r.cont["Médio"]}</td><td>${r.cont.Alto}</td><td>${r.cont["Crítico"]}</td><td>${grupo.trabalhadores || "—"}</td></tr>`; }).join("")}</tbody></table>
     ${heading("10", "Conclusão técnica")}<p>${text(p.conclusao)}</p>
     ${heading("11", "Plano de ação")}<p>${text(p.introPlanoAcao)}</p><table><thead><tr><th>Risco</th><th>Ação</th><th>Responsável</th><th>Prazo</th><th>Prioridade</th><th>Status</th></tr></thead><tbody>${p.medidas.length ? p.medidas.map((medida) => `<tr><td>${text(`${medida.grupo} — ${medida.risco}`)}</td><td>${text(medida.medida)}</td><td>${text(medida.responsavel)}</td><td>${text(medida.prazo)}</td><td>${text(medida.prioridade)}</td><td>${text(medida.status)}</td></tr>`).join("") : "<tr><td colspan=\"6\">Não aplicável</td></tr>"}</tbody></table>
     ${heading("12", "Responsáveis e registros")}<table class="kv"><tbody>${row("Profissional responsável", p.identificacao.responsavel_nome)}${row("Registro profissional", p.identificacao.responsavel_registro)}${row("Aplicador da avaliação", p.registros.aplicador)}${row("Responsável da empresa", p.registros.responsavel_empresa)}${row("Data", p.registros.data || p.identificacao.data_avaliacao)}${row("Versão do documento", p.registros.versao || "1.0")}</tbody></table>
@@ -96,9 +96,16 @@ export async function gerarDocxPsicossocial(payload: PdfPayload): Promise<{ blob
   const html = buildPsicossocialDocxHtml(payload);
   const header = `<p style="font-family:Arial;font-size:8pt;color:#6e7682;border-bottom:1px solid #dce2ea">${text(payload.empresa?.razao_social)} — Relatório Técnico de Avaliação Psicossocial</p>`;
   const footer = `<p style="font-family:Arial;font-size:8pt;color:#6e7682;text-align:center">NR-01 · NR-17 — ${text(payload.identificacao.data_avaliacao)}</p>`;
+  if (typeof window !== "undefined") {
+    const browserGlobal = window as Window & typeof globalThis & { global?: Window; process?: { env: Record<string, string> } };
+    browserGlobal.global = browserGlobal;
+    browserGlobal.process ||= { env: {} };
+  }
   const mod: any = await import("@turbodocx/html-to-docx");
   const htmlToDocx = mod.default ?? mod;
-  const output: any = await htmlToDocx(html, header, {
+  let output: any;
+  try {
+    output = await htmlToDocx(html, header, {
     pageSize: { width: 11906, height: 16838 },
     margins: { top: 1080, right: 850, bottom: 1080, left: 850, header: 420, footer: 420 },
     title: payload.titulo,
@@ -118,10 +125,17 @@ export async function gerarDocxPsicossocial(payload: PdfPayload): Promise<{ blob
     },
     lang: "pt-BR",
     decodeUnicode: true,
-  }, footer);
-  const blob = output instanceof Blob
-    ? output
-    : new Blob([typeof output?.arrayBuffer === "function" ? await output.arrayBuffer() : output], { type: MIME_DOCX });
+    }, footer);
+  } catch (error) {
+    throw new Error(`Falha ao converter o relatório para DOCX: ${error instanceof Error ? error.message : "erro desconhecido"}`);
+  }
+  const bytes = output instanceof Blob
+    ? await output.arrayBuffer()
+    : typeof output?.arrayBuffer === "function"
+      ? await output.arrayBuffer()
+      : output;
+  const blob = new Blob([bytes], { type: MIME_DOCX });
+  if (!blob.size) throw new Error("O arquivo DOCX gerado está vazio.");
   const empresa = String(payload.empresa?.razao_social || "empresa").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_");
   return { blob, nome: `Relatorio_Psicossocial_${empresa}.docx` };
 }

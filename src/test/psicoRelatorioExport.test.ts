@@ -14,7 +14,7 @@ const payload = (grupos: GrupoRelatorio[]): PdfPayload => ({
   empresa: { razao_social: "Empresa Teste" }, contrato: { numero_contrato: "1" },
   identificacao: { nome_fantasia: "Teste", cnpj: "00", cnae: "00", endereco: "Rua", unidade: "Unidade", responsavel_nome: "Responsável", responsavel_registro: "Registro", data_avaliacao: "05/10/2026" },
   metodologia: "Metodologia", grupos, medidas: [], conclusao: "Conclusão", indicadores: {},
-  historico: "Histórico", registros: { versao: "1.0", aplicador: "Aplicador", responsavel_empresa: "Empresa", data: "05/10/2026" },
+  registros: { versao: "1.0", aplicador: "Aplicador", responsavel_empresa: "Empresa", data: "05/10/2026" },
   titulo: "Avaliação Psicossocial", interpretacaoIndicadores: "Sem indicadores", introPlanoAcao: "Plano",
 });
 
@@ -46,6 +46,8 @@ describe("Ordenação e exportação dos relatórios Psicossociais", () => {
     expect(html.indexOf("GERE 2")).toBeLessThan(html.indexOf("GERE 10"));
     expect(html).toContain("Plano de ação");
     expect(html).toContain("Responsáveis e registros");
+    expect(html).not.toContain("Evolução histórica");
+    expect(html).not.toContain("Não identificado");
   });
 
   it("gera DOCX válido com documento, cabeçalho, rodapé e tabelas", async () => {
