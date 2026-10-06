@@ -23,10 +23,12 @@ export const AEP_CONTEXTO_VAZIO: AepContextoIa = {
 const norm = (value: unknown) =>
   String(value ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase();
 
-const nomesFuncoes = (setor: any): string[] =>
-  (Array.isArray(setor?.funcoes_selecionadas) ? setor.funcoes_selecionadas : [])
-    .map((f: any) => String(f?.nome ?? f ?? "").trim())
-    .filter(Boolean);
+const nomesFuncoes = (setor: any): string[] => {
+  const nomes = (Array.isArray(setor?.funcoes_selecionadas) ? setor.funcoes_selecionadas : [])
+    .map((f: any) => String(f?.nome ?? f ?? "").trim());
+  if (setor?.funcao_ges) nomes.push(String(setor.funcao_ges).trim());
+  return nomes.filter(Boolean);
+};
 
 export function selecionarSetorAep(
   documentos: any[],
@@ -36,19 +38,32 @@ export function selecionarSetorAep(
   const candidatos = documentos.flatMap((documento) =>
     (Array.isArray(documento?.setores) ? documento.setores : []).map((setor: any) => ({ documento, setor })),
   );
+  
   const pontuar = ({ setor }: { setor: any }) => {
     let pontos = 0;
+    // Matching por ID é o mais forte para evitar homônimos
     if (alvo.setorId && setor?.setor_id === alvo.setorId) pontos += 100;
     if (alvo.setorNome && norm(setor?.setor_nome) === norm(alvo.setorNome)) pontos += 30;
     if (alvo.ghe && norm(setor?.ges) === norm(alvo.ghe)) pontos += 20;
+    
     const funcoes = nomesFuncoes(setor).map(norm);
-    if (funcoesAlvo.size && funcoes.some((f) => funcoesAlvo.has(f))) pontos += 10;
-    return pontos;
+    const temFuncaoCompativel = funcoesAlvo.size === 0 || funcoes.some((f) => funcoesAlvo.has(f));
+    if (funcoesAlvo.size && temFuncaoCompativel) pontos += 10;
+    
+    return { pontos, temFuncaoCompativel };
   };
+
   return candidatos
-    .map((c) => ({ ...c, pontos: pontuar(c) }))
-    .filter((c) => c.pontos >= 20 && (!funcoesAlvo.size || nomesFuncoes(c.setor).map(norm).some((f) => funcoesAlvo.has(f))))
-    .sort((a, b) => b.pontos - a.pontos || String(b.documento?.updated_at || "").localeCompare(String(a.documento?.updated_at || "")))[0] || null;
+    .map((c) => {
+      const { pontos, temFuncaoCompativel } = pontuar(c);
+      return { ...c, pontos, temFuncaoCompativel };
+    })
+    // Exige score mínimo e compatibilidade de função se fornecida
+    .filter((c) => c.pontos >= 20 && c.temFuncaoCompativel)
+    .sort((a, b) => 
+      b.pontos - a.pontos || 
+      String(b.documento?.updated_at || "").localeCompare(String(a.documento?.updated_at || ""))
+    )[0] || null;
 }
 
 export async function carregarContextoAep(args: {
@@ -65,7 +80,9 @@ export async function carregarContextoAep(args: {
     ghe: args.ghe || "",
     funcoes: args.funcoes || [],
   };
+  
   if (!args.empresaId || !args.contratoId) return { ...AEP_CONTEXTO_VAZIO, alvo };
+  
   try {
     const { data, error } = await supabase
       .from("aep_documentos")
@@ -74,9 +91,12 @@ export async function carregarContextoAep(args: {
       .eq("contrato_id", args.contratoId)
       .order("updated_at", { ascending: false })
       .limit(20);
+      
     if (error) throw error;
+    
     const encontrado = selecionarSetorAep((data as any[]) || [], args);
     if (!encontrado) return { ...AEP_CONTEXTO_VAZIO, alvo };
+    
     const s = encontrado.setor;
     return {
       disponivel: true,
@@ -91,14 +111,14 @@ export async function carregarContextoAep(args: {
         funcoes: nomesFuncoes(s),
         atividade: s.descricao_atividade || "",
         turno: s.turno || "",
-        riscos_ergonomicos: s.riscos_lista || [],
+        riscos_lista: Array.isArray(s.riscos_lista) ? s.riscos_lista : [],
         parecer_ambiente: s.parecer_ambiente || "",
         parecer_ergonomia: s.parecer_ergonomia || "",
         conduta_1: s.conduta_1 || "",
         parecer_conduta_1: s.parecer_conduta_1 || "",
         conduta_2: s.conduta_2 || "",
         parecer_conduta_2: s.parecer_conduta_2 || "",
-        plano_acao: s.plano_acao || [],
+        plano_acao: Array.isArray(s.plano_acao) ? s.plano_acao : [],
       },
       observacao: "AEP salva correspondente à mesma empresa, contrato, setor/GHE e função.",
     };
