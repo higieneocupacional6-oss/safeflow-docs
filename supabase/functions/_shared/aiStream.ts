@@ -74,6 +74,7 @@ export async function gerarJsonEmFluxo(opts: {
   userContent: unknown[];
   schemaName: string;
   schema: unknown;
+  posProcessar?: (output: any) => any;
 }): Promise<Response> {
   const { req, corsHeaders, key } = opts;
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
@@ -154,7 +155,8 @@ export async function gerarJsonEmFluxo(opts: {
           send({ type: "error", error: "A IA retornou uma resposta vazia. Tente novamente.", retryable: true });
         } else {
           try {
-            send({ type: "result", output: JSON.parse(raw) });
+            const parsed = JSON.parse(raw);
+            send({ type: "result", output: opts.posProcessar ? opts.posProcessar(parsed) : parsed });
           } catch {
             send({
               type: "error",
