@@ -3,6 +3,7 @@
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
+import { REDACAO_TECNICA, limparSaidaTecnica } from "../_shared/redacaoTecnica.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR responsável pela elaboração de AEP — Análise Ergonômica Preliminar (NR-17, NR-01/GRO).
 
@@ -291,7 +292,8 @@ Gerar JSON conforme o schema: descrição técnica da atividade da função do G
 
     return await gerarJsonEmFluxo({
       req, corsHeaders, key,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: `${SYSTEM_PROMPT}\n${REDACAO_TECNICA}`,
+      posProcessar: limparSaidaTecnica,
       userContent,
       schemaName: "aep_output",
       schema: RESPONSE_SCHEMA,

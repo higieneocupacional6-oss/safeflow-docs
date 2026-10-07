@@ -4,6 +4,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
 import { extrairFocoAep } from "../_shared/aepAprofundamento.ts";
+import { REDACAO_TECNICA, limparSaidaTecnica } from "../_shared/redacaoTecnica.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR com vasta experiência em Análise Ergonômica do Trabalho (AET), pareceres judiciais e programas ergonômicos corporativos.
 
@@ -29,8 +30,8 @@ OBJETIVO DE CADA CAMPO (cada campo tem PROPÓSITO ÚNICO e conteúdo EXCLUSIVO �
 - ritmo_complexidade: intensidade, repetitividade, variabilidade, exigência física e cognitiva, pressão por produtividade, complexidade.
 - jornada_aspectos: jornada, pausas, intervalos, horas extras, turnos, rodízios, distribuição temporal — aderência à NR-17.6.
 - caracterizacao_biomecanica: posturas, amplitudes articulares, esforços, repetitividade, cargas, deslocamentos, sobrecarga musculoesquelética — interpretar escores RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg com faixas de risco, citando ISO 11226/11228.
-- cronoanalise: tarefas do ciclo real documentado, com risco classificado (Baixo/Moderado/Alto/Crítico) e justificativa curta. Não criar tarefas para atingir quantidade; se tempo não medido/informado, usar "Depende de cronometragem em campo", nunca estimativa apresentada como medição.
-- avaliacoes_dimensionais: compatibilidade antropométrica de mobiliário/equipamentos vs. trabalhador; se medida não informada, escrever "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
+- cronoanalise: tarefas do ciclo real documentado, com risco classificado (Baixo/Moderado/Alto/Crítico) e justificativa curta. Não criar tarefas para atingir quantidade; sem duração medida, descrever a tarefa e seu risco qualitativamente, sem estimar tempos.
+- avaliacoes_dimensionais: compatibilidade antropométrica de mobiliário/equipamentos vs. trabalhador; sem medida disponível, analisar qualitativamente a compatibilidade com a atividade e a NR-17.3, sem citar a ausência.
 - avaliacoes_quantitativas_analise: comparar valores medidos (ruído, iluminância, temperatura) com limites NHO-01, NBR ISO 8995, ISO 7730, NR-17 — classificando conformidade e citando limite.
 - diagnostico_ergonomico: CONSOLIDAÇÃO integrada (físico + organizacional + psicossocial), causas, consequências, nível de exposição, fundamentada em NRs e ISOs. Não repetir literalmente os campos anteriores — sintetizar.
 - conclusao: síntese técnica final classificando a condição ergonômica, conformidades, não conformidades, necessidade de intervenção. Não repetir o diagnóstico — posicionar-se.
@@ -45,9 +46,9 @@ REGRAS OBRIGATÓRIAS — NÃO NEGOCIÁVEIS:
 - Correlacionar SEMPRE fatores físicos + organizacionais + psicossociais no diagnóstico e conclusão.
 - Não contradizer o contexto cadastrado; se o COPSOQ apontou risco, o diagnóstico organizacional DEVE refletir isso.
 - Fotografias: descrever objetivamente (mobiliário, postura, EPIs, layout) e integrar à análise biomecânica.
-- PDFs: extrair dados relevantes (jornada, POPs, laudos, OS) e citá-los como fonte.
+- PDFs: extrair dados relevantes (jornada, POPs, laudos, OS) e integrá-los à análise.
 - Quando houver poucas informações, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos, sem citar "documento não anexado" desnecessariamente.
-- PROTEÇÃO ANTI-INVENÇÃO: Se uma informação não existe no contexto, nos anexos ou no relato e não pode ser inferida tecnicamente com segurança, declare que a informação depende de coleta complementar ou use termos como "conforme relatado" ou "observado preliminarmente".
+- PROTEÇÃO ANTI-INVENÇÃO: Se uma informação não existe no contexto, nos anexos ou no relato e não pode ser inferida tecnicamente com segurança, não a invente e redija de forma técnica e neutra com os dados existentes, sem apontar a ausência.
 
 FORMATO DE RESPOSTA:
 Responder EXCLUSIVAMENTE em JSON VÁLIDO conforme o schema, em português do Brasil formal técnico, sem markdown, sem comentários fora do JSON.`;
@@ -243,14 +244,14 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 - "ritmo_complexidade": intensidade, repetitividade, exigência cognitiva/física, pressão.
 - "jornada_aspectos": jornada, pausas, turnos, rodízios — aderência à NR-17.6.
 - "caracterizacao_biomecanica": posturas, amplitudes, cargas — interpretar escores (RULA/REBA/OCRA/OWAS/NIOSH/Moore-Garg) com faixas de risco, citando ISO 11226/11228.
-- "cronoanalise": somente tarefas reais documentadas, risco justificado; tempo ausente = "Depende de cronometragem em campo". Não inventar duração ou tarefas.
-- "avaliacoes_dimensionais": cada chave = TEXTO técnico (Adequado/Inadequado + justificativa antropométrica citando norma). Se não informado: "Depende de medição em campo — recomenda-se aferir conforme NR-17.3.3".
+- "cronoanalise": somente tarefas reais documentadas, risco justificado; sem tempo medido, não citar duração. Não inventar duração ou tarefas.
+- "avaliacoes_dimensionais": cada chave = TEXTO técnico (Adequado/Inadequado + justificativa antropométrica citando norma). Sem medida disponível: análise qualitativa, sem citar ausência.
 - "avaliacoes_quantitativas_analise": parágrafo comparando valores medidos com limites (NHO-01, NBR ISO 8995, ISO 7730, NR-17), classificando conformidade.
 - "diagnostico_ergonomico": SINTETIZAR físico + organizacional + psicossocial em consolidação nova, com causas/consequências/nível de exposição — não copiar campos anteriores.
 - "conclusao": posicionamento técnico final classificando a condição ergonômica — não repetir o diagnóstico.
 - "plano_acao": 3 a 6 ações concretas com "justificativa" (norma/técnica), "prioridade" (Alta/Média/Baixa), "resultado_esperado", responsável nominado por cargo e prazo em dias.
 - Fotografias: descrever mobiliário, postura, layout, EPIs, iluminação e integrar à análise biomecânica.
-- PDFs: extrair jornada/POPs/laudos/OS e citá-los como fonte.
+- PDFs: extrair jornada/POPs/laudos/OS e integrá-los à análise.
 - Se houver DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO no topo, obedeça-as INTEGRALMENTE como método de redação — sem, em hipótese alguma, reproduzir seu texto na resposta.
 - Quando faltarem dados, complementar apenas com conhecimento técnico compatível com a função — sem inventar fatos.`;
 
@@ -284,7 +285,8 @@ Gere a AET completa em JSON conforme o schema, respeitando o OBJETIVO ÚNICO de 
 
     return await gerarJsonEmFluxo({
       req, corsHeaders, key,
-      systemPrompt: SYSTEM_PROMPT,
+      systemPrompt: `${SYSTEM_PROMPT}\n${REDACAO_TECNICA}\n- A AET deve ser mais profunda que a AEP: identificar o motivo da indicação e aprofundar exatamente os problemas e pontos de atenção da AEP correspondente, conforme a NR-17, sem mencionar a AEP como fonte.`,
+      posProcessar: limparSaidaTecnica,
       userContent,
       schemaName: "aet_output",
       schema: RESPONSE_SCHEMA,
