@@ -19,7 +19,7 @@ const PROIBIDAS = [
   /conforme (o )?cadastr\w*/i, /segundo o cadastr\w*/i, /de acordo com o cadastr\w*/i,
   /\bn[ãa]o consta\w*/i, /n[ãa]o (foi|foram) informad\w*/i, /\bn[ãa]o informad\w*/i,
   /n[ãa]o h[áa] (informa\w*|dados|evid[êe]ncias?|registros?)/i, /sem evid[êe]ncias?/i,
-  /a IA identific\w*/i, /falta avaliar/i, /dever(ia)? ser avaliad\w*/i, /necess[áa]rio avaliar/i,
+  /a IA identific\w*/i, /falta avaliar/i, /dev(e|em|eria|eriam) ser avaliad\w*/i, /necess[áa]rio avaliar/i,
   /depende de (medi[çc][ãa]o|cronometragem|coleta)/i, /banco de dados/i,
 ];
 
