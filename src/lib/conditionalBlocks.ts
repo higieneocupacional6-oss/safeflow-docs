@@ -69,9 +69,23 @@ function norm(s: any): string {
     .trim();
 }
 
-/** Remove caracteres proibidos pela especificação XML 1.0. */
-function sanitizeXml10(xml: string): string {
-  return xml.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "");
+/** Remove caracteres proibidos pela especificação XML 1.0. Um U+FFFE entre
+ * letras (ex.: "Sexta\uFFFEfeira", hífen colado do Word) vira hífen comum. */
+export function sanitizeXml10(xml: string): string {
+  return xml
+    .replace(/(\p{L})[\uFFFE\u001E](\p{L})/gu, "$1-$2")
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "");
+}
+
+/** Limpa caracteres inválidos em todas as partes XML de um pacote DOCX (PizZip). */
+export function sanitizeDocxZip(zip: any): void {
+  for (const name of Object.keys(zip.files)) {
+    if (!/\.(xml|rels)$/i.test(name) || zip.files[name].dir) continue;
+    const xml = zip.file(name)?.asText();
+    if (!xml) continue;
+    const clean = sanitizeXml10(xml);
+    if (clean !== xml) zip.file(name, clean);
+  }
 }
 
 /** Determina quais blocos devem permanecer no documento. */

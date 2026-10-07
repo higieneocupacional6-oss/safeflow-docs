@@ -25,6 +25,7 @@ import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
 import { saveAs } from "file-saver";
+import { sanitizeDocxZip } from "@/lib/conditionalBlocks";
 import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { parseDocxErrors } from "@/lib/templateValidator";
 import { sortByGes } from "@/lib/sortGes";
@@ -1244,10 +1245,12 @@ export default function AetWizard() {
       }
       doc.render(data);
 
+      if ((doc as any).kind !== "html") sanitizeDocxZip((doc as any).getZip());
       const output: Blob = (doc as any).kind === "html"
         ? await (doc as any).toBlob()
         : (doc as any).getZip().generate({
             type: "blob",
+            compression: "DEFLATE",
             mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
           });
 
