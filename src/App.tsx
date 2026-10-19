@@ -35,6 +35,7 @@ import FichaTecnica from "./pages/FichaTecnica";
 import FichaTecnicaContrato from "./pages/FichaTecnicaContrato";
 import FormularioAep from "./pages/FormularioAep";
 import FormularioAepNovo from "./pages/FormularioAepNovo";
+import FormularioAepPreencher from "./pages/FormularioAepPreencher";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/ficha-tecnica/:empresaId/:contratoId" element={<Protected><FichaTecnicaContrato /></Protected>} />
             <Route path="/formulario-aep" element={<Protected><FormularioAep /></Protected>} />
             <Route path="/formulario-aep/novo" element={<Protected><FormularioAepNovo /></Protected>} />
+            <Route path="/formulario-aep/preencher" element={<Protected><FormularioAepPreencher /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId" element={<Protected><PsicossocialEmpresa /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId" element={<Protected><PsicossocialAvaliacao /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId/relatorio" element={<Protected><PsicossocialRelatorio /></Protected>} />

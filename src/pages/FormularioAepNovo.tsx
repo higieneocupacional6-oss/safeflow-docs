@@ -94,7 +94,7 @@ export default function FormularioAepNovo() {
     if (!empresaId) return toast.error("Selecione a empresa");
     if (!contratoId) return toast.error("Selecione o contrato");
     if (setoresSelecionados.length === 0) return toast.error("Selecione ao menos um setor");
-    navigate("/documentos/aep/novo", {
+    navigate("/formulario-aep/preencher", {
       state: {
         empresaId,
         contratoId,
