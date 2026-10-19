@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
   FileDown, Sparkles, PenLine, ImagePlus, Link2,
@@ -128,6 +128,8 @@ const formatDate = (v?: string | null) => (v ? new Date(v + "T00:00:00").toLocal
 export default function AepWizard() {
   const { documentoId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as { empresaId?: string; contratoId?: string; setorIds?: string[] } | null) || null;
 
   const [empresaId, setEmpresaId] = useState("");
   const [contratoId, setContratoId] = useState("");
