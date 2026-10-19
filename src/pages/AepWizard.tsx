@@ -130,6 +130,7 @@ export default function AepWizard() {
   const navigate = useNavigate();
   const location = useLocation();
   const prefill = (location.state as { empresaId?: string; contratoId?: string; setorIds?: string[] } | null) || null;
+  const [prefillAplicado, setPrefillAplicado] = useState(false);
 
   const [empresaId, setEmpresaId] = useState("");
   const [contratoId, setContratoId] = useState("");
@@ -290,6 +291,25 @@ export default function AepWizard() {
       }
     })();
   }, [documentoId]);
+
+  // ───────────── Pré-seleção vinda do módulo Formulário AEP ─────────────
+  useEffect(() => {
+    if (documentoId || !prefill || prefillAplicado) return;
+    if (prefill.empresaId) setEmpresaId(prefill.empresaId);
+    if (prefill.contratoId) setContratoId(prefill.contratoId);
+  }, [documentoId, prefill, prefillAplicado]);
+
+  useEffect(() => {
+    if (documentoId || !prefill?.setorIds?.length || prefillAplicado) return;
+    if (!(setoresEmpresa as any[]).length) return;
+    const novos = (setoresEmpresa as any[])
+      .filter((s: any) => prefill.setorIds!.includes(s.id))
+      .map((s: any) => newSetor(s));
+    if (novos.length) {
+      setSetoresAep(novos);
+      setPrefillAplicado(true);
+    }
+  }, [setoresEmpresa, documentoId, prefill, prefillAplicado]);
 
   // Mantém nomes/GES sincronizados com o cadastro
   useEffect(() => {
