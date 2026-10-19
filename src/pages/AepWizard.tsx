@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
   FileDown, Sparkles, PenLine, ImagePlus, Link2,
@@ -128,6 +128,9 @@ const formatDate = (v?: string | null) => (v ? new Date(v + "T00:00:00").toLocal
 export default function AepWizard() {
   const { documentoId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const prefill = (location.state as { empresaId?: string; contratoId?: string; setorIds?: string[] } | null) || null;
+  const [prefillAplicado, setPrefillAplicado] = useState(false);
 
   const [empresaId, setEmpresaId] = useState("");
   const [contratoId, setContratoId] = useState("");
@@ -288,6 +291,25 @@ export default function AepWizard() {
       }
     })();
   }, [documentoId]);
+
+  // ───────────── Pré-seleção vinda do módulo Formulário AEP ─────────────
+  useEffect(() => {
+    if (documentoId || !prefill || prefillAplicado) return;
+    if (prefill.empresaId) setEmpresaId(prefill.empresaId);
+    if (prefill.contratoId) setContratoId(prefill.contratoId);
+  }, [documentoId, prefill, prefillAplicado]);
+
+  useEffect(() => {
+    if (documentoId || !prefill?.setorIds?.length || prefillAplicado) return;
+    if (!(setoresEmpresa as any[]).length) return;
+    const novos = (setoresEmpresa as any[])
+      .filter((s: any) => prefill.setorIds!.includes(s.id))
+      .map((s: any) => newSetor(s));
+    if (novos.length) {
+      setSetoresAep(novos);
+      setPrefillAplicado(true);
+    }
+  }, [setoresEmpresa, documentoId, prefill, prefillAplicado]);
 
   // Mantém nomes/GES sincronizados com o cadastro
   useEffect(() => {

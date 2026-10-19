@@ -1,6 +1,6 @@
 import {
   Building2, FileText, LayoutTemplate, Database, Users, FolderTree, Brain,
-  ShieldCheck, FileSignature, ClipboardList, FlaskConical,
+  ShieldCheck, FileSignature, ClipboardList, ClipboardCheck, FlaskConical,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -41,6 +41,7 @@ const grupos: { label: string; items: Item[] }[] = [
     items: [
       { title: "Psicossocial", url: "/psicossocial", icon: Brain },
       { title: "Ficha Técnica", url: "/ficha-tecnica", icon: FlaskConical },
+      { title: "Formulário AEP", url: "/formulario-aep", icon: ClipboardCheck },
     ],
   },
   {
