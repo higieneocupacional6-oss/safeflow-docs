@@ -141,8 +141,8 @@ export function EtapaReconhecimento({
     onChange({ ...value, participantes: { ...value.participantes, [k]: v } });
 
   const vertical = (t: string) => (
-    <th className={`${cel} h-44 p-0.5 align-bottom font-normal text-[9px] leading-tight`}>
-      <div className="mx-auto [writing-mode:vertical-rl] rotate-180 text-left max-h-40">{t}</div>
+    <th className={`${cel} h-60 p-0.5 align-bottom font-normal text-[8.5px] leading-[1.15]`}>
+      <div className="mx-auto [writing-mode:vertical-rl] rotate-180 text-left h-56 max-w-full overflow-hidden break-words whitespace-normal">{t}</div>
     </th>
   );
 
