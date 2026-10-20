@@ -75,6 +75,7 @@ export async function gerarJsonEmFluxo(opts: {
   schemaName: string;
   schema: unknown;
   posProcessar?: (output: any) => any;
+  tools?: unknown[];
 }): Promise<Response> {
   const { req, corsHeaders, key } = opts;
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
@@ -91,6 +92,7 @@ export async function gerarJsonEmFluxo(opts: {
         { role: "user", content: opts.userContent },
       ],
       stream: true,
+      ...(opts.tools ? { tools: opts.tools } : {}),
       store: false,
       reasoning: { effort: "low", summary: "auto" },
       include: ["reasoning.encrypted_content"],

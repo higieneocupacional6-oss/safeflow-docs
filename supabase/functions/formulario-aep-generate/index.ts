@@ -33,10 +33,11 @@ const SCHEMA = {
         type: "object",
         properties: {
           codigo: { type: "string", description: "Ex.: 04.01.002" },
-          duracao: { type: "integer", description: "1 a 5 conforme critério; 0 se incerto" },
-          intensidade: { type: "integer", description: "Coluna 1 a 5 do critério Intensidade/Nível; 0 se incerto" },
+          duracao: { type: "integer", description: "1 a 5 conforme critério Duração" },
+          intensidade: { type: "integer", description: "Coluna 1 a 5 do critério Intensidade/Nível" },
           atividades_ids: { type: "array", items: { type: "integer" }, description: "IDs 1 a 5 das atividades da Parte II" },
           origem: { type: "string", enum: ["informado", "inferido"] },
+          validar: { type: "boolean", description: "true quando a classificação depende de validação do usuário" },
           fundamento: { type: "string" },
         },
       },
@@ -52,8 +53,11 @@ REGRAS:
 3. NUNCA invente dados específicos da empresa ou do trabalhador (nomes, códigos GERE, gerências, horários, quantidades). Sem dado seguro: string vazia / 0 / lista vazia.
 4. Parte II (atividades críticas): até 5 linhas; marcas AF/RE/IN/QO somente se o relato indicar afastamentos, restrições, incidentes ou queixas.
 5. Parte III (controles): até 5 linhas com controles existentes informados; marque o tipo com "X".
-6. Fatores (Parte IV): use SOMENTE os códigos da lista fornecida. Inclua só fatores sustentados pelo relato ou por inferência técnica robusta para a atividade. duracao 1-5 e intensidade 1-5 conforme critérios; 0 quando a classificação não for segura. atividades_ids referem-se às linhas da Parte II que você retornar.
-7. "fundamento": frase curta indicando o fato informado ou o raciocínio técnico (e o critério da Base, se aplicável).
+6. Fatores (Parte IV): SEMPRE preencha a matriz. Use SOMENTE os códigos da lista. Inclua todos os fatores aplicáveis à realidade da função e das atividades informadas (confirmados pelo relato ou tecnicamente inerentes à função). Pesquise fontes técnicas externas confiáveis (NR-17, Manual de Aplicação da NR-17, ISO 11226/11228, NIOSH, ACGIH, Fundacentro, literatura ergonômica da função) para complementar quando o relato for insuficiente. Nunca inclua atividades, exposições ou condições incompatíveis com a função.
+   - duracao 1-5 e intensidade 1-5: dê SEMPRE a melhor classificação técnica possível conforme os critérios da matriz; use 0 apenas se o fator for totalmente indeterminável.
+   - atividades_ids: linhas da Parte II que você retornar (crie as atividades reais da função na Parte II quando o relato as descrever).
+   - origem "informado" quando duração/intensidade vierem do relato; "inferido" quando estimadas tecnicamente. validar=true para toda classificação inferida ou incerta.
+7. "fundamento": frase curta com o fato informado ou o raciocínio técnico e a referência (Base ou fonte externa).
 8. funcoes_ids: apenas IDs presentes na lista de funções cadastradas que correspondam ao relato.`;
 
 Deno.serve(async (req) => {
@@ -97,7 +101,7 @@ ${JSON.stringify(body.criterios ?? {}, null, 1)}
 ${limitarTexto(relato, 30_000)}`,
     });
 
-    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA });
+    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA, tools: [{ type: "web_search" }] });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") return new Response(null, { status: 499, headers: corsHeaders });
     console.error(e);
