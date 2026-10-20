@@ -1,9 +1,5 @@
-export const SITUACOES_APR = [
-  "Posturas incômodas ou pouco confortáveis", "Esforço físico", "Movimentação manual de cargas",
-  "Compressão mecânica", "Movimentos repetitivos", "Ritmo e condições de trabalho", "Carga cognitiva",
-  "Desconforto mental", "Desconforto acústico", "Desconforto térmico", "Desconforto visual", "Desconforto por vibração",
-] as const;
-export const TIPOS_APR = ["Físico", "Organizacional", "Cognitivo", "Ambiental"] as const;
+import { ESTIMATIVAS_APR, INTENSIDADES_APR, perfilApr, classificacaoApr } from "./aprErgoPlanilha.ts";
+export { SITUACOES_APR, TIPOS_APR } from "./aprErgoPlanilha.ts";
 export const MAX_BASE_APR = 6;
 export const CAMPOS_APR = ["cenario", "circunstancia", "situacao", "exigencia", "tipo", "medidas", "estimativa", "intensidade", "perfil", "severidade", "classificacao", "recomendacoes"] as const;
 export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[] };
@@ -14,7 +10,7 @@ export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], su
   return Array.from({ length: Math.max(atuais.length, propostas.length) }, (_, i) => {
     const atual = atuais[i]; const nova = propostas[i];
     const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
-    return { ...campos, fotos: atual?.fotos || [] };
+    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [] });
   });
 }
 export function contarConflitosApr(atuais: LinhaApr[], propostas: LinhaApr[]): number {
@@ -28,11 +24,17 @@ export function formulariosCompativeisApr<T extends { setor_ids: string[]; dados
   });
 }
 
-export function classificacoesSalvasApr(marcas: Record<string, string>, duracao: string[], intensidade: string[]) {
-  const unico = (prefixo: string, textos: string[]) => {
+/** Recalcula as colunas automáticas exatamente como Formulario!K e M. */
+export function recalcularLinhaApr<T extends { estimativa: string; intensidade: string; severidade: string; perfil: string; classificacao: string }>(l: T): T {
+  const perfil = perfilApr(l.estimativa, l.intensidade);
+  return { ...l, perfil, classificacao: classificacaoApr(perfil, l.severidade) };
+}
+
+/** Only unambiguous single D/I marks from Anexo 01 are transferred, mapped by level to the spreadsheet options. */
+export function classificacoesSalvasApr(marcas: Record<string, string>) {
+  const unico = (prefixo: string, opcoes: [string, number][]) => {
     const ativos = Object.entries(marcas).filter(([k, v]) => new RegExp(`^${prefixo}[1-5]$`).test(k) && String(v).trim());
-    return ativos.length === 1 ? textos[Number(ativos[0][0].slice(1)) - 1] || "" : "";
+    return ativos.length === 1 ? opcoes[Number(ativos[0][0].slice(1)) - 1]?.[0] || "" : "";
   };
-  // No per-factor severity/frequency/risk is persisted by Anexo 01. A legend is not evidence.
-  return { estimativa: unico("D", duracao), intensidade: unico("I", intensidade), perfil: "", severidade: "", classificacao: "" };
+  return { estimativa: unico("D", ESTIMATIVAS_APR), intensidade: unico("I", INTENSIDADES_APR) };
 }
