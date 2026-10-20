@@ -17,7 +17,7 @@ export type ResultadoIaAep = {
   funcoes_ids: string[];
   atividades: { texto: string; marcas: Record<string, string>; origem: string }[];
   controles: { texto: string; marcas: Record<string, string>; origem: string }[];
-  fatores: { codigo: string; duracao: number; intensidade: number; atividades_ids: number[]; origem: string; fundamento: string }[];
+  fatores: { codigo: string; duracao: number; intensidade: number; atividades_ids: number[]; origem: string; validar?: boolean; fundamento: string }[];
   observacoes: string;
 };
 
@@ -129,7 +129,7 @@ export function GerarIaAepModal({
   const aplicar = (substituir: boolean) => {
     if (!res) return;
     onAplicar(res, substituir);
-    toast.success("Preenchimento aplicado. Revise os campos.");
+    toast.success("Preenchimento aplicado. Revise a Parte IV.");
     setRes(null); setConflitos(null); onOpenChange(false);
   };
   const confirmar = () => {
@@ -196,6 +196,7 @@ export function GerarIaAepModal({
                         <span className="font-medium">{f.codigo}</span>
                         <span className="text-xs">Duração: {f.duracao || "—"} · Intensidade: {f.intensidade || "—"} · Atividades: {f.atividades_ids?.join(", ") || "—"}</span>
                         <OrigemBadge o={f.origem} />
+                        {(f.validar ?? f.origem !== "informado") && <Badge variant="outline" className="text-[10px]">Validar</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground">{f.fundamento}</p>
                     </div>

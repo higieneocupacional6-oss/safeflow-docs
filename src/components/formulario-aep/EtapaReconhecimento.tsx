@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 export type ReconhecimentoState = {
   marcas: Record<string, Record<string, string>>;
   participantes: { avaliador: string; avaliado: string; data: string; assinatura: string };
+  ia?: Record<string, { origem: string; validar: boolean; fundamento: string }>;
 };
 
 export const reconhecimentoVazio = (): ReconhecimentoState => ({
@@ -147,6 +148,11 @@ export function EtapaReconhecimento({
 
   return (
     <div className="space-y-2">
+      {value.ia && Object.keys(value.ia).length > 0 && (
+        <p className="text-xs text-muted-foreground">
+          Itens marcados com “IA” foram classificados automaticamente. “IA · validar” indica inferência técnica que depende da sua validação — passe o mouse para ver o fundamento.
+        </p>
+      )}
       <h2 className="text-center text-sm font-semibold text-foreground">Anexo 01 - Formulário de Antecipação e Reconhecimento de Riscos</h2>
       <div className="rounded-lg border border-border bg-card">
         <table className="w-full table-fixed border-collapse text-[10px]">
@@ -230,7 +236,17 @@ export function EtapaReconhecimento({
                   const codigo = item.split(":")[0];
                   return (
                     <tr key={codigo}>
-                      <td className={`${cel} bg-muted/20 px-1 py-0.5 text-left leading-tight break-words`}>{item}</td>
+                      <td className={`${cel} bg-muted/20 px-1 py-0.5 text-left leading-tight break-words`}>
+                        {item}
+                        {value.ia?.[codigo] && (
+                          <span
+                            title={value.ia[codigo].fundamento}
+                            className={`ml-1 inline-block rounded px-1 text-[9px] font-semibold ${value.ia[codigo].validar ? "bg-accent text-accent-foreground" : "bg-primary text-primary-foreground"}`}
+                          >
+                            {value.ia[codigo].validar ? "IA · validar" : "IA · informado"}
+                          </span>
+                        )}
+                      </td>
                       {COLUNAS.map((c) => (
                         <td key={c} className={`${cel} p-0`}>
                           <Input
