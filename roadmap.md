@@ -89,3 +89,9 @@
 - [x] Selecionar empresa, contrato e setores com todas as funções atuais
 - [x] Permitir vários registros por setor sem duplicar cadastros
 - [x] Validar navegação, isolamento e persistência dos registros
+
+# APR-ERGO — tabela e IA
+- [ ] Melhorar leitura e miniaturas sem mudar a estrutura
+- [ ] Integrar Base de até 6 arquivos e IA com prévia e proteção de edições
+- [ ] Reutilizar classificações AEP do mesmo escopo sem inventar valores
+- [ ] Validar geração, salvamento e reabertura
