@@ -2,22 +2,26 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { gerarJsonEmFluxo, limitarTexto } from "../_shared/aiStream.ts";
-import { CAMPOS_APR, SITUACOES_APR, TIPOS_APR, formulariosCompativeisApr, classificacoesSalvasApr } from "../_shared/aprErgoIa.ts";
+import { CAMPOS_APR, formulariosCompativeisApr, classificacoesSalvasApr, recalcularLinhaApr } from "../_shared/aprErgoIa.ts";
+import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, EXIGENCIAS_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../_shared/aprErgoPlanilha.ts";
 
 const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim().min(10).max(30000),
   criterios: z.object({ duracao: z.array(z.string().max(500)).length(5), intensidade: z.array(z.string().max(500)).length(5), fatores: z.array(z.tuple([z.string().max(100), z.array(z.string().max(1000))])).max(10) }),
   base: z.array(z.object({ nome: z.string().max(255), tipo: z.enum(["pdf", "texto"]), data: z.string().max(14000000) })).max(6),
 });
-const textos = ["cenario", "circunstancia", "exigencia", "medidas", "recomendacoes", "codigo_aep", "formulario_aep_id"];
+const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v)] });
 const schema = { type: "object", properties: {
   linhas: { type: "array", items: { type: "object", properties: {
-    ...Object.fromEntries(textos.map((k) => [k, { type: "string" }])),
-    situacoes: { type: "array", items: { type: "string", enum: SITUACOES_APR } },
-    tipo: { type: "string", enum: TIPOS_APR },
+    cenario: { type: "string" }, circunstancia: { type: "string" }, recomendacoes: { type: "string" }, codigo_aep: { type: "string" }, formulario_aep_id: { type: "string" },
+    situacao: opc(SITUACOES_APR), exigencia: opc(EXIGENCIAS_APR.map((e) => e[1])), tipo: opc(TIPOS_APR),
+    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR)] } },
+    estimativa: opc(ESTIMATIVAS_APR.map((e) => e[0])), intensidade: opc(INTENSIDADES_APR.map((e) => e[0])), severidade: opc(SEVERIDADES_APR.map((e) => e[1])),
   } } }, observacoes: { type: "string" },
 } };
-const prompt = `Você é ergonomista elaborando APR-ERGO. Produza análise técnica formal da atividade real: relação entre atividade, exigência ergonômica, condição e repercussão; recomendações específicas na fonte, processo, organização, mobiliário, equipamentos e método. Não invente atividades, controles existentes, exposições, medições ou condições. Referências são contexto técnico, não prova de fatos. Use somente situações e tipos permitidos. Até 5 linhas distintas e objetivas; textos curtos, sem mencionar cadastro, IA ou fontes dentro das células.
-Os formulários AEP são somente os compatíveis com esta empresa, contrato, setor e funções. Para cada linha indique codigo_aep e formulario_aep_id SOMENTE se o fator marcado corresponde à mesma atividade/função relatada e o ID de atividade da AEP sustenta essa correspondência. Caso contrário ambos vazios. Não calcule nem estime duração, intensidade, perfil, severidade ou risco: o sistema recupera exclusivamente valores realmente salvos. Não interprete A1-A5 (IDs de atividade) como severidade. Não use a matriz 3x3 de outro módulo. Respeite os critérios AEP existentes; a Base complementa a interpretação sem criar escala alternativa. observacoes deve explicar lacunas reais das classificações para revisão fora da tabela.`;
+const TABELA = { situacao_exigencia_esocial: EXIGENCIAS_APR, estimativa_tempo: ESTIMATIVAS_APR, intensidade_nivel: INTENSIDADES_APR, severidade: SEVERIDADES_APR.map(([l, d, i]) => [l, d, i]) };
+const prompt = `Você é ergonomista elaborando APR-ERGO conforme a planilha Anexo 03. Produza análise técnica formal da atividade real: relação entre atividade, exigência ergonômica, condição e repercussão; recomendações específicas na fonte, processo, organização, mobiliário, equipamentos e método. Não invente atividades, controles existentes, exposições, medições ou condições. Referências são contexto técnico, não prova de fatos. Até 5 linhas distintas; textos curtos, sem mencionar cadastro, IA ou fontes dentro das células.
+Regras da planilha: cenario é o número sequencial da linha (1, 2, 3...). situacao é UMA opção da lista. exigencia deve ser uma exigência da TABELA pertencente à situação escolhida. tipo é uma das opções (Fisico, Organizacional, Cognitivo, Ambiental) coerente com a situação. medidas: selecione somente controles da lista que o relato, a Base ou a AEP confirmem existir; nenhum se não confirmado. estimativa, intensidade e severidade: escolha exatamente uma opção da lista somente quando o relato, a Base ou a AEP sustentarem a escolha para a atividade real; caso contrário deixe vazio. Perfil e Classificação do Risco NÃO são preenchidos por você: o sistema calcula pelas fórmulas da planilha.
+Os formulários AEP são somente os compatíveis com esta empresa, contrato, setor e funções. Para cada linha indique codigo_aep e formulario_aep_id SOMENTE se o fator marcado corresponde à mesma atividade/função relatada; caso contrário ambos vazios. Marcas D1-D5 e I1-I5 da AEP equivalem, pela mesma ordem, às opções de estimativa e intensidade e prevalecem. Não interprete A1-A5 (IDs de atividade) como severidade. observacoes deve explicar lacunas reais das classificações para revisão fora da tabela.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -48,7 +52,7 @@ Deno.serve(async (req) => {
     }
     const compativeis = formulariosCompativeisApr(formularios, setorId, setor.funcoes.map((f: { id: string }) => f.id)).slice(0, 5);
     const content: unknown[] = body.base.filter((b) => b.tipo === "pdf").map((b) => ({ type: "input_file", filename: b.nome, file_data: `data:application/pdf;base64,${b.data}` }));
-    content.push({ type: "input_text", text: `RELATO: ${body.relato}\nEMPRESA: ${doc.empresa_nome}\nSETOR: ${JSON.stringify(setor)}\nAEP COMPATÍVEL: ${JSON.stringify(compativeis)}\nCRITÉRIOS: ${JSON.stringify(body.criterios)}\nBASE: ${body.base.filter((b) => b.tipo === "texto").map((b) => `${b.nome}\n${limitarTexto(b.data, 40000)}`).join("\n")}` });
+    content.push({ type: "input_text", text: `RELATO: ${body.relato}\nEMPRESA: ${doc.empresa_nome}\nSETOR: ${JSON.stringify(setor)}\nAEP COMPATÍVEL: ${JSON.stringify(compativeis)}\nTABELA APR-ERGO: ${JSON.stringify(TABELA)}\nCRITÉRIOS AEP: ${JSON.stringify(body.criterios)}\nBASE: ${body.base.filter((b) => b.tipo === "texto").map((b) => `${b.nome}\n${limitarTexto(b.data, 40000)}`).join("\n")}` });
     return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: prompt, userContent: content, schemaName: "apr_ergo", schema,
       posProcessar: (output) => {
         const fontes = new Set<string>();
@@ -56,9 +60,15 @@ Deno.serve(async (req) => {
           const f = compativeis.find((f) => f.id === l.formulario_aep_id);
           const marcas = f?.dados?.reconhecimento?.marcas?.[l.codigo_aep];
           if (marcas) fontes.add(f.id);
-          return { ...Object.fromEntries(CAMPOS_APR.map((k) => [k, typeof l[k] === "string" ? l[k] : ""])),
-            situacao: (l.situacoes || []).filter((s: string) => SITUACOES_APR.includes(s as typeof SITUACOES_APR[number])).join("; "),
-            ...classificacoesSalvasApr(marcas || {}, body.criterios.duracao, body.criterios.intensidade), fotos: [] };
+          const um = (v: unknown, ops: readonly string[]) => typeof v === "string" && ops.includes(v) ? v : "";
+          const situacao = um(l.situacao, SITUACOES_APR);
+          const salvas = classificacoesSalvasApr(marcas || {});
+          const medidas = [...new Set((Array.isArray(l.medidas) ? l.medidas : []).filter((m: unknown) => typeof m === "string" && MEDIDAS_APR.includes(m)))].join("; ");
+          return recalcularLinhaApr({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, typeof l[k] === "string" ? l[k] : ""])),
+            situacao, exigencia: um(l.exigencia, exigenciasDaSituacao(situacao)), tipo: um(l.tipo, TIPOS_APR), medidas,
+            estimativa: salvas.estimativa || um(l.estimativa, ESTIMATIVAS_APR.map((e) => e[0])),
+            intensidade: salvas.intensidade || um(l.intensidade, INTENSIDADES_APR.map((e) => e[0])),
+            severidade: um(l.severidade, SEVERIDADES_APR.map((e) => e[1])), perfil: "", classificacao: "", fotos: [] } as any);
         });
         return { linhas, fontes_aep: [...fontes], observacoes: output.observacoes || "" };
       },
