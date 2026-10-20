@@ -9,6 +9,7 @@ import { useEffect, useMemo, useState } from "react";
 import { BaseAepModal, GerarIaAepModal, type ResultadoIaAep } from "@/components/formulario-aep/FormularioAepIa";
 import { CATEGORIAS, DURACAO, INTENSIDADE } from "@/components/formulario-aep/EtapaReconhecimento";
 import { supabase } from "@/integrations/supabase/client";
+import { carregarContextoFormularioAep } from "@/lib/formularioAepContexto";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -176,6 +177,14 @@ export default function FormularioAepPreencher() {
   });
   const [baseOpen, setBaseOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
+  const { data: ctxIntegrado } = useQuery({
+    queryKey: ["formulario-aep-ctx-integrado", empresaId, contratoId, setorIds.join(","), funcoesArr.join(","), formularioId],
+    enabled: !!empresaId && !!contratoId && setoresCtx.length > 0,
+    queryFn: () => carregarContextoFormularioAep({
+      empresaId, contratoId, formularioAtualId: formularioId,
+      setores: setoresCtx as any, funcoesSelecionadas: new Set(funcoesArr),
+    }),
+  });
 
   const criterios = {
     duracao: DURACAO.map((t, i) => `D${i + 1} = ${t}`),
@@ -256,7 +265,11 @@ export default function FormularioAepPreencher() {
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const registro = { empresa_id: empresaId, contrato_id: contratoId, setor_ids: setorIds, dados: dadosForm as any };
+      const fontes = {
+        psico_relatorio_ids: Array.from(new Set((ctxIntegrado?.psicossocial || []).map((p: any) => p.relatorio_id).filter(Boolean))),
+        formularios_anteriores_ids: (ctxIntegrado?.formularios_anteriores || []).map((f: any) => f.id),
+      };
+      const registro = { empresa_id: empresaId, contrato_id: contratoId, setor_ids: setorIds, dados: { ...dadosForm, fontes_ia: fontes } as any };
       let id = formularioId;
       if (id) {
         const { error } = await supabase.from("formularios_aep").update(registro).eq("id", id);
@@ -347,6 +360,8 @@ export default function FormularioAepPreencher() {
                 .map((f: any) => ({ id: f.id, nome_funcao: f.nome_funcao, atividades_reais: f.descricao_atividades || "", setor: st.nome_setor, ghe_ges: st.ghe_ges }))),
               identificacao_atual: ident,
               atividades_atuais: atividades.map((l, i) => ({ id: i + 1, texto: l.texto })).filter((l) => l.texto),
+              psicossocial: ctxIntegrado?.psicossocial || [],
+              formularios_anteriores: ctxIntegrado?.formularios_anteriores || [],
             }}
             criterios={criterios} nomeFuncao={nomeFuncao} contarConflitos={contarConflitos} onAplicar={aplicarIa}
           />
