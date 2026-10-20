@@ -7,7 +7,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BaseAepModal } from "@/components/formulario-aep/FormularioAepIa";
 import { AprErgoIaModal } from "@/components/AprErgoIaModal";
-import { aplicarPropostaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
+import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../../supabase/functions/_shared/aprErgoPlanilha";
+
+const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
+  situacao: () => SITUACOES_APR, tipo: () => TIPOS_APR, exigencia: (l) => exigenciasDaSituacao(l.situacao),
+  estimativa: () => ESTIMATIVAS_APR.map((e) => e[0]), intensidade: () => INTENSIDADES_APR.map((e) => e[0]), severidade: () => SEVERIDADES_APR.map((e) => e[1]),
+};
+const AUTOMATICOS: (keyof Linha)[] = ["perfil", "classificacao"];
 
 type Linha = { cenario: string; circunstancia: string; situacao: string; exigencia: string; tipo: string; medidas: string; estimativa: string; intensidade: string; perfil: string; severidade: string; classificacao: string; fotos: string[]; recomendacoes: string };
 type Cabecalho = { empresa: string; data: string; pessoas: string; localSso: string; localFisico: string; gere: string; gerencia: string; cargo: string; funcao: string; atividades: string; ambiente: string; elaborador: string };
@@ -79,11 +86,16 @@ export default function AprErgoRegistro() {
     if (!data || cab) return;
     const t = (data.snap.tabela || {}) as { cabecalho?: Cabecalho; linhas?: Linha[] };
     setCab({ empresa: data.empresa_nome || "", data: "", pessoas: "", localSso: "", localFisico: "", gere: data.setorNome, gerencia: "", cargo: "", funcao: "", atividades: "", ambiente: "", elaborador: "", ...(t.cabecalho || {}) });
-    if (t.linhas?.length) setLinhas(t.linhas.map((l) => ({ ...linhaVazia(), ...l })));
+    if (t.linhas?.length) setLinhas(t.linhas.map((l) => recalcularLinhaApr({ ...linhaVazia(), ...l })));
     if (Array.isArray(data.snap.apr_fontes_aep)) setFontesIa(data.snap.apr_fontes_aep.filter((id): id is string => typeof id === "string"));
   }, [data, cab]);
 
-  const setLinha = (i: number, k: keyof Linha, v: string) => setLinhas((ls) => ls.map((l, j) => (j === i ? { ...l, [k]: v } : l)));
+  const setLinha = (i: number, k: keyof Linha, v: string) => setLinhas((ls) => ls.map((l, j) => {
+    if (j !== i) return l;
+    const nova = { ...l, [k]: v };
+    if (k === "situacao" && l.exigencia && !exigenciasDaSituacao(v).includes(l.exigencia)) nova.exigencia = "";
+    return recalcularLinhaApr(nova);
+  }));
   const setC = (k: keyof Cabecalho, v: string) => setCab((c) => (c ? { ...c, [k]: v } : c));
 
   const onFotos = async (files: FileList | null) => {
@@ -166,6 +178,22 @@ export default function AprErgoRegistro() {
                     </div>)}
                     <Button type="button" variant="ghost" size="icon" title="Adicionar foto" aria-label={`Adicionar foto linha ${i + 1}`} onClick={() => { alvoFoto.current = i; fileRef.current?.click(); }} className="text-muted-foreground h-5 w-5"><ImagePlus className="w-4 h-4" /></Button>
                   </div>
+                </td>
+              : LISTAS[c.key] ? <td key={c.key} className={`${cel} p-0 relative`}>
+                  <div className={`${inp} h-[100px] overflow-hidden ${l[c.key] ? "" : "text-muted-foreground"}`}>{(l[c.key] as string) || "Selecione"}</div>
+                  <select aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => setLinha(i, c.key, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-[11px]">
+                    <option value="" />
+                    {[...new Set([...(l[c.key] ? [l[c.key] as string] : []), ...LISTAS[c.key]!(l)])].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                </td>
+              : AUTOMATICOS.includes(c.key) ? <td key={c.key} className={`${cel} p-0 bg-secondary/40`} title="Campo automático calculado pela matriz da planilha">
+                  <div aria-label={`${c.titulo} linha ${i + 1}`} className={`${inp} h-[100px] flex items-center justify-center text-center font-semibold`}>{l[c.key] as string}</div>
+                </td>
+              : c.key === "medidas" ? <td key={c.key} className={`${cel} p-0 relative`}>
+                  <textarea aria-label={`${c.titulo} linha ${i + 1}`} title={l.medidas} value={l.medidas} onChange={(e) => setLinha(i, "medidas", e.target.value)} className={`${inp} h-[100px] pr-4`} />
+                  <select aria-label={`Adicionar medida de controle linha ${i + 1}`} title="Adicionar medida da aba Medidas de Controle" value="" onChange={(e) => e.target.value && setLinha(i, "medidas", l.medidas.trim() ? `${l.medidas.trim()}; ${e.target.value}` : e.target.value)} className="absolute top-0 right-0 w-4 h-4 text-[10px] bg-muted cursor-pointer">
+                    <option value="">+</option>{[...new Set(MEDIDAS_APR)].map((m) => <option key={m} value={m}>{m}</option>)}
+                  </select>
                 </td>
               : <td key={c.key} className={`${cel} p-0 ${c.destaque ? "bg-secondary/40" : ""}`}>
                   <textarea aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => setLinha(i, c.key, e.target.value)} className={`${inp} h-[100px]`} />
