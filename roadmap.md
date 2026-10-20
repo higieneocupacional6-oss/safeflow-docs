@@ -83,3 +83,9 @@
 - [x] Parte 2 sem rolagem horizontal
 - [x] Botão Base (até 4 PDF/DOCX/XLSX por empresa)
 - [x] Botão Gerar IA com prévia, origem informado/inferido e confirmação antes de substituir
+
+# APR-ERGO — etapas iniciais
+- [ ] Adicionar opção após AEP e lista exclusiva de APR-ERGO
+- [ ] Selecionar empresa, contrato e setores com todas as funções atuais
+- [ ] Permitir vários registros por setor sem duplicar cadastros
+- [ ] Validar navegação, isolamento e persistência dos registros
