@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { usePersistedState } from "@/hooks/usePersistedState";
+import { EtapaReconhecimento, reconhecimentoVazio, type ReconhecimentoState } from "@/components/formulario-aep/EtapaReconhecimento";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
@@ -84,13 +85,17 @@ export default function FormularioAepPreencher() {
   const empresaId = prefill?.empresaId || "";
   const contratoId = prefill?.contratoId || "";
 
-  const [ident, setIdent] = useState({
+  const chave = `formulario-aep:${empresaId}:${contratoId}`;
+  const [etapa, setEtapa] = usePersistedState<number>(`${chave}:etapa`, 1);
+  const [reconhecimento, setReconhecimento] = usePersistedState<ReconhecimentoState>(`${chave}:etapa2`, reconhecimentoVazio());
+  const [ident, setIdent] = usePersistedState(`${chave}:ident`, {
     gerencia_executiva: "", gerencia: "", local_fisico: "", nome_gere: "", codigo_gere: "",
     horario_avaliacao: "", jornada: "", expostos: "", descricao: "",
   });
-  const [funcoesSel, setFuncoesSel] = useState<Set<string>>(new Set());
-  const [atividades, setAtividades] = useState<LinhaTabela[]>(linhasVazias);
-  const [controles, setControles] = useState<LinhaTabela[]>(linhasVazias);
+  const [funcoesArr, setFuncoesArr] = usePersistedState<string[]>(`${chave}:funcoes`, []);
+  const funcoesSel = new Set(funcoesArr);
+  const [atividades, setAtividades] = usePersistedState<LinhaTabela[]>(`${chave}:atividades`, linhasVazias());
+  const [controles, setControles] = usePersistedState<LinhaTabela[]>(`${chave}:controles`, linhasVazias());
 
   const { data: funcoes = [], isLoading } = useQuery({
     queryKey: ["formulario-aep-funcoes", empresaId, contratoId],
@@ -116,11 +121,7 @@ export default function FormularioAepPreencher() {
   );
 
   const toggleFuncao = (id: string) =>
-    setFuncoesSel((prev) => {
-      const n = new Set(prev);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
-    });
+    setFuncoesArr((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
   return (
     <div>
@@ -128,7 +129,7 @@ export default function FormularioAepPreencher() {
         title="Formulário AEP"
         description="Preencha a identificação e as tabelas da avaliação"
         actions={
-          <Button variant="outline" onClick={() => navigate("/formulario-aep/novo")}>
+          <Button variant="outline" onClick={() => (etapa === 2 ? (setEtapa(1), window.scrollTo(0, 0)) : navigate("/formulario-aep/novo"))}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
           </Button>
         }
@@ -138,6 +139,15 @@ export default function FormularioAepPreencher() {
         <Card className="p-6 text-sm text-muted-foreground">
           Selecione empresa, contrato e setores em “Novo Formulário” para iniciar.
         </Card>
+      ) : etapa === 2 ? (
+        <div className="space-y-6">
+          <EtapaReconhecimento value={reconhecimento} onChange={setReconhecimento} />
+          <div className="flex justify-start">
+            <Button variant="outline" onClick={() => { setEtapa(1); window.scrollTo(0, 0); }}>
+              <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
+            </Button>
+          </div>
+        </div>
       ) : (
         <div className="space-y-6">
           <Card className="p-6">
@@ -202,7 +212,7 @@ export default function FormularioAepPreencher() {
           </Card>
 
           <div className="flex justify-end">
-            <Button type="button" className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Button type="button" onClick={() => { setEtapa(2); window.scrollTo(0, 0); }} className="bg-accent text-accent-foreground hover:bg-accent/90">
               Avançar <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </div>
