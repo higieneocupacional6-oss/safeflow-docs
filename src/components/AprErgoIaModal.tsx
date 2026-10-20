@@ -37,7 +37,7 @@ export function AprErgoIaModal({ open, onOpenChange, registroId, basePath, linha
         <h3 className="font-semibold">Prévia da análise</h3>
         <div className="divide-y divide-border">{resultado.linhas.map((l, i) => <div key={i} className="py-3 space-y-1 text-sm">
           <p className="font-medium">{i + 1}. {l.circunstancia}</p><p>{l.situacao} · {l.tipo}</p><p>{l.exigencia}</p>
-          <p className="text-xs text-muted-foreground">Exposição: {l.estimativa || "—"} · Intensidade: {l.intensidade || "—"}</p>
+          <p className="text-xs text-muted-foreground">Exposição: {l.estimativa || "—"} · Intensidade: {l.intensidade || "—"} · Severidade: {l.severidade || "—"} · Perfil: {l.perfil || "—"} · Risco: {l.classificacao || "—"}</p>
           <p>{l.recomendacoes}</p>
         </div>)}</div>
         {resultado.observacoes && <p className="text-sm text-muted-foreground">{resultado.observacoes}</p>}
