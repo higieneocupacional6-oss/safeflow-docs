@@ -2,7 +2,10 @@ import { usePersistedState } from "@/hooks/usePersistedState";
 import { EtapaReconhecimento, reconhecimentoVazio, type ReconhecimentoState } from "@/components/formulario-aep/EtapaReconhecimento";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Loader2, Sparkles, BookOpen } from "lucide-react";
+import { useState } from "react";
+import { BaseAepModal, GerarIaAepModal, type ResultadoIaAep } from "@/components/formulario-aep/FormularioAepIa";
+import { CATEGORIAS, DURACAO, INTENSIDADE } from "@/components/formulario-aep/EtapaReconhecimento";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -113,6 +116,89 @@ export default function FormularioAepPreencher() {
     },
   });
 
+  const setorIds = prefill?.setorIds || [];
+  const { data: setoresCtx = [] } = useQuery({
+    queryKey: ["formulario-aep-setores-ctx", empresaId, contratoId, setorIds.join(",")],
+    enabled: !!empresaId && !!contratoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("setores")
+        .select("id, nome_setor, ghe_ges, descricao_ambiente, funcoes(id, nome_funcao, descricao_atividades)")
+        .eq("empresa_id", empresaId)
+        .eq("contrato_id", contratoId);
+      if (error) throw error;
+      return (data || []).filter((s: any) => !setorIds.length || setorIds.includes(s.id));
+    },
+  });
+  const [baseOpen, setBaseOpen] = useState(false);
+  const [iaOpen, setIaOpen] = useState(false);
+
+  const criterios = {
+    duracao: DURACAO.map((t, i) => `D${i + 1} = ${t}`),
+    intensidade: INTENSIDADE.map((t, i) => `coluna ${i + 1} = ${t}`),
+    fatores: CATEGORIAS.map(([cat, itens]) => ({ categoria: cat, itens })),
+  };
+  const codigosValidos = new Set(CATEGORIAS.flatMap(([, itens]) => itens.map((i) => i.split(":")[0])));
+  const marcasFator = (f: ResultadoIaAep["fatores"][number]) => {
+    const m: Record<string, string> = {};
+    if (f.duracao >= 1 && f.duracao <= 5) m[`D${f.duracao}`] = "X";
+    if (f.intensidade >= 1 && f.intensidade <= 5) m[`I${f.intensidade}`] = "X";
+    (f.atividades_ids || []).filter((n) => n >= 1 && n <= 5).forEach((n) => { m[`A${n}`] = "X"; });
+    return m;
+  };
+  const temMarca = (m?: Record<string, string>, prefixo?: string) =>
+    Object.entries(m || {}).some(([k, v]) => v && (!prefixo || k.startsWith(prefixo)));
+
+  const contarConflitos = (r: ResultadoIaAep) => {
+    let n = 0;
+    Object.entries(r.identificacao || {}).forEach(([k, v]) => {
+      const atual = (ident as any)[k];
+      if (v?.trim() && atual?.trim() && atual.trim() !== v.trim()) n++;
+    });
+    (["atividades", "controles"] as const).forEach((k) => {
+      const atual = k === "atividades" ? atividades : controles;
+      (r[k] || []).slice(0, 5).forEach((l, i) => { if (l.texto?.trim() && (atual[i]?.texto.trim() || temMarca(atual[i]?.marcas))) n++; });
+    });
+    (r.fatores || []).forEach((f) => { if (codigosValidos.has(f.codigo) && temMarca(reconhecimento.marcas[f.codigo])) n++; });
+    return n;
+  };
+
+  const aplicarIa = (r: ResultadoIaAep, substituir: boolean) => {
+    setIdent((p) => {
+      const novo: any = { ...p };
+      Object.entries(r.identificacao || {}).forEach(([k, v]) => {
+        if (!(k in novo) || !v?.trim()) return;
+        if (substituir || !novo[k]?.trim()) novo[k] = v.trim();
+      });
+      return novo;
+    });
+    const validas = new Set(funcoes.map((f: any) => f.id));
+    setFuncoesArr((prev) => [...new Set([...prev, ...(r.funcoes_ids || []).filter((id) => validas.has(id))])]);
+    const mesclar = (atual: LinhaTabela[], novas: ResultadoIaAep["atividades"]) =>
+      atual.map((l, i) => {
+        const n = novas?.[i];
+        if (!n?.texto?.trim()) return l;
+        const ocupada = l.texto.trim() || temMarca(l.marcas);
+        if (ocupada && !substituir) return l;
+        const marcas = Object.fromEntries(Object.entries(n.marcas || {}).map(([c, v]) => [c, filtrarMarca(String(v || ""))]).filter(([, v]) => v));
+        return { texto: n.texto.trim(), marcas };
+      });
+    setAtividades((a) => mesclar(a, r.atividades));
+    setControles((c) => mesclar(c, r.controles));
+    setReconhecimento((rec) => {
+      const marcas = { ...rec.marcas };
+      (r.fatores || []).forEach((f) => {
+        if (!codigosValidos.has(f.codigo)) return;
+        const m = marcasFator(f);
+        if (!Object.keys(m).length) return;
+        if (temMarca(marcas[f.codigo]) && !substituir) return;
+        marcas[f.codigo] = m;
+      });
+      return { ...rec, marcas };
+    });
+  };
+  const nomeFuncao = (id: string) => funcoes.find((f: any) => f.id === id)?.nome_funcao || id;
+
   const campo = (k: keyof typeof ident, label: string) => (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
@@ -129,11 +215,34 @@ export default function FormularioAepPreencher() {
         title="Formulário AEP"
         description="Preencha a identificação e as tabelas da avaliação"
         actions={
+          <div className="flex gap-2">
+          {empresaId && contratoId && etapa === 1 && (
+            <>
+              <Button variant="outline" onClick={() => setBaseOpen(true)}><BookOpen className="w-4 h-4 mr-2" /> Base</Button>
+              <Button onClick={() => setIaOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90"><Sparkles className="w-4 h-4 mr-2" /> Gerar IA</Button>
+            </>
+          )}
           <Button variant="outline" onClick={() => (etapa === 2 ? (setEtapa(1), window.scrollTo(0, 0)) : navigate("/formulario-aep/novo"))}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
           </Button>
+          </div>
         }
       />
+
+      {empresaId && (
+        <>
+          <BaseAepModal empresaId={empresaId} open={baseOpen} onOpenChange={setBaseOpen} />
+          <GerarIaAepModal
+            open={iaOpen} onOpenChange={setIaOpen} empresaId={empresaId}
+            contexto={{
+              setores: setoresCtx,
+              identificacao_atual: ident,
+              atividades_atuais: atividades.map((l, i) => ({ id: i + 1, texto: l.texto })).filter((l) => l.texto),
+            }}
+            criterios={criterios} nomeFuncao={nomeFuncao} contarConflitos={contarConflitos} onAplicar={aplicarIa}
+          />
+        </>
+      )}
 
       {!empresaId || !contratoId ? (
         <Card className="p-6 text-sm text-muted-foreground">

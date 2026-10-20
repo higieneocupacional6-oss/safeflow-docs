@@ -78,3 +78,8 @@
 - [x] Estruturar decisão, motivos e pontos da AEP a aprofundar na AET
 - [x] Vincular diagnóstico e soluções aos problemas da AEP, sem inventar medições
 - [x] Validar testes de isolamento e geração real da AET: 76 testes aprovados; geração fictícia HTTP 200 com 12 campos, vínculo explícito e tempos não inventados; sem gravações em documentos reais
+
+# Formulário AEP — layout e IA
+- [x] Parte 2 sem rolagem horizontal
+- [x] Botão Base (até 4 PDF/DOCX/XLSX por empresa)
+- [x] Botão Gerar IA com prévia, origem informado/inferido e confirmação antes de substituir
