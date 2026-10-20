@@ -207,6 +207,10 @@ function maiorFonte(render: (doc: jsPDF, fs: number) => void, inicio: number) {
 }
 
 export function gerarPdfFormularioAep(d: FormularioAepPdfDados): Blob {
+  return new Blob([montarDocumento(d).output("arraybuffer")], { type: "application/pdf" });
+}
+
+export function montarDocumento(d: FormularioAepPdfDados): jsPDF {
   const f1 = maiorFonte((doc, fs) => pagina1(doc, d, fs), 9);
   const f2 = maiorFonte((doc, fs) => pagina2(doc, d, fs), 7);
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -216,5 +220,5 @@ export function gerarPdfFormularioAep(d: FormularioAepPdfDados): Blob {
   // Garantia: nunca entregar páginas extras.
   while (doc.getNumberOfPages() > 2) doc.deletePage(doc.getNumberOfPages());
   rodape(doc);
-  return doc.output("blob");
+  return doc;
 }
