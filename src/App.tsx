@@ -38,6 +38,7 @@ import FormularioAepNovo from "./pages/FormularioAepNovo";
 import FormularioAepPreencher from "./pages/FormularioAepPreencher";
 import AprErgo from "./pages/AprErgo";
 import AprErgoNovo from "./pages/AprErgoNovo";
+import AprErgoRegistro from "./pages/AprErgoRegistro";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,6 +82,7 @@ const App = () => (
             <Route path="/documentos/apr-ergo" element={<Protected><AprErgo /></Protected>} />
             <Route path="/documentos/apr-ergo/novo" element={<Protected><AprErgoNovo /></Protected>} />
             <Route path="/documentos/apr-ergo/editar/:documentoId" element={<Protected><AprErgoNovo /></Protected>} />
+            <Route path="/documentos/apr-ergo/registro/:registroId" element={<Protected><AprErgoRegistro /></Protected>} />
             <Route path="/documentos/controle" element={<Protected><ControleDocumentos /></Protected>} />
             <Route path="/psicossocial" element={<Protected><Psicossocial /></Protected>} />
             <Route path="/ficha-tecnica" element={<Protected><FichaTecnica /></Protected>} />
