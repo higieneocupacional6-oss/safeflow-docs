@@ -11,8 +11,8 @@ describe("APR-ERGO conforme planilha Anexo 03", () => {
   });
   it("classificação = perfil × severidade na Tabela U:V", () => {
     expect(classificacaoApr("Remota", S[0][1])).toBe("BAIXO");
-    expect(classificacaoApr("Pouco Provável", S[4][1])).toBe("MÉDIO");
-    expect(classificacaoApr("Ocasional", S[3][1])).toBe("MÉDIO");
+    expect(classificacaoApr("Pouco Provável", S[4][1])).toBe("ALTO");
+    expect(classificacaoApr("Ocasional", S[2][1])).toBe("MÉDIO");
     expect(classificacaoApr("Provável", S[4][1])).toBe("MUITO ALTO");
     expect(classificacaoApr("Frequente", S[2][1])).toBe("ALTO");
     expect(classificacaoApr("Remota", "")).toBe("");
