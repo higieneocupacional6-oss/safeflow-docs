@@ -981,6 +981,57 @@ export type Database = {
           },
         ]
       }
+      formularios_aep: {
+        Row: {
+          contrato_id: string
+          created_at: string
+          created_by: string | null
+          dados: Json
+          empresa_id: string
+          id: string
+          pdf_path: string | null
+          setor_ids: string[]
+          updated_at: string
+        }
+        Insert: {
+          contrato_id: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          empresa_id: string
+          id?: string
+          pdf_path?: string | null
+          setor_ids?: string[]
+          updated_at?: string
+        }
+        Update: {
+          contrato_id?: string
+          created_at?: string
+          created_by?: string | null
+          dados?: Json
+          empresa_id?: string
+          id?: string
+          pdf_path?: string | null
+          setor_ids?: string[]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "formularios_aep_contrato_id_fkey"
+            columns: ["contrato_id"]
+            isOneToOne: false
+            referencedRelation: "contratos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formularios_aep_empresa_id_fkey"
+            columns: ["empresa_id"]
+            isOneToOne: false
+            referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       funcoes: {
         Row: {
           cbo_codigo: string | null
