@@ -1,7 +1,7 @@
 # Project architecture rules
 
 - APR-ERGO initial records reuse documentos with tipo APR-ERGO and a sector ID in draft_snapshot; company, contract, sectors and functions are read from their existing registries, and no emission workflow is implied by draft creation.
-- APR-ERGO AI uses the existing streamed generation service and server-side exact document/company/contract/sector reads; only unambiguous single-sector AEP marks are transferred, because Anexo 01 does not persist per-factor severity or resulting risk. Reference files use the existing private Base bucket under company/contract/document/apr-base, keeping modules isolated without duplicate registries.
+- APR-ERGO AI uses the existing streamed generation service and server-side exact document/company/contract/sector reads; options, matrix and formulas live only in supabase/functions/_shared/aprErgoPlanilha.ts (copied from the Anexo 03 workbook); AI may only pick listed options, unambiguous AEP D/I marks take precedence, and Perfil/Classificação are always recomputed, never AI-written. Reference files use the existing private Base bucket under company/contract/document/apr-base, keeping modules isolated without duplicate registries.
 
 - Psychosocial report screen, PDF, and Word exports must consume the same numerically sorted group payload so presentation formats cannot diverge.
 - Psychosocial report terminology and frequency values must be normalized before persistence and shared by screen, PDF, Word, and AI context so legacy wording cannot reappear.
