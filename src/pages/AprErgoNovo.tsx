@@ -100,7 +100,7 @@ export default function AprErgoNovo() {
       const registros = (registrosQuery.data || []).filter((r) => setorDoRegistroAprErgo(r.draft_snapshot) === s.id);
       return <section key={s.id} className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-heading font-semibold break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</h2><div className="flex gap-2">
-          {registros.length === 0 && <Button variant="outline" disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => adicionarRegistro(s)}><FilePlus2 className="w-4 h-4 mr-2" />Registro</Button>}
+          <Button variant="outline" disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => adicionarRegistro(s)}><FilePlus2 className="w-4 h-4 mr-2" />Registro</Button>
           <Button variant="outline" size="icon" title={`Adicionar APR-ERGO em ${s.nome_setor}`} aria-label={`Adicionar APR-ERGO em ${s.nome_setor}`} disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => adicionarRegistro(s)}>{salvando === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}</Button>
         </div></div>
         <div><h3 className="text-xs font-medium text-muted-foreground mb-2">Funções</h3><div className="flex flex-wrap gap-2">{s.funcoes.map((f) => <Badge key={f.id} variant="secondary" className="whitespace-normal break-words">{f.nome_funcao}</Badge>)}{s.funcoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma função cadastrada neste setor</p>}</div></div>
