@@ -16,7 +16,7 @@ const schema = { type: "object", properties: {
   linhas: { type: "array", items: { type: "object", properties: {
     cenario: { type: "string" }, circunstancia: { type: "string" }, recomendacoes: { type: "string" }, codigo_aep: { type: "string" }, formulario_aep_id: { type: "string" },
     situacao: opc(SITUACOES_APR), exigencia: opc(EXIGENCIAS_APR.map((e) => e[1])), tipo: opc(TIPOS_APR),
-    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR)] } },
+    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR.map(semAspas))] } },
     estimativa: opc(ESTIMATIVAS_APR.map((e) => e[0])), intensidade: opc(INTENSIDADES_APR.map((e) => e[0])), severidade: opc(SEVERIDADES_APR.map((e) => e[1])),
   } } }, observacoes: { type: "string" },
 } };
@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
           const um = (v: unknown, ops: readonly string[]) => typeof v === "string" && v ? ops.find((o) => o === v || semAspas(o) === semAspas(v)) || "" : "";
           const situacao = um(l.situacao, SITUACOES_APR);
           const salvas = classificacoesSalvasApr(marcas || {});
-          const medidas = [...new Set((Array.isArray(l.medidas) ? l.medidas : []).filter((m: unknown) => typeof m === "string" && MEDIDAS_APR.includes(m)))].join("; ");
+          const medidas = [...new Set((Array.isArray(l.medidas) ? l.medidas : []).map((m: unknown) => um(m, MEDIDAS_APR)).filter(Boolean))].join("; ");
           return recalcularLinhaApr({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, typeof l[k] === "string" ? l[k] : ""])),
             situacao, exigencia: um(l.exigencia, exigenciasDaSituacao(situacao)), tipo: um(l.tipo, TIPOS_APR), medidas,
             estimativa: salvas.estimativa || um(l.estimativa, ESTIMATIVAS_APR.map((e) => e[0])),
