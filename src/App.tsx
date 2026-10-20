@@ -36,6 +36,8 @@ import FichaTecnicaContrato from "./pages/FichaTecnicaContrato";
 import FormularioAep from "./pages/FormularioAep";
 import FormularioAepNovo from "./pages/FormularioAepNovo";
 import FormularioAepPreencher from "./pages/FormularioAepPreencher";
+import AprErgo from "./pages/AprErgo";
+import AprErgoNovo from "./pages/AprErgoNovo";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -76,6 +78,9 @@ const App = () => (
             <Route path="/templates/avaliacoes-psicossociais" element={<Protected><TemplatesPsicossociais /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
+            <Route path="/documentos/apr-ergo" element={<Protected><AprErgo /></Protected>} />
+            <Route path="/documentos/apr-ergo/novo" element={<Protected><AprErgoNovo /></Protected>} />
+            <Route path="/documentos/apr-ergo/editar/:documentoId" element={<Protected><AprErgoNovo /></Protected>} />
             <Route path="/documentos/controle" element={<Protected><ControleDocumentos /></Protected>} />
             <Route path="/psicossocial" element={<Protected><Psicossocial /></Protected>} />
             <Route path="/ficha-tecnica" element={<Protected><FichaTecnica /></Protected>} />

@@ -31,10 +31,11 @@ const docTypes = [
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
   { id: "aep", label: "AEP", desc: "Análise Ergonômica Preliminar" },
+  { id: "apr-ergo", label: "APR-ERGO", desc: "APR-ERGO" },
 ];
 
 // Ordem canônica exibida na árvore.
-const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AEP"];
+const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AEP", "APR-ERGO"];
 
 const tipoLabel = (t: string) => {
   const up = (t || "").toUpperCase();
@@ -153,6 +154,7 @@ export default function Documentos() {
     else if (typeId === "periculosidade") setTimeout(() => setPericulosidadeOpen(true), 100);
     else if (typeId === "aet") navigate("/documentos/aet/novo");
     else if (typeId === "aep") navigate("/documentos/aep/novo");
+    else if (typeId === "apr-ergo") navigate("/documentos/apr-ergo");
     else if (typeId === "pgr") navigate("/documentos/pgr/novo");
     else if (typeId === "pcmso") setTimeout(() => setPcmsoOpen(true), 100);
   };
@@ -198,6 +200,7 @@ export default function Documentos() {
     const map: Record<string, string> = {
       LTCAT: "ltcat", INSALUBRIDADE: "insalubridade", PERICULOSIDADE: "periculosidade",
       AET: "aet", AEP: "aep", PGR: "pgr", PCMSO: "pcmso",
+      "APR-ERGO": "apr-ergo",
     };
     const slug = map[tipo];
     if (slug) navigate(`/documentos/${slug}/editar/${doc.id}`);
@@ -383,7 +386,7 @@ export default function Documentos() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="font-heading">Novo Documento</DialogTitle>
           </DialogHeader>
