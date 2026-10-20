@@ -21,7 +21,7 @@ export type ResultadoIaAep = {
   observacoes: string;
 };
 
-export function BaseAepModal({ empresaId, open, onOpenChange }: { empresaId: string; open: boolean; onOpenChange: (v: boolean) => void }) {
+export function BaseAepModal({ empresaId, open, onOpenChange, limite = MAX_ARQUIVOS_BASE, titulo = "Base de referência do Formulário AEP" }: { empresaId: string; open: boolean; onOpenChange: (v: boolean) => void; limite?: number; titulo?: string }) {
   const qc = useQueryClient();
   const ref = useRef<HTMLInputElement>(null);
   const [enviando, setEnviando] = useState(false);
@@ -35,8 +35,8 @@ export function BaseAepModal({ empresaId, open, onOpenChange }: { empresaId: str
   const enviar = async (files: FileList | null) => {
     if (!files?.length) return;
     const lista = Array.from(files);
-    if (arquivos.length + lista.length > MAX_ARQUIVOS_BASE) {
-      toast.error(`Limite de ${MAX_ARQUIVOS_BASE} arquivos na Base.`);
+    if (arquivos.length + lista.length > limite) {
+      toast.error(`Limite de ${limite} arquivos na Base.`);
       if (ref.current) ref.current.value = "";
       return;
     }
@@ -57,16 +57,16 @@ export function BaseAepModal({ empresaId, open, onOpenChange }: { empresaId: str
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle className="font-heading">Base de referência do Formulário AEP</DialogTitle>
+          <DialogTitle className="font-heading">{titulo}</DialogTitle>
           <DialogDescription>
-            Até {MAX_ARQUIVOS_BASE} arquivos (PDF, DOCX ou XLSX) desta empresa. A IA usa estes documentos como instruções
+            Até {limite} arquivos (PDF, DOCX ou XLSX). A IA usa estes documentos como instruções
             prioritárias para interpretar critérios, matriz e regras de preenchimento.
           </DialogDescription>
         </DialogHeader>
         <input ref={ref} type="file" multiple accept=".pdf,.docx,.xlsx" className="hidden" onChange={(e) => enviar(e.target.files)} />
-        <Button variant="outline" onClick={() => ref.current?.click()} disabled={enviando || arquivos.length >= MAX_ARQUIVOS_BASE}>
+        <Button variant="outline" onClick={() => ref.current?.click()} disabled={enviando || arquivos.length >= limite}>
           {enviando ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <Upload className="w-4 h-4 mr-1.5" />}
-          Adicionar arquivos ({arquivos.length}/{MAX_ARQUIVOS_BASE})
+          Adicionar arquivos ({arquivos.length}/{limite})
         </Button>
         <div className="space-y-2">
           {isLoading && <Loader2 className="w-5 h-5 animate-spin mx-auto" />}

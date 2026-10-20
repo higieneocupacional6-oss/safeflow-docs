@@ -46,12 +46,12 @@ function toBase64(buf: ArrayBuffer) {
 }
 
 /** Baixa a base e prepara para a IA: PDF em base64; DOCX/XLSX como texto extraído. */
-export async function carregarBaseParaIa(empresaId: string): Promise<BaseParaIa[]> {
+export async function carregarBaseParaIa(empresaId: string, limite = MAX_ARQUIVOS_BASE): Promise<BaseParaIa[]> {
   const arquivos = await listarBase(empresaId);
   const out: BaseParaIa[] = [];
-  for (const a of arquivos.slice(0, MAX_ARQUIVOS_BASE)) {
-    const { data: blob } = await supabase.storage.from(BUCKET_FORM_AEP_BASE).download(a.caminho);
-    if (!blob) continue;
+  for (const a of arquivos.slice(0, limite)) {
+    const { data: blob, error } = await supabase.storage.from(BUCKET_FORM_AEP_BASE).download(a.caminho);
+    if (error || !blob) throw new Error(`Não foi possível ler ${a.nome}.`);
     const buf = await blob.arrayBuffer();
     const ext = a.nome.toLowerCase();
     try {
@@ -68,7 +68,7 @@ export async function carregarBaseParaIa(empresaId: string): Promise<BaseParaIa[
         out.push({ nome: a.nome, tipo: "texto", data: texto });
       }
     } catch (e) {
-      console.warn("[formularioAepBase] falha ao ler", a.nome, e);
+      throw new Error(`Não foi possível interpretar ${a.nome}. Verifique o arquivo.`);
     }
   }
   return out;
