@@ -30,7 +30,7 @@ export const INTENSIDADE = [
   "2 - Detectada, dentro dos níveis de conforto.",
   "3 - Constatada podendo causar desconforto - dificuldade - fadiga",
   "4 - Constatada, por causar desconforto -dificuldade - fadiga, há queixas dos empregados.",
-  "4 - Quando não é possível estimar a exigência ergonômica, ou a exigência é incerta.",
+  "5 - Quando não é possível estimar a exigência ergonômica, ou a exigência é incerta.",
 ];
 export const COLUNAS = [
   ...DURACAO.map((_, i) => `D${i + 1}`),
