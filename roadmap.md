@@ -91,7 +91,7 @@
 - [x] Validar navegação, isolamento e persistência dos registros
 
 # APR-ERGO — tabela e IA
-- [ ] Melhorar leitura e miniaturas sem mudar a estrutura
-- [ ] Integrar Base de até 6 arquivos e IA com prévia e proteção de edições
-- [ ] Reutilizar classificações AEP do mesmo escopo sem inventar valores
-- [ ] Validar geração, salvamento e reabertura
+- [x] Melhorar leitura e miniaturas sem mudar a estrutura
+- [x] Integrar Base de até 6 arquivos e IA com prévia e proteção de edições
+- [x] Reutilizar duração/intensidade AEP do mesmo escopo; severidade/perfil/risco vazios porque Anexo 01 não os persiste por fator
+- [x] Validar geração real com referência e AEP temporárias, confirmação, salvamento, reabertura, preservação de foto/texto e limpeza dos testes
