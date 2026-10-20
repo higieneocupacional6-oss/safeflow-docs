@@ -58,7 +58,8 @@ REGRAS:
    - atividades_ids: linhas da Parte II que você retornar (crie as atividades reais da função na Parte II quando o relato as descrever).
    - origem "informado" quando duração/intensidade vierem do relato; "inferido" quando estimadas tecnicamente. validar=true para toda classificação inferida ou incerta.
 7. "fundamento": frase curta com o fato informado ou o raciocínio técnico e a referência (Base ou fonte externa).
-8. funcoes_ids: apenas IDs presentes na lista de funções cadastradas que correspondam ao relato.`;
+8. funcoes_ids: inclua SEMPRE os IDs de "funcoes_amostradas" do cadastro (funções selecionadas pelo usuário) e, além delas, somente IDs cadastrados que correspondam ao relato.
+9. FUNÇÕES AMOSTRADAS: associe o relato a cada função de "funcoes_amostradas", usando suas "atividades_reais". Na Parte II, cada atividade deve pertencer a uma dessas funções e o texto deve começar pelo nome da função (ex.: "Operador de Harvester – Corte e processamento de árvores"). Em cada fator da Parte IV, "atividades_ids" deve apontar exatamente para as linhas da Parte II cuja atividade gera aquele fator; nunca vincule um fator a uma atividade que não o produz.`;
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
