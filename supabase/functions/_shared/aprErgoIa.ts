@@ -27,3 +27,12 @@ export function formulariosCompativeisApr<T extends { setor_ids: string[]; dados
     return !dados?.funcoes?.length || dados.funcoes.every((id) => funcaoIds.includes(id));
   });
 }
+
+export function classificacoesSalvasApr(marcas: Record<string, string>, duracao: string[], intensidade: string[]) {
+  const unico = (prefixo: string, textos: string[]) => {
+    const ativos = Object.entries(marcas).filter(([k, v]) => new RegExp(`^${prefixo}[1-5]$`).test(k) && String(v).trim());
+    return ativos.length === 1 ? textos[Number(ativos[0][0].slice(1)) - 1] || "" : "";
+  };
+  // No per-factor severity/frequency/risk is persisted by Anexo 01. A legend is not evidence.
+  return { estimativa: unico("D", duracao), intensidade: unico("I", intensidade), perfil: "", severidade: "", classificacao: "" };
+}

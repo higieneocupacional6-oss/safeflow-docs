@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarPropostaApr, contarConflitosApr, formulariosCompativeisApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, contarConflitosApr, formulariosCompativeisApr, classificacoesSalvasApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
 const linha = (patch = {}) => ({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, ""])), fotos: [], ...patch }) as Parameters<typeof aplicarPropostaApr>[0][number];
 describe("APR-ERGO IA", () => {
   it("preserva texto manual e fotos ao preencher vazios", () => {
@@ -15,4 +15,8 @@ describe("APR-ERGO IA", () => {
     expect(formulariosCompativeisApr([form(["s"], ["f"]), form(["s", "outro"], ["f"]), form(["s"], ["outra"]), form(["outro"], ["f"])], "s", ["f"])).toEqual([form(["s"], ["f"])]);
   });
   it("limita a Base APR a seis arquivos", () => expect(MAX_BASE_APR).toBe(6));
+  it("reutiliza apenas marcas únicas e não inventa severidade nem risco", () => {
+    expect(classificacoesSalvasApr({ D2: "X", I5: "X", A1: "X" }, ["d1", "d2"], ["i1", "i2", "i3", "i4", "incerta"])).toEqual({ estimativa: "d2", intensidade: "incerta", perfil: "", severidade: "", classificacao: "" });
+    expect(classificacoesSalvasApr({ D1: "X", D2: "X" }, ["d1", "d2"], [])).toMatchObject({ estimativa: "" });
+  });
 });
