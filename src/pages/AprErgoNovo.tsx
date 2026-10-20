@@ -64,7 +64,7 @@ export default function AprErgoNovo() {
   ], "apr-ergo-cadastro");
   const setores = setoresQuery.data || [];
   const mudarEscopo = () => { setSelecionados([]); setTemporarios([]); pendingId.current = null; };
-  const adicionarRegistro = async (setor: AprErgoSetor) => {
+  const adicionarRegistro = async (setor: AprErgoSetor, abrir = false) => {
     if (salvandoRef.current || registrosQuery.isError || registrosQuery.isLoading) return;
     const empresa = empresasQuery.data?.find((e) => e.id === empresaId);
     if (!empresa || !contratosQuery.data?.some((c) => c.id === contratoId)) return toast.error("Selecione uma empresa e um contrato válidos.");
@@ -78,6 +78,7 @@ export default function AprErgoNovo() {
       pendingId.current = null;
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["apr-ergo-registros"] }), queryClient.invalidateQueries({ queryKey: ["apr-ergo-documentos"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
       toast.success("Registro APR-ERGO adicionado como rascunho");
+      if (abrir) navigate(`/documentos/apr-ergo/registro/${id}`);
     } catch { toast.error("Não foi possível adicionar o registro. Tente novamente."); }
     finally { salvandoRef.current = false; setSalvando(null); }
   };
@@ -100,11 +101,11 @@ export default function AprErgoNovo() {
       const registros = (registrosQuery.data || []).filter((r) => setorDoRegistroAprErgo(r.draft_snapshot) === s.id);
       return <section key={s.id} className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-heading font-semibold break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</h2><div className="flex gap-2">
-          <Button variant="outline" disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => adicionarRegistro(s)}><FilePlus2 className="w-4 h-4 mr-2" />Registro</Button>
+          <Button variant="outline" disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => { const r = (registrosQuery.data || []).filter((x) => setorDoRegistroAprErgo(x.draft_snapshot) === s.id); if (r.length) navigate(`/documentos/apr-ergo/registro/${r[0].id}`); else void adicionarRegistro(s, true); }}><FilePlus2 className="w-4 h-4 mr-2" />Registro</Button>
           <Button variant="outline" size="icon" title={`Adicionar APR-ERGO em ${s.nome_setor}`} aria-label={`Adicionar APR-ERGO em ${s.nome_setor}`} disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => adicionarRegistro(s)}>{salvando === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}</Button>
         </div></div>
         <div><h3 className="text-xs font-medium text-muted-foreground mb-2">Funções</h3><div className="flex flex-wrap gap-2">{s.funcoes.map((f) => <Badge key={f.id} variant="secondary" className="whitespace-normal break-words">{f.nome_funcao}</Badge>)}{s.funcoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma função cadastrada neste setor</p>}</div></div>
-        {registros.length > 0 && <ul className="divide-y divide-border">{registros.map((r, i) => <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><span>Registro {i + 1}</span><Badge variant="outline">{r.status === "rascunho" ? "Rascunho" : r.status === "concluido" ? "Concluído" : r.status}</Badge></li>)}</ul>}
+        {registros.length > 0 && <ul className="divide-y divide-border">{registros.map((r, i) => <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><button type="button" className="hover:text-primary underline-offset-2 hover:underline" onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}`)}>Registro {i + 1}</button><Badge variant="outline">{r.status === "rascunho" ? "Rascunho" : r.status === "concluido" ? "Concluído" : r.status}</Badge></li>)}</ul>}
       </section>;
     })}</div>
     <Dialog open={modal} onOpenChange={setModal}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Selecione os setores</DialogTitle></DialogHeader>
