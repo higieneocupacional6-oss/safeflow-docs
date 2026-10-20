@@ -9,12 +9,14 @@ const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim()
   criterios: z.object({ duracao: z.array(z.string().max(500)).length(5), intensidade: z.array(z.string().max(500)).length(5), fatores: z.array(z.tuple([z.string().max(100), z.array(z.string().max(1000))])).max(10) }),
   base: z.array(z.object({ nome: z.string().max(255), tipo: z.enum(["pdf", "texto"]), data: z.string().max(14000000) })).max(6),
 });
-const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v)] });
+// Saída estruturada estrita não aceita aspas duplas em literais de enum: normaliza para ' e reverte no pós-processamento.
+const semAspas = (s: string) => s.replace(/["“”]/g, "'");
+const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v.map(semAspas))] });
 const schema = { type: "object", properties: {
   linhas: { type: "array", items: { type: "object", properties: {
     cenario: { type: "string" }, circunstancia: { type: "string" }, recomendacoes: { type: "string" }, codigo_aep: { type: "string" }, formulario_aep_id: { type: "string" },
     situacao: opc(SITUACOES_APR), exigencia: opc(EXIGENCIAS_APR.map((e) => e[1])), tipo: opc(TIPOS_APR),
-    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR)] } },
+    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR.map(semAspas))] } },
     estimativa: opc(ESTIMATIVAS_APR.map((e) => e[0])), intensidade: opc(INTENSIDADES_APR.map((e) => e[0])), severidade: opc(SEVERIDADES_APR.map((e) => e[1])),
   } } }, observacoes: { type: "string" },
 } };
@@ -60,10 +62,10 @@ Deno.serve(async (req) => {
           const f = compativeis.find((f) => f.id === l.formulario_aep_id);
           const marcas = f?.dados?.reconhecimento?.marcas?.[l.codigo_aep];
           if (marcas) fontes.add(f.id);
-          const um = (v: unknown, ops: readonly string[]) => typeof v === "string" && ops.includes(v) ? v : "";
+          const um = (v: unknown, ops: readonly string[]) => typeof v === "string" && v ? ops.find((o) => o === v || semAspas(o) === semAspas(v)) || "" : "";
           const situacao = um(l.situacao, SITUACOES_APR);
           const salvas = classificacoesSalvasApr(marcas || {});
-          const medidas = [...new Set((Array.isArray(l.medidas) ? l.medidas : []).filter((m: unknown) => typeof m === "string" && MEDIDAS_APR.includes(m)))].join("; ");
+          const medidas = [...new Set((Array.isArray(l.medidas) ? l.medidas : []).map((m: unknown) => um(m, MEDIDAS_APR)).filter(Boolean))].join("; ");
           return recalcularLinhaApr({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, typeof l[k] === "string" ? l[k] : ""])),
             situacao, exigencia: um(l.exigencia, exigenciasDaSituacao(situacao)), tipo: um(l.tipo, TIPOS_APR), medidas,
             estimativa: salvas.estimativa || um(l.estimativa, ESTIMATIVAS_APR.map((e) => e[0])),
