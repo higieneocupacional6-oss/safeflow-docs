@@ -187,15 +187,19 @@ export default function FormularioAepPreencher() {
     setControles((c) => mesclar(c, r.controles));
     setReconhecimento((rec) => {
       const marcas = { ...rec.marcas };
+      const ia = { ...(rec.ia || {}) };
       (r.fatores || []).forEach((f) => {
         if (!codigosValidos.has(f.codigo)) return;
         const m = marcasFator(f);
         if (!Object.keys(m).length) return;
         if (temMarca(marcas[f.codigo]) && !substituir) return;
         marcas[f.codigo] = m;
+        ia[f.codigo] = { origem: f.origem, validar: f.validar ?? f.origem !== "informado", fundamento: f.fundamento };
       });
-      return { ...rec, marcas };
+      return { ...rec, marcas, ia };
     });
+    setEtapa(2);
+    window.scrollTo(0, 0);
   };
   const nomeFuncao = (id: string) => funcoes.find((f: any) => f.id === id)?.nome_funcao || id;
 
