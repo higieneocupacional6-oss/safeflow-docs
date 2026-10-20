@@ -23,6 +23,7 @@ export default function FormularioAep() {
       { table: "empresas", queryKey: ["formulario-aep-empresas"] },
       { table: "contratos", queryKey: ["formulario-aep-contratos"] },
       { table: "documentos", queryKey: ["formulario-aep-documentos"] },
+      { table: "formularios_aep", queryKey: ["formulario-aep-salvos"] },
     ],
     "formulario-aep-sync",
   );
@@ -64,8 +65,23 @@ export default function FormularioAep() {
     },
   });
 
+  const { data: salvos = [] } = useQuery({
+    queryKey: ["formulario-aep-salvos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("formularios_aep")
+        .select("id, empresa_id, contrato_id, setor_ids, created_at, updated_at")
+        .order("updated_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
+
   const contratosByEmpresa = (id: string) => contratos.filter((c) => c.empresa_id === id);
-  const formulariosByContrato = (id: string) => formularios.filter((f) => f.contrato_id === id);
+  const formulariosByContrato = (id: string) => [
+    ...salvos.filter((f) => f.contrato_id === id).map((f) => ({ ...f, salvo: true })),
+    ...formularios.filter((f) => f.contrato_id === id),
+  ];
 
   return (
     <div>
@@ -170,7 +186,9 @@ export default function FormularioAep() {
                                 {forms.map((f) => (
                                   <button
                                     key={f.id}
-                                    onClick={() => navigate(`/documentos/aep/editar/${f.id}`)}
+                                    onClick={() => f.salvo
+                                      ? navigate("/formulario-aep/preencher", { state: { empresaId: f.empresa_id, contratoId: f.contrato_id, setorIds: f.setor_ids || [], formularioId: f.id } })
+                                      : navigate(`/documentos/aep/editar/${f.id}`)}
                                     className="w-full flex items-center gap-2 rounded-md border border-border bg-background px-3 py-2 text-left hover:border-primary/50 hover:shadow-sm transition-all"
                                   >
                                     <ClipboardCheck className="w-4 h-4 text-muted-foreground shrink-0" />
@@ -178,10 +196,10 @@ export default function FormularioAep() {
                                       Formulário AEP — {formatDate(f.created_at)}
                                     </span>
                                     <Badge
-                                      variant={f.status === "concluido" ? "default" : "outline"}
+                                      variant={f.salvo || f.status === "concluido" ? "default" : "outline"}
                                       className="text-[10px] shrink-0"
                                     >
-                                      {f.status === "concluido" ? "Concluído" : "Rascunho"}
+                                      {f.salvo ? "Formulário salvo" : f.status === "concluido" ? "Concluído" : "Rascunho"}
                                     </Badge>
                                     <span className="text-[11px] text-muted-foreground shrink-0">
                                       atualizado em {formatDate(f.updated_at)}
