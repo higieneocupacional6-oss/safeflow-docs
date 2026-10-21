@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, BookOpen, Download, ImagePlus, Loader2, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
@@ -64,6 +64,7 @@ function ajustarAltura(el: HTMLTextAreaElement | null) {
 export default function AprErgoRegistro() {
   const { registroId } = useParams();
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const qc = useQueryClient();
   const [cab, setCab] = useState<Cabecalho | null>(null);
   const [linhas, setLinhas] = useState<Linha[]>([linhaVazia(), linhaVazia()]);
@@ -77,18 +78,19 @@ export default function AprErgoRegistro() {
   const { data, isLoading, isError } = useQuery({
     queryKey: ["apr-ergo-registro", registroId], enabled: !!registroId,
     queryFn: async () => {
-      const { data, error } = await supabase.from("documentos").select("id, empresa_id, contrato_id, empresa_nome, draft_snapshot").eq("id", registroId || "").eq("tipo", "APR-ERGO").single();
+      const { data, error } = await supabase.from("documentos").select("id, empresa_id, contrato_id, empresa_nome, draft_snapshot, status").eq("id", registroId || "").eq("tipo", "APR-ERGO").single();
       if (error) throw error;
       const snap = (data.draft_snapshot || {}) as Record<string, unknown>;
       let setorNome = "";
       let setorArquivo = "";
       let cargos: string[] = [];
       if (typeof snap.setor_id === "string") {
-        const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
+        const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
         if (setorError) throw setorError;
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
         setorArquivo = s?.nome_setor || "";
-        cargos = [...new Set((s?.funcoes || []).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const fid = typeof snap.funcao_id === "string" ? snap.funcao_id : null;
+        cargos = [...new Set((s?.funcoes || []).filter((f) => !fid || f.id === fid).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
       return { ...data, snap, setorNome, setorArquivo, cargos };
     },
@@ -124,9 +126,9 @@ export default function AprErgoRegistro() {
     if (!data || !cab) return;
     setSalvando(true);
     try {
-      const { data: saved, error } = await supabase.from("documentos").update({ draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: { ...cab, cargo: data.cargos.join("; ") }, linhas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
+      const { data: saved, error } = await supabase.from("documentos").update({ status: "salvo", draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: { ...cab, cargo: data.cargos.join("; ") }, linhas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
       if (error || !saved) throw new Error("Não foi possível salvar. Tente novamente.");
-      qc.invalidateQueries({ queryKey: ["apr-ergo-registro", registroId] });
+      qc.invalidateQueries({ queryKey: ["apr-ergo-registro", registroId] }); qc.invalidateQueries({ queryKey: ["apr-ergo-registros"] }); qc.invalidateQueries({ queryKey: ["apr-ergo-documentos"] });
       toast.success("APR-ERGO salva");
     } catch { toast.error("Não foi possível salvar. Seus dados continuam na tela."); }
     finally { setSalvando(false); }
@@ -155,6 +157,13 @@ export default function AprErgoRegistro() {
     } catch { toast.error("Não foi possível gerar o PDF. Seus dados continuam na tela."); }
   };
 
+  useEffect(() => {
+    if (params.get("baixar") !== "1" || !cab || !data) return;
+    setParams({}, { replace: true });
+    setTimeout(baixar, 0);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params, cab, data]);
+
   if (isLoading || (!cab && !isError)) return <Loader2 className="w-6 h-6 animate-spin mx-auto my-12" />;
   if (isError || !cab) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro.</p><Button variant="outline" onClick={() => navigate(-1)}>Voltar</Button></div>;
 
@@ -173,7 +182,7 @@ export default function AprErgoRegistro() {
         <Button variant="outline" size="sm" onClick={() => setBaseOpen(true)}><BookOpen className="w-4 h-4 mr-1" />Base</Button>
         <Button variant="outline" size="sm" onClick={() => setIaOpen(true)} disabled={salvando}><Sparkles className="w-4 h-4 mr-1" />Gerar IA</Button>
         <Button size="sm" onClick={salvar} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}Salvar</Button>
-        <Button variant="outline" size="sm" onClick={baixar} disabled={salvando}><Download className="w-4 h-4 mr-1" />Baixar</Button>
+        <Button variant="outline" size="sm" onClick={baixar} disabled={salvando || data?.status === "rascunho"} title={data?.status === "rascunho" ? "Salve a APR-ERGO para baixar" : "Baixar PDF"}><Download className="w-4 h-4 mr-1" />Baixar</Button>
       </div>
     </div>
     <div className="bg-card text-card-foreground border border-border p-1 min-w-0">
