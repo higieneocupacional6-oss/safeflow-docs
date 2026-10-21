@@ -34,7 +34,10 @@ export function gerarPdfApr(cab: CabecalhoPdf, linhas: LinhaApr[], colunas: Colu
   const body: CellInput[][] = [];
   doc.setFontSize(8);
   for (const linha of linhas) {
-    const textos = colunas.map((c, i) => c.key === "fotos" ? [] : doc.splitTextToSize(String(linha[c.key] || ""), larguras[i] - 3.6) as string[]);
+    const textos = colunas.map((c, i) => {
+      doc.setFont("helvetica", ["perfil", "classificacao", "recomendacoes"].includes(c.key) ? "bold" : "normal");
+      return c.key === "fotos" ? [] : doc.splitTextToSize(String(linha[c.key] || ""), larguras[i] - 3.6) as string[];
+    });
     // At most 28 text lines per physical row; each photo gets its own continuation when needed.
     const partes = Math.max(1, ...textos.map((t) => Math.ceil(t.length / 28)), linha.fotos.length);
     for (let p = 0; p < partes; p++) {

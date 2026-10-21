@@ -57,4 +57,9 @@ describe("APR-ERGO IA", () => {
     const proposta = linha({ funcao_id: "f", funcao_nome: "Operador", setor_id: "s", circunstancia: "Operador — tarefa" });
     expect(aplicarPropostaApr([linha({ fotos: ["foto"] })], [proposta], true)[0]).toMatchObject({ funcao_id: "f", setor_id: "s", fotos: ["foto"] });
   });
+  it("não atribui função nova a circunstância manual preservada", () => {
+    const atual = linha({ circunstancia: "Atividade manual existente" });
+    const proposta = linha({ funcao_id: "f", setor_id: "s", circunstancia: "Outra tarefa" });
+    expect(aplicarPropostaApr([atual], [proposta], false)[0].funcao_id).toBeUndefined();
+  });
 });
