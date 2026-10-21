@@ -5,6 +5,7 @@ import type { LinhaApr } from "../../supabase/functions/_shared/aprErgoIa";
 type CabecalhoPdf = Record<string, string>;
 type ColunaPdf = { key: keyof LinhaApr; titulo: string; w: string };
 type CorPdf = [number, number, number];
+export const TITULO_PDF_APR = "ANEXO 3 – ANÁLISE PRELIMINAR DE RISCOS ERGONÔMICOS (APR-ERGO)";
 export function nomePdfApr(setor: string, empresa: string) {
   const seguro = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
   return `APR_ERGO_${seguro(setor) || "SETOR"}_${seguro(empresa) || "Empresa"}_2026.pdf`;
@@ -16,10 +17,10 @@ export function gerarPdfApr(cab: CabecalhoPdf, linhas: LinhaApr[], colunas: Colu
   const margem = 10, largura = doc.internal.pageSize.getWidth() - margem * 2;
   const soma = colunas.reduce((n, c) => n + parseFloat(c.w), 0);
   const larguras = colunas.map((c) => largura * parseFloat(c.w) / soma);
-  const tabela = { theme: "grid" as const, margin: { left: margem, right: margem, top: 17, bottom: 15 }, styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" as const, lineWidth: 0.2, lineColor: 0, fillColor: 255, textColor: 0 }, headStyles: { fillColor: 255, textColor: 0, fontStyle: "bold" as const, halign: "center" as const }, rowPageBreak: "avoid" as const };
+  const tabela = { theme: "grid" as const, margin: { left: margem, right: margem, top: 17, bottom: 15 }, styles: { fontSize: 8, cellPadding: 1.8, overflow: "linebreak" as const, lineWidth: 0.2, lineColor: 0, fillColor: 255, textColor: 0 }, headStyles: { fillColor: 217, textColor: 0, fontStyle: "bold" as const, halign: "center" as const }, rowPageBreak: "avoid" as const };
   const campo = (label: string, key: string, colSpan: number): CellInput => ({ content: `${label} ${cab[key] || ""}`, colSpan });
   const identificacao: CellInput[][] = [
-    [{ content: "Anexo 3 Análise Preliminar de Riscos Ergonômicos (APR-ERGO)", colSpan: 13, styles: { fontStyle: "bold", fontSize: 12 } }],
+    [{ content: TITULO_PDF_APR, colSpan: 13, styles: { fontStyle: "bold", fontSize: 12, halign: "center", fillColor: [0, 51, 153], textColor: 255 } }],
     [campo("Empresa:", "empresa", 5), campo("Data:", "data", 3), campo("Nº de pessoas expostas:", "pessoas", 5)],
     [{ content: "", colSpan: 5 }, campo("Local SSO:", "localSso", 4), campo("Local Físico:", "localFisico", 4)],
     [campo("Nome do GERE:", "gere", 11), campo("Gerência de área:", "gerencia", 2)],

@@ -50,6 +50,11 @@ Deno.serve(async (req) => {
     if (typeof setorId !== "string") return json("O registro não possui setor vinculado.", 400);
     const { data: setor, error: setorError } = await sb.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente, funcoes(id, nome_funcao, descricao_atividades)").eq("id", setorId).eq("empresa_id", doc.empresa_id).eq("contrato_id", doc.contrato_id).single();
     if (setorError || !setor) return json("O setor não corresponde à empresa e ao contrato.", 400);
+    const funcaoId = doc.draft_snapshot?.funcao_id;
+    if (typeof funcaoId === "string") {
+      setor.funcoes = setor.funcoes.filter((f: { id: string }) => f.id === funcaoId);
+      if (!setor.funcoes.length) return json("A função não pertence ao setor desta APR-ERGO.", 400);
+    }
     const formularios = [];
     for (let offset = 0; ; offset += 100) {
       const { data, error } = await sb.from("formularios_aep").select("id, setor_ids, dados, updated_at").eq("empresa_id", doc.empresa_id).eq("contrato_id", doc.contrato_id).contains("setor_ids", [setorId]).order("updated_at", { ascending: false }).range(offset, offset + 99);
