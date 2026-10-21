@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, contarConflitosApr, formulariosCompativeisApr, recalcularLinhaApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, sincronizarCondutaApr, cenariosValidosApr, contarConflitosApr, formulariosCompativeisApr, recalcularLinhaApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
 import { ESTIMATIVAS_APR as E, INTENSIDADES_APR as I, SEVERIDADES_APR as S } from "../../supabase/functions/_shared/aprErgoPlanilha";
 const linha = (patch = {}) => ({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, ""])), fotos: [], ...patch }) as Parameters<typeof aplicarPropostaApr>[0][number];
 describe("APR-ERGO IA", () => {
@@ -31,12 +31,30 @@ describe("APR-ERGO IA", () => {
     expect(condutaApr("SEM RISCO")).toBe("Nenhuma ação é requerida e nenhum registro documental precisa ser mantido.");
     expect(condutaApr("")).toBe("");
   });
-  it("conduta acompanha a classificação recalculada e preserva o texto restante", () => {
+  it("Muito Alto contém exclusivamente a conduta, inclusive após recalcular", () => {
     const alta = recalcularLinhaApr(linha({ estimativa: E[4][0], intensidade: I[3][0], severidade: S[4][1], recomendacoes: "Sugestão específica" }));
     expect(alta.classificacao).toBe("MUITO ALTO");
-    expect(alta.recomendacoes).toBe(`${condutaApr("MUITO ALTO")}\nSugestão específica`);
+    expect(alta.recomendacoes).toBe(condutaApr("MUITO ALTO"));
     const baixa = recalcularLinhaApr({ ...alta, estimativa: E[0][0], intensidade: I[0][0], severidade: S[0][1] });
-    expect(baixa.recomendacoes).toBe(`${condutaApr("BAIXO")}\nSugestão específica`);
-    expect(recalcularLinhaApr({ ...baixa, severidade: "" }).recomendacoes).toBe("Sugestão específica");
+    expect(baixa.recomendacoes).toBe(condutaApr("BAIXO"));
+    expect(recalcularLinhaApr({ ...baixa, severidade: "" }).recomendacoes).toBe("");
+  });
+  it("Alto remove qualquer recomendação extra", () => {
+    expect(sincronizarCondutaApr("Texto manual e sugestões extras", "ALTO")).toBe(condutaApr("ALTO"));
+  });
+  it("demais níveis preservam recomendações específicas", () => {
+    expect(sincronizarCondutaApr("Ajustar bancada", "MÉDIO")).toBe(`${condutaApr("MÉDIO")}\nAjustar bancada`);
+  });
+  it("não limita cenários a três por função ou oito por setor", () => {
+    const cenarios = Array.from({ length: 30 }, (_, i) => ({ funcao_id: "f", setor_id: "s", circunstancia: `Tarefa real ${i}`, situacao: "Postura", exigencia: "Tronco" }));
+    expect(cenariosValidosApr(cenarios, "s", ["f"])).toEqual(cenarios);
+  });
+  it("remove repetidos, sem fundamento ou vinculados a outra função/setor", () => {
+    const c = { funcao_id: "f", setor_id: "s", circunstancia: "Tarefa real", situacao: "Postura", exigencia: "Tronco" };
+    expect(cenariosValidosApr([c, { ...c, circunstancia: " TAREFA  REAL " }, { ...c, setor_id: "outro" }, { ...c, funcao_id: "outra" }, { ...c, circunstancia: "" }], "s", ["f"])).toEqual([c]);
+  });
+  it("preserva o vínculo de cenários e fotos após confirmação", () => {
+    const proposta = linha({ funcao_id: "f", funcao_nome: "Operador", setor_id: "s", circunstancia: "Operador — tarefa" });
+    expect(aplicarPropostaApr([linha({ fotos: ["foto"] })], [proposta], true)[0]).toMatchObject({ funcao_id: "f", setor_id: "s", fotos: ["foto"] });
   });
 });
