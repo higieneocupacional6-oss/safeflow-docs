@@ -65,7 +65,7 @@ Deno.serve(async (req) => {
         const fontes = new Set<string>();
         const candidatas = (output.linhas || []).map((l: Record<string, any>) => {
           const funcao = setor.funcoes.find((f: { id: string }) => f.id === l.funcao_id);
-          const f = compativeis.find((f) => f.id === l.formulario_aep_id);
+          const f = compativeis.find((f) => f.id === l.formulario_aep_id && f.dados?.funcoes?.length === 1 && f.dados.funcoes[0] === funcao?.id);
           const marcas = f?.dados?.reconhecimento?.marcas?.[l.codigo_aep];
           if (marcas) fontes.add(f.id);
           const um = (v: unknown, ops: readonly string[]) => typeof v === "string" && v ? ops.find((o) => o === v || semAspas(o) === semAspas(v)) || "" : "";

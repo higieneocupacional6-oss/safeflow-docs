@@ -43,7 +43,7 @@ export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], su
   return Array.from({ length: Math.max(atuais.length, propostas.length) }, (_, i) => {
     const atual = atuais[i]; const nova = propostas[i];
     const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
-    const vinculo = atual?.funcao_id && !substituir ? atual : nova?.funcao_id ? nova : atual;
+    const vinculo = atual?.circunstancia.trim() && !substituir ? atual : nova?.funcao_id ? nova : atual;
     return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id });
   });
 }
