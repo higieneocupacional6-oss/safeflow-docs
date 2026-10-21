@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { criarRegistroAprErgo, setoresAprErgoDoContrato, setorDoRegistroAprErgo } from "@/lib/aprErgo";
+import { criarRegistroAprErgo, nomeRegistroAprErgo, setoresAprErgoDoContrato, setorDoRegistroAprErgo } from "@/lib/aprErgo";
 
 const setor = { id: "s1", empresa_id: "e1", contrato_id: "c1", nome_setor: "Operação", ghe_ges: "GHE 01", funcoes: [{ id: "f1", nome_funcao: "Operador" }, { id: "f2", nome_funcao: "Supervisor" }] };
 describe("APR-ERGO — vínculos e registros", () => {
+  it("nomeia APR individual pela função selecionada", () => {
+    expect(nomeRegistroAprErgo({ funcao_id: "f2" }, setor.funcoes)).toBe("Supervisor");
+  });
+  it("nomeia APR conjunta pelas funções avaliadas", () => {
+    expect(nomeRegistroAprErgo({}, setor.funcoes)).toBe("Operador; Supervisor");
+    expect(nomeRegistroAprErgo({ funcao_ids: ["f1"] }, setor.funcoes)).toBe("Operador");
+  });
   it("seleciona somente setores da empresa e contrato exatos, preservando todas as funções", () => {
     expect(setoresAprErgoDoContrato([setor, { ...setor, id: "s2", empresa_id: "e2" }, { ...setor, id: "s3", contrato_id: "c2" }], "e1", "c1")).toEqual([setor]);
     expect(setoresAprErgoDoContrato([setor], "e1", "c1")[0].funcoes.map((f) => f.id)).toEqual(["f1", "f2"]);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, Download, ImagePlus, Loader2, Save, Sparkles, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, ImagePlus, Loader2, Save, Sparkles, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,8 @@ import { AprErgoIaModal } from "@/components/AprErgoIaModal";
 import { aplicarPropostaApr, aplicarResumoApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../../supabase/functions/_shared/aprErgoPlanilha";
 import { baixarBlobApr, gerarPdfApr, nomePdfApr } from "@/lib/aprErgoPdf";
+
+import { AprErgoExcluirModal } from "@/components/AprErgoExcluirModal";
 
 const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
   situacao: () => SITUACOES_APR, tipo: () => TIPOS_APR, exigencia: (l) => exigenciasDaSituacao(l.situacao),
@@ -71,6 +73,7 @@ export default function AprErgoRegistro() {
   const [salvando, setSalvando] = useState(false);
   const [baseOpen, setBaseOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
+  const [excluirOpen, setExcluirOpen] = useState(false);
   const [fontesIa, setFontesIa] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const alvoFoto = useRef<number>(0);
@@ -90,7 +93,8 @@ export default function AprErgoRegistro() {
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
         setorArquivo = s?.nome_setor || "";
         const fid = typeof snap.funcao_id === "string" ? snap.funcao_id : null;
-        cargos = [...new Set((s?.funcoes || []).filter((f) => !fid || f.id === fid).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const ids = fid ? [fid] : Array.isArray(snap.funcao_ids) ? snap.funcao_ids : null;
+        cargos = [...new Set((s?.funcoes || []).filter((f) => !ids || ids.includes(f.id)).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
       return { ...data, snap, setorNome, setorArquivo, cargos };
     },
@@ -183,6 +187,7 @@ export default function AprErgoRegistro() {
         <Button variant="outline" size="sm" onClick={() => setIaOpen(true)} disabled={salvando}><Sparkles className="w-4 h-4 mr-1" />Gerar IA</Button>
         <Button size="sm" onClick={salvar} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}Salvar</Button>
         <Button variant="outline" size="sm" onClick={baixar} disabled={salvando || data?.status === "rascunho"} title={data?.status === "rascunho" ? "Salve a APR-ERGO para baixar" : "Baixar PDF"}><Download className="w-4 h-4 mr-1" />Baixar</Button>
+        <Button variant="outline" size="icon" className="h-9 w-9 text-destructive" title="Excluir esta APR" aria-label="Excluir esta APR" disabled={salvando} onClick={() => setExcluirOpen(true)}><Trash2 className="w-4 h-4" /></Button>
       </div>
     </div>
     <div className="bg-card text-card-foreground border border-border p-1 min-w-0">
@@ -243,6 +248,7 @@ export default function AprErgoRegistro() {
         <input value={cab.elaborador} onChange={(e) => setC("elaborador", e.target.value)} placeholder="Escrever nome completo do profissional" className="bg-transparent outline-none w-full max-w-80 text-[10px] focus:bg-primary/5" /></div>
     </div>
     <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => onFotos(e.target.files)} />
+    {excluirOpen && data?.empresa_id && data.contrato_id && <AprErgoExcluirModal registros={[{ id: data.id, nome: data.cargos.join("; ") || "Função não identificada" }]} empresaId={data.empresa_id} contratoId={data.contrato_id} onClose={() => setExcluirOpen(false)} onDeleted={() => navigate("/documentos/apr-ergo")} />}
     <BaseAepModal empresaId={basePath} open={baseOpen} onOpenChange={setBaseOpen} limite={MAX_BASE_APR} titulo="Base de referência da APR-ERGO" />
     {registroId && <AprErgoIaModal open={iaOpen} onOpenChange={setIaOpen} registroId={registroId} basePath={basePath} linhas={linhas} cabecalho={cab} onAplicar={aplicarIa} />}
   </div>;
