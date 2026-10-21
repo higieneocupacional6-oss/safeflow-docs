@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, BookOpen, ImagePlus, Loader2, Save, Sparkles, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Download, ImagePlus, Loader2, Save, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -9,6 +9,7 @@ import { BaseAepModal } from "@/components/formulario-aep/FormularioAepIa";
 import { AprErgoIaModal } from "@/components/AprErgoIaModal";
 import { aplicarPropostaApr, aplicarResumoApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../../supabase/functions/_shared/aprErgoPlanilha";
+import { baixarBlobApr, gerarPdfApr, nomePdfApr } from "@/lib/aprErgoPdf";
 
 const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
   situacao: () => SITUACOES_APR, tipo: () => TIPOS_APR, exigencia: (l) => exigenciasDaSituacao(l.situacao),
@@ -16,7 +17,7 @@ const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
 };
 const AUTOMATICOS: (keyof Linha)[] = ["perfil", "classificacao"];
 
-type Linha = { cenario: string; circunstancia: string; situacao: string; exigencia: string; tipo: string; medidas: string; estimativa: string; intensidade: string; perfil: string; severidade: string; classificacao: string; fotos: string[]; recomendacoes: string };
+type Linha = { cenario: string; circunstancia: string; situacao: string; exigencia: string; tipo: string; medidas: string; estimativa: string; intensidade: string; perfil: string; severidade: string; classificacao: string; fotos: string[]; recomendacoes: string; funcao_id?: string; funcao_nome?: string; setor_id?: string };
 type Cabecalho = { empresa: string; data: string; pessoas: string; localSso: string; localFisico: string; gere: string; gerencia: string; cargo: string; funcao: string; atividades: string; ambiente: string; elaborador: string };
 const linhaVazia = (): Linha => ({ cenario: "", circunstancia: "", situacao: "", exigencia: "", tipo: "", medidas: "", estimativa: "", intensidade: "", perfil: "", severidade: "", classificacao: "", fotos: [], recomendacoes: "" });
 const COLUNAS: { key: keyof Linha; titulo: string; w: string; destaque?: boolean }[] = [
@@ -80,14 +81,16 @@ export default function AprErgoRegistro() {
       if (error) throw error;
       const snap = (data.draft_snapshot || {}) as Record<string, unknown>;
       let setorNome = "";
+      let setorArquivo = "";
       let cargos: string[] = [];
       if (typeof snap.setor_id === "string") {
         const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
         if (setorError) throw setorError;
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
+        setorArquivo = s?.nome_setor || "";
         cargos = [...new Set((s?.funcoes || []).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
-      return { ...data, snap, setorNome, cargos };
+      return { ...data, snap, setorNome, setorArquivo, cargos };
     },
   });
 
@@ -136,6 +139,22 @@ export default function AprErgoRegistro() {
     toast.success("Análise aplicada. Revise e salve a APR-ERGO.");
   };
 
+  const baixar = () => {
+    if (!cab || !data) return;
+    try {
+      const cores: Record<string, { fundo: [number, number, number]; texto: [number, number, number] }> = {};
+      for (const nivel of ["BAIXO", "MÉDIO", "ALTO", "MUITO ALTO"]) {
+        const amostra = document.createElement("span"); amostra.className = riscoClasse(nivel); document.body.appendChild(amostra);
+        const estilo = getComputedStyle(amostra);
+        const rgb = (valor: string): [number, number, number] => { const ns = valor.match(/\d+/g)?.map(Number) || []; return [ns[0] || 0, ns[1] || 0, ns[2] || 0]; };
+        cores[nivel] = { fundo: rgb(estilo.backgroundColor), texto: rgb(estilo.color) }; amostra.remove();
+      }
+      const atuais = linhas.map(recalcularLinhaApr);
+      const pdf = gerarPdfApr({ ...cab, cargo: data.cargos.join("; ") }, atuais, COLUNAS, cores);
+      baixarBlobApr(pdf, nomePdfApr(data.setorArquivo, data.empresa_nome || cab.empresa));
+    } catch { toast.error("Não foi possível gerar o PDF. Seus dados continuam na tela."); }
+  };
+
   if (isLoading || (!cab && !isError)) return <Loader2 className="w-6 h-6 animate-spin mx-auto my-12" />;
   if (isError || !cab) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro.</p><Button variant="outline" onClick={() => navigate(-1)}>Voltar</Button></div>;
 
@@ -154,6 +173,7 @@ export default function AprErgoRegistro() {
         <Button variant="outline" size="sm" onClick={() => setBaseOpen(true)}><BookOpen className="w-4 h-4 mr-1" />Base</Button>
         <Button variant="outline" size="sm" onClick={() => setIaOpen(true)} disabled={salvando}><Sparkles className="w-4 h-4 mr-1" />Gerar IA</Button>
         <Button size="sm" onClick={salvar} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <Save className="w-4 h-4 mr-1" />}Salvar</Button>
+        <Button variant="outline" size="sm" onClick={baixar} disabled={salvando}><Download className="w-4 h-4 mr-1" />Baixar</Button>
       </div>
     </div>
     <div className="bg-card text-card-foreground border border-border p-1 min-w-0">
@@ -205,7 +225,7 @@ export default function AprErgoRegistro() {
                   </select>
                 </td>
               : <td key={c.key} className={`${cel} p-0 ${c.key === "recomendacoes" ? "bg-background" : ""}`}>
-                  <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => { setLinha(i, c.key, e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] ${c.key === "recomendacoes" ? "font-bold" : ""}`} />
+                  <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} readOnly={c.key === "recomendacoes" && ["ALTO", "MUITO ALTO"].includes(l.classificacao)} onChange={(e) => { setLinha(i, c.key, e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] ${c.key === "recomendacoes" ? "font-bold" : ""}`} />
                 </td>)}
           </tr>)}
         </tbody>
