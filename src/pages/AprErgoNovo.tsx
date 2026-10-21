@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2, Download, FileSignature, FolderTree, Loader2, Plus, FilePlus2 } from "lucide-react";
+import { ArrowLeft, Building2, Download, FileSignature, FolderTree, Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -13,7 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { sortByGes } from "@/lib/sortGes";
-import { criarRegistroAprErgo, funcaoDoRegistroAprErgo, rotuloStatusAprErgo, setorDoRegistroAprErgo, setoresAprErgoDoContrato, type AprErgoSetor } from "@/lib/aprErgo";
+import { criarRegistroAprErgo, nomeRegistroAprErgo, rotuloStatusAprErgo, setorDoRegistroAprErgo, setoresAprErgoDoContrato, type AprErgoSetor } from "@/lib/aprErgo";
+
+import { AprErgoExcluirModal, type AprParaExcluir } from "@/components/AprErgoExcluirModal";
 
 export default function AprErgoNovo() {
   const navigate = useNavigate();
@@ -26,6 +28,7 @@ export default function AprErgoNovo() {
   const [modal, setModal] = useState(false);
   const [setorFuncao, setSetorFuncao] = useState<AprErgoSetor | null>(null);
   const [funcaoEscolhida, setFuncaoEscolhida] = useState("");
+  const [excluirRegistros, setExcluirRegistros] = useState<AprParaExcluir[] | null>(null);
   const [salvando, setSalvando] = useState<string | null>(null);
   const salvandoRef = useRef(false);
   const pendingId = useRef<{ setorId: string; funcaoId: string; id: string } | null>(null);
@@ -103,13 +106,14 @@ export default function AprErgoNovo() {
       const registros = (registrosQuery.data || []).filter((r) => setorDoRegistroAprErgo(r.draft_snapshot) === s.id);
       return <section key={s.id} className="rounded-lg border border-border bg-card p-4 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3"><h2 className="font-heading font-semibold break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</h2><div className="flex gap-2">
-          <Button variant="outline" disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => { const r = (registrosQuery.data || []).filter((x) => setorDoRegistroAprErgo(x.draft_snapshot) === s.id); if (r.length) navigate(`/documentos/apr-ergo/registro/${r[0].id}`); else { setFuncaoEscolhida(""); setSetorFuncao(s); } }}><FilePlus2 className="w-4 h-4 mr-2" />Registro</Button>
+          <Button variant="outline" size="icon" title={`Excluir APR em ${s.nome_setor}`} aria-label={`Excluir APR em ${s.nome_setor}`} disabled={!!salvando || !registros.length || registrosQuery.isLoading || registrosQuery.isError} onClick={() => setExcluirRegistros(registros.map((r) => ({ id: r.id, nome: nomeRegistroAprErgo(r.draft_snapshot, s.funcoes) })))}><Trash2 className="w-4 h-4" /></Button>
           <Button variant="outline" size="icon" title={`Adicionar APR-ERGO em ${s.nome_setor}`} aria-label={`Adicionar APR-ERGO em ${s.nome_setor}`} disabled={!!salvando || registrosQuery.isLoading || registrosQuery.isError} onClick={() => { setFuncaoEscolhida(""); setSetorFuncao(s); }}>{salvando === s.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}</Button>
         </div></div>
         <div><h3 className="text-xs font-medium text-muted-foreground mb-2">Funções</h3><div className="flex flex-wrap gap-2">{s.funcoes.map((f) => <Badge key={f.id} variant="secondary" className="whitespace-normal break-words">{f.nome_funcao}</Badge>)}{s.funcoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma função cadastrada neste setor</p>}</div></div>
-        {registros.length > 0 && <ul className="divide-y divide-border">{registros.map((r, i) => { const fid = funcaoDoRegistroAprErgo(r.draft_snapshot); const nome = s.funcoes.find((f) => f.id === fid)?.nome_funcao || (fid ? "Função removida do cadastro" : `Registro ${i + 1}`); return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><button type="button" className="hover:text-primary underline-offset-2 hover:underline text-left break-words" onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}`)}>{nome}</button><div className="flex items-center gap-2 shrink-0"><Badge variant="outline">{rotuloStatusAprErgo(r.status)}</Badge>{r.status !== "rascunho" && <Button variant="ghost" size="icon" className="h-7 w-7" title="Baixar PDF" aria-label={`Baixar PDF ${nome}`} onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}?baixar=1`)}><Download className="w-4 h-4" /></Button>}</div></li>; })}</ul>}
+        {registros.length > 0 && <ul className="divide-y divide-border">{registros.map((r) => { const nome = nomeRegistroAprErgo(r.draft_snapshot, s.funcoes); return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}`)}>{nome}</Button><div className="flex items-center gap-2 shrink-0"><Badge variant="outline">{rotuloStatusAprErgo(r.status)}</Badge>{r.status !== "rascunho" && <Button variant="ghost" size="icon" className="h-7 w-7" title="Baixar PDF" aria-label={`Baixar PDF ${nome}`} onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}?baixar=1`)}><Download className="w-4 h-4" /></Button>}<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title={`Excluir APR ${nome}`} aria-label={`Excluir APR ${nome}`} onClick={() => setExcluirRegistros([{ id: r.id, nome }])}><Trash2 className="w-4 h-4" /></Button></div></li>; })}</ul>}
       </section>;
     })}</div>
+    {excluirRegistros && <AprErgoExcluirModal registros={excluirRegistros} empresaId={empresaId} contratoId={contratoId} onClose={() => setExcluirRegistros(null)} onDeleted={(id) => { if (id === documentoId) navigate("/documentos/apr-ergo"); }} />}
     <Dialog open={!!setorFuncao} onOpenChange={(o) => !o && setSetorFuncao(null)}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Selecione a função</DialogTitle></DialogHeader>
       <div className="max-h-80 overflow-y-auto space-y-2" role="radiogroup">{setorFuncao?.funcoes.map((f) => <label key={f.id} className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer"><input type="radio" name="apr-funcao" checked={funcaoEscolhida === f.id} onChange={() => setFuncaoEscolhida(f.id)} aria-label={f.nome_funcao} /><span className="text-sm break-words">{f.nome_funcao}</span></label>)}{setorFuncao?.funcoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma função cadastrada neste setor</p>}</div>
       <DialogFooter><Button variant="outline" onClick={() => setSetorFuncao(null)}>Cancelar</Button><Button disabled={!funcaoEscolhida || !!salvando} onClick={() => { const st = setorFuncao; setSetorFuncao(null); if (st) void adicionarRegistro(st, funcaoEscolhida); }}>Criar APR-ERGO</Button></DialogFooter>
