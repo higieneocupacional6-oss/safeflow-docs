@@ -72,6 +72,12 @@
     --shadow-card: var(--shadow-sm);
 
     --transition-base: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    --apr-risk-low: 120 100% 50%;
+    --apr-risk-medium: 60 100% 50%;
+    --apr-risk-high: 39 100% 50%;
+    --apr-risk-very-high: 0 100% 50%;
+    --apr-risk-ink: 0 0% 0%;
+    --apr-risk-inverse: 0 0% 100%;
   }
 
   .dark {
@@ -121,6 +127,10 @@
 }
 
 @layer utilities {
+  .apr-risco-baixo { background-color: hsl(var(--apr-risk-low)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
+  .apr-risco-medio { background-color: hsl(var(--apr-risk-medium)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
+  .apr-risco-alto { background-color: hsl(var(--apr-risk-high)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
+  .apr-risco-muito-alto { background-color: hsl(var(--apr-risk-very-high)); color: hsl(var(--apr-risk-inverse)); font-weight: 700; }
   /* Cards premium */
   .glass-card {
     @apply bg-card border border-border/80 rounded-2xl;
