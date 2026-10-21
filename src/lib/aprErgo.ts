@@ -38,6 +38,16 @@ export function funcaoDoRegistroAprErgo(snapshot: unknown): string | null {
   return typeof snapshot.funcao_id === "string" ? snapshot.funcao_id : null;
 }
 
+export function nomeRegistroAprErgo(snapshot: unknown, funcoes: AprErgoSetor["funcoes"]): string {
+  const fid = funcaoDoRegistroAprErgo(snapshot);
+  if (fid) return funcoes.find((f) => f.id === fid)?.nome_funcao || "Função removida do cadastro";
+  const snap = snapshot && typeof snapshot === "object" ? snapshot as Record<string, unknown> : {};
+  const tabela = snap.tabela as { cabecalho?: { cargo?: string }; linhas?: { funcao_id?: string; funcao_ids?: string[] }[] } | undefined;
+  const ids = Array.isArray(snap.funcao_ids) ? snap.funcao_ids : tabela?.linhas?.flatMap((l) => l.funcao_ids || (l.funcao_id ? [l.funcao_id] : [])) || [];
+  const nomes = [...new Set(funcoes.filter((f) => !ids.length || ids.includes(f.id)).map((f) => f.nome_funcao))];
+  return nomes.join("; ") || tabela?.cabecalho?.cargo?.trim() || "Função não identificada";
+}
+
 /** Only never-saved records are drafts; saving marks status "salvo". */
 export function rotuloStatusAprErgo(status: string) {
   return status === "rascunho" ? "Rascunho" : "Salvo";

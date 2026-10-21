@@ -1,8 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, sincronizarCondutaApr, cenariosValidosApr, contarConflitosApr, formulariosCompativeisApr, recalcularLinhaApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, circunstanciaTecnicaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, sincronizarCondutaApr, cenariosValidosApr, contarConflitosApr, formulariosCompativeisApr, recalcularLinhaApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
 import { ESTIMATIVAS_APR as E, INTENSIDADES_APR as I, SEVERIDADES_APR as S } from "../../supabase/functions/_shared/aprErgoPlanilha";
 const linha = (patch = {}) => ({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, ""])), fotos: [], ...patch }) as Parameters<typeof aplicarPropostaApr>[0][number];
 describe("APR-ERGO IA", () => {
+  it("remove nomes de função somente do conteúdo gerado", () => {
+    expect(circunstanciaTecnicaApr("Operador — Transporte manual com flexão do tronco", ["Operador"])).toBe("Transporte manual com flexão do tronco");
+    expect(circunstanciaTecnicaApr("Operador", ["Operador"])).toBe("");
+  });
+  it("une cenário comum sem separação por função e preserva diferenças técnicas", () => {
+    const a = { funcao_ids: ["f1", "f2"], setor_id: "s", circunstancia: "Transporte manual", situacao: "Cargas", exigencia: "Tronco" };
+    const diferente = { ...a, funcao_ids: ["f2"], circunstancia: "Transporte acima dos ombros" };
+    expect(cenariosValidosApr([a, { ...a, funcao_ids: ["f2"] }, diferente], "s", ["f1", "f2"])).toEqual([a, diferente]);
+    expect(cenariosValidosApr([{ ...a, funcao_ids: ["f1", "outra"] }], "s", ["f1", "f2"])).toEqual([]);
+    expect(aplicarPropostaApr([], [linha(a)], true)[0].funcao_ids).toEqual(["f1", "f2"]);
+  });
   it("preserva texto manual e fotos ao preencher vazios", () => {
     const atual = linha({ circunstancia: "Manual", fotos: ["foto"] });
     expect(aplicarPropostaApr([atual], [linha({ circunstancia: "IA", tipo: "Fisico" })], false)[0]).toMatchObject({ circunstancia: "Manual", tipo: "Fisico", fotos: ["foto"] });
