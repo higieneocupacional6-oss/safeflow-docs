@@ -95,3 +95,9 @@
 - [x] Integrar Base de até 6 arquivos e IA com prévia e proteção de edições
 - [x] Reutilizar duração/intensidade AEP do mesmo escopo; severidade/perfil/risco vazios porque Anexo 01 não os persiste por fator
 - [x] Validar geração real com referência e AEP temporárias, confirmação, salvamento, reabertura, preservação de foto/texto e limpeza dos testes
+
+# APR-ERGO — resumo do setor e conduta da matriz
+- [x] Ajustar células legíveis, Cargo com funções atuais e retirar descrição do cargo
+- [x] Gerar resumos de atividades/ambiente com prévia e preservação manual
+- [x] Aplicar condutas da Base após cálculo e cores automáticas por risco
+- [x] Validar 14 testes, tela autenticada e geração real com PDF da Base; sem salvar alterações no documento existente

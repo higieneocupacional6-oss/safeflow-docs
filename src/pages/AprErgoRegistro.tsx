@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BaseAepModal } from "@/components/formulario-aep/FormularioAepIa";
 import { AprErgoIaModal } from "@/components/AprErgoIaModal";
-import { aplicarPropostaApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, aplicarResumoApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../../supabase/functions/_shared/aprErgoPlanilha";
 
 const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
@@ -23,16 +23,16 @@ const COLUNAS: { key: keyof Linha; titulo: string; w: string; destaque?: boolean
   { key: "cenario", titulo: "Cenário", w: "3%" },
   { key: "circunstancia", titulo: "Circunstância/Fonte de Exigência Ergonômica (DESCRITO PELO ERGONOMISTA)", w: "9%" },
   { key: "situacao", titulo: "Situação Ergonômica", w: "8%" },
-  { key: "exigencia", titulo: "Exigencia Ergonômica (esta na tabela)", w: "8%" },
+  { key: "exigencia", titulo: "Exigencia Ergonômica (esta na tabela)", w: "9%" },
   { key: "tipo", titulo: "Tipo de risco", w: "5%" },
   { key: "medidas", titulo: "Medidas de Controle Existentes (esta na aba Medidas de controle)", w: "9%" },
   { key: "estimativa", titulo: "Estimativa do Tempo de Exposição", w: "7%" },
-  { key: "intensidade", titulo: "Intensidade /Nível", w: "8%" },
+  { key: "intensidade", titulo: "Intensidade /Nível", w: "10%" },
   { key: "perfil", titulo: "Perfil da Exposição", w: "5%", destaque: true },
-  { key: "severidade", titulo: "Severidade", w: "5%" },
+  { key: "severidade", titulo: "Severidade", w: "9%" },
   { key: "classificacao", titulo: "Classificação do Risco", w: "5%", destaque: true },
-  { key: "fotos", titulo: "Foto da Exigência Ergonômica", w: "14%" },
-  { key: "recomendacoes", titulo: "Recomendações / Sugestões / Observações", w: "14%" },
+  { key: "fotos", titulo: "Foto da Exigência Ergonômica", w: "8%" },
+  { key: "recomendacoes", titulo: "Recomendações / Sugestões / Observações", w: "13%" },
 ];
 
 function reduzirImagem(file: File): Promise<string> {
@@ -53,6 +53,12 @@ function reduzirImagem(file: File): Promise<string> {
 
 const cel = "border border-foreground/70";
 const inp = "block w-full h-full min-w-0 bg-transparent outline-none resize-none text-[11px] leading-[1.25] p-1 focus:bg-primary/5 break-words";
+const riscoClasse = (nivel: string) => ({ BAIXO: "apr-risco-baixo", "MÉDIO": "apr-risco-medio", ALTO: "apr-risco-alto", "MUITO ALTO": "apr-risco-muito-alto" }[nivel] || "");
+function ajustarAltura(el: HTMLTextAreaElement | null) {
+  if (!el) return;
+  el.style.height = "auto";
+  el.style.height = `${el.scrollHeight}px`;
+}
 
 export default function AprErgoRegistro() {
   const { registroId } = useParams();
@@ -74,11 +80,14 @@ export default function AprErgoRegistro() {
       if (error) throw error;
       const snap = (data.draft_snapshot || {}) as Record<string, unknown>;
       let setorNome = "";
+      let cargos: string[] = [];
       if (typeof snap.setor_id === "string") {
-        const { data: s } = await supabase.from("setores").select("nome_setor, ghe_ges").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
+        const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
+        if (setorError) throw setorError;
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
+        cargos = [...new Set((s?.funcoes || []).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
-      return { ...data, snap, setorNome };
+      return { ...data, snap, setorNome, cargos };
     },
   });
 
@@ -112,7 +121,7 @@ export default function AprErgoRegistro() {
     if (!data || !cab) return;
     setSalvando(true);
     try {
-      const { data: saved, error } = await supabase.from("documentos").update({ draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: cab, linhas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
+      const { data: saved, error } = await supabase.from("documentos").update({ draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: { ...cab, cargo: data.cargos.join("; ") }, linhas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
       if (error || !saved) throw new Error("Não foi possível salvar. Tente novamente.");
       qc.invalidateQueries({ queryKey: ["apr-ergo-registro", registroId] });
       toast.success("APR-ERGO salva");
@@ -121,7 +130,8 @@ export default function AprErgoRegistro() {
   };
 
   const aplicarIa = (res: PropostaApr, substituir: boolean) => {
-    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir));
+    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir, res.condutas_matriz));
+    setCab((atual) => atual ? aplicarResumoApr(atual, res.cabecalho, substituir) : atual);
     setFontesIa((ids) => [...new Set([...ids, ...res.fontes_aep])]);
     toast.success("Análise aplicada. Revise e salve a APR-ERGO.");
   };
@@ -131,15 +141,14 @@ export default function AprErgoRegistro() {
 
   const campo = (label: string, k: keyof Cabecalho, colSpan: number, extra = "") => (
     <td colSpan={colSpan} className={`${cel} align-top px-1 ${extra}`}>
-      <label className="flex flex-wrap gap-x-1 items-start text-[11px] leading-tight"><span className="text-foreground/80">{label}</span>
-        <input value={cab[k]} onChange={(e) => setC(k, e.target.value)} type={k === "data" ? "date" : "text"} className="flex-1 min-w-0 bg-transparent outline-none text-[11px] focus:bg-primary/5" /></label>
+      <label className="block text-[11px] leading-tight"><span className="text-foreground/80">{label}</span>
+        {k === "data" ? <input aria-label={label} value={cab[k]} onChange={(e) => setC(k, e.target.value)} type="date" className="block w-full min-w-0 bg-transparent outline-none text-[11px] focus:bg-primary/5" /> : <textarea aria-label={label} ref={ajustarAltura} rows={1} value={cab[k]} onChange={(e) => { setC(k, e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[24px]`} />}</label>
     </td>
   );
-  const altLinha = linhas.length <= 2 ? "h-[110px]" : linhas.length <= 4 ? "h-[90px]" : "h-[80px]";
   const basePath = `${data?.empresa_id}/${data?.contrato_id}/${registroId}/apr-base`;
 
   return <div className="flex flex-col gap-2 min-w-0">
-    <div className="flex items-center justify-between gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
       <Button variant="outline" size="sm" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4 mr-1" />Voltar</Button>
       <div className="flex gap-2">
         <Button variant="outline" size="sm" onClick={() => setBaseOpen(true)}><BookOpen className="w-4 h-4 mr-1" />Base</Button>
@@ -155,20 +164,20 @@ export default function AprErgoRegistro() {
           <tr>{campo("Empresa:", "empresa", 5)}{campo("Data:", "data", 3)}{campo("Nº de pessoas expostas:", "pessoas", 5)}</tr>
           <tr><td colSpan={5} className={cel} />{campo("Local SSO:", "localSso", 4)}{campo("Local Físico:", "localFisico", 4)}</tr>
           <tr>{campo("Nome do GERE:", "gere", 11)}{campo("Gerência de área:", "gerencia", 2)}</tr>
-          <tr>{campo("Cargo:", "cargo", 9, "border-t-2")}{campo("Função(descrição do cargo)", "funcao", 4, "border-t-2")}</tr>
+          <tr><td colSpan={13} className={`${cel} border-t-2 px-1 py-1 text-[11px]`}><span className="text-foreground/80">Cargo: </span><span aria-label="Cargo" className="whitespace-pre-wrap break-words">{data?.cargos.join("; ") || "—"}</span></td></tr>
           <tr><td colSpan={13} className={`${cel} px-1 align-top`}>
             <div className="text-[10px] text-foreground/80">Descrição das atividades/tarefas desempenhadas:</div>
-            <div className="flex gap-2 items-end">
-              <textarea value={cab.atividades} onChange={(e) => setC("atividades", e.target.value)} className={`${inp} h-9 flex-1`} />
-              <Button type="button" size="sm" variant="destructive" className="h-6 px-3 text-[10px] font-bold mb-1 mr-8" onClick={() => setLinhas((l) => [...l, linhaVazia()])}>INSERIR LINHA</Button>
+            <div className="flex flex-wrap gap-2 items-end">
+              <textarea aria-label="Descrição das atividades/tarefas desempenhadas" ref={ajustarAltura} rows={4} value={cab.atividades} onChange={(e) => { setC("atividades", e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[64px] flex-1`} />
+              <Button type="button" size="sm" variant="destructive" className="h-6 px-3 text-[10px] font-bold mb-1 shrink-0" onClick={() => setLinhas((l) => [...l, linhaVazia()])}>INSERIR LINHA</Button>
             </div>
           </td></tr>
           <tr><td colSpan={13} className={`${cel} px-1 align-top`}>
             <div className="text-[10px] text-foreground/80">Descrição do ambiente de trabalho:</div>
-            <textarea value={cab.ambiente} onChange={(e) => setC("ambiente", e.target.value)} className={`${inp} h-5`} />
+            <textarea aria-label="Descrição do ambiente de trabalho" ref={ajustarAltura} rows={2} value={cab.ambiente} onChange={(e) => { setC("ambiente", e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[36px]`} />
           </td></tr>
           <tr className="h-[80px]">{COLUNAS.map((c) => <th key={c.key} className={`${cel} border-2 px-1 text-[10px] font-bold leading-[1.2] text-center align-middle break-words`}>{c.titulo}</th>)}</tr>
-          {linhas.map((l, i) => <tr key={i} className={altLinha}>
+          {linhas.map((l, i) => <tr key={i} className="align-top">
             {COLUNAS.map((c) => c.key === "fotos"
               ? <td key={c.key} className={`${cel} p-0.5 align-middle`}>
                   <div className="flex flex-wrap gap-1 items-center justify-center h-full">
@@ -179,33 +188,33 @@ export default function AprErgoRegistro() {
                     <Button type="button" variant="ghost" size="icon" title="Adicionar foto" aria-label={`Adicionar foto linha ${i + 1}`} onClick={() => { alvoFoto.current = i; fileRef.current?.click(); }} className="text-muted-foreground h-5 w-5"><ImagePlus className="w-4 h-4" /></Button>
                   </div>
                 </td>
-              : LISTAS[c.key] ? <td key={c.key} className={`${cel} p-0 relative`}>
-                  <div className={`${inp} h-[100px] overflow-hidden ${l[c.key] ? "" : "text-muted-foreground"}`}>{(l[c.key] as string) || "Selecione"}</div>
+              : LISTAS[c.key] ? <td key={c.key} className={`${cel} p-0 relative focus-within:ring-2 focus-within:ring-ring focus-within:ring-inset`}>
+                  <div className={`${inp} min-h-[100px] whitespace-pre-wrap ${l[c.key] ? "" : "text-muted-foreground"}`}>{(l[c.key] as string) || "Selecione"}</div>
                   <select aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => setLinha(i, c.key, e.target.value)} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer text-[11px]">
                     <option value="" />
-                    {[...new Set([...(l[c.key] ? [l[c.key] as string] : []), ...LISTAS[c.key]!(l)])].map((o) => <option key={o} value={o}>{o}</option>)}
+                    {[...new Set([...(l[c.key] ? [l[c.key] as string] : []), ...(LISTAS[c.key]?.(l) || [])])].map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </td>
-              : AUTOMATICOS.includes(c.key) ? <td key={c.key} className={`${cel} p-0 bg-secondary/40`} title="Campo automático calculado pela matriz da planilha">
-                  <div aria-label={`${c.titulo} linha ${i + 1}`} className={`${inp} h-[100px] flex items-center justify-center text-center font-semibold`}>{l[c.key] as string}</div>
+              : AUTOMATICOS.includes(c.key) ? <td key={c.key} className={`${cel} p-0 ${c.key === "classificacao" && riscoClasse(l.classificacao) ? riscoClasse(l.classificacao) : "bg-secondary/40"}`} title="Campo automático calculado pela matriz da planilha">
+                  <div aria-label={`${c.titulo} linha ${i + 1}`} className={`${inp} min-h-[100px] flex items-center justify-center text-center font-bold`}>{l[c.key] as string}</div>
                 </td>
               : c.key === "medidas" ? <td key={c.key} className={`${cel} p-0 relative`}>
-                  <textarea aria-label={`${c.titulo} linha ${i + 1}`} title={l.medidas} value={l.medidas} onChange={(e) => setLinha(i, "medidas", e.target.value)} className={`${inp} h-[100px] pr-4`} />
+                  <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l.medidas} value={l.medidas} onChange={(e) => { setLinha(i, "medidas", e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] pr-4`} />
                   <select aria-label={`Adicionar medida de controle linha ${i + 1}`} title="Adicionar medida da aba Medidas de Controle" value="" onChange={(e) => e.target.value && setLinha(i, "medidas", l.medidas.trim() ? `${l.medidas.trim()}; ${e.target.value}` : e.target.value)} className="absolute top-0 right-0 w-4 h-4 text-[10px] bg-muted cursor-pointer">
                     <option value="">+</option>{[...new Set(MEDIDAS_APR)].map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </td>
-              : <td key={c.key} className={`${cel} p-0 ${c.destaque ? "bg-secondary/40" : ""}`}>
-                  <textarea aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => setLinha(i, c.key, e.target.value)} className={`${inp} h-[100px]`} />
+              : <td key={c.key} className={`${cel} p-0 ${c.key === "recomendacoes" ? riscoClasse(l.classificacao) : ""}`}>
+                  <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => { setLinha(i, c.key, e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] ${c.key === "recomendacoes" ? "font-bold" : ""}`} />
                 </td>)}
           </tr>)}
         </tbody>
       </table>
       <div className="mt-1 text-[10px]"><div className="font-bold">Elaborador:</div>
-        <input value={cab.elaborador} onChange={(e) => setC("elaborador", e.target.value)} placeholder="Escrever nome completo do profissional" className="bg-transparent outline-none w-80 text-[10px] focus:bg-primary/5" /></div>
+        <input value={cab.elaborador} onChange={(e) => setC("elaborador", e.target.value)} placeholder="Escrever nome completo do profissional" className="bg-transparent outline-none w-full max-w-80 text-[10px] focus:bg-primary/5" /></div>
     </div>
     <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={(e) => onFotos(e.target.files)} />
     <BaseAepModal empresaId={basePath} open={baseOpen} onOpenChange={setBaseOpen} limite={MAX_BASE_APR} titulo="Base de referência da APR-ERGO" />
-    {registroId && <AprErgoIaModal open={iaOpen} onOpenChange={setIaOpen} registroId={registroId} basePath={basePath} linhas={linhas} onAplicar={aplicarIa} />}
+    {registroId && <AprErgoIaModal open={iaOpen} onOpenChange={setIaOpen} registroId={registroId} basePath={basePath} linhas={linhas} cabecalho={cab} onAplicar={aplicarIa} />}
   </div>;
 }

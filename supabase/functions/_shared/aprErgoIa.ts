@@ -3,14 +3,39 @@ export { SITUACOES_APR, TIPOS_APR } from "./aprErgoPlanilha.ts";
 export const MAX_BASE_APR = 6;
 export const CAMPOS_APR = ["cenario", "circunstancia", "situacao", "exigencia", "tipo", "medidas", "estimativa", "intensidade", "perfil", "severidade", "classificacao", "recomendacoes"] as const;
 export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[] };
-export type PropostaApr = { linhas: LinhaApr[]; fontes_aep: string[]; observacoes: string };
+export const CAMPOS_RESUMO_APR = ["atividades", "ambiente"] as const;
+export type ResumoApr = Record<typeof CAMPOS_RESUMO_APR[number], string>;
+export type PropostaApr = { linhas: LinhaApr[]; fontes_aep: string[]; observacoes: string; cabecalho?: ResumoApr; condutas_matriz?: Partial<Record<string, string>> };
+
+export function aplicarResumoApr<T extends ResumoApr>(atual: T, proposta: Partial<ResumoApr> | undefined, substituir: boolean): T {
+  const resultado = { ...atual };
+  for (const k of CAMPOS_RESUMO_APR) {
+    const valor = proposta?.[k]?.trim();
+    if (valor && (substituir || !atual[k].trim())) resultado[k] = valor;
+  }
+  return resultado;
+}
+export function contarConflitosResumoApr(atual: ResumoApr, proposta?: Partial<ResumoApr>): number {
+  return CAMPOS_RESUMO_APR.filter((k) => atual[k].trim() && proposta?.[k]?.trim() && atual[k].trim() !== proposta[k]?.trim()).length;
+}
+/** Administrative conduct is chosen only after the workbook formulas, never by an AI-written risk label. */
+export function condutaApr(classificacao: string, condutas: Partial<Record<string, string>>): string {
+  return ["BAIXO", "MÉDIO", "ALTO", "MUITO ALTO"].includes(classificacao) ? condutas[classificacao]?.trim() || "" : "";
+}
 
 /** Merge is explicitly field-level: photos and unmatched manual rows always survive. */
-export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], substituir: boolean): LinhaApr[] {
+export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], substituir: boolean, condutas?: Partial<Record<string, string>>): LinhaApr[] {
   return Array.from({ length: Math.max(atuais.length, propostas.length) }, (_, i) => {
     const atual = atuais[i]; const nova = propostas[i];
     const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
-    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [] });
+    const calculada = recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [] });
+    if (condutas && nova && (substituir || !atual?.recomendacoes?.trim())) {
+      let sugestao = calculada.recomendacoes;
+      const condutaProposta = condutaApr(nova.classificacao, condutas);
+      if (condutaProposta && sugestao.startsWith(condutaProposta)) sugestao = sugestao.slice(condutaProposta.length).trim();
+      calculada.recomendacoes = [condutaApr(calculada.classificacao, condutas), sugestao].filter(Boolean).join("\n");
+    }
+    return calculada;
   });
 }
 export function contarConflitosApr(atuais: LinhaApr[], propostas: LinhaApr[]): number {
