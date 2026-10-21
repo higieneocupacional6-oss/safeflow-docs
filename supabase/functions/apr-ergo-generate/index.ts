@@ -78,7 +78,8 @@ Deno.serve(async (req) => {
           const conduta = condutaApr(calculada.classificacao, output.condutas_matriz || {});
           return { ...calculada, recomendacoes: [conduta, calculada.recomendacoes].filter(Boolean).join("\n") };
         });
-        return { linhas, fontes_aep: [...fontes], observacoes: output.observacoes || "", cabecalho: { atividades: typeof output.cabecalho?.atividades === "string" ? output.cabecalho.atividades.trim() : "", ambiente: typeof output.cabecalho?.ambiente === "string" ? output.cabecalho.ambiente.trim() : "" } };
+        const condutas_matriz = Object.fromEntries(["BAIXO", "MÉDIO", "ALTO", "MUITO ALTO"].map((nivel) => [nivel, typeof output.condutas_matriz?.[nivel] === "string" ? output.condutas_matriz[nivel].trim() : ""]));
+        return { linhas, fontes_aep: [...fontes], condutas_matriz, observacoes: output.observacoes || "", cabecalho: { atividades: typeof output.cabecalho?.atividades === "string" ? output.cabecalho.atividades.trim() : "", ambiente: typeof output.cabecalho?.ambiente === "string" ? output.cabecalho.ambiente.trim() : "" } };
       },
     });
   } catch (e) {

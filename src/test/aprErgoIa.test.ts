@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, contarConflitosApr, formulariosCompativeisApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
+import { ESTIMATIVAS_APR as E, INTENSIDADES_APR as I, SEVERIDADES_APR as S } from "../../supabase/functions/_shared/aprErgoPlanilha";
 const linha = (patch = {}) => ({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, ""])), fotos: [], ...patch }) as Parameters<typeof aplicarPropostaApr>[0][number];
 describe("APR-ERGO IA", () => {
   it("preserva texto manual e fotos ao preencher vazios", () => {
@@ -28,5 +29,12 @@ describe("APR-ERGO IA", () => {
     expect(condutaApr("", condutas)).toBe("");
     expect(condutaApr("ALTO", {})).toBe("");
     expect(condutaApr("CRÍTICO", condutas)).toBe("");
+  });
+  it("reajusta conduta após preservar classificações manuais no merge", () => {
+    const atual = linha({ estimativa: E[0][0], intensidade: I[0][0], severidade: S[0][1] });
+    const proposta = linha({ estimativa: E[4][0], intensidade: I[3][0], severidade: S[4][1], classificacao: "MUITO ALTO", recomendacoes: "Conduta muito alta\nSugestão específica" });
+    const condutas = { BAIXO: "Conduta baixa", "MUITO ALTO": "Conduta muito alta" };
+    expect(aplicarPropostaApr([atual], [proposta], false, condutas)[0]).toMatchObject({ classificacao: "BAIXO", recomendacoes: "Conduta baixa\nSugestão específica" });
+    expect(aplicarPropostaApr([linha({ ...atual, recomendacoes: "Manual" })], [proposta], false, condutas)[0].recomendacoes).toBe("Manual");
   });
 });

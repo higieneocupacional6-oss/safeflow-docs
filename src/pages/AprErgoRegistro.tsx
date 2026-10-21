@@ -130,7 +130,7 @@ export default function AprErgoRegistro() {
   };
 
   const aplicarIa = (res: PropostaApr, substituir: boolean) => {
-    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir));
+    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir, res.condutas_matriz));
     setCab((atual) => atual ? aplicarResumoApr(atual, res.cabecalho, substituir) : atual);
     setFontesIa((ids) => [...new Set([...ids, ...res.fontes_aep])]);
     toast.success("Análise aplicada. Revise e salve a APR-ERGO.");
