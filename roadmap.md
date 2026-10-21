@@ -103,7 +103,7 @@
 - [x] Validar 14 testes, tela autenticada e geração real com PDF da Base; sem salvar alterações no documento existente
 
 # APR-HO — condutas, cenários e PDF
-- [ ] Restringir Alto/Muito Alto à conduta da matriz
-- [ ] Remover limite de cenários e manter vínculos de função/setor sem duplicatas
-- [ ] Adicionar Baixar PDF completo da planilha atual com fotos e paginação
-- [ ] Validar regras, geração real e download autenticado com inspeção do PDF
+- [x] Restringir Alto/Muito Alto à conduta da matriz
+- [x] Remover limite de cenários e manter vínculos de função/setor sem duplicatas
+- [x] Adicionar Baixar PDF completo da planilha atual com fotos e paginação
+- [x] Validar 18 testes, geração real de 11 cenários e download autenticado; PDF com fotos/texto longo em seis páginas e análise em três páginas, sem cortes; quebra de texto em negrito ajustada; nenhum registro real alterado
