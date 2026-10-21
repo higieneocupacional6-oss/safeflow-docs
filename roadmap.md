@@ -103,6 +103,7 @@
 - [x] Validar 14 testes, tela autenticada e geração real com PDF da Base; sem salvar alterações no documento existente
 
 # APR-HO — condutas, cenários e PDF
+- [ ] Ajustar exclusão individual com confirmação, nomes por função e IA conjunta por atividades; validar salvamento e PDF
 - [x] Restringir Alto/Muito Alto à conduta da matriz
 - [x] Remover limite de cenários e manter vínculos de função/setor sem duplicatas
 - [x] Adicionar Baixar PDF completo da planilha atual com fotos e paginação
