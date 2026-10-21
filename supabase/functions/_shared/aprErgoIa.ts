@@ -2,7 +2,7 @@ import { ESTIMATIVAS_APR, INTENSIDADES_APR, perfilApr, classificacaoApr } from "
 export { SITUACOES_APR, TIPOS_APR } from "./aprErgoPlanilha.ts";
 export const MAX_BASE_APR = 6;
 export const CAMPOS_APR = ["cenario", "circunstancia", "situacao", "exigencia", "tipo", "medidas", "estimativa", "intensidade", "perfil", "severidade", "classificacao", "recomendacoes"] as const;
-export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[]; funcao_id?: string; funcao_nome?: string; setor_id?: string };
+export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[]; funcao_id?: string; funcao_ids?: string[]; funcao_nome?: string; setor_id?: string };
 export const CAMPOS_RESUMO_APR = ["atividades", "ambiente"] as const;
 export type ResumoApr = Record<typeof CAMPOS_RESUMO_APR[number], string>;
 export type PropostaApr = { linhas: LinhaApr[]; fontes_aep: string[]; observacoes: string; cabecalho?: ResumoApr };
@@ -43,23 +43,35 @@ export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], su
   return Array.from({ length: Math.max(atuais.length, propostas.length) }, (_, i) => {
     const atual = atuais[i]; const nova = propostas[i];
     const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
-    const vinculo = atual?.circunstancia.trim() && !substituir ? atual : nova?.funcao_id ? nova : atual;
-    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id });
+    const vinculo = atual?.circunstancia.trim() && !substituir ? atual : nova?.funcao_id || nova?.funcao_ids?.length ? nova : atual;
+    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_ids: vinculo?.funcao_ids, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id });
   });
 }
 export function contarConflitosApr(atuais: LinhaApr[], propostas: LinhaApr[]): number {
   return propostas.reduce((n, l, i) => n + CAMPOS_APR.filter((k) => atuais[i]?.[k]?.trim() && l[k]?.trim() && atuais[i][k].trim() !== l[k].trim()).length, 0);
 }
 /** No quantity cap: exact function/sector identity and distinct technical circumstances only. */
-export function cenariosValidosApr<T extends { funcao_id?: string; setor_id?: string; circunstancia: string; situacao: string; exigencia: string }>(linhas: T[], setorId: string, funcaoIds: string[]): T[] {
+export function cenariosValidosApr<T extends { funcao_id?: string; funcao_ids?: string[]; setor_id?: string; circunstancia: string; situacao: string; exigencia: string }>(linhas: T[], setorId: string, funcaoIds: string[]): T[] {
   const vistos = new Set<string>();
   const normalizar = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
   return linhas.filter((l) => {
-    if (l.setor_id !== setorId || !l.funcao_id || !funcaoIds.includes(l.funcao_id) || !l.circunstancia.trim() || !l.situacao || !l.exigencia) return false;
-    const chave = JSON.stringify([l.funcao_id, normalizar(l.circunstancia), normalizar(l.situacao), normalizar(l.exigencia)]);
+    const ids = l.funcao_ids?.length ? l.funcao_ids : l.funcao_id ? [l.funcao_id] : [];
+    if (l.setor_id !== setorId || !ids.length || ids.some((id) => !funcaoIds.includes(id)) || !l.circunstancia.trim() || !l.situacao || !l.exigencia) return false;
+    const chave = JSON.stringify([normalizar(l.circunstancia), normalizar(l.situacao), normalizar(l.exigencia)]);
     if (vistos.has(chave)) return false;
     vistos.add(chave); return true;
   });
+}
+
+/** Generated content only: remove registry names without touching saved/manual cells. */
+export function circunstanciaTecnicaApr(texto: unknown, nomes: string[]): string {
+  if (typeof texto !== "string") return "";
+  let resultado = texto;
+  for (const nome of [...nomes].filter(Boolean).sort((a, b) => b.length - a.length)) {
+    const literal = nome.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    resultado = resultado.replace(new RegExp(`(?<![\\p{L}\\p{N}])${literal}(?![\\p{L}\\p{N}])`, "giu"), "");
+  }
+  return resultado.replace(/^\s*[-—–:;,/]+\s*/, "").replace(/\s+/g, " ").trim();
 }
 export function formulariosCompativeisApr<T extends { setor_ids: string[]; dados: unknown }>(formularios: T[], setorId: string, funcaoIds: string[]): T[] {
   return formularios.filter((f) => {
