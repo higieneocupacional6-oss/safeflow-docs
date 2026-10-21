@@ -130,7 +130,7 @@ export default function AprErgoRegistro() {
   };
 
   const aplicarIa = (res: PropostaApr, substituir: boolean) => {
-    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir, res.condutas_matriz));
+    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir));
     setCab((atual) => atual ? aplicarResumoApr(atual, res.cabecalho, substituir) : atual);
     setFontesIa((ids) => [...new Set([...ids, ...res.fontes_aep])]);
     toast.success("Análise aplicada. Revise e salve a APR-ERGO.");
@@ -195,7 +195,7 @@ export default function AprErgoRegistro() {
                     {[...new Set([...(l[c.key] ? [l[c.key] as string] : []), ...(LISTAS[c.key]?.(l) || [])])].map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </td>
-              : AUTOMATICOS.includes(c.key) ? <td key={c.key} className={`${cel} p-0 ${c.key === "classificacao" && riscoClasse(l.classificacao) ? riscoClasse(l.classificacao) : "bg-secondary/40"}`} title="Campo automático calculado pela matriz da planilha">
+              : AUTOMATICOS.includes(c.key) ? <td key={c.key} className={`${cel} p-0 ${c.key === "classificacao" && riscoClasse(l.classificacao) ? riscoClasse(l.classificacao) : "bg-background"}`} title="Campo automático calculado pela matriz da planilha">
                   <div aria-label={`${c.titulo} linha ${i + 1}`} className={`${inp} min-h-[100px] flex items-center justify-center text-center font-bold`}>{l[c.key] as string}</div>
                 </td>
               : c.key === "medidas" ? <td key={c.key} className={`${cel} p-0 relative`}>
@@ -204,7 +204,7 @@ export default function AprErgoRegistro() {
                     <option value="">+</option>{[...new Set(MEDIDAS_APR)].map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </td>
-              : <td key={c.key} className={`${cel} p-0 ${c.key === "recomendacoes" ? riscoClasse(l.classificacao) : ""}`}>
+              : <td key={c.key} className={`${cel} p-0 ${c.key === "recomendacoes" ? "bg-background" : ""}`}>
                   <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l[c.key] as string} value={l[c.key] as string} onChange={(e) => { setLinha(i, c.key, e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] ${c.key === "recomendacoes" ? "font-bold" : ""}`} />
                 </td>)}
           </tr>)}

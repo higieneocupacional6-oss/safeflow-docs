@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, contarConflitosApr, formulariosCompativeisApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, aplicarResumoApr, contarConflitosResumoApr, condutaApr, contarConflitosApr, formulariosCompativeisApr, recalcularLinhaApr, CAMPOS_APR, MAX_BASE_APR } from "../../supabase/functions/_shared/aprErgoIa";
 import { ESTIMATIVAS_APR as E, INTENSIDADES_APR as I, SEVERIDADES_APR as S } from "../../supabase/functions/_shared/aprErgoPlanilha";
 const linha = (patch = {}) => ({ ...Object.fromEntries(CAMPOS_APR.map((k) => [k, ""])), fotos: [], ...patch }) as Parameters<typeof aplicarPropostaApr>[0][number];
 describe("APR-ERGO IA", () => {
@@ -23,18 +23,20 @@ describe("APR-ERGO IA", () => {
     expect(aplicarResumoApr(atual, proposta, false)).toEqual({ ...atual, ambiente: "Ambiente confirmado" });
     expect(aplicarResumoApr(atual, proposta, true)).toEqual({ ...proposta, cargo: "Cargo" });
   });
-  it("aplica apenas a conduta da Base correspondente ao risco calculado", () => {
-    const condutas = { BAIXO: "Conduta baixa do arquivo", "MÉDIO": "Conduta média do arquivo", ALTO: "Conduta alta do arquivo", "MUITO ALTO": "Conduta muito alta do arquivo" };
-    for (const nivel of ["BAIXO", "MÉDIO", "ALTO", "MUITO ALTO"]) expect(condutaApr(nivel, condutas)).toBe(condutas[nivel as keyof typeof condutas]);
-    expect(condutaApr("", condutas)).toBe("");
-    expect(condutaApr("ALTO", {})).toBe("");
-    expect(condutaApr("CRÍTICO", condutas)).toBe("");
+  it("conduta administrativa segue exatamente a matriz por nível", () => {
+    expect(condutaApr("BAIXO")).toBe("Há medidas de controle eficientes. Devem ser gerenciadas na busca de melhorias contínuas.");
+    expect(condutaApr("MÉDIO")).toBe("Devem ser gerenciadas na busca de melhorias contínuas e medidas de controle implementadas.");
+    expect(condutaApr("ALTO")).toBe("Faz-se necessária recomendação para o controle da exposição, com investigação da ocorrência do risco e plano de ação (AET + Plano de ação).");
+    expect(condutaApr("MUITO ALTO")).toBe(condutaApr("ALTO"));
+    expect(condutaApr("SEM RISCO")).toBe("Nenhuma ação é requerida e nenhum registro documental precisa ser mantido.");
+    expect(condutaApr("")).toBe("");
   });
-  it("reajusta conduta após preservar classificações manuais no merge", () => {
-    const atual = linha({ estimativa: E[0][0], intensidade: I[0][0], severidade: S[0][1] });
-    const proposta = linha({ estimativa: E[4][0], intensidade: I[3][0], severidade: S[4][1], classificacao: "MUITO ALTO", recomendacoes: "Conduta muito alta\nSugestão específica" });
-    const condutas = { BAIXO: "Conduta baixa", "MUITO ALTO": "Conduta muito alta" };
-    expect(aplicarPropostaApr([atual], [proposta], false, condutas)[0]).toMatchObject({ classificacao: "BAIXO", recomendacoes: "Conduta baixa\nSugestão específica" });
-    expect(aplicarPropostaApr([linha({ ...atual, recomendacoes: "Manual" })], [proposta], false, condutas)[0].recomendacoes).toBe("Manual");
+  it("conduta acompanha a classificação recalculada e preserva o texto restante", () => {
+    const alta = recalcularLinhaApr(linha({ estimativa: E[4][0], intensidade: I[3][0], severidade: S[4][1], recomendacoes: "Sugestão específica" }));
+    expect(alta.classificacao).toBe("MUITO ALTO");
+    expect(alta.recomendacoes).toBe(`${condutaApr("MUITO ALTO")}\nSugestão específica`);
+    const baixa = recalcularLinhaApr({ ...alta, estimativa: E[0][0], intensidade: I[0][0], severidade: S[0][1] });
+    expect(baixa.recomendacoes).toBe(`${condutaApr("BAIXO")}\nSugestão específica`);
+    expect(recalcularLinhaApr({ ...baixa, severidade: "" }).recomendacoes).toBe("Sugestão específica");
   });
 });
