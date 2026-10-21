@@ -31,7 +31,6 @@ export function gerarPdfApr(cab: CabecalhoPdf, linhas: LinhaApr[], colunas: Colu
   autoTable(doc, { ...tabela, startY: 10, body: identificacao, columnStyles });
   const fim = () => (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY;
   const fotosPorLinha: string[][] = [];
-  const riscos: string[] = [];
   const body: CellInput[][] = [];
   doc.setFontSize(8);
   for (const linha of linhas) {
@@ -40,7 +39,6 @@ export function gerarPdfApr(cab: CabecalhoPdf, linhas: LinhaApr[], colunas: Colu
     const partes = Math.max(1, ...textos.map((t) => Math.ceil(t.length / 28)), linha.fotos.length);
     for (let p = 0; p < partes; p++) {
       fotosPorLinha.push(linha.fotos[p] ? [linha.fotos[p]] : []);
-      riscos.push(linha.classificacao);
       body.push(colunas.map((c, i) => ({ content: c.key === "fotos" ? "" : textos[i].slice(p * 28, (p + 1) * 28).join("\n"), styles: {
         ...(c.key === "fotos" && linha.fotos[p] ? { minCellHeight: 48 } : {}),
         ...(["perfil", "classificacao", "recomendacoes"].includes(c.key) ? { fontStyle: "bold" as const } : {}),

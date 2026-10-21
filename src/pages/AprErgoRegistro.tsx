@@ -81,14 +81,16 @@ export default function AprErgoRegistro() {
       if (error) throw error;
       const snap = (data.draft_snapshot || {}) as Record<string, unknown>;
       let setorNome = "";
+      let setorArquivo = "";
       let cargos: string[] = [];
       if (typeof snap.setor_id === "string") {
         const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
         if (setorError) throw setorError;
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
+        setorArquivo = s?.nome_setor || "";
         cargos = [...new Set((s?.funcoes || []).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
-      return { ...data, snap, setorNome, cargos };
+      return { ...data, snap, setorNome, setorArquivo, cargos };
     },
   });
 
@@ -149,7 +151,7 @@ export default function AprErgoRegistro() {
       }
       const atuais = linhas.map(recalcularLinhaApr);
       const pdf = gerarPdfApr({ ...cab, cargo: data.cargos.join("; ") }, atuais, COLUNAS, cores);
-      baixarBlobApr(pdf, nomePdfApr(data.setorNome, data.empresa_nome || cab.empresa));
+      baixarBlobApr(pdf, nomePdfApr(data.setorArquivo, data.empresa_nome || cab.empresa));
     } catch { toast.error("Não foi possível gerar o PDF. Seus dados continuam na tela."); }
   };
 
