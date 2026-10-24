@@ -13,10 +13,21 @@ export function AetValeFotoIa({ foto, registroId, numero, onAplicar }: { foto: F
   const [previa, setPrevia] = useState<{ fonte: string; anotacao: AnotacaoFotoVale } | null>(null);
   const abort = useRef<AbortController | null>(null);
   const analisar = async () => {
+    if (gerando) return;
     const fonte = foto.imagem;
+    if (foto.anotacao?.registroId === registroId && foto.anotacao.fonteHash === await hashFotoVale(fonte)) {
+      setPrevia(null); setAberta(true); return;
+    }
     abort.current = new AbortController(); setGerando(true);
     try {
-      const analise = await invocarGeracaoIa<AnaliseFotoVale & { registroId: string; funcaoId: string }>("aet-vale-foto-analyze", { registroId, imagem: fonte, descricao: foto.descricao }, abort.current.signal);
+      const img = new Image(); img.src = fonte; await img.decode();
+      const scale = Math.min(1, 1920 / Math.max(img.naturalWidth, img.naturalHeight));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.naturalWidth * scale); canvas.height = Math.round(img.naturalHeight * scale);
+      const ctx = canvas.getContext("2d");
+      if (!ctx) throw new Error("Não foi possível preparar a foto. O original foi preservado.");
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const analise = await invocarGeracaoIa<AnaliseFotoVale & { registroId: string; funcaoId: string }>("aet-vale-foto-analyze", { registroId, imagem: canvas.toDataURL("image/jpeg", .9), descricao: foto.descricao }, abort.current.signal);
       if (abort.current.signal.aborted) return;
       const imagem = await renderizarFotoAnotada(fonte, analise);
       setPrevia({ fonte, anotacao: { ...analise, imagem, fonteHash: await hashFotoVale(fonte) } }); setAberta(true);

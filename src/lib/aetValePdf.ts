@@ -1,7 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable, { type CellInput } from "jspdf-autotable";
 import type { AetValeDados, AetValeFoto } from "./aetVale";
-import type { RiscoErgonomico } from "./aepRisco";
 import { CHECKS_ETAPA2, TEXTOS_ETAPA2, type FatorVale } from "../../supabase/functions/_shared/aetValeIa";
 
 export const CAMPOS_PDF_VALE = {
@@ -29,7 +28,7 @@ export function nomePdfVale(empresa: string, funcao: string) {
   const seguro = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
   return `AET_VALE_${seguro(empresa) || "EMPRESA"}_${seguro(funcao) || "FUNCAO"}.pdf`;
 }
-export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: FatorVale[], aep: RiscoErgonomico[]): Blob {
+export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: FatorVale[], aep: FatorVale[]): Blob {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   let y = 14;
   const width = 182;
@@ -73,7 +72,8 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
   tabela(["ANEXO 04 — ANÁLISE ERGONÔMICA DO TRABALHO — AET (VALE)"], [[`Empresa: ${empresa}`]]);
   section("Dados gerais"); campos(["gerencia_area","descricao_ambiente","data_avaliacao","revisao"]);
   section("Identificação"); campos(["nome_gere","jornada","cargo","tarefa_analisada","descricao_cargo"]);
-  section("Dados da AEP"); tabela(["Agente", "Fator", "Probabilidade", "Severidade", "Nível", "Justificativa", "Medidas"], aep.map(r => [r.tipo_agente,r.fator_risco,String(r.probabilidade || ""),String(r.severidade || ""),r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco,r.justificativa,r.medidas].map(v => String(v || ""))),[1,2,1,1,1,2,2]);
+  section("Dados da AEP"); tabela(["Tipo", "Fator", "Exposição", "Severidade", "Nível", "Situação", "Recomendações"], aep.map(r => [r.tipo,r.circunstancia,r.estimativa,r.severidade,r.classificacao,r.situacao,r.recomendacoes].map(v => String(v || ""))),[1,2,1,1,1,2,2]);
+  if (!aep.length) tabela(["Resultado"], [["Nenhum risco Alto ou Muito Alto identificado nos registros da APR-ERGO consultados."]]);
   section("Origem da demanda"); tabela(["Origem", "Detalhamento"], [[dados.origens.join("; "), dados.origem_detalhe]]);
   section("Campos de análise"); campos(["demanda_ergonomica","descricao_tarefa","analise_atividade"]);
   if (y + 100 > 277) { doc.addPage(); y=18; }
