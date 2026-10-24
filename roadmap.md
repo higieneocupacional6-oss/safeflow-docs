@@ -1,4 +1,5 @@
 # Ficha Técnica
+- [ ] AET (VALE): tabela 5W2H na última etapa, PDF completo, salvamento e navegação; corrigir e validar Invalid token.
 - [x] AET (VALE): Gerar IA para ambas as etapas e 5W2H; geração real, preservação manual, riscos da APR, salvamento e reabertura validados; 14 testes aprovados.
 - [ ] AET (VALE): conferir fidelidade ao Anexo 04 original — aguardando envio do documento original; implementadas as orientações fornecidas.
 - [x] Exibir nome cadastrado do usuário
