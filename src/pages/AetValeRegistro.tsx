@@ -177,7 +177,7 @@ export default function AetValeRegistro() {
           <td className="p-2 whitespace-pre-wrap">{r.circunstancia || "—"}</td>
           <td className="p-2">{r.estimativa || "—"}</td>
           <td className="p-2">{r.severidade || "—"}</td>
-          <td className="p-2">{r.classificacao ? <span className={`inline-block px-2 py-1 rounded-md border font-semibold ${CORES_NIVEL_RISCO[r.classificacao === "Muito Alto" ? "Crítico" : "Alto"]}`}>{r.classificacao}</span> : "—"}</td>
+          <td className="p-2">{r.classificacao ? <span className={`inline-block px-2 py-1 rounded-md border font-semibold ${CORES_NIVEL_RISCO[r.classificacao.trim().toUpperCase() === "MUITO ALTO" ? "Crítico" : "Alto"]}`}>{r.classificacao}</span> : "—"}</td>
           <td className="p-2 whitespace-pre-wrap">{r.situacao || "—"}</td>
           <td className="p-2 whitespace-pre-wrap">{r.recomendacoes || "—"}</td>
         </tr>)}</tbody>
