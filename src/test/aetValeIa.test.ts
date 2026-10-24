@@ -7,6 +7,7 @@ describe("AET VALE IA", () => {
     const docs = [{ id: "apr", draft_snapshot: { setor_id: "s1", funcao_id: "f1", linhas: [...linhas, { classificacao: "Alto", funcao_id: "f2", circunstancia: "Outra função" }] } }];
     expect(riscosAprValeAltos(docs, alvo).map(f => [f.circunstancia, f.classificacao, f.recomendacoes])).toEqual([["Alto", "Alto", "Original"], ["Muito Alto", "Muito Alto", "Original"]]);
     expect(riscosAprValeAltos([], alvo)).toEqual([]);
+    expect(riscosAprValeAltos([{id: "mai", draft_snapshot: {setor_id: "s1", funcao_id: "f1", linhas: [{circunstancia: "Carga", classificacao: "MUITO ALTO"}]}}], alvo)[0].classificacao).toBe("MUITO ALTO");
   });
   it("formulários fornecem evidências apenas do escopo exato e não ambíguo", () => {
     const form = { empresa_id: "e1", contrato_id: "c1", setor_ids: ["s1"], dados: { funcoes: ["f1"] } };
