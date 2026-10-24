@@ -65,6 +65,7 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
   section("Dados da AEP"); tabela(["Agente", "Fator", "Probabilidade", "Severidade", "Nível", "Justificativa", "Medidas"], aep.map(r => [r.tipo_agente,r.fator_risco,String(r.probabilidade || ""),String(r.severidade || ""),r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco,r.justificativa,r.medidas].map(v => String(v || ""))),[1,2,1,1,1,2,2]);
   section("Origem da demanda"); tabela(["Origem", "Detalhamento"], [[dados.origens.join("; "), dados.origem_detalhe]]);
   section("Campos de análise"); campos(["demanda_ergonomica","descricao_tarefa","analise_atividade"]);
+  if (y + 100 > 277) { doc.addPage(); y=18; }
   section("Registro fotográfico"); fotos(dados.fotos);
   section("Verbalização"); campos(["verbalizacao"]);
   for (const [title, texts, checks] of SECOES_PDF_VALE) {
