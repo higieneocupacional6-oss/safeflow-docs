@@ -177,7 +177,7 @@ const mergeLoadedRiscos = (rows: RiscoEntry[]): RiscoEntry[] => {
   const grouped = new Map<string, RiscoEntry>();
 
   rows.forEach((row) => {
-    const groupKey = [row.setor_id || "", row.agente_id || "", row.tipo_avaliacao || "", row.tipo_agente || ""].join("|");
+    const groupKey = [row.setor_id || "", row.agente_id || "", row.tipo_avaliacao || "", row.tipo_agente || "", row.tecnica_id || "", row.tipo_exposicao || "", row.descricao_tecnica || ""].join("|");
     const current = grouped.get(groupKey);
 
     if (!current) {
@@ -2200,16 +2200,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const sectorRisks = riscos.filter(r => r.setor_id === sId);
       const sector = setores.find(s => s.id === sId);
 
-      const uniqueAgents = Array.from(new Set(sectorRisks.map(r => r.agente_id)));
+      const riskKey = (r: RiscoEntry) => `${r.agente_id}|${r.tipo_avaliacao}`;
+      const uniqueAgents = Array.from(new Set(sectorRisks.map(riskKey)));
 
       const riscosLoop = uniqueAgents.map(aId => {
-        const agentEntries = sectorRisks.filter(r => r.agente_id === aId);
+        const agentEntries = sectorRisks.filter(r => riskKey(r) === aId);
         const first = agentEntries[0];
+        const agentId = first.agente_id;
 
         // Parecer técnico no nível do RISCO (para {{#setores}}{{#riscos}}{{parecer_tecnico}})
         const dbParecerRisco = cachedPareceres.find((p: any) =>
-          p.agente_id === aId && p.setor_id === sId
-        ) || cachedPareceres.find((p: any) => p.agente_id === aId);
+          p.agente_id === agentId && p.setor_id === sId
+        );
         const allResultsRisco = agentEntries.flatMap((r: any) => [
           ...(r.resultados_detalhados || []),
           ...(r.resultados_componentes || []),
@@ -2293,7 +2295,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const { epi_nome, epc_nome } = getEpiEpcNames(r.epi_id, r.epc_id);
 
           const mapResult = (res: any) => {
-            const dbParecer = findDBParecer(res.colaborador, res.funcao_id, sId, aId);
+            const dbParecer = findDBParecer(res.colaborador, res.funcao_id, sId, agentId);
             const resNum = parseFloat(res.resultado || res.exposicao);
             const ltNum = parseFloat(res.limite_tolerancia || res.aren_limite);
             const hasBoth = !isNaN(resNum) && !isNaN(ltNum) && ltNum > 0;
@@ -2474,7 +2476,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   amostrador: c.amostrador || rc.amostrador || "",
                 };
               });
-              const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
+              const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, agentId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
               const dataAv = rc.data_avaliacao ? formatDateOnly(rc.data_avaliacao) : "";
               const _eqRisco = equipamentos.find((e: any) => e.id === r.equipamento_id);
@@ -2546,7 +2548,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (r.resultados_detalhados?.length) return r.resultados_detalhados.map(mapResult);
 
           return r.items.map(item => {
-            const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, aId);
+            const dbParecer = findDBParecer(item.colaborador, item.funcao_id, sId, agentId);
             const f = funcoes.find((x: any) => x.id === item.funcao_id);
             return {
               ...base,
@@ -2905,7 +2907,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const byAgent = new Map<string, any>();
       setoresFiltrados.forEach((s: any) => {
         (s.riscos || []).forEach((r: any) => {
-          const key = String(r.agente_nome || "").toLowerCase().trim();
+          const key = `${String(r.agente_nome || "").toLowerCase().trim()}|${r.tipo_avaliacao}`;
           if (!byAgent.has(key)) {
             byAgent.set(key, { ...r, setores: [] });
           }
