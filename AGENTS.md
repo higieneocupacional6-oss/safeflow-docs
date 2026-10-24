@@ -7,6 +7,7 @@
 - APR-ERGO deletion uses a shared confirmation modal, an exact document ID/type/company/contract filter and only that document's private Base prefix; storage cleanup failures are reported separately so sibling APRs and registries remain untouched.
 - AET (VALE) records reuse documentos with tipo AET-VALE, one draft per selected function (IDs in draft_snapshot, status rascunho until saved), reusing existing company/contract/sector/function registries; AEP context is read-only via selecionarSetorAep filtered to Alto/Crítico (presented as Alto/Muito Alto) without copying or inventing data.
 - AET VALE field definitions, risk identity selection and non-destructive merging live in _shared/aetValeIa.ts; both steps and 5W2H persist together, and its authenticated AI endpoint reuses the existing shared Responses service with NDJSON heartbeats and server-derived exact scope to protect source records and manual data.
+- AET VALE exports render the current complete form state as vector tables with explicit text continuations and proportional photos; the final 5W2H step shares the existing persisted etapa2 payload to retain legacy actions.
 
 - Psychosocial report screen, PDF, and Word exports must consume the same numerically sorted group payload so presentation formats cannot diverge.
 - Psychosocial report terminology and frequency values must be normalized before persistence and shared by screen, PDF, Word, and AI context so legacy wording cannot reappear.

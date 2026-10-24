@@ -18,6 +18,7 @@ Deno.serve(async req => {
     const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("LOVABLE_API_KEY");
     if (!url || !anon || !key) return fail("Serviço de IA não configurado.", 500);
     const auth = req.headers.get("Authorization") || "";
+    if (!auth.startsWith("Bearer ")) return fail("Sessão expirada. Entre novamente.", 401);
     const sb = createClient(url, anon, { global: { headers: { Authorization: auth } } });
     const { data: claims, error: authError } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
     if (authError || !claims?.claims?.sub) return fail("Sessão expirada. Entre novamente.", 401);
