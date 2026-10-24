@@ -17,6 +17,8 @@ import { dadosVaziosAetVale, riscosAepAltos, ORIGENS_DEMANDA, type AetValeDados 
 import { AetValeEtapa2 } from "@/components/aet-vale/AetValeEtapa2";
 import { AetValeIaModal } from "@/components/aet-vale/AetValeIaModal";
 import { AetValePlano } from "@/components/aet-vale/AetValePlano";
+import { AetValeFotoIa } from "@/components/aet-vale/AetValeFotoIa";
+import { aplicarAnotacaoFoto, substituirFotoVale } from "../../supabase/functions/_shared/aetValeFotos";
 import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
 import { fatoresVale, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
@@ -88,7 +90,7 @@ export default function AetValeRegistro() {
     const base = dadosVaziosAetVale(funcaoQuery.data?.nome_funcao || "");
     const salvo = snap.dados || {};
     const fotos = Array.isArray(salvo.fotos) && salvo.fotos.length
-      ? [salvo.fotos[0] || { imagem: "", descricao: "" }, salvo.fotos[1] || { imagem: "", descricao: "" }]
+      ? salvo.fotos
       : base.fotos;
     setDados({ ...base, ...salvo, origens: Array.isArray(salvo.origens) ? salvo.origens : [], fotos, etapa2: mesclarEtapa2(salvo.etapa2) });
   }, [registroQuery.data, funcaoQuery.data, funcaoQuery.isLoading, dados, snap]);
@@ -105,7 +107,7 @@ export default function AetValeRegistro() {
 
   const escolherFoto = async (idx: number, file?: File | null) => {
     if (!file) return;
-    try { setFoto(idx, { imagem: await lerFoto(file) }); }
+    try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, fotos: d.fotos.map((f,i) => i === idx ? substituirFotoVale(f,imagem) : f) } : d); }
     catch { toast.error("Não foi possível ler a foto selecionada."); }
   };
 
@@ -217,6 +219,7 @@ export default function AetValeRegistro() {
         </button>
         {foto.imagem && <Button type="button" variant="outline" size="sm" onClick={() => inputsFoto.current[idx]?.click()}>Substituir foto</Button>}
         <Input placeholder="Descrição da foto" value={foto.descricao} onChange={(e) => setFoto(idx, { descricao: e.target.value })} />
+        {registroId && <AetValeFotoIa foto={foto} registroId={registroId} numero={`1-${idx+1}`} onAplicar={(fonte, anotacao) => setDados(d => d ? { ...d, fotos: d.fotos.map((f,i) => i === idx ? aplicarAnotacaoFoto(f,fonte,anotacao) : f) } : d)} />}
       </div>)}</div>
     </section>
 
@@ -224,8 +227,8 @@ export default function AetValeRegistro() {
       <h2 className="font-heading font-semibold">Verbalização</h2>
       <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
     </section>
-    </> : etapa === 2 ? <AetValeEtapa2 dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
-      try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? { ...f, imagem } : f) } } : d); }
+    </> : etapa === 2 ? <AetValeEtapa2 registroId={registroId} dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
+      try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? substituirFotoVale(f, imagem) : f) } } : d); }
       catch { toast.error("Não foi possível ler a foto selecionada."); }
     }} /> : <AetValePlano dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} />}
 
