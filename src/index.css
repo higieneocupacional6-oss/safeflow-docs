@@ -78,6 +78,10 @@
     --apr-risk-very-high: 0 100% 50%;
     --apr-risk-ink: 0 0% 0%;
     --apr-risk-inverse: 0 0% 100%;
+    --vale-previsto: 198 73% 32%;
+    --vale-realizado: 99 63% 40%;
+    --vale-nao-realizado: 0 90% 50%;
+    --vale-plano-titulo: 208 65% 78%;
   }
 
   .dark {
@@ -127,6 +131,11 @@
 }
 
 @layer utilities {
+  .vale-previsto { background-color: hsl(var(--vale-previsto)) !important; }
+  .vale-realizado { background-color: hsl(var(--vale-realizado)) !important; }
+  .vale-nao-realizado { background-color: hsl(var(--vale-nao-realizado)) !important; }
+  .vale-plano-titulo { background-color: hsl(var(--vale-plano-titulo)); color: hsl(var(--apr-risk-ink)); }
+  .vale-mes-nome { writing-mode: vertical-rl; transform: rotate(180deg); }
   .apr-risco-baixo { background-color: hsl(var(--apr-risk-low)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
   .apr-risco-medio { background-color: hsl(var(--apr-risk-medium)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
   .apr-risco-alto { background-color: hsl(var(--apr-risk-high)); color: hsl(var(--apr-risk-ink)); font-weight: 700; }
