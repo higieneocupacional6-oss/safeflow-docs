@@ -2,6 +2,18 @@ import { describe, expect, it } from "vitest";
 import { aplicarPropostaVale, fatoresVale, exigeDiagnostico, etapa2Vazia, type PropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 const alvo = { setorId: "s1", funcaoId: "f1", funcaoNome: "Operador", setorNome: "Setor" };
 describe("AET VALE IA", () => {
+  it("lê a tabela persistida e mantém diagnóstico após reordenar cenários", () => {
+    const linhas = [{ cenario: "1", circunstancia: "Carga", situacao: "Movimentação", exigencia: "Esforço", classificacao: "Alto" }, { cenario: "2", circunstancia: "Postura", situacao: "Em pé", exigencia: "Estática", classificacao: "Médio" }];
+    const doc = (rs: typeof linhas) => [{ id: "apr", draft_snapshot: { setor_id: "s1", funcao_id: "f1", tabela: { linhas: rs } } }];
+    const antes = fatoresVale(doc(linhas), [], alvo);
+    const depois = fatoresVale(doc([...linhas].reverse().map((r,i) => ({ ...r, cenario: String(i+1) }))), [], alvo);
+    expect(antes).toHaveLength(2);
+    expect(depois.find(f => f.circunstancia === "Carga")?.id).toBe(antes[0].id);
+  });
+  it("não limita cenários fundamentados a três por função", () => {
+    const linhas = Array.from({ length: 14 }, (_,i) => ({ circunstancia: `Condição técnica ${i}`, situacao: "Postura" }));
+    expect(fatoresVale([{ id: "apr", draft_snapshot: { setor_id: "s1", funcao_id: "f1", tabela: { linhas } } }], [], alvo)).toHaveLength(14);
+  });
   it("somente riscos da função e setor exatos", () => {
     const docs = [{ id: "d1", draft_snapshot: { setor_id: "s1", funcao_id: "f1", linhas: [{ cenario: "1", circunstancia: "Transporte", classificacao: "Alto" }, { cenario: "2", funcao_id: "f2", circunstancia: "Inspeção" }] } }, { id: "d2", draft_snapshot: { setor_id: "s2", funcao_id: "f1", linhas: [{ circunstancia: "Outra" }] } }];
     expect(fatoresVale(docs, [], alvo).map(f => f.circunstancia)).toEqual(["Transporte"]);
