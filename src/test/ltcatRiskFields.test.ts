@@ -25,3 +25,13 @@ describe.each(["LTCAT", "INSALUBRIDADE"])("%s qualitative document generation", 
     expect(xml).not.toContain("OUTRO RISCO");
   });
 });
+
+it("keeps different techniques and exposures on each exact evaluation", () => {
+  const techniques = [{ id: "a", nome: "Inspeção" }, { id: "b", nome: "Amostragem" }];
+  const first = { descricao_tecnica: "Primeira", tecnica_id: "a", tipo_exposicao: "Eventual" };
+  const second = { descricao_tecnica: "Segunda", tecnica_id: "b", tipo_exposicao: "Habitual" };
+  const rows = [ltcatEvaluationFields(first, { colaborador: "Ana" }, techniques), ltcatEvaluationFields(second, { colaborador: "Bia" }, techniques)];
+  expect(rows[0]).toMatchObject({ descricao_avaliacao: "Primeira", tecnica_amostragem: "Inspeção", tipo_exposicao: "Eventual" });
+  expect(rows[1]).toMatchObject({ descricao_avaliacao: "Segunda", tecnica_amostragem: "Amostragem", tipo_exposicao: "Habitual" });
+  expect(ltcatRiskFields([first, second], rows, techniques).colaborador).toBe("Ana; Bia");
+});
