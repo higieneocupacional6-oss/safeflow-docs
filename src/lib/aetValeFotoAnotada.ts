@@ -11,7 +11,7 @@ export async function renderizarFotoAnotada(imagem: string, analise: AnaliseFoto
   const width = Math.max(1600, img.naturalWidth), scale = width / img.naturalWidth;
   const height = Math.round(img.naturalHeight * scale);
   const canvas = document.createElement("canvas");
-  canvas.width = width; canvas.height = height + Math.max(110, analise.marcacoes.length * 104 + 24);
+  canvas.width = width; canvas.height = height + (analise.marcacoes.length ? analise.marcacoes.length * 104 + 32 : 240);
   const ctx = canvas.getContext("2d"); if (!ctx) throw new Error("Não foi possível criar a imagem anotada.");
   const theme = getComputedStyle(document.documentElement);
   const token = (name: string) => `hsl(${theme.getPropertyValue(name).trim()})`;

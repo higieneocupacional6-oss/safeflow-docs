@@ -59,11 +59,11 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
       tabela([`Foto ${i+1}`, `Foto ${i+2}`], [pair.map(f => f.descricao || "—")]);
       for (const [j,f] of pair.entries()) {
         if (!f.anotacao?.imagem) continue;
-        section(`Foto ${i+j+1} — análise ergonômica anotada`);
         const props=doc.getImageProperties(f.anotacao.imagem);
         const scale=Math.min(width/props.width,220/props.height);
         const w=props.width*scale,h=props.height*scale;
-        if (y+h > 277) { doc.addPage(); y=18; }
+        if (y+12+h > 277) { doc.addPage(); y=18; }
+        section(`Foto ${i+j+1} — análise ergonômica anotada`);
         doc.addImage(f.anotacao.imagem,props.fileType,14+(width-w)/2,y,w,h); y+=h+4;
         tabela(["Problema observado", "Melhoria recomendada"],f.anotacao.marcacoes.map(m=>[m.problema,m.melhoria]),[1,2]);
         if (f.anotacao.observacao) tabela(["Observação"],[[f.anotacao.observacao]]);
