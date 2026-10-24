@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import jsPDF from "jspdf";
 import autoTable, { type CellInput } from "jspdf-autotable";
 import type { AetValeDados, AetValeFoto } from "./aetVale";
@@ -45,7 +46,7 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
   };
   const section = (title: string) => { if (y > 252) { doc.addPage(); y=18; } doc.setFillColor(225,225,225); doc.rect(14,y,width,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(0,0,0); doc.text(title,16,y+6,{maxWidth:178}); y+=12; };
-  const campos = (keys: (keyof typeof CAMPOS_PDF_VALE)[]) => tabela(["Campo", "Informação"], keys.map(k => [CAMPOS_PDF_VALE[k], dados[k]]), [1,3]);
+  const campos = (keys: (keyof typeof CAMPOS_PDF_VALE)[]) => tabela(["Campo", "Informação"], keys.map(k => [CAMPOS_PDF_VALE[k], k === "data_avaliacao" ? formatDateOnly(dados[k], dados[k]) : dados[k]]), [1,3]);
   const fotos = (items: AetValeFoto[]) => {
     for (let i=0;i<items.length;i+=2) {
       if (y+72 > 277) { doc.addPage(); y=18; }

@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 // PDF do Formulário AEP: exatamente 2 páginas A4 retrato.
 // Página 1 = Parte I/II/III; Página 2 = Parte IV + V – Participantes.
 // O tamanho da fonte é reduzido automaticamente até cada parte caber em uma página.
@@ -20,7 +21,7 @@ const AZUL: [number, number, number] = [30, 58, 138];
 const CINZA: [number, number, number] = [235, 237, 241];
 const M = 8; // margem (mm)
 
-const fmtData = (d: string) => (/^\d{4}-\d{2}-\d{2}$/.test(d) ? d.split("-").reverse().join("/") : d);
+const fmtData = (d: string) => formatDateOnly(d, d);
 const last = (doc: jsPDF) => (doc as any).lastAutoTable.finalY as number;
 
 function cabecalho(doc: jsPDF, titulo: string, sub: string) {

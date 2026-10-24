@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Download, Loader2, Search } from "lucide-react";
@@ -42,7 +43,7 @@ export function AmostradoresDialog({ open, onOpenChange }: Props) {
     if (!term) return rows;
     return rows.filter((row) => `${row.amostrador} ${row.amostrador_serie || ""}`.toLocaleLowerCase("pt-BR").includes(term));
   }, [rows, search]);
-  const date = (value: string) => new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR");
+  const date = (value: string) => formatDateOnly(value);
 
   return <Dialog open={open} onOpenChange={onOpenChange}>
     <DialogContent className="max-w-6xl max-h-[90vh] overflow-hidden flex flex-col">

@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -143,7 +144,7 @@ export default function PsicossocialEmpresa() {
         <Stat
           icon={CalendarDays}
           label="Última avaliação"
-          value={ultima ? new Date(ultima + "T00:00:00").toLocaleDateString("pt-BR") : "—"}
+          value={ultima ? formatDateOnly(ultima) : "—"}
         />
         <Stat icon={ClipboardList} label="Avaliações geradas" value={avaliacoes.length} />
         <Stat
@@ -186,7 +187,7 @@ export default function PsicossocialEmpresa() {
                     <div className="min-w-0">
                       <p className="font-semibold truncate">{a.titulo}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(a.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")}
+                        {formatDateOnly(a.data_avaliacao)}
                       </p>
                     </div>
                     <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
