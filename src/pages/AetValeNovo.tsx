@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2, ClipboardList, FileSignature, FolderTree, Loader2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Building2, ClipboardList, Download, CalendarRange, FileSignature, FolderTree, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -15,6 +15,7 @@ import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { sortByGes } from "@/lib/sortGes";
 import { selecionarSetorAep } from "@/lib/aepContexto";
 import { setoresAprErgoDoContrato, rotuloStatusAprErgo } from "@/lib/aprErgo";
+import { baixarAetValeSalva } from "@/lib/aetValeDownload";
 import {
   criarRegistroAetVale, funcaoDoRegistroAetVale, riscosAepAltos, setorDoRegistroAetVale,
   type AetValeSetor,
@@ -31,6 +32,8 @@ export default function AetValeNovo() {
   const [funcSel, setFuncSel] = useState<Record<string, string[]>>({});
   const [salvando, setSalvando] = useState<string | null>(null);
   const salvandoRef = useRef(false);
+  const [baixando, setBaixando] = useState<string | null>(null);
+  const baixar = async (id: string) => { setBaixando(id); try { await baixarAetValeSalva(id, empresaId, contratoId); } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível baixar a avaliação."); } finally { setBaixando(null); } };
 
   const empresasQuery = useQuery({ queryKey: ["aet-vale-empresas"], queryFn: async () => {
     const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
@@ -136,21 +139,25 @@ export default function AetValeNovo() {
           {s.funcoes.length === 0 && <p className="text-sm text-muted-foreground">Nenhuma função cadastrada neste setor</p>}
           <div className="space-y-2">{s.funcoes.map((f) => {
             const indicada = funcaoIndicada(s, f.id);
-            return <label key={f.id} className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer">
+            const registro = registros.find(r => funcaoDoRegistroAetVale(r.draft_snapshot) === f.id);
+            return <div key={f.id} className="flex flex-wrap items-center gap-3 p-3 border border-border rounded-md">
               <Checkbox checked={marcadas.includes(f.id)} onCheckedChange={(c) => alternarFuncao(s.id, f.id, c === true)} aria-label={f.nome_funcao} />
               <span className="text-sm break-words flex-1">{f.nome_funcao}</span>
+              <Badge variant="outline">{registro?.status === "salvo" ? "Salvo" : "Rascunho"}</Badge>
+              <Button variant="ghost" size="icon" aria-label={`Baixar ${f.nome_funcao}`} title="Baixar PDF" disabled={!registro || registro.status !== "salvo" || !!baixando} onClick={() => registro && void baixar(registro.id)}>{baixando === registro?.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}</Button>
               {indicada && <Badge variant="outline" className="border-red-500/40 text-red-700 dark:text-red-400 bg-red-500/10">Indicada pela AEP (Alto/Muito Alto)</Badge>}
-            </label>;
+            </div>;
           })}</div>
         </div>
         {registros.length > 0 && <div><h3 className="text-xs font-medium text-muted-foreground mb-2">Registros AET (VALE)</h3>
           <ul className="divide-y divide-border">{registros.map((r) => {
             const nome = s.funcoes.find((f) => f.id === funcaoDoRegistroAetVale(r.draft_snapshot))?.nome_funcao || "Função não identificada";
-            return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => navigate(`/documentos/aet-vale/registro/${r.id}`)}>{nome}</Button><Badge variant="outline" className="shrink-0">{rotuloStatusAprErgo(r.status)}</Badge></li>;
+            return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => navigate(`/documentos/aet-vale/registro/${r.id}`)}>{nome}</Button><div className="flex items-center gap-2"><Badge variant="outline" className="shrink-0">{rotuloStatusAprErgo(r.status)}</Badge><Button variant="ghost" size="icon" aria-label={`Baixar registro ${nome}`} title="Baixar PDF" disabled={r.status !== "salvo" || !!baixando} onClick={() => void baixar(r.id)}><Download className="w-4 h-4" /></Button></div></li>;
           })}</ul>
         </div>}
       </section>;
     })}</div>
+    {contratoId && <div className="flex flex-col items-end gap-2 py-6"><Button disabled={!!salvando || !selecionados.length} onClick={() => { const setor = setores.find(s => selecionados.includes(s.id) && (funcSel[s.id] || []).length); if (setor) void registrar(setor); else toast.error("Selecione uma função para avançar."); }}>Avançar<ArrowRight className="w-4 h-4 ml-2" /></Button><Button variant="outline" aria-label="Plano de ação mensal" title="Plano de ação mensal" onClick={() => navigate(`/documentos/aet-vale/plano/${empresaId}/${contratoId}`)}><CalendarRange className="w-4 h-4 mr-2" />Plano de ação</Button></div>}
     <Dialog open={modal} onOpenChange={setModal}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Selecione os setores</DialogTitle></DialogHeader>
       <div className="max-h-80 overflow-y-auto space-y-2">{setores.map((s) => <label key={s.id} className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer"><Checkbox checked={temporarios.includes(s.id)} onCheckedChange={(checked) => setTemporarios((ids) => checked === true ? [...ids.filter((id) => id !== s.id), s.id] : ids.filter((id) => id !== s.id))} /><span className="text-sm break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</span></label>)}{setores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor cadastrado neste contrato</p>}</div>
       <DialogFooter><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={() => { setSelecionados(temporarios); setModal(false); }}>OK</Button></DialogFooter>

@@ -22,6 +22,7 @@ import AetWizard from "./pages/AetWizard";
 import AepWizard from "./pages/AepWizard";
 import AetValeNovo from "./pages/AetValeNovo";
 import AetValeRegistro from "./pages/AetValeRegistro";
+import AetValePlanoContrato from "./pages/AetValePlanoContrato";
 import SetoresFuncoes from "./pages/SetoresFuncoes";
 import Usuarios from "./pages/Usuarios";
 import NotFound from "./pages/NotFound";
@@ -108,6 +109,7 @@ const App = () => (
             <Route path="/documentos/aet/novo" element={<Protected><AetWizard /></Protected>} />
             <Route path="/documentos/aet/editar/:documentoId" element={<Protected><AetWizard /></Protected>} />
             <Route path="/documentos/aet-vale" element={<Protected><AetValeNovo /></Protected>} />
+            <Route path="/documentos/aet-vale/plano/:empresaId/:contratoId" element={<Protected><AetValePlanoContrato /></Protected>} />
             <Route path="/documentos/aet-vale/registro/:registroId" element={<Protected><AetValeRegistro /></Protected>} />
             <Route path="/documentos/aep/novo" element={<Protected><AepWizard /></Protected>} />
             <Route path="/documentos/aep/editar/:documentoId" element={<Protected><AepWizard /></Protected>} />
