@@ -1,3 +1,4 @@
+import { formatDateOnly, todayDateOnly } from "@/lib/dateOnly";
 import { useState, useMemo } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -138,7 +139,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
             r.numero_serie || "—",
             r.marca_modelo || "—",
             r.data_calibracao
-              ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR")
+              ? formatDateOnly(r.data_calibracao)
               : "—",
             st.meses !== null ? `${st.meses} mês(es)` : "—",
             st.label,
@@ -186,7 +187,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
       },
     });
 
-    doc.save(`controle-equipamentos-${now.toISOString().slice(0, 10)}.pdf`);
+    doc.save(`controle-equipamentos-${todayDateOnly(now)}.pdf`);
     toast.success("PDF gerado com sucesso");
   };
 
@@ -268,7 +269,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
                               <div className="md:col-span-2">
                                 <span className="text-muted-foreground">Calibração:</span>{" "}
                                 {r.data_calibracao
-                                  ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR")
+                                  ? formatDateOnly(r.data_calibracao)
                                   : "—"}
                                 {st.meses !== null && (
                                   <div className="text-[10px] text-muted-foreground">{st.meses} mês(es)</div>

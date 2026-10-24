@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import {
@@ -123,7 +124,7 @@ const newSetor = (s: any): SetorAep => ({
   _salvo: false,
 });
 
-const formatDate = (v?: string | null) => (v ? new Date(v + "T00:00:00").toLocaleDateString("pt-BR") : "");
+const formatDate = (v?: string | null) => (v ? formatDateOnly(v) : "");
 
 export default function AepWizard() {
   const { documentoId } = useParams();

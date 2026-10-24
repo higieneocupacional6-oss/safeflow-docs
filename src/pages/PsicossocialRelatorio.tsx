@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, Link, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -199,7 +200,7 @@ export default function PsicossocialRelatorio() {
       responsavel_nome: "",
       responsavel_registro: "",
       data_avaliacao: avaliacao?.data_avaliacao
-        ? new Date(avaliacao.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")
+        ? formatDateOnly(avaliacao.data_avaliacao)
         : new Date().toLocaleDateString("pt-BR"),
       ...(s.ident || {}),
     });

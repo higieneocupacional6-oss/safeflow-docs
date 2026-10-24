@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useState, useMemo, useEffect } from "react";
 import { Calculator, Eye, FileDown } from "lucide-react";
 import jsPDF from "jspdf";
@@ -468,7 +469,7 @@ export function QuimicoCalculator({ enabled, resultados = [], value, onChange, c
     });
 
     const nome = sanitize(contexto?.colaboradores?.split(",")[0] || "quimico");
-    const dataFile = new Date().toISOString().slice(0, 10);
+    const dataFile = todayDateOnly();
     doc.save(`Quimico_NHO08_${nome}_${dataFile}.pdf`);
   };
 

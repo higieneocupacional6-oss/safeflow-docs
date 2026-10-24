@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import { gerarPdfFormularioAep } from "@/lib/formularioAepPdf";
 import { useToast } from "@/hooks/use-toast";
@@ -305,7 +306,7 @@ export default function FormularioAepPreencher() {
       const blob = montarPdf();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      const nome = `Formulario_AEP_${(nomes?.empresa || "empresa").replace(/[^\w]+/g, "_")}_${new Date().toISOString().slice(0, 10)}.pdf`;
+      const nome = `Formulario_AEP_${(nomes?.empresa || "empresa").replace(/[^\w]+/g, "_")}_${todayDateOnly()}.pdf`;
       a.href = url; a.download = nome;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 30_000);

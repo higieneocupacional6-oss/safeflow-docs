@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useState, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -212,7 +213,7 @@ export function parseTexto(texto: string, funcaoPadrao?: string): ParseResult {
   for (const g of grupos) {
     const av = emptyPsicossocial();
     av.funcao = g.funcao;
-    av.data_avaliacao = new Date().toISOString().slice(0, 10);
+    av.data_avaliacao = todayDateOnly();
 
     const linhas = g.linhas;
     let i = 0;

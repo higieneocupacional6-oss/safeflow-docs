@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -317,7 +318,7 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
                       <div>
                         <span className="text-muted-foreground">Calibração:</span>{" "}
                         {r.data_calibracao
-                          ? new Date(r.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR")
+                          ? formatDateOnly(r.data_calibracao)
                           : "—"}
                         {st.meses !== null && <span className="text-muted-foreground"> ({st.meses} mês(es))</span>}
                       </div>

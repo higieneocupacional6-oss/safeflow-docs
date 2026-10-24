@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -1083,7 +1084,7 @@ function SwitchField({ label, checked, onChange }: { label: string; checked: boo
 // =================================================================================
 // ============ Build template data ============
 // =================================================================================
-function fmtDate(d?: string | null) { return d ? new Date(d).toLocaleDateString("pt-BR") : ""; }
+function fmtDate(d?: string | null) { return d ? formatDateOnly(d) : ""; }
 function bool(b: boolean) { return b ? "Sim" : "Não"; }
 
 function buildTemplateData(args: {

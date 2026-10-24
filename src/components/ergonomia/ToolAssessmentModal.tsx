@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useEffect, useMemo, useState } from "react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -62,7 +63,7 @@ export function ToolAssessmentModal({
   open, onOpenChange, tool, cabecalho, aetDocumentoId, setorRef,
   setoresDisponiveis = [], setorIndex = 0, onSetorIndexChange, onComplete,
 }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayDateOnly();
   const [colaborador, setColaborador] = useState(cabecalho.colaborador_nome || "");
   const [funcaoSel, setFuncaoSel] = useState<string>(cabecalho.funcao || "");
   const [funcaoManual, setFuncaoManual] = useState<string>("");

@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft, ChevronDown, ChevronRight, Plus, Building2, Pencil, Trash2, FileSignature, Loader2 } from "lucide-react";
@@ -137,7 +138,7 @@ export default function EmpresasContratos() {
                             <div className="flex items-center gap-3 text-[11px] text-muted-foreground mt-0.5">
                               {c.vigencia_inicio && c.vigencia_fim && (
                                 <span>
-                                  {new Date(c.vigencia_inicio).toLocaleDateString("pt-BR")} até {new Date(c.vigencia_fim).toLocaleDateString("pt-BR")}
+                                  {formatDateOnly(c.vigencia_inicio)} até {formatDateOnly(c.vigencia_fim)}
                                 </span>
                               )}
                               {c.local_trabalho && <span className="truncate">📍 {c.local_trabalho}</span>}

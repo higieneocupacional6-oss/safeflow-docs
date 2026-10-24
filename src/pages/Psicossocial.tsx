@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
@@ -134,7 +135,7 @@ export default function Psicossocial() {
               <div className="flex items-center gap-2 mt-3">
                 <Badge variant="outline">{g.total} avaliação(ões)</Badge>
                 <span className="text-[11px] text-muted-foreground">
-                  Última: {new Date(g.ultima + "T00:00:00").toLocaleDateString("pt-BR")}
+                  Última: {formatDateOnly(g.ultima)}
                 </span>
               </div>
             </Card>

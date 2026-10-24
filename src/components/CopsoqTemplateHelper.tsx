@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useState } from "react";
 import { Brain, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,7 +74,7 @@ export function CopsoqTemplateHelper() {
   const [open, setOpen] = useState(false);
   const [colaborador, setColaborador] = useState("");
   const [funcao, setFuncao] = useState("");
-  const [data, setData] = useState(new Date().toISOString().split("T")[0]);
+  const [data, setData] = useState(todayDateOnly());
 
   const formatarData = (iso: string) => {
     if (!iso) return "____/____/______";

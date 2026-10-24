@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useEffect, useMemo, useState } from "react";
 import { useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +35,7 @@ export default function AvaliacaoPsicossocialPublica() {
   const [contratoId, setContratoId] = useState("");
   const [funcaoNome, setFuncaoNome] = useState("");
   const [colaborador, setColaborador] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayDateOnly();
   const [draft, setDraft] = useState<AvaliacaoPsicossocial>(emptyPsicossocial());
 
   useEffect(() => {

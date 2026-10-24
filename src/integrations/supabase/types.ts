@@ -1591,6 +1591,7 @@ export type Database = {
           created_by: string | null
           danos_saude: string | null
           data_avaliacao: string | null
+          descricao_avaliacao: string | null
           descricao_esocial: string | null
           documento_id: string | null
           dose_percentual: number | null
@@ -1629,6 +1630,7 @@ export type Database = {
           created_by?: string | null
           danos_saude?: string | null
           data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
           descricao_esocial?: string | null
           documento_id?: string | null
           dose_percentual?: number | null
@@ -1667,6 +1669,7 @@ export type Database = {
           created_by?: string | null
           danos_saude?: string | null
           data_avaliacao?: string | null
+          descricao_avaliacao?: string | null
           descricao_esocial?: string | null
           documento_id?: string | null
           dose_percentual?: number | null

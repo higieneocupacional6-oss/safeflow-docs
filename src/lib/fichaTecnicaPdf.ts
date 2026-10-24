@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fichaTipoLabel, formatFichaResultado } from "@/lib/fichaTecnica";
@@ -10,7 +11,7 @@ type Contexto = {
   agentes?: any[];
 };
 
-const dataBr = (value?: string) => value ? new Date(`${value}T00:00:00`).toLocaleDateString("pt-BR") : "—";
+const dataBr = (value?: string) => value ? formatDateOnly(value) : "—";
 const safe = (value: unknown) => value == null || value === "" ? "—" : String(value);
 
 function finish(doc: jsPDF) {

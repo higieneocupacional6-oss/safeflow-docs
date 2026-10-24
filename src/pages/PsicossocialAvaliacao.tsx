@@ -1,3 +1,4 @@
+import { formatDateOnly, todayDateOnly } from "@/lib/dateOnly";
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link, useNavigate } from "react-router-dom";
 import QRCode from "qrcode";
@@ -152,7 +153,7 @@ export default function PsicossocialAvaliacao() {
         contrato_nome: avaliacao?.contratos?.numero_contrato || null,
         funcao_nome: a.funcao || funcaoManual || "Não informada",
         colaborador_nome: a.colaborador_nome || null,
-        data_avaliacao: a.data_avaliacao || new Date().toISOString().slice(0, 10),
+        data_avaliacao: a.data_avaliacao || todayDateOnly(),
         respostas: a.respostas as any,
         blocos: a.blocos as any,
         alertas: a.alertas as any,
@@ -419,7 +420,7 @@ Seu trabalho exige prazos muito curtos?
           {detalhe && (
             <div className="space-y-4">
               <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                <span>Data: {new Date(detalhe.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")}</span>
+                <span>Data: {formatDateOnly(detalhe.data_avaliacao)}</span>
                 {detalhe.colaborador_nome && <span>• Colaborador: {detalhe.colaborador_nome}</span>}
               </div>
               {BLOCOS_COPSOQ.map((b) => {

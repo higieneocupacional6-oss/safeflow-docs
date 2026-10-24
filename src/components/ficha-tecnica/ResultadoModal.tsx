@@ -1,3 +1,4 @@
+import { todayDateOnly } from "@/lib/dateOnly";
 import { useEffect, useMemo, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -23,7 +24,7 @@ type Props = {
 };
 
 const emptyForm = {
-  setor_id: "", funcao_id: "", agente_id: "", data_avaliacao: new Date().toISOString().slice(0, 10),
+  setor_id: "", funcao_id: "", agente_id: "", data_avaliacao: todayDateOnly(),
   nen: "", dose_q3: "", lavg: "", dose_q5: "", aren: "", vdvr: "", concentracao: "", taxa_metabolica: "",
   componentes: "", amostrador: "", amostrador_serie: "", exposicao: "", limite_tolerancia: "",
 };

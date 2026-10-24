@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronDown, ChevronRight, Building2, FileSignature, Folder, Upload, Download, Loader2, Search } from "lucide-react";
@@ -20,7 +21,7 @@ const statusBadge = (s: string | null) => {
   return <Badge variant="outline">—</Badge>;
 };
 
-const fmtDate = (d: string | null) => (d ? new Date(d).toLocaleDateString("pt-BR") : "—");
+const fmtDate = (d: string | null) => (d ? formatDateOnly(d) : "—");
 
 export default function ControleDocumentos() {
   const qc = useQueryClient();
