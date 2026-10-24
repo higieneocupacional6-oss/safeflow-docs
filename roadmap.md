@@ -1,3 +1,8 @@
+# Variáveis e datas dos documentos
+- [ ] Corrigir persistência e contexto por risco das quatro variáveis no LTCAT e Insalubridade.
+- [ ] Unificar datas civis sem conversão de fuso em formulários, regras e documentos de todos os módulos.
+- [ ] Validar geração dos dois documentos com físicos/químicos/biológicos e datas do início/meio/fim do ano, preservando dados reais.
+
 # Ficha Técnica
 - [x] AET VALE: fotos com critérios NR-17, cópia reduzida só para análise e reutilização de anotação; Formulário AEP/APR/Psicossocial filtrados sem escopos ambíguos; Dados da AEP somente APR salva Alto/Muito Alto, tela/PDF e atualização automática. 25 testes, tela autenticada/PDF e ambas as chamadas reais de IA validados sem salvar propostas ou alterar históricos; imagem branca não gerou problemas, geração retornou 14 checklists. Recomendações em fotos reais de postos aguardam fotos fornecidas.
 - [x] AET (VALE): análise individual de fotos, prévia/confirmacão, originais preservados, versões anotadas vinculadas, visualização/download e PDF. Fluxo autenticado real com imagem do manual validou ausência de problemas inventados, salvamento/reabertura e downloads; caixas/setas verificadas com marcação de teste. Avaliação temporária removida; validar recomendações em fotos reais de postos quando inseridas.
