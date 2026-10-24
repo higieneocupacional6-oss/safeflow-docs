@@ -11,9 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { selecionarSetorAep } from "@/lib/aepContexto";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { CORES_NIVEL_RISCO } from "@/lib/aepRisco";
-import { dadosVaziosAetVale, riscosAepAltos, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
+import { dadosVaziosAetVale, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
 import { AetValeEtapa2 } from "@/components/aet-vale/AetValeEtapa2";
 import { AetValeIaModal } from "@/components/aet-vale/AetValeIaModal";
 import { AetValePlano } from "@/components/aet-vale/AetValePlano";
@@ -21,7 +21,7 @@ import { AetValeFotoIa } from "@/components/aet-vale/AetValeFotoIa";
 import { aplicarAnotacaoFoto, substituirFotoVale } from "../../supabase/functions/_shared/aetValeFotos";
 import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
-import { fatoresVale, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
+import { fatoresVale, riscosAprValeAltos, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024) {
@@ -68,7 +68,7 @@ export default function AetValeRegistro() {
     const { data, error } = await supabase.from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", registro.empresa_id).eq("contrato_id", registro.contrato_id).order("updated_at", { ascending: false });
     if (error) throw error; return data || [];
   } });
-  const aprQuery = useQuery({ queryKey: ["aet-vale-aprs", registroQuery.data?.empresa_id, registroQuery.data?.contrato_id, snap.setor_id], enabled: !!registroQuery.data?.empresa_id && !!registroQuery.data?.contrato_id && !!snap.setor_id, queryFn: async () => {
+  const aprQuery = useQuery({ queryKey: ["aet-vale-aprs", registroQuery.data?.empresa_id, registroQuery.data?.contrato_id, snap.setor_id], enabled: !!registroQuery.data?.empresa_id && !!registroQuery.data?.contrato_id && !!snap.setor_id, refetchInterval: 30000, queryFn: async () => {
     const registro = registroQuery.data;
     if (!registro?.empresa_id || !registro.contrato_id) return [];
     const { data, error } = await supabase.from("documentos").select("id, draft_snapshot").eq("tipo", "APR-ERGO").eq("status", "salvo").eq("empresa_id", registro.empresa_id).eq("contrato_id", registro.contrato_id).contains("draft_snapshot", { setor_id: snap.setor_id });
@@ -118,10 +118,8 @@ export default function AetValeRegistro() {
     finally { setSalvando(false); }
   };
 
-  const aepSetor = aepQuery.data && snap.setor_id
-    ? selecionarSetorAep(aepQuery.data, { setorId: snap.setor_id, funcaoIds: snap.funcao_id ? [snap.funcao_id] : [], funcoes: funcaoQuery.data ? [funcaoQuery.data.nome_funcao] : [] })
-    : null;
-  const riscosAep = riscosAepAltos(aepSetor?.setor?.riscos_lista);
+  useRealtimeSync([{ table: "documentos", queryKey: ["aet-vale-aprs"] }], "aet-vale-aprs-registro");
+  const riscosAep = riscosAprValeAltos(aprQuery.data || [], { setorId: snap.setor_id || "", funcaoId: snap.funcao_id || "", funcaoNome: funcaoQuery.data?.nome_funcao || "" });
   const fatores = fatoresVale(aprQuery.data || [], aepQuery.data || [], { setorId: snap.setor_id || "", funcaoId: snap.funcao_id || "", funcaoNome: funcaoQuery.data?.nome_funcao || "", setorNome: setorQuery.data?.nome_setor, ghe: setorQuery.data?.ghe_ges || "" });
   const irPara = (v: number) => { setEtapa(v); window.scrollTo({ top: 0, behavior: "auto" }); };
 
@@ -164,23 +162,24 @@ export default function AetValeRegistro() {
 
     <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
       <h2 className="font-heading font-semibold">Dados da AEP</h2>
-      <p className="text-xs text-muted-foreground">Registros da AEP da mesma empresa, contrato, setor e função classificados como Alto ou Muito Alto (dados originais, somente leitura).</p>
-      {aepQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando AEP…</p>}
-      {!aepQuery.isLoading && riscosAep.length === 0 && <p className="text-sm text-muted-foreground">Nenhum registro da AEP classificado como Alto ou Muito Alto para este setor e função.</p>}
+      <p className="text-xs text-muted-foreground">Riscos da APR-ERGO salva da mesma empresa, contrato, setor e função.</p>
+      {aprQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando riscos…</p>}
+      {aprQuery.isError && <p className="text-sm text-destructive">Não foi possível consultar os riscos da APR-ERGO.</p>}
+      {!aprQuery.isLoading && !aprQuery.isError && riscosAep.length === 0 && <p className="text-sm text-muted-foreground">Nenhum risco Alto ou Muito Alto foi identificado nos registros da APR-ERGO consultados.</p>}
       {riscosAep.length > 0 && <div className="overflow-x-auto rounded-md border border-border"><table className="w-full text-xs">
         <thead><tr className="bg-muted text-left">
-          <th className="p-2 font-semibold">Tipo de agente</th><th className="p-2 font-semibold">Fator de risco</th>
-          <th className="p-2 font-semibold">Probabilidade</th><th className="p-2 font-semibold">Severidade</th>
-          <th className="p-2 font-semibold">Nível</th><th className="p-2 font-semibold">Justificativa</th><th className="p-2 font-semibold">Medidas</th>
+          <th className="p-2 font-semibold">Tipo</th><th className="p-2 font-semibold">Fator de risco</th>
+          <th className="p-2 font-semibold">Exposição</th><th className="p-2 font-semibold">Severidade</th>
+          <th className="p-2 font-semibold">Nível</th><th className="p-2 font-semibold">Situação</th><th className="p-2 font-semibold">Recomendações</th>
         </tr></thead>
         <tbody>{riscosAep.map((r, i) => <tr key={i} className="border-t border-border align-top">
-          <td className="p-2">{r.tipo_agente || "—"}</td>
-          <td className="p-2 whitespace-pre-wrap">{r.fator_risco || "—"}</td>
-          <td className="p-2">{r.probabilidade || "—"}</td>
+          <td className="p-2">{r.tipo || "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.circunstancia || "—"}</td>
+          <td className="p-2">{r.estimativa || "—"}</td>
           <td className="p-2">{r.severidade || "—"}</td>
-          <td className="p-2">{r.nivel_risco ? <span className={`inline-block px-2 py-1 rounded-md border font-semibold ${CORES_NIVEL_RISCO[r.nivel_risco as "Alto" | "Crítico"]}`}>{r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco}</span> : "—"}</td>
-          <td className="p-2 whitespace-pre-wrap">{r.justificativa || "—"}</td>
-          <td className="p-2 whitespace-pre-wrap">{r.medidas || "—"}</td>
+          <td className="p-2">{r.classificacao ? <span className={`inline-block px-2 py-1 rounded-md border font-semibold ${CORES_NIVEL_RISCO[r.classificacao.trim().toUpperCase() === "MUITO ALTO" ? "Crítico" : "Alto"]}`}>{r.classificacao}</span> : "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.situacao || "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.recomendacoes || "—"}</td>
         </tr>)}</tbody>
       </table></div>}
     </section>

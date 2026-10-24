@@ -161,7 +161,7 @@ export const CHECKS_ETAPA2 = {
   ]
 } as const;
 export const CAMPOS_ETAPA1 = ["gerencia_area", "descricao_ambiente", "data_avaliacao", "revisao", "nome_gere", "jornada", "cargo", "descricao_cargo", "tarefa_analisada", "origem_detalhe", "demanda_ergonomica", "descricao_tarefa", "analise_atividade", "verbalizacao"] as const;
-export type FatorVale = { id: string; origem: string; circunstancia: string; situacao: string; tipo: string; estimativa: string; perfil: string; severidade: string; classificacao: string };
+export type FatorVale = { id: string; origem: string; circunstancia: string; situacao: string; tipo: string; estimativa: string; perfil: string; severidade: string; classificacao: string; recomendacoes?: string };
 export type AcaoVale = { fator_id: string; o_que: string; por_que: string; onde: string; quem: string; quando: string; como: string; quanto: string };
 export type Etapa2Vale = { textos: Record<string, string>; checks: Record<string, string[]>; fotos: import("./aetValeFotos").FotoVale[]; diagnosticos: Record<string, string>; plano: AcaoVale[] };
 export function etapa2Vazia(): Etapa2Vale { return { textos: {}, checks: {}, fotos: [{ imagem: "", descricao: "" }, { imagem: "", descricao: "" }], diagnosticos: {}, plano: [] }; }
@@ -178,7 +178,7 @@ export function fatoresVale(aprs: any[], aeps: any[], alvo: { setorId: string; f
     for (const [i, r] of (s.tabela?.linhas || s.linhas || []).entries()) {
       const ids = r.funcao_ids?.length ? r.funcao_ids : r.funcao_id ? [r.funcao_id] : docIds;
       if (r.setor_id && r.setor_id !== alvo.setorId || !ids.includes(alvo.funcaoId)) continue;
-      out.push({ id: `apr:${doc.id}:${r.id || chaveFator(r.circunstancia, r.situacao, r.exigencia)}`, origem: "APR-ERGO", circunstancia: r.circunstancia || "", situacao: r.situacao || "", tipo: r.tipo || "", estimativa: r.estimativa || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.classificacao || "" });
+      out.push({ id: `apr:${doc.id}:${r.id || chaveFator(r.circunstancia, r.situacao, r.exigencia)}`, origem: "APR-ERGO", circunstancia: r.circunstancia || "", situacao: r.situacao || "", tipo: r.tipo || "", estimativa: r.estimativa || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.classificacao || "", recomendacoes: r.recomendacoes || "" });
     }
   }
   const setores = aeps.flatMap(d => (d.setores || []).map((s: any) => ({ d, s })));
@@ -196,6 +196,17 @@ export function fatoresVale(aprs: any[], aeps: any[], alvo: { setorId: string; f
   return out.filter((f, i) => out.findIndex(x => x.id === f.id) === i);
 }
 export type PropostaVale = { etapa1: Record<string, string>; origens: string[]; etapa2: Etapa2Vale; confirmacoes: string[] };
+/** Read-only APR source for Dados da AEP, shared by screen and both downloads. */
+export function riscosAprValeAltos(aprs: any[], alvo: Parameters<typeof fatoresVale>[2]): FatorVale[] {
+  return fatoresVale(aprs, [], alvo).filter(f => ["alto", "muito alto"].includes(norm(f.classificacao)));
+}
+
+/** Ambiguous multi-sector/function forms must not supply another function's evidence. */
+export function formulariosValeExatos<T extends { empresa_id: string; contrato_id: string; setor_ids: string[]; dados: any }>(formularios: T[], alvo: { empresaId: string; contratoId: string; setorId: string; funcaoId: string }) {
+  return formularios.filter(f => f.empresa_id === alvo.empresaId && f.contrato_id === alvo.contratoId &&
+    f.setor_ids.length === 1 && f.setor_ids[0] === alvo.setorId &&
+    Array.isArray(f.dados?.funcoes) && f.dados.funcoes.length > 0 && f.dados.funcoes.every((id: string) => id === alvo.funcaoId));
+}
 export function aplicarPropostaVale<T extends { etapa2: Etapa2Vale; origens: string[] }>(atual: T, proposta: PropostaVale, substituir: boolean): T {
   const out: any = { ...atual, etapa2: mesclarEtapa2(atual.etapa2) };
   const merge = (a: Record<string, any>, b: Record<string, any>, permitidos?: string[]) => {

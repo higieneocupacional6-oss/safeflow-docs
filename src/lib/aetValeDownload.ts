@@ -1,9 +1,8 @@
 import { supabase } from "@/integrations/supabase/client";
-import { dadosVaziosAetVale, funcaoDoRegistroAetVale, setorDoRegistroAetVale, riscosAepAltos, type AetValeDados } from "./aetVale";
-import { selecionarSetorAep } from "./aepContexto";
+import { dadosVaziosAetVale, funcaoDoRegistroAetVale, setorDoRegistroAetVale, type AetValeDados } from "./aetVale";
 import { gerarPdfVale, nomePdfVale } from "./aetValePdf";
 import { baixarBlobApr } from "./aprErgoPdf";
-import { fatoresVale, mesclarEtapa2 } from "../../supabase/functions/_shared/aetValeIa";
+import { fatoresVale, riscosAprValeAltos, mesclarEtapa2 } from "../../supabase/functions/_shared/aetValeIa";
 
 export async function baixarAetValeSalva(id: string, empresaId: string, contratoId: string) {
   const { data: doc, error } = await supabase.from("documentos").select("id, status, draft_snapshot, empresa_nome").eq("id", id).eq("tipo", "AET-VALE").eq("empresa_id", empresaId).eq("contrato_id", contratoId).single();
@@ -21,6 +20,6 @@ export async function baixarAetValeSalva(id: string, empresaId: string, contrato
   const snap = doc.draft_snapshot as { dados?: Partial<AetValeDados> };
   const dados = { ...dadosVaziosAetVale(f.data.nome_funcao), ...snap.dados, etapa2: mesclarEtapa2(snap.dados?.etapa2) };
   const fatores = fatoresVale(apr.data || [], aep.data || [], { setorId, funcaoId, funcaoNome:f.data.nome_funcao, setorNome:s.data.nome_setor, ghe:s.data.ghe_ges || "" });
-  const riscos = riscosAepAltos(selecionarSetorAep(aep.data || [], {setorId,funcaoIds:[funcaoId]})?.setor?.riscos_lista);
+  const riscos = riscosAprValeAltos(apr.data || [], {setorId,funcaoId,funcaoNome:f.data.nome_funcao});
   baixarBlobApr(gerarPdfVale(dados,doc.empresa_nome,fatores,riscos),nomePdfVale(doc.empresa_nome,f.data.nome_funcao));
 }

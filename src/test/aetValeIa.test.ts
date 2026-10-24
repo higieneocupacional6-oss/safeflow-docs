@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { aplicarPropostaVale, fatoresVale, exigeDiagnostico, etapa2Vazia, type PropostaVale } from "../../supabase/functions/_shared/aetValeIa";
+import { aplicarPropostaVale, fatoresVale, riscosAprValeAltos, formulariosValeExatos, exigeDiagnostico, etapa2Vazia, type PropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 const alvo = { setorId: "s1", funcaoId: "f1", funcaoNome: "Operador", setorNome: "Setor" };
 describe("AET VALE IA", () => {
+  it("Dados da AEP mostra somente Alto/Muito Alto da APR da função exata", () => {
+    const linhas = ["Baixo", "Médio", "Alto", "Muito Alto"].map(classificacao => ({ classificacao, circunstancia: classificacao, situacao: "Postura", recomendacoes: "Original" }));
+    const docs = [{ id: "apr", draft_snapshot: { setor_id: "s1", funcao_id: "f1", linhas: [...linhas, { classificacao: "Alto", funcao_id: "f2", circunstancia: "Outra função" }] } }];
+    expect(riscosAprValeAltos(docs, alvo).map(f => [f.circunstancia, f.classificacao, f.recomendacoes])).toEqual([["Alto", "Alto", "Original"], ["Muito Alto", "Muito Alto", "Original"]]);
+    expect(riscosAprValeAltos([], alvo)).toEqual([]);
+    expect(riscosAprValeAltos([{id: "mai", draft_snapshot: {setor_id: "s1", funcao_id: "f1", linhas: [{circunstancia: "Carga", classificacao: "MUITO ALTO"}]}}], alvo)[0].classificacao).toBe("MUITO ALTO");
+  });
+  it("formulários fornecem evidências apenas do escopo exato e não ambíguo", () => {
+    const form = { empresa_id: "e1", contrato_id: "c1", setor_ids: ["s1"], dados: { funcoes: ["f1"] } };
+    const forms = [form, {...form, empresa_id: "e2"}, {...form, contrato_id: "c2"}, {...form, setor_ids: ["s2"]}, {...form, setor_ids: ["s1", "s2"]}, {...form, dados: {funcoes: ["f2"]}}, {...form, dados: {funcoes: ["f1", "f2"]}}, {...form, dados: {funcoes: []}}];
+    expect(formulariosValeExatos(forms, {empresaId: "e1", contratoId: "c1", setorId: "s1", funcaoId: "f1"})).toEqual([form]);
+  });
   it("lê a tabela persistida e mantém diagnóstico após reordenar cenários", () => {
     const linhas = [{ cenario: "1", circunstancia: "Carga", situacao: "Movimentação", exigencia: "Esforço", classificacao: "Alto" }, { cenario: "2", circunstancia: "Postura", situacao: "Em pé", exigencia: "Estática", classificacao: "Médio" }];
     const doc = (rs: typeof linhas) => [{ id: "apr", draft_snapshot: { setor_id: "s1", funcao_id: "f1", tabela: { linhas: rs } } }];
