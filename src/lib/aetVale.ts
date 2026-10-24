@@ -20,7 +20,7 @@ export const ORIGENS_DEMANDA = [
   "Outros",
 ] as const;
 
-export type AetValeFoto = { imagem: string; descricao: string };
+export type AetValeFoto = import("../../supabase/functions/_shared/aetValeFotos").FotoVale;
 
 export type AetValeDados = {
   gerencia_area: string;

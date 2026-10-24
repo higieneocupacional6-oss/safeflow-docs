@@ -163,7 +163,7 @@ export const CHECKS_ETAPA2 = {
 export const CAMPOS_ETAPA1 = ["gerencia_area", "descricao_ambiente", "data_avaliacao", "revisao", "nome_gere", "jornada", "cargo", "descricao_cargo", "tarefa_analisada", "origem_detalhe", "demanda_ergonomica", "descricao_tarefa", "analise_atividade", "verbalizacao"] as const;
 export type FatorVale = { id: string; origem: string; circunstancia: string; situacao: string; tipo: string; estimativa: string; perfil: string; severidade: string; classificacao: string };
 export type AcaoVale = { fator_id: string; o_que: string; por_que: string; onde: string; quem: string; quando: string; como: string; quanto: string };
-export type Etapa2Vale = { textos: Record<string, string>; checks: Record<string, string[]>; fotos: { imagem: string; descricao: string }[]; diagnosticos: Record<string, string>; plano: AcaoVale[] };
+export type Etapa2Vale = { textos: Record<string, string>; checks: Record<string, string[]>; fotos: import("./aetValeFotos").FotoVale[]; diagnosticos: Record<string, string>; plano: AcaoVale[] };
 export function etapa2Vazia(): Etapa2Vale { return { textos: {}, checks: {}, fotos: [{ imagem: "", descricao: "" }, { imagem: "", descricao: "" }], diagnosticos: {}, plano: [] }; }
 export function mesclarEtapa2(v?: Partial<Etapa2Vale>): Etapa2Vale { const b = etapa2Vazia(); return { ...b, ...v, textos: { ...v?.textos }, checks: { ...v?.checks }, diagnosticos: { ...v?.diagnosticos }, fotos: v?.fotos?.length ? v.fotos : b.fotos, plano: Array.isArray(v?.plano) ? v.plano : [] }; }
 const norm = (v: unknown) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
