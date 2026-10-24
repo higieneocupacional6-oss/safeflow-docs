@@ -1,0 +1,213 @@
+import { useEffect, useRef, useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Save } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { PageHeader } from "@/components/PageHeader";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { selecionarSetorAep } from "@/lib/aepContexto";
+import { CORES_NIVEL_RISCO } from "@/lib/aepRisco";
+import { dadosVaziosAetVale, riscosAepAltos, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
+
+const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => {
+    const img = new Image();
+    img.onload = () => {
+      const max = 900;
+      const esc = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement("canvas");
+      c.width = Math.max(1, Math.round(img.width * esc));
+      c.height = Math.max(1, Math.round(img.height * esc));
+      c.getContext("2d")?.drawImage(img, 0, 0, c.width, c.height);
+      resolve(c.toDataURL("image/jpeg", 0.85));
+    };
+    img.onerror = reject;
+    img.src = String(reader.result);
+  };
+  reader.onerror = reject;
+  reader.readAsDataURL(file);
+});
+
+export default function AetValeRegistro() {
+  const { registroId } = useParams();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [dados, setDados] = useState<AetValeDados | null>(null);
+  const [salvando, setSalvando] = useState(false);
+  const [fotoAberta, setFotoAberta] = useState<string | null>(null);
+  const inputsFoto = useRef<(HTMLInputElement | null)[]>([]);
+
+  const registroQuery = useQuery({ queryKey: ["aet-vale-registro", registroId], enabled: !!registroId, queryFn: async () => {
+    const { data, error } = await supabase.from("documentos").select("id, empresa_id, contrato_id, empresa_nome, draft_snapshot, status").eq("id", registroId || "").eq("tipo", "AET-VALE").single();
+    if (error) throw error;
+    return data;
+  } });
+  const snap = (registroQuery.data?.draft_snapshot || {}) as { setor_id?: string; funcao_id?: string; dados?: Partial<AetValeDados> };
+  const setorQuery = useQuery({ queryKey: ["aet-vale-setor", snap.setor_id], enabled: !!snap.setor_id, queryFn: async () => {
+    const { data, error } = await supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("id", snap.setor_id || "").single();
+    if (error) throw error;
+    return data;
+  } });
+  const funcaoQuery = useQuery({ queryKey: ["aet-vale-funcao", snap.funcao_id], enabled: !!snap.funcao_id, queryFn: async () => {
+    const { data, error } = await supabase.from("funcoes").select("id, nome_funcao, descricao_atividades").eq("id", snap.funcao_id || "").single();
+    if (error) throw error;
+    return data;
+  } });
+  const aepQuery = useQuery({ queryKey: ["aet-vale-aep-reg", registroQuery.data?.empresa_id, registroQuery.data?.contrato_id], enabled: !!registroQuery.data?.empresa_id && !!registroQuery.data?.contrato_id, queryFn: async () => {
+    const { data, error } = await supabase.from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", registroQuery.data!.empresa_id!).eq("contrato_id", registroQuery.data!.contrato_id!).order("updated_at", { ascending: false });
+    if (error) throw error; return data || [];
+  } });
+
+  useEffect(() => {
+    if (!registroQuery.data || dados) return;
+    if (snap.funcao_id && funcaoQuery.isLoading) return;
+    const base = dadosVaziosAetVale(funcaoQuery.data?.nome_funcao || "");
+    const salvo = snap.dados || {};
+    const fotos = Array.isArray(salvo.fotos) && salvo.fotos.length
+      ? [salvo.fotos[0] || { imagem: "", descricao: "" }, salvo.fotos[1] || { imagem: "", descricao: "" }]
+      : base.fotos;
+    setDados({ ...base, ...salvo, origens: Array.isArray(salvo.origens) ? salvo.origens : [], fotos });
+  }, [registroQuery.data, funcaoQuery.data, funcaoQuery.isLoading, dados, snap]);
+
+  const set = <K extends keyof AetValeDados>(campo: K, valor: AetValeDados[K]) =>
+    setDados((d) => (d ? { ...d, [campo]: valor } : d));
+
+  const setFoto = (idx: number, parcial: Partial<{ imagem: string; descricao: string }>) =>
+    setDados((d) => {
+      if (!d) return d;
+      const fotos = d.fotos.map((f, i) => (i === idx ? { ...f, ...parcial } : f));
+      return { ...d, fotos };
+    });
+
+  const escolherFoto = async (idx: number, file?: File | null) => {
+    if (!file) return;
+    try { setFoto(idx, { imagem: await lerFoto(file) }); }
+    catch { toast.error("Não foi possível ler a foto selecionada."); }
+  };
+
+  const salvar = async () => {
+    if (!dados || !registroQuery.data || salvando) return;
+    setSalvando(true);
+    try {
+      const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${dados.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
+      const { error } = await supabase.from("documentos")
+        .update({ draft_snapshot: { setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados }, status: "salvo", nome_documento: nome })
+        .eq("id", registroQuery.data.id).eq("tipo", "AET-VALE");
+      if (error) throw error;
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registro", registroId] }), queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
+      toast.success("Registro AET (VALE) salvo");
+    } catch { toast.error("Não foi possível salvar. Tente novamente."); }
+    finally { setSalvando(false); }
+  };
+
+  const aepSetor = aepQuery.data && snap.setor_id
+    ? selecionarSetorAep(aepQuery.data, { setorId: snap.setor_id, funcaoIds: snap.funcao_id ? [snap.funcao_id] : [] })
+    : null;
+  const riscosAep = riscosAepAltos(aepSetor?.setor?.riscos_lista);
+
+  if (registroQuery.isLoading || !dados) {
+    if (registroQuery.isError) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro AET (VALE).</p><Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}>Voltar</Button></div>;
+    return <Loader2 className="w-6 h-6 animate-spin mx-auto my-12" />;
+  }
+
+  return <div className="max-w-5xl">
+    <PageHeader title="AET (VALE) — Registro" description={`${registroQuery.data?.empresa_nome || ""}`} actions={<div className="flex gap-2">
+      <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
+      <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+    </div>} />
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Dados gerais</h2>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Gerência de área</Label><Input value={dados.gerencia_area} onChange={(e) => set("gerencia_area", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Data da avaliação</Label><Input type="date" value={dados.data_avaliacao} onChange={(e) => set("data_avaliacao", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Revisão</Label><Input value={dados.revisao} onChange={(e) => set("revisao", e.target.value)} /></div>
+        <div className="space-y-2 md:col-span-2"><Label>Descrição do ambiente</Label><Textarea rows={3} value={dados.descricao_ambiente} onChange={(e) => set("descricao_ambiente", e.target.value)} /></div>
+      </div>
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Identificação</h2>
+      <div className="grid md:grid-cols-2 gap-4">
+        <div className="space-y-2"><Label>Nome do GERE</Label><Input value={dados.nome_gere} onChange={(e) => set("nome_gere", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Jornada de trabalho</Label><Input value={dados.jornada} onChange={(e) => set("jornada", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Cargo analisado</Label><Input value={dados.cargo} onChange={(e) => set("cargo", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Tarefa analisada</Label><Input value={dados.tarefa_analisada} onChange={(e) => set("tarefa_analisada", e.target.value)} /></div>
+        <div className="space-y-2 md:col-span-2"><Label>Descrição do cargo</Label><Textarea rows={3} value={dados.descricao_cargo} onChange={(e) => set("descricao_cargo", e.target.value)} /></div>
+      </div>
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Dados da AEP</h2>
+      <p className="text-xs text-muted-foreground">Registros da AEP da mesma empresa, contrato, setor e função classificados como Alto ou Muito Alto (dados originais, somente leitura).</p>
+      {aepQuery.isLoading && <p className="text-sm text-muted-foreground">Carregando AEP…</p>}
+      {!aepQuery.isLoading && riscosAep.length === 0 && <p className="text-sm text-muted-foreground">Nenhum registro da AEP classificado como Alto ou Muito Alto para este setor e função.</p>}
+      {riscosAep.length > 0 && <div className="overflow-x-auto rounded-md border border-border"><table className="w-full text-xs">
+        <thead><tr className="bg-muted text-left">
+          <th className="p-2 font-semibold">Tipo de agente</th><th className="p-2 font-semibold">Fator de risco</th>
+          <th className="p-2 font-semibold">Probabilidade</th><th className="p-2 font-semibold">Severidade</th>
+          <th className="p-2 font-semibold">Nível</th><th className="p-2 font-semibold">Justificativa</th><th className="p-2 font-semibold">Medidas</th>
+        </tr></thead>
+        <tbody>{riscosAep.map((r, i) => <tr key={i} className="border-t border-border align-top">
+          <td className="p-2">{r.tipo_agente || "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.fator_risco || "—"}</td>
+          <td className="p-2">{r.probabilidade || "—"}</td>
+          <td className="p-2">{r.severidade || "—"}</td>
+          <td className="p-2">{r.nivel_risco ? <span className={`inline-block px-2 py-1 rounded-md border font-semibold ${CORES_NIVEL_RISCO[r.nivel_risco as "Alto" | "Crítico"]}`}>{r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco}</span> : "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.justificativa || "—"}</td>
+          <td className="p-2 whitespace-pre-wrap">{r.medidas || "—"}</td>
+        </tr>)}</tbody>
+      </table></div>}
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Origem da demanda</h2>
+      <div className="flex flex-wrap gap-4">{ORIGENS_DEMANDA.map((o) => <label key={o} className="flex items-center gap-2 text-sm cursor-pointer">
+        <Checkbox checked={dados.origens.includes(o)} onCheckedChange={(c) => set("origens", c === true ? [...new Set([...dados.origens, o])] : dados.origens.filter((x) => x !== o))} aria-label={o} />{o}
+      </label>)}</div>
+      <div className="space-y-2"><Label>Detalhamento da origem</Label><Textarea rows={2} value={dados.origem_detalhe} onChange={(e) => set("origem_detalhe", e.target.value)} /></div>
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Campos de análise</h2>
+      <div className="space-y-4">
+        <div className="space-y-2"><Label>Demanda ergonômica</Label><Textarea rows={3} value={dados.demanda_ergonomica} onChange={(e) => set("demanda_ergonomica", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Descrição da tarefa</Label><Textarea rows={3} value={dados.descricao_tarefa} onChange={(e) => set("descricao_tarefa", e.target.value)} /></div>
+        <div className="space-y-2"><Label>Análise da atividade</Label><Textarea rows={4} value={dados.analise_atividade} onChange={(e) => set("analise_atividade", e.target.value)} /></div>
+      </div>
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+      <h2 className="font-heading font-semibold">Registro fotográfico</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{dados.fotos.map((foto, idx) => <div key={idx} className="space-y-2">
+        <input ref={(el) => { inputsFoto.current[idx] = el; }} type="file" accept="image/*" className="hidden" onChange={(e) => { void escolherFoto(idx, e.target.files?.[0]); e.target.value = ""; }} />
+        <button type="button" onClick={() => (foto.imagem ? setFotoAberta(foto.imagem) : inputsFoto.current[idx]?.click())} className="w-full rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden" style={{ aspectRatio: "5.27 / 3.96" }} aria-label={`Foto ${idx + 1}`}>
+          {foto.imagem ? <img src={foto.imagem} alt={`Foto ${idx + 1}`} className="w-full h-full object-contain" /> : <span className="flex flex-col items-center gap-2 text-muted-foreground text-xs"><ImagePlus className="w-6 h-6" />Adicionar foto</span>}
+        </button>
+        {foto.imagem && <Button type="button" variant="outline" size="sm" onClick={() => inputsFoto.current[idx]?.click()}>Substituir foto</Button>}
+        <Input placeholder="Descrição da foto" value={foto.descricao} onChange={(e) => setFoto(idx, { descricao: e.target.value })} />
+      </div>)}</div>
+    </section>
+
+    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-6">
+      <h2 className="font-heading font-semibold">Verbalização</h2>
+      <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
+    </section>
+
+    <div className="flex justify-between">
+      <Button variant="outline" onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+      <Button onClick={() => toast.info("A próxima etapa será definida posteriormente.")}>Próximo<ArrowRight className="w-4 h-4 ml-2" /></Button>
+    </div>
+
+    <Dialog open={!!fotoAberta} onOpenChange={(o) => !o && setFotoAberta(null)}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>Foto</DialogTitle></DialogHeader>
+      {fotoAberta && <img src={fotoAberta} alt="Foto ampliada" className="w-full h-auto object-contain" />}
+    </DialogContent></Dialog>
+  </div>;
+}

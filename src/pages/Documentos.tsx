@@ -30,12 +30,13 @@ const docTypes = [
   { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
   { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
   { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
+  { id: "aet-vale", label: "AET (VALE)", desc: "Análise Ergonômica do Trabalho (VALE)" },
   { id: "aep", label: "AEP", desc: "Análise Ergonômica Preliminar" },
   { id: "apr-ergo", label: "APR-ERGO", desc: "APR-ERGO" },
 ];
 
 // Ordem canônica exibida na árvore.
-const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AEP", "APR-ERGO"];
+const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AET-VALE", "AEP", "APR-ERGO"];
 
 const tipoLabel = (t: string) => {
   const up = (t || "").toUpperCase();
@@ -153,6 +154,7 @@ export default function Documentos() {
     else if (typeId === "insalubridade") setTimeout(() => setInsalubridadeOpen(true), 100);
     else if (typeId === "periculosidade") setTimeout(() => setPericulosidadeOpen(true), 100);
     else if (typeId === "aet") navigate("/documentos/aet/novo");
+    else if (typeId === "aet-vale") navigate("/documentos/aet-vale");
     else if (typeId === "aep") navigate("/documentos/aep/novo");
     else if (typeId === "apr-ergo") navigate("/documentos/apr-ergo");
     else if (typeId === "pgr") navigate("/documentos/pgr/novo");
@@ -202,6 +204,7 @@ export default function Documentos() {
       AET: "aet", AEP: "aep", PGR: "pgr", PCMSO: "pcmso",
       "APR-ERGO": "apr-ergo",
     };
+    if (tipo === "AET-VALE") { navigate(`/documentos/aet-vale/registro/${doc.id}`); return; }
     const slug = map[tipo];
     if (slug) navigate(`/documentos/${slug}/editar/${doc.id}`);
   };
