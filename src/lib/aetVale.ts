@@ -1,4 +1,5 @@
 import type { RiscoErgonomico } from "@/lib/aepRisco";
+import { etapa2Vazia, type Etapa2Vale } from "../../supabase/functions/_shared/aetValeIa";
 
 export type AetValeSetor = {
   id: string;
@@ -38,6 +39,7 @@ export type AetValeDados = {
   analise_atividade: string;
   verbalizacao: string;
   fotos: AetValeFoto[];
+  etapa2: Etapa2Vale;
 };
 
 export function dadosVaziosAetVale(cargo = ""): AetValeDados {
@@ -58,6 +60,7 @@ export function dadosVaziosAetVale(cargo = ""): AetValeDados {
     analise_atividade: "",
     verbalizacao: "",
     fotos: [{ imagem: "", descricao: "" }, { imagem: "", descricao: "" }],
+    etapa2: etapa2Vazia(),
   };
 }
 
