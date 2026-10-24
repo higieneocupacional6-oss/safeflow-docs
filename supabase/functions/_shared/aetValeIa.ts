@@ -168,31 +168,32 @@ export function etapa2Vazia(): Etapa2Vale { return { textos: {}, checks: {}, fot
 export function mesclarEtapa2(v?: Partial<Etapa2Vale>): Etapa2Vale { const b = etapa2Vazia(); return { ...b, ...v, textos: { ...v?.textos }, checks: { ...v?.checks }, diagnosticos: { ...v?.diagnosticos }, fotos: v?.fotos?.length ? v.fotos : b.fotos, plano: Array.isArray(v?.plano) ? v.plano : [] }; }
 const norm = (v: unknown) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 export function exigeDiagnostico(v: string) { return ["medio", "alto", "muito alto", "critico", "moderado"].includes(norm(v)); }
+const chaveFator = (...v: unknown[]) => { let h = 2166136261; for (const c of v.map(norm).join("|") ) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
 export function fatoresVale(aprs: any[], aeps: any[], alvo: { setorId: string; funcaoId: string; funcaoNome: string; setorNome?: string; ghe?: string }): FatorVale[] {
   const out: FatorVale[] = [];
   for (const doc of aprs) {
     const s = doc.draft_snapshot || {};
     if (s.setor_id !== alvo.setorId) continue;
     const docIds = s.funcao_id ? [s.funcao_id] : s.funcao_ids || [];
-    for (const [i, r] of (s.linhas || []).entries()) {
+    for (const [i, r] of (s.tabela?.linhas || s.linhas || []).entries()) {
       const ids = r.funcao_ids?.length ? r.funcao_ids : r.funcao_id ? [r.funcao_id] : docIds;
       if (r.setor_id && r.setor_id !== alvo.setorId || !ids.includes(alvo.funcaoId)) continue;
-      out.push({ id: `apr:${doc.id}:${r.id || r.cenario || i}`, origem: "APR-ERGO", circunstancia: r.circunstancia || "", situacao: r.situacao || "", tipo: r.tipo || "", estimativa: r.estimativa || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.classificacao || "" });
+      out.push({ id: `apr:${doc.id}:${r.id || chaveFator(r.circunstancia, r.situacao, r.exigencia)}`, origem: "APR-ERGO", circunstancia: r.circunstancia || "", situacao: r.situacao || "", tipo: r.tipo || "", estimativa: r.estimativa || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.classificacao || "" });
     }
   }
   const setores = aeps.flatMap(d => (d.setores || []).map((s: any) => ({ d, s })));
-  const encontrado = setores.find(({s}) => {
+  const encontrados = setores.filter(({s}) => {
     if (s.setor_id ? s.setor_id !== alvo.setorId : norm(s.setor_nome) !== norm(alvo.setorNome)) return false;
     if (alvo.ghe && s.ges && norm(s.ges) !== norm(alvo.ghe)) return false;
     const fs = s.funcoes_selecionadas || [];
     const ids = fs.map((f: any) => f?.id).filter(Boolean);
     return ids.length ? ids.includes(alvo.funcaoId) : fs.some((f: any) => norm(f?.nome || f) === norm(alvo.funcaoNome)) || norm(s.funcao_ges) === norm(alvo.funcaoNome);
   });
-  if (encontrado) for (const [i, r] of (encontrado.s.riscos_lista || []).entries()) {
+  for (const encontrado of encontrados.filter(c => c.d.id === encontrados[0]?.d.id)) for (const [i, r] of (encontrado.s.riscos_lista || []).entries()) {
     if (r.funcao_id && r.funcao_id !== alvo.funcaoId || r.funcao_ids?.length && !r.funcao_ids.includes(alvo.funcaoId)) continue;
-    out.push({ id: `aep:${encontrado.d.id}:${r.id || i}`, origem: "AEP", circunstancia: r.fator_risco || "", situacao: r.justificativa || "", tipo: r.tipo_agente || "", estimativa: r.probabilidade || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco || "" });
+    out.push({ id: `aep:${encontrado.d.id}:${r.id || chaveFator(encontrado.s.setor_id, encontrado.s.ges, r.fator_risco, r.fonte_geradora)}`, origem: "AEP", circunstancia: r.fator_risco || "", situacao: r.justificativa || "", tipo: r.tipo_agente || "", estimativa: r.probabilidade || "", perfil: r.perfil || "", severidade: r.severidade || "", classificacao: r.nivel_risco === "Crítico" ? "Muito Alto" : r.nivel_risco || "" });
   }
-  return out;
+  return out.filter((f, i) => out.findIndex(x => x.id === f.id) === i);
 }
 export type PropostaVale = { etapa1: Record<string, string>; origens: string[]; etapa2: Etapa2Vale; confirmacoes: string[] };
 export function aplicarPropostaVale<T extends { etapa2: Etapa2Vale; origens: string[] }>(atual: T, proposta: PropostaVale, substituir: boolean): T {
