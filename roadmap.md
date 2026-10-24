@@ -1,5 +1,6 @@
 # Ficha Técnica
-- [ ] AET (VALE): Gerar IA para todas as etapas e 5W2H, fontes exatas, revisão manual e validação completa.
+- [x] AET (VALE): Gerar IA para ambas as etapas e 5W2H; geração real, preservação manual, riscos da APR, salvamento e reabertura validados; 14 testes aprovados.
+- [ ] AET (VALE): conferir fidelidade ao Anexo 04 original — aguardando envio do documento original; implementadas as orientações fornecidas.
 - [x] Exibir nome cadastrado do usuário
 - [x] Adicionar navegação por empresa e contrato
 - [x] Criar cadastro persistente dos oito tipos de resultado
