@@ -4,8 +4,8 @@ export async function hashFotoVale(imagem: string) {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(imagem));
   return Array.from(new Uint8Array(hash), v => v.toString(16).padStart(2, "0")).join("");
 }
-// A non-generative overlay preserves every source pixel and uses numbered leaders
-// with full technical callouts in a separate band, avoiding obscured evidence.
+// Non-generative overlays keep the source scene intact; full-size originals
+// remain separate and the lower band retains complete technical callouts.
 export async function renderizarFotoAnotada(imagem: string, analise: AnaliseFotoVale): Promise<string> {
   const img = new Image(); img.src = imagem; await img.decode();
   const width = Math.max(1600, img.naturalWidth), scale = width / img.naturalWidth;
@@ -28,13 +28,24 @@ export async function renderizarFotoAnotada(imagem: string, analise: AnaliseFoto
   };
   analise.marcacoes.forEach((m, i) => {
     const x = m.x * width, y = m.y * height;
-    const sx = Math.max(28, Math.min(width - 28, m.caixaX * width)), sy = Math.max(28, Math.min(height - 28, m.caixaY * height));
+    const bw = Math.round(width * .28), bh = 128;
+    const bx = Math.max(8, Math.min(width - bw - 8, m.caixaX * width));
+    let by = Math.max(8, Math.min(height - bh - 8, m.caixaY * height));
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) by = y > height / 2 ? 8 : Math.max(8, height - bh - 8);
+    const sx = bx + bw / 2, sy = by + bh / 2;
     ctx.strokeStyle = accent; ctx.fillStyle = accent;
     ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(x, y); ctx.stroke();
     const angle = Math.atan2(y - sy, x - sx);
     ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 20 * Math.cos(angle - .4), y - 20 * Math.sin(angle - .4)); ctx.lineTo(x - 20 * Math.cos(angle + .4), y - 20 * Math.sin(angle + .4)); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = paper; ctx.fillRect(sx - 22, sy - 22, 44, 44); ctx.strokeRect(sx - 22, sy - 22, 44, 44);
-    ctx.fillStyle = ink; ctx.fillText(String(i + 1), sx - 9, sy + 10);
+    ctx.fillStyle = paper; ctx.fillRect(bx, by, bw, bh); ctx.strokeRect(bx, by, bw, bh);
+    ctx.fillStyle = ink; ctx.font = "bold 22px Arial";
+    let line = "", row = 0;
+    for (const word of `${i+1}. ${m.problema} — ${m.melhoria}`.split(/\s+/)) {
+      if (ctx.measureText(`${line} ${word}`).width > bw - 24) { ctx.fillText(line,bx+12,by+28+row*24); row++; line=word; if(row>=4)break; }
+      else line = line ? `${line} ${word}` : word;
+    }
+    if(row<4)ctx.fillText(line,bx+12,by+28+row*24);
+    ctx.font = "bold 28px Arial";
     wrap(`${i + 1}. ${m.problema} — ${m.melhoria}`, 24, height + 44 + i * 104);
   });
   if (!analise.marcacoes.length) { ctx.fillStyle = ink; wrap(analise.observacao || "Nenhuma melhoria visual comprovada nesta foto.", 24, height + 44); }
