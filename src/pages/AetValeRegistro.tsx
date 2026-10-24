@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -14,6 +14,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { selecionarSetorAep } from "@/lib/aepContexto";
 import { CORES_NIVEL_RISCO } from "@/lib/aepRisco";
 import { dadosVaziosAetVale, riscosAepAltos, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
+import { AetValeEtapa2 } from "@/components/aet-vale/AetValeEtapa2";
+import { AetValeIaModal } from "@/components/aet-vale/AetValeIaModal";
+import { fatoresVale, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
   const reader = new FileReader();
@@ -41,6 +44,8 @@ export default function AetValeRegistro() {
   const queryClient = useQueryClient();
   const [dados, setDados] = useState<AetValeDados | null>(null);
   const [salvando, setSalvando] = useState(false);
+  const [etapa, setEtapa] = useState(1);
+  const [iaAberta, setIaAberta] = useState(false);
   const [fotoAberta, setFotoAberta] = useState<string | null>(null);
   const inputsFoto = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -51,18 +56,27 @@ export default function AetValeRegistro() {
   } });
   const snap = (registroQuery.data?.draft_snapshot || {}) as { setor_id?: string; funcao_id?: string; dados?: Partial<AetValeDados> };
   const setorQuery = useQuery({ queryKey: ["aet-vale-setor", snap.setor_id], enabled: !!snap.setor_id, queryFn: async () => {
-    const { data, error } = await supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("id", snap.setor_id || "").single();
+    const { data, error } = await supabase.from("setores").select("id, nome_setor, ghe_ges, descricao_ambiente").eq("id", snap.setor_id || "").eq("empresa_id", registroQuery.data?.empresa_id || "").eq("contrato_id", registroQuery.data?.contrato_id || "").single();
     if (error) throw error;
     return data;
   } });
   const funcaoQuery = useQuery({ queryKey: ["aet-vale-funcao", snap.funcao_id], enabled: !!snap.funcao_id, queryFn: async () => {
-    const { data, error } = await supabase.from("funcoes").select("id, nome_funcao, descricao_atividades").eq("id", snap.funcao_id || "").single();
+    const { data, error } = await supabase.from("funcoes").select("id, nome_funcao, descricao_atividades").eq("id", snap.funcao_id || "").eq("setor_id", snap.setor_id || "").single();
     if (error) throw error;
     return data;
   } });
   const aepQuery = useQuery({ queryKey: ["aet-vale-aep-reg", registroQuery.data?.empresa_id, registroQuery.data?.contrato_id], enabled: !!registroQuery.data?.empresa_id && !!registroQuery.data?.contrato_id, queryFn: async () => {
-    const { data, error } = await supabase.from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", registroQuery.data!.empresa_id!).eq("contrato_id", registroQuery.data!.contrato_id!).order("updated_at", { ascending: false });
+    const registro = registroQuery.data;
+    if (!registro?.empresa_id || !registro.contrato_id) return [];
+    const { data, error } = await supabase.from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", registro.empresa_id).eq("contrato_id", registro.contrato_id).order("updated_at", { ascending: false });
     if (error) throw error; return data || [];
+  } });
+  const aprQuery = useQuery({ queryKey: ["aet-vale-aprs", registroQuery.data?.empresa_id, registroQuery.data?.contrato_id, snap.setor_id], enabled: !!registroQuery.data?.empresa_id && !!registroQuery.data?.contrato_id && !!snap.setor_id, queryFn: async () => {
+    const registro = registroQuery.data;
+    if (!registro?.empresa_id || !registro.contrato_id) return [];
+    const { data, error } = await supabase.from("documentos").select("id, draft_snapshot").eq("tipo", "APR-ERGO").eq("status", "salvo").eq("empresa_id", registro.empresa_id).eq("contrato_id", registro.contrato_id).contains("draft_snapshot", { setor_id: snap.setor_id });
+    if (error) throw error;
+    return data || [];
   } });
 
   useEffect(() => {
@@ -73,7 +87,7 @@ export default function AetValeRegistro() {
     const fotos = Array.isArray(salvo.fotos) && salvo.fotos.length
       ? [salvo.fotos[0] || { imagem: "", descricao: "" }, salvo.fotos[1] || { imagem: "", descricao: "" }]
       : base.fotos;
-    setDados({ ...base, ...salvo, origens: Array.isArray(salvo.origens) ? salvo.origens : [], fotos });
+    setDados({ ...base, ...salvo, origens: Array.isArray(salvo.origens) ? salvo.origens : [], fotos, etapa2: mesclarEtapa2(salvo.etapa2) });
   }, [registroQuery.data, funcaoQuery.data, funcaoQuery.isLoading, dados, snap]);
 
   const set = <K extends keyof AetValeDados>(campo: K, valor: AetValeDados[K]) =>
@@ -98,8 +112,8 @@ export default function AetValeRegistro() {
     try {
       const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${dados.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
       const { error } = await supabase.from("documentos")
-        .update({ draft_snapshot: { setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados }, status: "salvo", nome_documento: nome })
-        .eq("id", registroQuery.data.id).eq("tipo", "AET-VALE");
+        .update({ draft_snapshot: { ...snap, setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados }, status: "salvo", nome_documento: nome })
+        .eq("id", registroQuery.data.id).eq("tipo", "AET-VALE").eq("empresa_id", registroQuery.data.empresa_id || "").eq("contrato_id", registroQuery.data.contrato_id || "");
       if (error) throw error;
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registro", registroId] }), queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
       toast.success("Registro AET (VALE) salvo");
@@ -108,9 +122,11 @@ export default function AetValeRegistro() {
   };
 
   const aepSetor = aepQuery.data && snap.setor_id
-    ? selecionarSetorAep(aepQuery.data, { setorId: snap.setor_id, funcaoIds: snap.funcao_id ? [snap.funcao_id] : [] })
+    ? selecionarSetorAep(aepQuery.data, { setorId: snap.setor_id, funcaoIds: snap.funcao_id ? [snap.funcao_id] : [], funcoes: funcaoQuery.data ? [funcaoQuery.data.nome_funcao] : [] })
     : null;
   const riscosAep = riscosAepAltos(aepSetor?.setor?.riscos_lista);
+  const fatores = fatoresVale(aprQuery.data || [], aepQuery.data || [], { setorId: snap.setor_id || "", funcaoId: snap.funcao_id || "", funcaoNome: funcaoQuery.data?.nome_funcao || "", setorNome: setorQuery.data?.nome_setor, ghe: setorQuery.data?.ghe_ges || "" });
+  const irPara = (v: number) => { setEtapa(v); window.scrollTo({ top: 0, behavior: "auto" }); };
 
   if (registroQuery.isLoading || !dados) {
     if (registroQuery.isError) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro AET (VALE).</p><Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}>Voltar</Button></div>;
@@ -119,11 +135,12 @@ export default function AetValeRegistro() {
 
   return <div className="max-w-5xl">
     <PageHeader title="AET (VALE) — Registro" description={`${registroQuery.data?.empresa_nome || ""}`} actions={<div className="flex gap-2">
+      {etapa === 1 && <Button variant="outline" onClick={() => setIaAberta(true)}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}
       <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
     </div>} />
 
-    <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
+    {etapa === 1 ? <><section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
       <h2 className="font-heading font-semibold">Dados gerais</h2>
       <div className="grid md:grid-cols-2 gap-4">
         <div className="space-y-2"><Label>Gerência de área</Label><Input value={dados.gerencia_area} onChange={(e) => set("gerencia_area", e.target.value)} /></div>
@@ -200,11 +217,17 @@ export default function AetValeRegistro() {
       <h2 className="font-heading font-semibold">Verbalização</h2>
       <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
     </section>
+    </> : <AetValeEtapa2 dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
+      try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? { ...f, imagem } : f) } } : d); }
+      catch { toast.error("Não foi possível ler a foto selecionada."); }
+    }} />}
 
     <div className="flex justify-between">
+      {etapa === 2 && <Button variant="outline" onClick={() => irPara(1)}><ArrowLeft className="w-4 h-4 mr-2" />Anterior</Button>}
       <Button variant="outline" onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
-      <Button onClick={() => toast.info("A próxima etapa será definida posteriormente.")}>Próximo<ArrowRight className="w-4 h-4 ml-2" /></Button>
+      <Button onClick={() => etapa === 1 ? irPara(2) : toast.info("A próxima etapa será definida posteriormente.")}>Próximo<ArrowRight className="w-4 h-4 ml-2" /></Button>
     </div>
+    {registroId && <AetValeIaModal open={iaAberta} onOpenChange={setIaAberta} registroId={registroId} dados={dados} onAplicar={(p, substituir) => { setDados(d => d ? aplicarPropostaVale(d, p, substituir) : d); toast.success("Proposta aplicada. Revise os campos e salve a AET."); }} />}
 
     <Dialog open={!!fotoAberta} onOpenChange={(o) => !o && setFotoAberta(null)}><DialogContent className="sm:max-w-2xl"><DialogHeader><DialogTitle>Foto</DialogTitle></DialogHeader>
       {fotoAberta && <img src={fotoAberta} alt="Foto ampliada" className="w-full h-auto object-contain" />}
