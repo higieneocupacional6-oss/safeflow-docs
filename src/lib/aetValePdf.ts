@@ -45,14 +45,14 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
     autoTable(doc, { startY: y, head: [head], body, theme: "grid", margin: { top: 18, bottom: 16, left: 14, right: 14 }, styles: { fontSize: 8, cellPadding: 2, textColor: 0, lineColor: 160, overflow: "linebreak" }, headStyles: { fillColor: 225, textColor: 0, fontStyle: "bold" }, columnStyles: Object.fromEntries(widths.map((w,i) => [i,{cellWidth:w}])), rowPageBreak: "avoid" });
     y = (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 4;
   };
-  const section = (title: string) => { if (y > 252) { doc.addPage(); y=18; } doc.setFillColor(225); doc.rect(14,y,width,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(0); doc.text(title,16,y+6,{maxWidth:178}); y+=12; };
+  const section = (title: string) => { if (y > 252) { doc.addPage(); y=18; } doc.setFillColor(225,225,225); doc.rect(14,y,width,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(0,0,0); doc.text(title,16,y+6,{maxWidth:178}); y+=12; };
   const campos = (keys: (keyof typeof CAMPOS_PDF_VALE)[]) => tabela(["Campo", "Informação"], keys.map(k => [CAMPOS_PDF_VALE[k], dados[k]]), [1,3]);
   const fotos = (items: AetValeFoto[]) => {
     for (let i=0;i<items.length;i+=2) {
       if (y+72 > 277) { doc.addPage(); y=18; }
       const pair = items.slice(i,i+2);
       for (const [j,f] of pair.entries()) {
-        const x=14+j*93; doc.setDrawColor(160); doc.rect(x,y,89,66.9);
+        const x=14+j*93; doc.setDrawColor(160,160,160); doc.rect(x,y,89,66.9);
         if (f.imagem) { const props=doc.getImageProperties(f.imagem); const scale=Math.min(85/props.width,62.9/props.height); const w=props.width*scale,h=props.height*scale; doc.addImage(f.imagem,props.fileType,x+(89-w)/2,y+(66.9-h)/2,w,h); }
       }
       y+=69;
