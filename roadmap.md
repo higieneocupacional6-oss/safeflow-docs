@@ -1,4 +1,5 @@
 # Ficha Técnica
+- [x] Preview — corrigidos rejeição de leitura de sessão, carregamento indefinido e resultados obsoletos; identidade validada no servidor; 24 testes aprovados, token rejeitado retorna ao login, sessão persiste e troca obrigatória de senha respeitada; IA real, salvamento/reabertura/foto/PDF validados em documento temporário removido. Mensagem original não reproduzida; acesso externo ao Preview exige login do editor, indisponível no teste automatizado.
 - [x] AET (VALE): tabela 5W2H na última etapa, PDF completo, salvamento e navegação; 19 testes aprovados, geração real sem Invalid token, foto/checklist/plano salvos e reabertos em registro temporário removido; PDF de sete páginas inspecionado, título fotográfico separado corrigido. Fidelidade ao documento original permanece aguardando anexo.
 - [x] AET (VALE): Gerar IA para ambas as etapas e 5W2H; geração real, preservação manual, riscos da APR, salvamento e reabertura validados; 14 testes aprovados.
 - [ ] AET (VALE): conferir fidelidade ao Anexo 04 original — aguardando envio do documento original; implementadas as orientações fornecidas.
