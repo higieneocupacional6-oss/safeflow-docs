@@ -25,37 +25,92 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [profileName, setProfileName] = useState<string | null>(null);
 
-  const fetchRole = async (uid: string) => {
-    const [{ data: roleData }, { data: profileData }] = await Promise.all([
-      supabase.from("user_roles").select("role").eq("user_id", uid).order("role", { ascending: true }).limit(1).maybeSingle(),
-      supabase.from("profiles").select("nome").eq("user_id", uid).maybeSingle(),
-    ]);
-    setRole((roleData?.role as AppRole) ?? "usuario");
-    setProfileName(profileData?.nome?.trim() || null);
-  };
-
   useEffect(() => {
-    // Listener FIRST
+    let active = true;
+    let revision = 0;
+    const current = (version: number) => active && revision === version;
+    const clearIdentity = () => {
+      setSession(null);
+      setUser(null);
+      setRole(null);
+      setProfileName(null);
+    };
+    // Storage/broker or network failures must never leave the protected shell loading forever.
+    const timeout = window.setTimeout(() => {
+      if (!active) return;
+      revision += 1;
+      clearIdentity();
+      setLoading(false);
+    }, 15000);
+
+    const restore = async (candidate: Session | null, version: number) => {
+      try {
+        if (!current(version)) return;
+        if (!candidate) { clearIdentity(); return; }
+        // getSession reads local storage; only the auth server can validate the identity.
+        let verified = await supabase.auth.getUser(candidate.access_token);
+        if (verified.error || !verified.data.user) {
+          if (!current(version)) return;
+          const renewed = await supabase.auth.refreshSession();
+          if (renewed.error || !renewed.data.session) throw new Error("Session unavailable");
+          candidate = renewed.data.session;
+          verified = await supabase.auth.getUser(candidate.access_token);
+        }
+        if (verified.error || !verified.data.user) throw new Error("Session unavailable");
+        if (!current(version)) return;
+        const uid = verified.data.user.id;
+        const [{ data: roleData }, { data: profileData }] = await Promise.all([
+          supabase.from("user_roles").select("role").eq("user_id", uid).order("role", { ascending: true }).limit(1).maybeSingle(),
+          supabase.from("profiles").select("nome").eq("user_id", uid).maybeSingle(),
+        ]);
+        if (!current(version)) return;
+        setSession(candidate);
+        setUser(verified.data.user);
+        setRole((roleData?.role as AppRole) ?? "usuario");
+        setProfileName(profileData?.nome?.trim() || null);
+      } catch {
+        // Do not revoke other devices or delete stored sessions on transient connectivity failures.
+        if (current(version)) clearIdentity();
+      } finally {
+        if (current(version)) {
+          window.clearTimeout(timeout);
+          setLoading(false);
+        }
+      }
+    };
+
     const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-      setUser(newSession?.user ?? null);
-      if (newSession?.user) {
-        setTimeout(() => fetchRole(newSession.user.id), 0);
+      const version = ++revision;
+      if (!newSession) {
+        clearIdentity();
+        window.clearTimeout(timeout);
+        setLoading(false);
       } else {
+        // Never await another auth method inside the auth listener's locked callback.
+        if (user?.id !== newSession.user.id) {
         setRole(null);
         setProfileName(null);
+        }
+        window.setTimeout(() => { void restore(newSession, version); }, 0);
       }
     });
 
-    // THEN check existing session
-    supabase.auth.getSession().then(({ data: { session: s } }) => {
-      setSession(s);
-      setUser(s?.user ?? null);
-      if (s?.user) fetchRole(s.user.id).finally(() => setLoading(false));
-      else setLoading(false);
-    });
+    const initialVersion = revision;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        await restore(data.session, initialVersion);
+      } catch {
+        if (current(initialVersion)) {
+          clearIdentity();
+          window.clearTimeout(timeout);
+          setLoading(false);
+        }
+      }
+    })();
 
-    return () => sub.subscription.unsubscribe();
+    return () => { active = false; window.clearTimeout(timeout); sub.subscription.unsubscribe(); };
   }, []);
 
   const signIn = async (email: string, password: string) => {

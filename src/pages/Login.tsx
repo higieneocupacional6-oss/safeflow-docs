@@ -26,8 +26,8 @@ export default function Login() {
     e.preventDefault();
     setError(null);
     setLoading(true);
+    try {
     const { error: err } = await signIn(email.trim(), password);
-    setLoading(false);
     if (err) {
       const msg = err.toLowerCase().includes("invalid") ? "Email ou senha incorretos." : err;
       setError(msg);
@@ -36,6 +36,13 @@ export default function Login() {
     }
     toast.success("Bem-vindo!");
     navigate("/empresas", { replace: true });
+    } catch {
+      const msg = "Não foi possível verificar sua sessão. Confira a conexão e tente novamente.";
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
