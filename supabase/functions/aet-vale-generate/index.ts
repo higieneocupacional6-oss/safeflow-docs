@@ -1,9 +1,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
-import { createOpenAI } from "npm:@ai-sdk/openai@3";
-import { streamText, Output, jsonSchema } from "npm:ai@6";
-import { createLovableAiGatewayRunIdFetch, getLovableAiGatewayRunId, withLovableAiGatewayRunIdHeader } from "./run-id.ts";
+import { gerarJsonEmFluxo } from "../_shared/aiStream.ts";
 import { CHECKS_ETAPA2, TEXTOS_ETAPA2, CAMPOS_ETAPA1, fatoresVale, etapa2Vazia, exigeDiagnostico } from "../_shared/aetValeIa.ts";
 const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim().max(30000), atuais: z.object({ etapa1: z.record(z.string().max(20000)), etapa2: z.object({ textos: z.record(z.string().max(20000)), checks: z.record(z.array(z.string().max(500))), diagnosticos: z.record(z.string().max(20000)), plano: z.array(z.object({ fator_id: z.string(), o_que: z.string(), por_que: z.string(), onde: z.string(), quem: z.string(), quando: z.string(), como: z.string(), quanto: z.string() })) }) }) });
 const str = { type: "string" };
@@ -50,16 +48,7 @@ Deno.serve(async req => {
       return (ids.length ? ids.includes(fId) : fs.some((f: any) => norm(f?.nome || f) === norm(funcao.nome_funcao)) || norm(g.funcao_ges) === norm(funcao.nome_funcao)) && Number(g.respondentes || 0) > 0;
     }).slice(0, 1);
     const contexto = { empresa: empresa.data, contrato: contrato.data, setor: { id: setor.id, nome_setor: setor.nome_setor, ghe_ges: setor.ghe_ges, descricao_ambiente: setor.descricao_ambiente }, funcao, fatores, psicossocial: grupos, relato: b.relato, preenchimentos: b.atuais, campos_etapa1: CAMPOS_ETAPA1, campos_etapa2: TEXTOS_ETAPA2, checklists: CHECKS_ETAPA2 };
-    const gateway = createLovableAiGatewayRunIdFetch(getLovableAiGatewayRunId(req));
-    const provider = createOpenAI({ baseURL: "https://ai.gateway.lovable.dev/v1", apiKey: key, headers: { "Lovable-API-Key": key, "X-Lovable-AIG-SDK": "vercel-ai-sdk" }, fetch: gateway.fetch });
-    const result = streamText({ model: provider.responses("openai/gpt-6-astra"), system: prompt, messages: [{ role: "user", content: JSON.stringify(contexto) }], output: Output.object({ schema: jsonSchema(schema) }), abortSignal: req.signal, maxRetries: 0, providerOptions: { openai: { forceReasoning: true, reasoningEffort: "low", reasoningSummary: "auto", store: false, include: ["reasoning.encrypted_content"] } } });
-    const encoder = new TextEncoder();
-    const response = new Response(new ReadableStream({ async start(controller) {
-      const send = (v: unknown) => { try { controller.enqueue(encoder.encode(JSON.stringify(v) + "\n")); } catch {} };
-      send({ type: "ping" }); const timer = setInterval(() => send({ type: "ping" }), 10000);
-      try {
-        const output: any = await result.output;
-        if (!output) throw new Error("A IA não retornou uma análise válida.");
+    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: prompt, userContent: [{ type: "input_text", text: JSON.stringify(contexto) }], schemaName: "aet_vale", schema, posProcessar: (output: any) => {
         const etapa1: Record<string, string> = {}; const etapa2 = etapa2Vazia();
         for (const f of output.etapa1) if (CAMPOS_ETAPA1.includes(f.campo)) etapa1[f.campo] = f.texto;
         // Registries remain authoritative; reports never invent employee declarations.
@@ -74,10 +63,7 @@ Deno.serve(async req => {
         for (const d of output.diagnosticos) if (ids.has(d.fator_id)) etapa2.diagnosticos[d.fator_id] = d.texto;
         const vistos = new Set<string>();
         etapa2.plano = output.plano.filter((a: any) => { const signature = `${a.fator_id}:${norm(a.o_que)}`; if (!fatores.some(f => f.id === a.fator_id) || vistos.has(signature)) return false; vistos.add(signature); return true; });
-        send({ type: "result", output: { etapa1, origens: output.origens.filter((v: string) => ["Gestor", "Gestão de mudanças", "Inspeção", "Incidente", "SST", "Jurídica", "Outros"].includes(v)), etapa2, confirmacoes: output.confirmacoes, fontes: { aprs: [...new Set(fatores.filter(f => f.origem === "APR-ERGO").map(f => f.id.split(":")[1]))], aeps: [...new Set(fatores.filter(f => f.origem === "AEP").map(f => f.id.split(":")[1]))], psicossocial: grupos.map((g: any) => g.relatorio_id) } } });
-      } catch (e: any) { const status = e.statusCode || e.cause?.statusCode; send({ type: "error", error: status === 401 ? "Serviço de IA não configurado corretamente." : e.message || "A geração não foi concluída. Seus dados foram mantidos.", retryable: status === 429 || status >= 500 }); }
-      finally { clearInterval(timer); controller.close(); }
-    } }), { headers: { ...corsHeaders, "Content-Type": "application/x-ndjson", "Cache-Control": "no-cache" } });
-    return await withLovableAiGatewayRunIdHeader(response, gateway, undefined, { waitForUpstreamHeaders: false });
+        return { etapa1, origens: output.origens.filter((v: string) => ["Gestor", "Gestão de mudanças", "Inspeção", "Incidente", "SST", "Jurídica", "Outros"].includes(v)), etapa2, confirmacoes: output.confirmacoes, fontes: { aprs: [...new Set(fatores.filter(f => f.origem === "APR-ERGO").map(f => f.id.split(":")[1]))], aeps: [...new Set(fatores.filter(f => f.origem === "AEP").map(f => f.id.split(":")[1]))], psicossocial: grupos.map((g: any) => g.relatorio_id) };
+      } });
   } catch (e: any) { return fail(e.name === "AbortError" ? "Geração cancelada." : "Não foi possível gerar a análise. Seus dados foram mantidos.", e.name === "AbortError" ? 499 : 500); }
 });
