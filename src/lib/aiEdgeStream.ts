@@ -8,26 +8,39 @@ import { supabase } from "@/integrations/supabase/client";
  */
 export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, signal?: AbortSignal): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
+  if (!session?.access_token) throw new Error("Sessão expirada. Entre novamente para gerar a análise. Seus dados foram mantidos.");
+  let token = session.access_token;
+  if (session.expires_at && session.expires_at <= Math.floor(Date.now() / 1000) + 60) {
+    const { data, error } = await supabase.auth.refreshSession();
+    if (error || !data.session?.access_token) throw new Error("Sessão expirada. Entre novamente para gerar a análise. Seus dados foram mantidos.");
+    token = data.session.access_token;
+  }
   const anon = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
   const url = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${funcao}`;
 
   let resp: Response;
   try {
-    resp = await fetch(url, {
+    const enviar = (accessToken: string) => fetch(url, {
       method: "POST",
       signal,
       headers: {
         "Content-Type": "application/json",
         apikey: anon,
-        Authorization: `Bearer ${session?.access_token || anon}`,
+        Authorization: `Bearer ${accessToken}`,
       },
       body: JSON.stringify(body),
     });
+    resp = await enviar(token);
+    if (resp.status === 401) {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (!error && data.session?.access_token) resp = await enviar(data.session.access_token);
+    }
   } catch {
     throw new Error("Não foi possível conectar ao serviço de IA. Verifique a internet e tente novamente.");
   }
 
   const ctype = resp.headers.get("Content-Type") || "";
+  if (resp.status === 401) throw new Error("Sessão expirada. Entre novamente para gerar a análise. Seus dados foram mantidos.");
   if (!resp.ok || !ctype.includes("ndjson") || !resp.body) {
     let msg = "";
     try { msg = (await resp.json())?.error || ""; } catch { /* sem corpo JSON */ }

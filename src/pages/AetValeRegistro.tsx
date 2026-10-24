@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, ImagePlus, Loader2, Save, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, Download, ImagePlus, Loader2, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -16,6 +16,9 @@ import { CORES_NIVEL_RISCO } from "@/lib/aepRisco";
 import { dadosVaziosAetVale, riscosAepAltos, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
 import { AetValeEtapa2 } from "@/components/aet-vale/AetValeEtapa2";
 import { AetValeIaModal } from "@/components/aet-vale/AetValeIaModal";
+import { AetValePlano } from "@/components/aet-vale/AetValePlano";
+import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
+import { baixarBlobApr } from "@/lib/aprErgoPdf";
 import { fatoresVale, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
@@ -138,6 +141,10 @@ export default function AetValeRegistro() {
       {etapa === 1 && <Button variant="outline" onClick={() => setIaAberta(true)}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}
       <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+      <Button variant="outline" size="icon" aria-label="Baixar PDF" title="Baixar PDF" disabled={aepQuery.isLoading || aprQuery.isLoading || aepQuery.isError || aprQuery.isError} onClick={() => {
+        try { baixarBlobApr(gerarPdfVale(dados, registroQuery.data?.empresa_nome || "", fatores, riscosAep), nomePdfVale(registroQuery.data?.empresa_nome || "", funcaoQuery.data?.nome_funcao || dados.cargo)); }
+        catch { toast.error("Não foi possível gerar o PDF. Seus dados foram mantidos."); }
+      }}><Download className="w-4 h-4" /></Button>
     </div>} />
 
     {etapa === 1 ? <><section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
@@ -217,15 +224,15 @@ export default function AetValeRegistro() {
       <h2 className="font-heading font-semibold">Verbalização</h2>
       <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
     </section>
-    </> : <AetValeEtapa2 dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
+    </> : etapa === 2 ? <AetValeEtapa2 dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
       try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? { ...f, imagem } : f) } } : d); }
       catch { toast.error("Não foi possível ler a foto selecionada."); }
-    }} />}
+    }} /> : <AetValePlano dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} />}
 
     <div className="flex justify-between">
-      {etapa === 2 && <Button variant="outline" onClick={() => irPara(1)}><ArrowLeft className="w-4 h-4 mr-2" />Anterior</Button>}
+      {etapa > 1 && <Button variant="outline" onClick={() => irPara(etapa - 1)}><ArrowLeft className="w-4 h-4 mr-2" />Anterior</Button>}
       <Button variant="outline" onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
-      <Button onClick={() => etapa === 1 ? irPara(2) : toast.info("A próxima etapa será definida posteriormente.")}>Próximo<ArrowRight className="w-4 h-4 ml-2" /></Button>
+      {etapa < 3 && <Button onClick={() => irPara(etapa + 1)}>Próximo<ArrowRight className="w-4 h-4 ml-2" /></Button>}
     </div>
     {registroId && <AetValeIaModal open={iaAberta} onOpenChange={setIaAberta} registroId={registroId} dados={dados} onAplicar={(p, substituir) => { setDados(d => d ? aplicarPropostaVale(d, p, substituir) : d); toast.success("Proposta aplicada. Revise os campos e salve a AET."); }} />}
 
