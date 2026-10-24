@@ -14,7 +14,7 @@ describe("PDF AET VALE", () => {
     const blob=gerarPdfVale(dados,"Empresa",[],[]); expect(blob.type).toBe("application/pdf"); expect(blob.size).toBeGreaterThan(3000);
   });
   it("inclui imagem anotada sem remover o original", () => {
-    const imagem="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aD1sAAAAASUVORK5CYII=";
+    const imagem="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP8//8/AwMDEwMDAwMDAwAkBgMB/DXemwAAAABJRU5ErkJggg==";
     const dados=dadosVaziosAetVale("Operador"); dados.fotos=[{imagem,descricao:"Original"}];
     const original=gerarPdfVale(dados,"Empresa",[],[]);
     dados.fotos[0].anotacao={imagem,fonteHash:"hash",registroId:"doc",funcaoId:"f",marcacoes:[{problema:"Tronco flexionado",melhoria:"Elevar bancada",evidencia:"Postura visível",x:.4,y:.5,caixaX:.1,caixaY:.1}],observacao:""};
