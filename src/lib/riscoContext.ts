@@ -38,6 +38,7 @@ export const riscoTemInfoTecnica = (r: any): boolean =>
   !!r &&
   (temValor(r.parecer_tecnico) ||
     temValor(r.descricao_avaliacao) ||
+    temValor(r.descricao_tecnica) ||
     temValor(r.resultado) ||
     temValor(r.fonte_geradora) ||
     temValor(r.danos_saude) ||

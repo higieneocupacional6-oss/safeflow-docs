@@ -1,3 +1,4 @@
+import { normalizeDateOnly } from "@/lib/dateOnly";
 export type CalibStatus = "conforme" | "atencao" | "vencido" | "sem_data";
 
 export const SITUACAO_OPERACIONAL_OPCOES = [
@@ -11,11 +12,12 @@ export type SituacaoOperacional = (typeof SITUACAO_OPERACIONAL_OPCOES)[number];
 
 export function mesesDesde(dataISO?: string | null): number | null {
   if (!dataISO) return null;
-  const d = new Date(dataISO + "T00:00:00");
-  if (isNaN(d.getTime())) return null;
+  const date = normalizeDateOnly(dataISO);
+  if (!date) return null;
+  const [year, month, day] = date.split("-").map(Number);
   const now = new Date();
-  let m = (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth());
-  if (now.getDate() < d.getDate()) m -= 1;
+  let m = (now.getFullYear() - year) * 12 + (now.getMonth() + 1 - month);
+  if (now.getDate() < day) m -= 1;
   return Math.max(0, m);
 }
 
