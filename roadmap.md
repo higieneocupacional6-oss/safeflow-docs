@@ -1,4 +1,5 @@
 # Ficha Técnica
+- [ ] AET (VALE): Gerar IA para todas as etapas e 5W2H, fontes exatas, revisão manual e validação completa.
 - [x] Exibir nome cadastrado do usuário
 - [x] Adicionar navegação por empresa e contrato
 - [x] Criar cadastro persistente dos oito tipos de resultado
