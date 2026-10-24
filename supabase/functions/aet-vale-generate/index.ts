@@ -63,7 +63,7 @@ Deno.serve(async req => {
         for (const d of output.diagnosticos) if (ids.has(d.fator_id)) etapa2.diagnosticos[d.fator_id] = d.texto;
         const vistos = new Set<string>();
         etapa2.plano = output.plano.filter((a: any) => { const signature = `${a.fator_id}:${norm(a.o_que)}`; if (!fatores.some(f => f.id === a.fator_id) || vistos.has(signature)) return false; vistos.add(signature); return true; });
-        return { etapa1, origens: output.origens.filter((v: string) => ["Gestor", "Gestão de mudanças", "Inspeção", "Incidente", "SST", "Jurídica", "Outros"].includes(v)), etapa2, confirmacoes: output.confirmacoes, fontes: { aprs: [...new Set(fatores.filter(f => f.origem === "APR-ERGO").map(f => f.id.split(":")[1]))], aeps: [...new Set(fatores.filter(f => f.origem === "AEP").map(f => f.id.split(":")[1]))], psicossocial: grupos.map((g: any) => g.relatorio_id) };
+        return { etapa1, origens: output.origens.filter((v: string) => ["Gestor", "Gestão de mudanças", "Inspeção", "Incidente", "SST", "Jurídica", "Outros"].includes(v)), etapa2, confirmacoes: output.confirmacoes, fontes: { aprs: [...new Set(fatores.filter(f => f.origem === "APR-ERGO").map(f => f.id.split(":")[1]))], aeps: [...new Set(fatores.filter(f => f.origem === "AEP").map(f => f.id.split(":")[1]))], psicossocial: grupos.map((g: any) => g.relatorio_id) } };
       } });
   } catch (e: any) { return fail(e.name === "AbortError" ? "Geração cancelada." : "Não foi possível gerar a análise. Seus dados foram mantidos.", e.name === "AbortError" ? 499 : 500); }
 });
