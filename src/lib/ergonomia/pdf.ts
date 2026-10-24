@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 // Gerador de PDF profissional para relatórios ergonômicos.
 // IMPORTANTE: O PDF nunca deve exibir objetos JSON, IDs, chaves booleanas cruas
 // ou estruturas internas — apenas informações técnicas legíveis ao usuário.
@@ -17,7 +18,7 @@ const NOMES: Record<string, string> = {
 };
 
 function fmtDate(d: string): string {
-  try { return new Date(d + "T00:00:00").toLocaleDateString("pt-BR"); } catch { return d; }
+  try { return formatDateOnly(d); } catch { return d; }
 }
 
 // ────────── Interpretadores por ferramenta (respostas legíveis) ──────────

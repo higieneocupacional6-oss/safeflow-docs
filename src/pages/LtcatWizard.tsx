@@ -1,3 +1,5 @@
+import { formatDateOnly } from "@/lib/dateOnly";
+import { ltcatEvaluationFields, ltcatRiskFields } from "@/lib/ltcatRiskFields";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer, Pencil } from "lucide-react";
@@ -1321,7 +1323,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             ? supabase.from("funcoes").select("id, nome_funcao").in("id", funcaoIdsRef)
             : Promise.resolve({ data: [] as any[] }),
           agenteIdsRef.length
-            ? supabase.from("riscos").select("id, nome").in("id", agenteIdsRef)
+            ? supabase.from("riscos").select("id, nome, tipo").in("id", agenteIdsRef)
             : Promise.resolve({ data: [] as any[] }),
         ]);
 
@@ -1369,7 +1371,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               funcao_nome: funcao?.nome_funcao || "",
             }],
             tipo_avaliacao: av.tipo_avaliacao || "qualitativa",
-            tipo_agente: av.tipo_agente || "",
+            tipo_agente: av.tipo_agente || agente?.tipo || "",
             agente_id: av.agente_id || "",
             agente_nome: agente?.nome || "",
             codigo_esocial: av.codigo_esocial || "",
@@ -1379,7 +1381,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             fonte_geradora: av.fonte_geradora || "",
             danos_saude: av.danos_saude || "",
             medidas_controle: av.medidas_controle || "",
-            descricao_tecnica: "",
+            descricao_tecnica: av.descricao_avaliacao || "",
             tecnica_id: av.tecnica_id || "",
             equipamento_id: av.equipamento_id || "",
             resultado: av.resultado?.toString() || "",
@@ -1408,6 +1410,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                     cod_gfip: r.cod_gfip || "",
                     numero_serie_bomba: r.numero_serie_bomba || "",
                     amostrador: r.amostrador || "",
+                    descricao_avaliacao: r.descricao_avaliacao || "",
                     componentes: [] as any[],
                   };
                   groups.set(k, g);
@@ -2175,7 +2178,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const contrato: any = contratoSelecionado || {};
     // Helper: prioriza contrato; cai para empresa quando contrato não tiver o valor (legado).
     const cf = (key: string) => (contrato as any)?.[key] ?? (empresa as any)?.[key] ?? "";
-    const fmtDate = (d: any) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+    const fmtDate = (d: any) => d ? formatDateOnly(d) : "";
 
 
     const findDBParecer = (colab: string, funcId: string, setorId: string, agenteId: string) => {
@@ -2246,8 +2249,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 serie_equipamento: serie,
                 marca_modelo: eq.modelo_equipamento || "",
                 modelo_equipamento: eq.modelo_equipamento || "",
-                data_avaliacao: eq.data_avaliacao ? new Date(eq.data_avaliacao).toLocaleDateString("pt-BR") : "",
-                data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+                data_avaliacao: eq.data_avaliacao ? formatDateOnly(eq.data_avaliacao) : "",
+                data_calibracao: eq.data_calibracao ? formatDateOnly(eq.data_calibracao) : "",
               });
             });
           });
@@ -2276,6 +2279,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           const _eqRiscoBase = equipamentos.find((e: any) => e.id === r.equipamento_id);
           const equipamentoNomeRiscoBase = getEquipamentoDisplayName(_eqRiscoBase);
           const base = {
+            ...ltcatEvaluationFields(r, r, tecnicas),
             setor: sector?.nome_setor || "",
             agente_nome: r.agente_nome || "",
             tipo: r.tipo_agente || "",
@@ -2336,7 +2340,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               descricao_atividade: f?.descricao_atividades || "", // alias para template
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
             equipamentos: equipamentosAvaliacaoLoop,
-              data_avaliacao: res.data_avaliacao ? new Date(res.data_avaliacao).toLocaleDateString("pt-BR") : "",
+              data_avaliacao: res.data_avaliacao ? formatDateOnly(res.data_avaliacao) : "",
               componente_avaliado: res.componente_avaliado || res.componente || res.nome_componente || "",
               componente: res.componente_avaliado || res.componente || res.nome_componente || "",
               dose_percentual: res.dose_percentual || "",
@@ -2472,7 +2476,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               });
               const dbParecer = findDBParecer(rc.colaborador, rc.funcao_id, sId, aId);
               const f = funcoes.find((x: any) => x.id === rc.funcao_id);
-              const dataAv = rc.data_avaliacao ? new Date(rc.data_avaliacao).toLocaleDateString("pt-BR") : "";
+              const dataAv = rc.data_avaliacao ? formatDateOnly(rc.data_avaliacao) : "";
               const _eqRisco = equipamentos.find((e: any) => e.id === r.equipamento_id);
               const equipamentoNomeRisco = getEquipamentoDisplayName(_eqRisco);
               const baseRow = {
@@ -2555,7 +2559,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               descricao_atividade: f?.descricao_atividades || "",
               equipamentos_avaliacao: equipamentosAvaliacaoLoop,
             equipamentos: equipamentosAvaliacaoLoop,
-              data_avaliacao: "",
+              data_avaliacao: formatDateOnly(r.data_avaliacao),
               componente_avaliado: item.componente_avaliado || "",
               descricao_avaliacao: (item as any).descricao_avaliacao || (r as any).descricao_tecnica || "",
               dose_percentual: "",
@@ -2707,18 +2711,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
           nome_equipamento: (() => { const _e: any = equipamentos.find(e => e.id === first.equipamento_id); return getEquipamentoDisplayName(_e); })(),
           serie_equipamento: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.serie_equipamento || "",
-          data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? new Date((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao).toLocaleDateString("pt-BR") : "",
+          data_calibracao: (equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao ? formatDateOnly((equipamentos.find(e => e.id === first.equipamento_id) as any)?.data_calibracao) : "",
           codigo_esocial: first.codigo_esocial || "",
           descricao_esocial: first.descricao_esocial || "",
           // Keep old names as aliases for backwards compat
           esocial_codigo: first.codigo_esocial || "",
           esocial_desc: first.descricao_esocial || "",
-          data_avaliacao: first.data_avaliacao ? new Date(first.data_avaliacao).toLocaleDateString("pt-BR") : "",
+          data_avaliacao: first.data_avaliacao ? formatDateOnly(first.data_avaliacao) : "",
           funcoes_ges: first.funcoes_ges || "",
           tempo_coleta: (first as any).tempo_coleta || "",
           unidade_tempo_coleta: (first as any).unidade_tempo_coleta || "",
           parecer_tecnico: riscoParecerTecnico,
           aposentadoria_especial: riscoAposentadoria,
+          ...ltcatRiskFields(agentEntries, avaliacoesEnriched, tecnicas),
           avaliacoes: avaliacoesEnriched,
           epis,
           epcs,
@@ -2990,6 +2995,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_fisico_qualitativo: _isQual && _aF,
         tipo_avaliacao: r.tipo_avaliacao || "",
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
+        ...ltcatRiskFields([r], [...(r.items || []).map(item => ltcatEvaluationFields(r, item, tecnicas)), ...allResults.map(row => ltcatEvaluationFields(r, row, tecnicas))], tecnicas),
         parecer_tecnico,
         aposentadoria_especial,
         // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
@@ -3087,12 +3093,12 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       responsavel,
       crea,
       cargo,
-      data: dataElab ? new Date(dataElab).toLocaleDateString("pt-BR") : "",
+      data: dataElab ? formatDateOnly(dataElab) : "",
 
       // Revisões
       revisoes: revisoes.map(r => ({
         revisao: r.revisao || "",
-        data_revisao: r.data_revisao ? new Date(r.data_revisao).toLocaleDateString("pt-BR") : "",
+        data_revisao: r.data_revisao ? formatDateOnly(r.data_revisao) : "",
         motivo: r.motivo || "",
         responsavel: r.responsavel || ""
       })),
@@ -3133,8 +3139,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
               serie_equipamento: serie,
               marca_modelo: eq.modelo_equipamento || eq.marca_modelo || "",
               modelo_equipamento: eq.modelo_equipamento || eq.marca_modelo || "",
-              data_avaliacao: dataAval ? new Date(dataAval).toLocaleDateString("pt-BR") : "",
-              data_calibracao: eq.data_calibracao ? new Date(eq.data_calibracao).toLocaleDateString("pt-BR") : "",
+              data_avaliacao: dataAval ? formatDateOnly(dataAval) : "",
+              data_calibracao: eq.data_calibracao ? formatDateOnly(eq.data_calibracao) : "",
             });
           });
         });
@@ -3418,6 +3424,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         fonte_geradora: risk.fonte_geradora || "",
         danos_saude: risk.danos_saude || "",
         medidas_controle: risk.medidas_controle || "",
+        descricao_avaliacao: risk.descricao_tecnica || (item as any).descricao_avaliacao || "",
         parecer_tecnico: risk.parecer_tecnico || "",
         aposentadoria_especial: risk.aposentadoria_especial || "",
         data_avaliacao: risk.data_avaliacao || "",
@@ -5269,7 +5276,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                                 </div>
                                 <div>
                                   <Label className="text-[10px] font-bold uppercase">Data Calib.</Label>
-                                  <Input className="mt-1 h-8 text-xs bg-muted/40" readOnly value={eq.data_calibracao ? new Date(eq.data_calibracao + "T00:00:00").toLocaleDateString("pt-BR") : ""} placeholder="—" />
+                                  <Input className="mt-1 h-8 text-xs bg-muted/40" readOnly value={eq.data_calibracao ? formatDateOnly(eq.data_calibracao + "T00:00:00") : ""} placeholder="—" />
                                 </div>
                                 <div>
                                   <Label className="text-[10px] font-bold uppercase">Data Aval.</Label>

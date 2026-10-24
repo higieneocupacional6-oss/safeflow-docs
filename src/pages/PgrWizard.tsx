@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useState, useEffect, useRef, Fragment } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { ArrowLeft, Plus, Trash2, Loader2, Save, ChevronRight, Building2, Pencil, Grid3x3, ShieldCheck, GraduationCap, Users, FileDown, FileCheck2, Link2 } from "lucide-react";
@@ -1765,7 +1766,7 @@ export default function PgrWizard() {
           situacao_cronograma: c.situacao || "",
         };
       });
-      const fmtDate = (d?: string | null) => d ? new Date(d).toLocaleDateString("pt-BR") : "";
+      const fmtDate = (d?: string | null) => d ? formatDateOnly(d) : "";
       const ultimaRevisao = revisoes.length ? revisoes[revisoes.length - 1] : null;
       // Total de expostos
       const totalExpostos = (funcoesEmpresa as any[]).reduce((acc, f) => acc + (parseInt(f.expostos || "0", 10) || 0), 0);

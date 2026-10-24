@@ -1,3 +1,4 @@
+import { formatDateOnly } from "@/lib/dateOnly";
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
@@ -168,7 +169,7 @@ const emptyFerr = (tipo: string): Ferramenta => ({
 const PSICO_BLOCK_KEYS = ["exigencias", "controle", "apoio", "reconhecimento", "seguranca", "conflitos", "sintomas"] as const;
 
 const formatDate = (value?: string | null) => (
-  value ? new Date(value + "T00:00:00").toLocaleDateString("pt-BR") : ""
+  value ? formatDateOnly(value) : ""
 );
 
 const createEmptyPsicoBlocos = () => Object.fromEntries(
@@ -338,7 +339,7 @@ function FerramentasModal({
                   {auto ? (
                     <div className="text-xs space-y-0.5 text-muted-foreground">
                       {f.colaborador_nome && <div><strong>Colaborador:</strong> {f.colaborador_nome}</div>}
-                      {f.data_avaliacao && <div><strong>Data:</strong> {new Date(f.data_avaliacao + "T00:00:00").toLocaleDateString("pt-BR")}</div>}
+                      {f.data_avaliacao && <div><strong>Data:</strong> {formatDateOnly(f.data_avaliacao)}</div>}
                       {f.classificacao && <div><strong>Classificação:</strong> {f.classificacao}</div>}
                       {f.nivel_acao && <div><strong>Nível de ação:</strong> {f.nivel_acao}</div>}
                     </div>
@@ -2175,7 +2176,7 @@ export default function AetWizard() {
             cargo_responsavel: cargo,
             crea,
             data_elaboracao: dataElaboracao
-              ? new Date(dataElaboracao + "T00:00:00").toLocaleDateString("pt-BR")
+              ? formatDateOnly(dataElaboracao)
               : "",
             // Integração AET/AEP → COPSOQ
             aet_ritmo_complexidade: setor.ritmo_complexidade,
