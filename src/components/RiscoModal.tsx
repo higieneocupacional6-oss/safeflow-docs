@@ -7,7 +7,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
-import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
+import { updateWithVersion } from "@/lib/concurrency";
+import { catalogErrorMessage } from "@/lib/cadastroPersist";
 import { toast } from "sonner";
 import { Separator } from "@/components/ui/separator";
 
@@ -119,7 +120,7 @@ export function RiscoModal({ open, onOpenChange, onSaved, editingId }: Props) {
     savingRef.current = false;
     if (error) {
       console.error("[RiscoModal] erro ao salvar", error);
-      toast.error(conflictMessage(error));
+      toast.error(catalogErrorMessage(error));
       return;
     }
 

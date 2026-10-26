@@ -14,6 +14,7 @@ import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
+import { catalogErrorMessage, deleteCatalog, updateCatalog } from "@/lib/cadastroPersist";
 
 const BUCKET = "certificados-calibracao";
 
@@ -72,15 +73,13 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
       });
       if (upErr) throw upErr;
 
-      const { error: dbErr } = await supabase
-        .from("equipamentos_ho_registros")
-        .update({
+      try {
+        await updateCatalog("equipamentos_ho_registros", registro.id, registro.row_version, {
           certificado_path: novoPath,
           certificado_nome: file.name,
           certificado_updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", registro.id);
-      if (dbErr) {
+        });
+      } catch (dbErr) {
         // rollback: remove o arquivo novo, mantém o anterior intacto
         await supabase.storage.from(BUCKET).remove([novoPath]);
         throw dbErr;
@@ -94,7 +93,7 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
       toast.success("Certificado enviado com sucesso!");
       void ext;
     } catch (err: any) {
-      toast.error("Falha no upload. O certificado anterior foi mantido. " + (err?.message || ""));
+      toast.error("Falha no upload. O certificado anterior foi mantido. " + catalogErrorMessage(err));
     } finally {
       setUploadingId(null);
     }
@@ -126,19 +125,18 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
       return;
     }
     setSavingReg(true);
-    const { error } = await supabase
-      .from("equipamentos_ho_registros")
-      .update({
+    try {
+      await updateCatalog("equipamentos_ho_registros", editReg.id, editReg.row_version, {
         numero_serie: editReg.numero_serie.trim(),
-        marca_modelo: editReg.marca_modelo || null,
+        marca_modelo: editReg.marca_modelo?.trim() || null,
         data_calibracao: editReg.data_calibracao || null,
-      })
-      .eq("id", editReg.id);
-    setSavingReg(false);
-    if (error) {
-      toast.error("Erro ao salvar");
+      });
+    } catch (error) {
+      setSavingReg(false);
+      toast.error(catalogErrorMessage(error));
       return;
     }
+    setSavingReg(false);
     invalidate();
     toast.success("Equipamento atualizado");
     setEditReg(null);
@@ -149,9 +147,10 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
     if (delReg.certificado_path) {
       await supabase.storage.from(BUCKET).remove([delReg.certificado_path]);
     }
-    const { error } = await supabase.from("equipamentos_ho_registros").delete().eq("id", delReg.id);
-    if (error) {
-      toast.error("Erro ao excluir");
+    try {
+      await deleteCatalog("equipamentos_ho_registros", delReg.id);
+    } catch (error) {
+      toast.error(catalogErrorMessage(error));
       return;
     }
     invalidate();

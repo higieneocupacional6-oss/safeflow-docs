@@ -10,7 +10,7 @@ export class ConcurrentEditError extends Error {
   }
 }
 
-type SharedTable =
+export type SharedTable =
   | "empresas"
   | "contratos"
   | "setores"
@@ -19,7 +19,16 @@ type SharedTable =
   | "documentos"
   | "aet_documentos"
   | "aep_documentos"
-  | "pcmso_documentos";
+  | "pcmso_documentos"
+  | "tecnicas_amostragem"
+  | "unidades"
+  | "equipamentos_ho"
+  | "equipamentos_ho_registros"
+  | "epi_epc"
+  | "pareceres_tecnicos"
+  | "treinamentos_cadastro"
+  | "exames_cadastro"
+  | "responsaveis";
 
 export async function updateWithVersion<T extends Record<string, unknown>>(
   table: SharedTable,
@@ -38,9 +47,11 @@ export async function updateWithVersion<T extends Record<string, unknown>>(
   return data.record as T;
 }
 
-export const conflictMessage = (error: unknown) =>
-  error instanceof ConcurrentEditError
-    ? error.message
-    : error instanceof Error
-      ? error.message
-      : "Não foi possível salvar.";
+export const conflictMessage = (error: unknown) => {
+  if (error instanceof ConcurrentEditError) return error.message;
+  if (error instanceof Error && error.message) return error.message;
+  if (error && typeof error === "object" && "message" in error && typeof error.message === "string" && error.message) {
+    return error.message;
+  }
+  return "Não foi possível salvar.";
+};

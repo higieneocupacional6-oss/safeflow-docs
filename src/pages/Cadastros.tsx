@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { EQUIPAMENTO_TIPOS } from "@/lib/equipamentoTipos";
 import { ControleEquipamentosModal } from "@/components/ControleEquipamentosModal";
 import { EquipamentosPanel } from "@/components/equipamentos/EquipamentosPanel";
-import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
+import { SITUACAO_OPERACIONAL_PADRAO } from "@/lib/calibracao";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { RiscoModal } from "@/components/RiscoModal";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
+import { catalogErrorMessage, deleteCatalog, insertCatalog, updateCatalog } from "@/lib/cadastroPersist";
 
 const REGISTRAR_MODAL_KEY = "cadastros:registrarCalibracao:modal";
 const REGISTRAR_FORM_KEY = "cadastros:registrarCalibracao:form";
@@ -48,6 +49,7 @@ export default function Cadastros() {
   const [tecnicasForm, setTecnicasForm] = useState({ nome: "", referencia: "" });
   const [unidadesForm, setUnidadesForm] = useState({ simbolo: "", nome: "" });
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingVersion, setEditingVersion] = useState<number | null>(null);
   const [parecerModalOpen, setParecerModalOpen] = useState(false);
   const [parecerForm, setParecerForm] = useState({ documento: "LTCAT", situacao: "", parecer_tecnico: "", risco_id: "" });
   const [parecerSaving, setParecerSaving] = useState(false);
@@ -195,17 +197,15 @@ export default function Cadastros() {
         funcao: responsavelForm.funcao.trim() || null,
         registro_profissional: responsavelForm.registro_profissional.trim() || null,
       };
-      const { error } = editingId
-        ? await supabase.from("responsaveis").update(payload as any).eq("id", editingId)
-        : await supabase.from("responsaveis").insert(payload as any);
-      if (error) throw error;
+      if (editingId) await updateCatalog("responsaveis", editingId, editingVersion, payload);
+      else await insertCatalog("responsaveis", payload);
       queryClient.invalidateQueries({ queryKey: ["responsaveis"] });
       toast.success(editingId ? "Responsável atualizado" : "Responsável cadastrado");
       setResponsavelModalOpen(false);
       setEditingId(null);
       setResponsavelForm({ nome: "", funcao: "", registro_profissional: "" });
     } catch (e: any) {
-      toast.error("Erro ao salvar: " + (e.message || ""));
+      toast.error(catalogErrorMessage(e));
     } finally {
       setResponsavelSaving(false);
     }
@@ -228,12 +228,7 @@ export default function Cadastros() {
     setEpiEpcSaving(true);
     try {
       if (editingId) {
-        // Update
-        const { error } = await supabase
-          .from("epi_epc")
-          .update({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
-          .eq("id", editingId);
-        if (error) throw error;
+        await updateCatalog("epi_epc", editingId, editingVersion, { tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() });
 
         // Refresh links: simplest is delete all and re-insert
         await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", editingId);
@@ -245,12 +240,7 @@ export default function Cadastros() {
         toast.success("EPI/EPC atualizado com sucesso!");
       } else {
         // Insert
-        const { data: inserted, error } = await supabase
-          .from("epi_epc")
-          .insert({ tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() })
-          .select("id")
-          .single();
-        if (error) throw error;
+        const inserted = await insertCatalog("epi_epc", { tipo: epiEpcForm.tipo, nome: epiEpcForm.nome.trim() });
 
         if (epiEpcForm.risco_ids.length > 0) {
           const links = epiEpcForm.risco_ids.map((risco_id) => ({ epi_epc_id: inserted.id, risco_id }));
@@ -265,7 +255,7 @@ export default function Cadastros() {
       setEditingId(null);
       setEpiEpcModalOpen(false);
     } catch (err: any) {
-      toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+      toast.error(catalogErrorMessage(err));
     } finally {
       setEpiEpcSaving(false);
     }
@@ -282,6 +272,7 @@ export default function Cadastros() {
 
   const handleNovo = () => {
     setEditingId(null);
+    setEditingVersion(null);
     if (tab === "riscos") {
       setRiscoModalOpen(true);
     } else if (tab === "epi_epc") {
@@ -313,6 +304,7 @@ export default function Cadastros() {
 
   const handleEdit = (item: any) => {
     setEditingId(item.id);
+    setEditingVersion(item.row_version ?? 1);
     if (tab === "riscos") {
       setRiscoModalOpen(true);
     } else if (tab === "epi_epc") {
@@ -416,11 +408,7 @@ export default function Cadastros() {
     };
 
     try {
-      if (type === "epi_epc") {
-        await supabase.from("epi_epc_riscos").delete().eq("epi_epc_id", id);
-      }
-      const { error } = await (supabase as any).from(tableMap[type]).delete().eq("id", id);
-      if (error) throw error;
+      await deleteCatalog(tableMap[type], id);
 
       const queryKeyMap: Record<string, string> = {
         riscos: "riscos",
@@ -435,7 +423,7 @@ export default function Cadastros() {
       await queryClient.invalidateQueries({ queryKey: [queryKeyMap[type]] });
       toast.success("Registro excluído com sucesso!");
     } catch (err: any) {
-      toast.error("Erro ao excluir: " + (err.message || "Tente novamente"));
+      toast.error(catalogErrorMessage(err));
     } finally {
       setDeleteConfirm({ open: false, id: "", type: "riscos" });
     }
@@ -922,13 +910,14 @@ export default function Cadastros() {
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-accent"
                             onClick={() => {
                               setEditingId(r.id);
+                              setEditingVersion(r.row_version ?? 1);
                               setResponsavelForm({ nome: r.nome || "", funcao: r.funcao || "", registro_profissional: r.registro_profissional || "" });
                               setResponsavelModalOpen(true);
                             }}><Edit className="h-4 w-4" /></Button>
                           <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground hover:text-destructive"
                             onClick={async () => {
-                              const { error } = await supabase.from("responsaveis").delete().eq("id", r.id);
-                              if (error) { toast.error(error.message); return; }
+                              try { await deleteCatalog("responsaveis", r.id); }
+                              catch (err) { toast.error(catalogErrorMessage(err)); return; }
                               queryClient.invalidateQueries({ queryKey: ["responsaveis"] });
                               toast.success("Responsável excluído");
                             }}><Trash2 className="h-4 w-4" /></Button>
@@ -1032,19 +1021,17 @@ export default function Cadastros() {
                     risco_id: parecerForm.risco_id || null,
                   };
                   if (editingId) {
-                    const { error } = await (supabase as any).from("pareceres_tecnicos").update(payload).eq("id", editingId);
-                    if (error) throw error;
+                    await updateCatalog("pareceres_tecnicos", editingId, editingVersion, payload);
                     toast.success("Parecer atualizado!");
                   } else {
-                    const { error } = await (supabase as any).from("pareceres_tecnicos").insert(payload);
-                    if (error) throw error;
+                    await insertCatalog("pareceres_tecnicos", payload);
                     toast.success("Parecer cadastrado!");
                   }
                   queryClient.invalidateQueries({ queryKey: ["pareceres_tecnicos"] });
                   setParecerModalOpen(false);
                   setEditingId(null);
                 } catch (err: any) {
-                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  toast.error(catalogErrorMessage(err));
                 } finally {
                   setParecerSaving(false);
                 }
@@ -1268,18 +1255,16 @@ export default function Cadastros() {
                   try {
                     const payload = { nome: nomeFinal, tipo: equipmentForm.tipo || null };
                     if (editingId) {
-                      const { error } = await supabase.from("equipamentos_ho").update(payload).eq("id", editingId);
-                      if (error) throw error;
+                      await updateCatalog("equipamentos_ho", editingId, editingVersion, payload);
                       toast.success("Equipamento atualizado com sucesso!");
                     } else {
-                      const { error } = await supabase.from("equipamentos_ho").insert(payload);
-                      if (error) throw error;
+                      await insertCatalog("equipamentos_ho", payload);
                       toast.success("Equipamento cadastrado com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                     setDialogOpen(false);
                   } catch (err: any) {
-                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                    toast.error(catalogErrorMessage(err));
                   } finally {
                     setEquipmentSaving(false);
                   }
@@ -1294,18 +1279,16 @@ export default function Cadastros() {
                   try {
                     const payload = { nome: tecnicasForm.nome.trim(), referencia: tecnicasForm.referencia.trim() || null };
                     if (editingId) {
-                      const { error } = await supabase.from("tecnicas_amostragem").update(payload).eq("id", editingId);
-                      if (error) throw error;
+                      await updateCatalog("tecnicas_amostragem", editingId, editingVersion, payload);
                       toast.success("Técnica atualizada com sucesso!");
                     } else {
-                      const { error } = await supabase.from("tecnicas_amostragem").insert(payload);
-                      if (error) throw error;
+                      await insertCatalog("tecnicas_amostragem", payload);
                       toast.success("Técnica cadastrada com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["tecnicas_amostragem"] });
                     setDialogOpen(false);
                   } catch (err: any) {
-                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                    toast.error(catalogErrorMessage(err));
                   } finally {
                     setEquipmentSaving(false);
                   }
@@ -1320,18 +1303,16 @@ export default function Cadastros() {
                   try {
                     const payload = { simbolo: unidadesForm.simbolo.trim(), nome: unidadesForm.nome.trim() || null };
                     if (editingId) {
-                      const { error } = await supabase.from("unidades").update(payload).eq("id", editingId);
-                      if (error) throw error;
+                      await updateCatalog("unidades", editingId, editingVersion, payload);
                       toast.success("Unidade atualizada com sucesso!");
                     } else {
-                      const { error } = await supabase.from("unidades").insert(payload);
-                      if (error) throw error;
+                      await insertCatalog("unidades", payload);
                       toast.success("Unidade cadastrada com sucesso!");
                     }
                     queryClient.invalidateQueries({ queryKey: ["unidades"] });
                     setDialogOpen(false);
                   } catch (err: any) {
-                    toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                    toast.error(catalogErrorMessage(err));
                   } finally {
                     setEquipmentSaving(false);
                   }
@@ -1384,13 +1365,14 @@ export default function Cadastros() {
                 if (!registrarForm.numero_serie.trim()) { toast.error("Informe o nº de série"); return; }
                 setRegistrarSaving(true);
                 try {
-                  const { error } = await supabase.from("equipamentos_ho_registros").insert({
+                  if (!registrarModal.equipamentoId) throw new Error("Selecione o equipamento antes de registrar a série.");
+                  await insertCatalog("equipamentos_ho_registros", {
                     equipamento_id: registrarModal.equipamentoId,
                     numero_serie: registrarForm.numero_serie.trim(),
                     marca_modelo: registrarForm.marca_modelo.trim() || null,
                     data_calibracao: registrarForm.data_calibracao || null,
+                    situacao_operacional: SITUACAO_OPERACIONAL_PADRAO,
                   });
-                  if (error) throw error;
                   queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
                   toast.success("Registro adicionado!");
                   setRegistrarModal({ open: false, equipamentoId: "", equipamentoNome: "" });
@@ -1398,7 +1380,7 @@ export default function Cadastros() {
                   clearPersistedState(REGISTRAR_MODAL_KEY);
                   clearPersistedState(REGISTRAR_FORM_KEY);
                 } catch (err: any) {
-                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  toast.error(catalogErrorMessage(err));
                 } finally {
                   setRegistrarSaving(false);
                 }
@@ -1492,19 +1474,17 @@ export default function Cadastros() {
                     observacoes: treinamentoForm.observacoes.trim() || null,
                   };
                   if (editingId) {
-                    const { error } = await (supabase as any).from("treinamentos_cadastro").update(payload).eq("id", editingId);
-                    if (error) throw error;
+                    await updateCatalog("treinamentos_cadastro", editingId, editingVersion, payload);
                     toast.success("Treinamento atualizado!");
                   } else {
-                    const { error } = await (supabase as any).from("treinamentos_cadastro").insert(payload);
-                    if (error) throw error;
+                    await insertCatalog("treinamentos_cadastro", payload);
                     toast.success("Treinamento cadastrado!");
                   }
                   queryClient.invalidateQueries({ queryKey: ["treinamentos_cadastro"] });
                   setTreinamentoModalOpen(false);
                   setEditingId(null);
                 } catch (err: any) {
-                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  toast.error(catalogErrorMessage(err));
                 } finally {
                   setTreinamentoSaving(false);
                 }
@@ -1542,19 +1522,17 @@ export default function Cadastros() {
                     descricao_esocial: exameForm.descricao_esocial.trim(),
                   };
                   if (editingId) {
-                    const { error } = await (supabase as any).from("exames_cadastro").update(payload).eq("id", editingId);
-                    if (error) throw error;
+                    await updateCatalog("exames_cadastro", editingId, editingVersion, payload);
                     toast.success("Exame atualizado!");
                   } else {
-                    const { error } = await (supabase as any).from("exames_cadastro").insert(payload);
-                    if (error) throw error;
+                    await insertCatalog("exames_cadastro", payload);
                     toast.success("Exame cadastrado!");
                   }
                   queryClient.invalidateQueries({ queryKey: ["exames_cadastro"] });
                   setExameModalOpen(false);
                   setEditingId(null);
                 } catch (err: any) {
-                  toast.error("Erro ao salvar: " + (err.message || "Tente novamente"));
+                  toast.error(catalogErrorMessage(err));
                 } finally {
                   setExameSaving(false);
                 }

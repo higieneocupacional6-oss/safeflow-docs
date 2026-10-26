@@ -8,6 +8,8 @@ export const SITUACAO_OPERACIONAL_OPCOES = [
   "Aparelho calibrado",
 ] as const;
 
+export const SITUACAO_OPERACIONAL_PADRAO: (typeof SITUACAO_OPERACIONAL_OPCOES)[number] = "Aparelho calibrado";
+
 export type SituacaoOperacional = (typeof SITUACAO_OPERACIONAL_OPCOES)[number];
 
 export function mesesDesde(dataISO?: string | null): number | null {

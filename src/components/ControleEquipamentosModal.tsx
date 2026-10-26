@@ -17,6 +17,7 @@ import {
   statusCalibracao,
   statusBadgeClasses,
 } from "@/lib/calibracao";
+import { catalogErrorMessage, updateCatalog } from "@/lib/cadastroPersist";
 
 interface Props {
   open: boolean;
@@ -31,7 +32,8 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
     numero_serie: string;
     marca_modelo: string;
     data_calibracao: string;
-  }>({ open: false, id: "", numero_serie: "", marca_modelo: "", data_calibracao: "" });
+    row_version: number;
+  }>({ open: false, id: "", numero_serie: "", marca_modelo: "", data_calibracao: "", row_version: 1 });
   const [saving, setSaving] = useState(false);
 
   const { data: equipamentos = [] } = useQuery({
@@ -39,7 +41,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("equipamentos_ho")
-        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao, situacao_operacional)")
+        .select("*, equipamentos_ho_registros(id, numero_serie, marca_modelo, data_calibracao, situacao_operacional, row_version)")
         .order("nome");
       if (error) throw error;
       return data;
@@ -61,12 +63,12 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
   }, [equipamentos]);
 
   const handleSituacaoChange = async (registroId: string, novaSituacao: string, registro: any) => {
-    const { error } = await supabase
-      .from("equipamentos_ho_registros")
-      .update({ situacao_operacional: novaSituacao })
-      .eq("id", registroId);
-    if (error) {
-      toast.error("Erro ao atualizar situação");
+    let savedVersion = registro.row_version ?? 1;
+    try {
+      const saved = await updateCatalog<{ row_version?: number }>("equipamentos_ho_registros", registroId, registro.row_version, { situacao_operacional: novaSituacao });
+      savedVersion = saved.row_version ?? savedVersion + 1;
+    } catch (error) {
+      toast.error(catalogErrorMessage(error));
       return;
     }
     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
@@ -77,6 +79,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
         numero_serie: registro.numero_serie || "",
         marca_modelo: registro.marca_modelo || "",
         data_calibracao: registro.data_calibracao || "",
+        row_version: savedVersion,
       });
     } else {
       toast.success("Situação atualizada");
@@ -89,19 +92,18 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
       return;
     }
     setSaving(true);
-    const { error } = await supabase
-      .from("equipamentos_ho_registros")
-      .update({
-        numero_serie: editModal.numero_serie,
-        marca_modelo: editModal.marca_modelo,
+    try {
+      await updateCatalog("equipamentos_ho_registros", editModal.id, editModal.row_version, {
+        numero_serie: editModal.numero_serie.trim(),
+        marca_modelo: editModal.marca_modelo.trim() || null,
         data_calibracao: editModal.data_calibracao,
-      })
-      .eq("id", editModal.id);
-    setSaving(false);
-    if (error) {
-      toast.error("Erro ao salvar");
+      });
+    } catch (error) {
+      setSaving(false);
+      toast.error(catalogErrorMessage(error));
       return;
     }
+    setSaving(false);
     queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
     toast.success("Calibração atualizada");
     setEditModal({ ...editModal, open: false });
