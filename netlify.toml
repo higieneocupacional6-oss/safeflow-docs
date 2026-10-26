@@ -1,0 +1,13 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# Vite inlines VITE_* at build time — set these in Netlify UI (Site settings → Environment variables):
+#   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+#   VITE_SUPABASE_PUBLISHABLE_KEY=<anon/publishable key>
+# Optional alias: VITE_SUPABASE_ANON_KEY (same value as publishable/anon)
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

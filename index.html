@@ -23,7 +23,12 @@
 </head>
 
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <!-- Visible until the ~4MB JS bundle parses; React replaces this on mount. -->
+      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#64748b;font-size:14px">
+        Carregando SegDoc…
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
