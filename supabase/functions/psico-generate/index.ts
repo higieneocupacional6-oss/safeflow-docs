@@ -150,6 +150,7 @@ ${pdfs.length === 0
       systemPrompt: SYSTEM_PROMPT,
       userContent,
       schema: RESPONSE_SCHEMA,
+      schemaName: "psicossocial",
       signal: req.signal,
     });
     if (!result.ok) {
