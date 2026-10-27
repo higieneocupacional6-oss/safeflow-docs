@@ -5,6 +5,7 @@ export type ReconhecimentoState = {
   marcas: Record<string, Record<string, string>>;
   participantes: { avaliador: string; avaliado: string; data: string; assinatura: string };
   ia?: Record<string, { origem: string; validar: boolean; fundamento: string }>;
+  compartilhado?: import("@/lib/aepAprCompartilhado").ExposicaoAtividade[];
 };
 
 export const reconhecimentoVazio = (): ReconhecimentoState => ({

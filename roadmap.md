@@ -1,3 +1,8 @@
+# AEP / APR-ERGO — campos compartilhados
+- [x] Remover marcações legadas IA validar de todos os textos do PDF APR sem alterar os originais; PDF baixado inspecionado.
+- [x] Compartilhar duração, intensidade e IDs estáveis entre registros AEP/APR do escopo exato; preservar ambiguidades e edições manuais, proteger atualizações concorrentes. Aplicado o vínculo por função que faltava no banco.
+- [x] Testados APR → AEP e AEP → APR com salvamento, recarga, reabertura e igualdade do ID da atividade; 32 testes aprovados, aplicação compilada, PDF conferido, registros temporários removidos sem alterar dados reais.
+
 # Variáveis e datas dos documentos
 - [x] Corrigir persistência e contexto por risco das quatro variáveis no LTCAT e Insalubridade; descrição na avaliação-pai e nos dois RPCs, grupos preservam tipo/técnica/exposição/descrição.
 - [x] Unificar datas civis sem conversão de fuso em formulários, regras e documentos de todos os módulos; banco mantém colunas date e timestamps de auditoria independentes.

@@ -11,6 +11,7 @@ import { BaseAepModal, GerarIaAepModal, type ResultadoIaAep } from "@/components
 import { CATEGORIAS, DURACAO, INTENSIDADE } from "@/components/formulario-aep/EtapaReconhecimento";
 import { supabase } from "@/integrations/supabase/client";
 import { carregarContextoFormularioAep } from "@/lib/formularioAepContexto";
+import { carregarExposicoes, mesclarAepExposicoes } from "@/lib/aepAprCompartilhado";
 import {
   baixarPdfFormularioAep, estadoDeDadosSalvos, montarPdfDados, urlNovoFormularioAep,
 } from "@/lib/formularioAepRegistro";
@@ -118,9 +119,10 @@ export default function FormularioAepPreencher() {
   const [salvoHash, setSalvoHash] = usePersistedState<string>(`${chave}:salvo`, "");
   const [salvando, setSalvando] = useState(false);
   const [baixando, setBaixando] = useState(false);
+  const [atividadeIds, setAtividadeIds] = usePersistedState<string[]>(`${chave}:atividade-ids`, []);
   const aplicado = useRef("");
   const { toast } = useToast();
-  const dadosForm = useMemo(() => ({ ident, funcoes: funcaoId ? [funcaoId] : funcoesArr, atividades, controles, reconhecimento }), [ident, funcoesArr, atividades, controles, reconhecimento, funcaoId]);
+  const dadosForm = useMemo(() => ({ ident, funcoes: funcaoId ? [funcaoId] : funcoesArr, atividades, controles, reconhecimento, atividade_ids: atividadeIds }), [ident, funcoesArr, atividades, controles, reconhecimento, funcaoId, atividadeIds]);
   const hashAtual = JSON.stringify(dadosForm);
   const salvoAtual = !!formularioId && salvoHash === hashAtual;
 
@@ -140,6 +142,21 @@ export default function FormularioAepPreencher() {
     },
   });
 
+  const { data: exposicoesCompartilhadas } = useQuery({
+    queryKey: ["aep-apr-exposicoes", empresaId, contratoId, setorId, funcaoId, registroSalvo?.updated_at],
+    enabled: !!empresaId && !!contratoId && !!setorId && !!funcaoId && registroSalvo !== undefined,
+    queryFn: () => carregarExposicoes({ empresa: empresaId, contrato: contratoId, setor: setorId, funcao: funcaoId }, registroSalvo?.id),
+  });
+  const exposicaoAplicada = useRef("");
+  useEffect(() => {
+    if (!exposicoesCompartilhadas) return;
+    const chaveAplicacao = JSON.stringify([registroSalvo?.updated_at, exposicoesCompartilhadas]);
+    if (exposicaoAplicada.current === chaveAplicacao) return;
+    exposicaoAplicada.current = chaveAplicacao;
+    setReconhecimento((r) => mesclarAepExposicoes(r, exposicoesCompartilhadas));
+    setAtividadeIds((ids) => Array.from({ length: 5 }, (_, i) => ids[i] || exposicoesCompartilhadas.find((e) => e.atividade_numero === i + 1)?.atividade_id || crypto.randomUUID()));
+  }, [exposicoesCompartilhadas, registroSalvo, setReconhecimento, setAtividadeIds]);
+
   useEffect(() => {
     if (!registroSalvo) return;
     const marca = `${funcaoId}:${registroSalvo.id}:${registroSalvo.updated_at}`;
@@ -151,8 +168,9 @@ export default function FormularioAepPreencher() {
     setAtividades(estado.atividades);
     setControles(estado.controles);
     setReconhecimento(estado.reconhecimento);
+    setAtividadeIds((registroSalvo.dados as any)?.atividade_ids || []);
     setFormularioId(registroSalvo.id);
-    setSalvoHash(JSON.stringify({ ident: estado.ident, funcoes: estado.funcoes, atividades: estado.atividades, controles: estado.controles, reconhecimento: estado.reconhecimento }));
+    setSalvoHash(JSON.stringify({ ident: estado.ident, funcoes: estado.funcoes, atividades: estado.atividades, controles: estado.controles, reconhecimento: estado.reconhecimento, atividade_ids: (registroSalvo.dados as any)?.atividade_ids || [] }));
   }, [registroSalvo, funcaoId, setIdent, setFuncoesArr, setAtividades, setControles, setReconhecimento, setFormularioId, setSalvoHash]);
 
   const { data: nomes } = useQuery({
@@ -296,6 +314,11 @@ export default function FormularioAepPreencher() {
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const compartilhadas = await carregarExposicoes({ empresa: empresaId, contrato: contratoId, setor: setorId, funcao: funcaoId }, formularioId || registroSalvo?.id);
+      const reconhecimentoSalvo = mesclarAepExposicoes(reconhecimento, compartilhadas);
+      const idsSalvos = Array.from({ length: 5 }, (_, i) => atividadeIds[i] || compartilhadas.find((e) => e.atividade_numero === i + 1)?.atividade_id || crypto.randomUUID());
+      const dadosSalvos = { ...dadosForm, reconhecimento: reconhecimentoSalvo, atividade_ids: idsSalvos };
+      const hashSalvo = JSON.stringify(dadosSalvos);
       const fontes = {
         psico_relatorio_ids: Array.from(new Set((ctxIntegrado?.psicossocial || []).map((p: any) => p.relatorio_id).filter(Boolean))),
         formularios_anteriores_ids: (ctxIntegrado?.formularios_anteriores || []).map((f: any) => f.id),
@@ -305,7 +328,7 @@ export default function FormularioAepPreencher() {
         contrato_id: contratoId,
         setor_ids: setorIds,
         funcao_id: funcaoId || null,
-        dados: { ...dadosForm, funcao_id: funcaoId || null, setor_id: setorId || setorIds[0] || null, fontes_ia: fontes } as any,
+        dados: { ...dadosSalvos, funcao_id: funcaoId || null, setor_id: setorId || setorIds[0] || null, fontes_ia: fontes } as any,
       };
       let id = formularioId || registroSalvo?.id || "";
       if (!id && funcaoId) {
@@ -314,30 +337,30 @@ export default function FormularioAepPreencher() {
         id = existente.data?.id || "";
       }
       if (id) {
-        const { error } = await supabase.from("formularios_aep").update(registro).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
+        if (!registroSalvo || registroSalvo.id !== id) throw new Error("Este formulário foi salvo por outra pessoa. Reabra o registro antes de salvar; seus dados continuam na tela.");
+        const { data: confirmado, error } = await supabase.from("formularios_aep").update(registro).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("updated_at", registroSalvo.updated_at).select("id").maybeSingle();
         if (error) throw error;
+        if (!confirmado) throw new Error("O formulário mudou durante a edição. Seus dados continuam na tela; reabra para conferir antes de salvar.");
       } else {
         const { data, error } = await supabase.from("formularios_aep").insert({ ...registro, created_by: user?.id }).select("id").single();
         if (error?.code === "23505" && funcaoId) {
-          const existente = await supabase.from("formularios_aep").select("id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("funcao_id", funcaoId).maybeSingle();
-          if (existente.error || !existente.data) throw error;
-          const atualizado = await supabase.from("formularios_aep").update(registro).eq("id", existente.data.id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
-          if (atualizado.error) throw atualizado.error;
-          id = existente.data.id;
+          throw new Error("Já existe um formulário salvo para esta função. Reabra-o para conferir os dados antes de salvar.");
         } else {
           if (error) throw error;
           id = data.id;
         }
       }
       const pasta = `${empresaId}/${contratoId}/${id}`;
-      const pdf = gerarPdfFormularioAep(montarPdf());
+      const pdf = gerarPdfFormularioAep(montarPdfDados({ empresaNome: nomes?.empresa || "", contratoNome: nomes?.contrato || "", funcaoNome: (funcaoId ? [nomeFuncao(funcaoId)] : funcoesArr.map(nomeFuncao)).join("; "), dados: dadosSalvos }));
       const up = await supabase.storage.from("formularios-aep").upload(`${pasta}/formulario-aep.pdf`, pdf, { upsert: true, contentType: "application/pdf" });
       if (!up.error) {
-        await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashAtual], { type: "application/json" }), { upsert: true, contentType: "application/json" });
+        await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashSalvo], { type: "application/json" }), { upsert: true, contentType: "application/json" });
         await supabase.from("formularios_aep").update({ pdf_path: `${pasta}/formulario-aep.pdf` }).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
       }
       setFormularioId(id);
-      setSalvoHash(hashAtual);
+      setReconhecimento(reconhecimentoSalvo);
+      setAtividadeIds(idsSalvos);
+      setSalvoHash(hashSalvo);
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-salvos"] });
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-novo-salvos"] });
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-registro"] });
