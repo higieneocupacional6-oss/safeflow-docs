@@ -464,6 +464,7 @@ export async function gerarJsonEmFluxo(opts: {
   posProcessar?: (output: any) => any;
   tools?: unknown[];
   model?: string;
+  chamar?: () => Promise<ChamadaGemini>;
 }): Promise<Response> {
   const { req, corsHeaders, key } = opts;
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
@@ -491,14 +492,14 @@ export async function gerarJsonEmFluxo(opts: {
       try {
         // Retentativas (503/429) e fallback ocorrem aqui: o NDJSON só recebe pings
         // até um único {type:"result"} ou {type:"error"} final.
-        const result = await chamarGeminiJson({
+        const result = await (opts.chamar ? opts.chamar() : chamarGeminiJson({
           key,
           model,
           systemPrompt: opts.systemPrompt,
           userContent: opts.userContent,
           schema: opts.schema,
           signal: req.signal,
-        });
+        }));
         if (!result.ok) {
           send({ type: "error", error: result.error, retryable: result.retryable });
           return;

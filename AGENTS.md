@@ -1,5 +1,7 @@
 # Project architecture rules
 
+- Formulário AEP uses the managed Lovable AI credential through its isolated Gemini Chat Completions adapter and the shared NDJSON envelope, retaining its existing model/schema without requiring a separate provider key or changing other modules.
+
 - Civil dates use src/lib/dateOnly.ts for formatting, local defaults and day arithmetic; persist ISO date strings in PostgreSQL date columns and keep audit timestamps as instants to avoid timezone/DST day shifts.
 - LTCAT/Insalubridade descriptions persist on each parent evaluation in both save RPCs; ltcatRiskFields shares exact-risk aliases across row/risk template scopes, and grouping retains assessment type, technique, exposure and description distinctions to prevent field leakage.
 
