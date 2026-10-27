@@ -1,6 +1,6 @@
 # Formulário AEP — falha de configuração da IA
-- [ ] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados.
-- [ ] Validar geração real autenticada e testes de erros/fluxo sem gravar alterações em documentos existentes.
+- [x] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados; função implantada.
+- [x] Validar geração real autenticada na página atual até a prévia, sem aplicar/salvar propostas; zero erros de execução, 22 testes aprovados e build OK.
 
 # AEP / APR-ERGO — campos compartilhados
 - [x] Remover marcações legadas IA validar de todos os textos do PDF APR sem alterar os originais; PDF baixado inspecionado.
