@@ -1,3 +1,7 @@
+# Formulário AEP — falha de configuração da IA
+- [ ] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados.
+- [ ] Validar geração real autenticada e testes de erros/fluxo sem gravar alterações em documentos existentes.
+
 # AEP / APR-ERGO — campos compartilhados
 - [x] Remover marcações legadas IA validar de todos os textos do PDF APR sem alterar os originais; PDF baixado inspecionado.
 - [x] Compartilhar duração, intensidade e IDs estáveis entre registros AEP/APR do escopo exato; preservar ambiguidades e edições manuais, proteger atualizações concorrentes. Aplicado o vínculo por função que faltava no banco.
