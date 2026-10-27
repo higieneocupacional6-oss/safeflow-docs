@@ -577,27 +577,21 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          last_modified_by: string | null
           nome: string
-          row_version: number
           tipo: string
           updated_at: string
         }
         Insert: {
           created_at?: string
           id?: string
-          last_modified_by?: string | null
           nome: string
-          row_version?: number
           tipo: string
           updated_at?: string
         }
         Update: {
           created_at?: string
           id?: string
-          last_modified_by?: string | null
           nome?: string
-          row_version?: number
           tipo?: string
           updated_at?: string
         }
@@ -694,30 +688,24 @@ export type Database = {
           certificado: string | null
           created_at: string | null
           id: string
-          last_modified_by: string | null
           marca: string | null
           nome: string
-          row_version: number
           tipo: string | null
         }
         Insert: {
           certificado?: string | null
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           marca?: string | null
           nome: string
-          row_version?: number
           tipo?: string | null
         }
         Update: {
           certificado?: string | null
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           marca?: string | null
           nome?: string
-          row_version?: number
           tipo?: string | null
         }
         Relationships: []
@@ -731,10 +719,8 @@ export type Database = {
           data_calibracao: string | null
           equipamento_id: string
           id: string
-          last_modified_by: string | null
           marca_modelo: string | null
           numero_serie: string
-          row_version: number
           situacao_operacional: string
         }
         Insert: {
@@ -745,10 +731,8 @@ export type Database = {
           data_calibracao?: string | null
           equipamento_id: string
           id?: string
-          last_modified_by?: string | null
           marca_modelo?: string | null
           numero_serie: string
-          row_version?: number
           situacao_operacional?: string
         }
         Update: {
@@ -759,10 +743,8 @@ export type Database = {
           data_calibracao?: string | null
           equipamento_id?: string
           id?: string
-          last_modified_by?: string | null
           marca_modelo?: string | null
           numero_serie?: string
-          row_version?: number
           situacao_operacional?: string
         }
         Relationships: [
@@ -855,9 +837,7 @@ export type Database = {
           created_at: string
           descricao_esocial: string
           id: string
-          last_modified_by: string | null
           nome: string
-          row_version: number
           updated_at: string
         }
         Insert: {
@@ -865,9 +845,7 @@ export type Database = {
           created_at?: string
           descricao_esocial: string
           id?: string
-          last_modified_by?: string | null
           nome: string
-          row_version?: number
           updated_at?: string
         }
         Update: {
@@ -875,9 +853,7 @@ export type Database = {
           created_at?: string
           descricao_esocial?: string
           id?: string
-          last_modified_by?: string | null
           nome?: string
-          row_version?: number
           updated_at?: string
         }
         Relationships: []
@@ -1012,7 +988,6 @@ export type Database = {
           created_by: string | null
           dados: Json
           empresa_id: string
-          funcao_id: string | null
           id: string
           pdf_path: string | null
           setor_ids: string[]
@@ -1024,7 +999,6 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id: string
-          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]
@@ -1036,7 +1010,6 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id?: string
-          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]
@@ -1908,9 +1881,7 @@ export type Database = {
           created_by: string | null
           documento: string
           id: string
-          last_modified_by: string | null
           parecer_tecnico: string
-          row_version: number
           risco_id: string | null
           situacao: string
           updated_at: string
@@ -1920,9 +1891,7 @@ export type Database = {
           created_by?: string | null
           documento: string
           id?: string
-          last_modified_by?: string | null
           parecer_tecnico?: string
-          row_version?: number
           risco_id?: string | null
           situacao: string
           updated_at?: string
@@ -1932,9 +1901,7 @@ export type Database = {
           created_by?: string | null
           documento?: string
           id?: string
-          last_modified_by?: string | null
           parecer_tecnico?: string
-          row_version?: number
           risco_id?: string | null
           situacao?: string
           updated_at?: string
@@ -2412,30 +2379,24 @@ export type Database = {
           created_at: string
           funcao: string | null
           id: string
-          last_modified_by: string | null
           nome: string
           registro_profissional: string | null
-          row_version: number
           updated_at: string
         }
         Insert: {
           created_at?: string
           funcao?: string | null
           id?: string
-          last_modified_by?: string | null
           nome: string
           registro_profissional?: string | null
-          row_version?: number
           updated_at?: string
         }
         Update: {
           created_at?: string
           funcao?: string | null
           id?: string
-          last_modified_by?: string | null
           nome?: string
           registro_profissional?: string | null
-          row_version?: number
           updated_at?: string
         }
         Relationships: []
@@ -2558,26 +2519,20 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          last_modified_by: string | null
           nome: string
           referencia: string | null
-          row_version: number
         }
         Insert: {
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           nome: string
           referencia?: string | null
-          row_version?: number
         }
         Update: {
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           nome?: string
           referencia?: string | null
-          row_version?: number
         }
         Relationships: []
       }
@@ -2612,11 +2567,9 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
-          last_modified_by: string | null
           nome: string
           observacoes: string | null
           periodicidade: string | null
-          row_version: number
           updated_at: string
         }
         Insert: {
@@ -2625,11 +2578,9 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
-          last_modified_by?: string | null
           nome: string
           observacoes?: string | null
           periodicidade?: string | null
-          row_version?: number
           updated_at?: string
         }
         Update: {
@@ -2638,11 +2589,9 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
-          last_modified_by?: string | null
           nome?: string
           observacoes?: string | null
           periodicidade?: string | null
-          row_version?: number
           updated_at?: string
         }
         Relationships: []
@@ -2651,25 +2600,19 @@ export type Database = {
         Row: {
           created_at: string | null
           id: string
-          last_modified_by: string | null
           nome: string | null
-          row_version: number
           simbolo: string
         }
         Insert: {
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           nome?: string | null
-          row_version?: number
           simbolo: string
         }
         Update: {
           created_at?: string | null
           id?: string
-          last_modified_by?: string | null
           nome?: string | null
-          row_version?: number
           simbolo?: string
         }
         Relationships: []
