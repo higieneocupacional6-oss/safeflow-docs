@@ -149,11 +149,6 @@ export function EtapaReconhecimento({
 
   return (
     <div className="space-y-2">
-      {value.ia && Object.keys(value.ia).length > 0 && (
-        <p className="text-xs text-muted-foreground">
-          Itens marcados com “IA” foram classificados automaticamente. “IA · validar” indica inferência técnica que depende da sua validação — passe o mouse para ver o fundamento.
-        </p>
-      )}
       <h2 className="text-center text-sm font-semibold text-foreground">Anexo 01 - Formulário de Antecipação e Reconhecimento de Riscos</h2>
       <div className="rounded-lg border border-border bg-card">
         <table className="w-full table-fixed border-collapse text-[10px]">
