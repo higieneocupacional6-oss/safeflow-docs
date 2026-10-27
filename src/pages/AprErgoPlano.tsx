@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ClipboardList, Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ClipboardList, FileDown, Loader2, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { gerarPlanoAprDocx, nomeArquivoPlanoDocx } from "@/lib/aprErgoPlanoDocx";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -109,6 +110,26 @@ export default function AprErgoPlano() {
     } finally { setGerando(false); }
   };
 
+  const [baixando, setBaixando] = useState(false);
+  const baixarWord = async () => {
+    if (!planoId || baixando) return;
+    setBaixando(true);
+    try {
+      const { data, error } = await supabase.from("documentos").select("draft_snapshot").eq("id", planoId).eq("tipo", "APR-ERGO-PLANO").single();
+      if (error) throw error;
+      const empresa = empresaQuery.data?.razao_social || empresaQuery.data?.nome_fantasia || "";
+      const contrato = contratoQuery.data?.numero_contrato || contratoQuery.data?.nome_contratante || "";
+      const blob = await gerarPlanoAprDocx(acoesDoPlano(data.draft_snapshot), empresa, contrato);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = nomeArquivoPlanoDocx(empresa, contrato);
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch {
+      toast.error("Não foi possível gerar o Word. Tente novamente.");
+    } finally { setBaixando(false); }
+  };
+
   const aplicarProposta = () => {
     if (!proposta) return;
     setAcoes(proposta);
@@ -127,6 +148,7 @@ export default function AprErgoPlano() {
       <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button variant="outline" disabled={gerando || carregando || !!erro} onClick={gerarIa}>{gerando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}Gerar IA</Button>
       <Button className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={salvando || carregando || !!erro} onClick={salvar}>{salvando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+      {planoId && <Button variant="outline" disabled={baixando || status !== "salvo"} title={status !== "salvo" ? "Salve o plano antes de baixar" : undefined} onClick={baixarWord}>{baixando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <FileDown className="w-4 h-4 mr-2" />}Baixar Word</Button>}
     </div>} />
     <p className="text-sm text-muted-foreground mb-4 flex items-center gap-2"><ClipboardList className="w-4 h-4" />{titulo}</p>
     {carregando ? <Loader2 className="w-6 h-6 animate-spin mx-auto my-12 text-muted-foreground" />
