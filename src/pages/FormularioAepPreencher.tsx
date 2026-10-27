@@ -337,16 +337,14 @@ export default function FormularioAepPreencher() {
         id = existente.data?.id || "";
       }
       if (id) {
-        const { error } = await supabase.from("formularios_aep").update(registro).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
+        if (!registroSalvo || registroSalvo.id !== id) throw new Error("Este formulário foi salvo por outra pessoa. Reabra o registro antes de salvar; seus dados continuam na tela.");
+        const { data: confirmado, error } = await supabase.from("formularios_aep").update(registro).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("updated_at", registroSalvo.updated_at).select("id").maybeSingle();
         if (error) throw error;
+        if (!confirmado) throw new Error("O formulário mudou durante a edição. Seus dados continuam na tela; reabra para conferir antes de salvar.");
       } else {
         const { data, error } = await supabase.from("formularios_aep").insert({ ...registro, created_by: user?.id }).select("id").single();
         if (error?.code === "23505" && funcaoId) {
-          const existente = await supabase.from("formularios_aep").select("id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("funcao_id", funcaoId).maybeSingle();
-          if (existente.error || !existente.data) throw error;
-          const atualizado = await supabase.from("formularios_aep").update(registro).eq("id", existente.data.id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
-          if (atualizado.error) throw atualizado.error;
-          id = existente.data.id;
+          throw new Error("Já existe um formulário salvo para esta função. Reabra-o para conferir os dados antes de salvar.");
         } else {
           if (error) throw error;
           id = data.id;
