@@ -11,11 +11,12 @@ const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim()
   base: z.array(z.object({ nome: z.string().max(255), tipo: z.enum(["pdf", "texto"]), data: z.string().max(14000000) })).max(6),
 });
 // Saída estruturada não aceita aspas duplas em literais de enum: normaliza para ' e reverte no pós-processamento.
-// Gemini rejeita enum com string vazia (HTTP 400). "" em opc é só marcador de campo opcional:
-// schemaEstrito tira o campo de required e prepararSchemaGemini remove o "" antes do envio.
+// O schema completo com todos os enums excede o limite aceito pelo serviço (HTTP 400 "invalid argument"):
+// os campos opcionais curtos (estimativa/intensidade/severidade) listam as opções na descrição e o
+// pós-processamento (função `um`) aceita somente correspondência exata com a planilha — nada fora da lista entra.
 const semAspas = (s: string) => s.replace(/["“”]/g, "'");
 const enumerado = (v: readonly string[]) => ({ type: "string", enum: [...new Set(v.map(semAspas).filter((s) => s.trim()))] });
-const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v.map(semAspas).filter((s) => s.trim()))] });
+const opc = (v: readonly string[]) => ({ type: "string", description: `Vazio ou exatamente uma destas opções: ${[...new Set(v.map(semAspas).filter((s) => s.trim()))].join(" | ")}` });
 const schema = { type: "object", properties: {
   cabecalho: { type: "object", properties: { atividades: { type: "string" }, ambiente: { type: "string" } } },
   linhas: { type: "array", items: { type: "object", properties: {
