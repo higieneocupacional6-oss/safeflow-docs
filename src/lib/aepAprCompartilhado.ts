@@ -39,7 +39,7 @@ export function exposicaoUnica(fontes: ExposicaoAtividade[], codigo: string, ati
   const distintas = [...new Map(candidatas.map((e) => [JSON.stringify([e.atividade_id, e.duracao, e.intensidade]), e])).values()];
   return distintas.length === 1 ? distintas[0] : undefined;
 }
-export function mesclarAprExposicoes<T extends Record<string, any>>(linhas: T[], fontes: ExposicaoAtividade[]): T[] {
+export function mesclarAprExposicoes<T extends Record<string, any>>(linhas: T[], fontes: ExposicaoAtividade[]): (T & { atividade_id?: string; atividade_numero?: number; codigo_aep?: string; exposicao_compartilhada?: ExposicaoAtividade })[] {
   return linhas.map((l) => {
     const e = exposicaoUnica(fontes, codigoFatorApr(l), l.atividade_id);
     if (!e) return l;
@@ -52,7 +52,7 @@ export function mesclarAprExposicoes<T extends Record<string, any>>(linhas: T[],
       estimativa: alterar("duracao", l.estimativa, ESTIMATIVAS_APR), intensidade: alterar("intensidade", l.intensidade, INTENSIDADES_APR), exposicao_compartilhada: e };
   });
 }
-export function mesclarAepExposicoes<T extends { marcas: Record<string, Record<string, string>>; compartilhado?: ExposicaoAtividade[] }>(rec: T, fontes: ExposicaoAtividade[]): T {
+export function mesclarAepExposicoes<T extends { marcas: Record<string, Record<string, string>>; compartilhado?: ExposicaoAtividade[] }>(rec: T, fontes: ExposicaoAtividade[]): T & { compartilhado: ExposicaoAtividade[] } {
   const marcas = structuredClone(rec.marcas), compartilhado = [...(rec.compartilhado || [])];
   for (const codigo of new Set(fontes.map((e) => e.codigo_aep))) {
     const m = marcas[codigo] || {}, antigo = compartilhado.find((e) => e.codigo_aep === codigo);
