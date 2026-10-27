@@ -355,7 +355,7 @@ export default function AepWizard() {
   };
 
   // ───────────── Persistência ─────────────
-  const persist = async (status: "rascunho" | "concluido", silent = false): Promise<string | null> => {
+  const persist = async (status: "rascunho" | "concluido", silent = false, setores = setoresAep): Promise<string | null> => {
     if (!empresaId) {
       if (!silent) toast.error("Selecione a empresa");
       return null;
@@ -393,7 +393,7 @@ export default function AepWizard() {
         data_elaboracao: dataElaboracao || null,
         alteracoes_documento: alteracoes,
         revisoes,
-        setores: setoresAep,
+        setores,
         status,
       };
 
@@ -589,6 +589,13 @@ export default function AepWizard() {
       });
 
       const r: any = data || {};
+      const temConteudo = (Array.isArray(r.riscos_ergonomicos) && r.riscos_ergonomicos.length > 0)
+        || (Array.isArray(r.checklist) && r.checklist.some((c: any) => c?.observacao || c?.condicao || c?.quantidade_inadequados))
+        || (typeof r.parecer_ergonomia === "string" && r.parecer_ergonomia.trim())
+        || (typeof r.parecer_ambiente === "string" && r.parecer_ambiente.trim())
+        || (typeof r.descricao_atividade === "string" && r.descricao_atividade.trim())
+        || (Array.isArray(r.plano_acao) && r.plano_acao.length > 0);
+      if (!temConteudo) throw new Error("A IA retornou uma resposta vazia. Tente novamente — seus dados foram mantidos.");
       const riscos: RiscoErgonomico[] = Array.isArray(r.riscos_ergonomicos)
         ? r.riscos_ergonomicos.map((x: any) => {
             const probabilidade = x.probabilidade || "";
@@ -639,7 +646,7 @@ export default function AepWizard() {
         }
       }
 
-      updateSetor(editingSetorIdx, {
+      const patch: Partial<SetorAep> = {
         checklist: checklistIa,
         descricao_atividade: pick(r.descricao_atividade, setor.descricao_atividade),
         turno: pick(r.turno, setor.turno),
@@ -656,8 +663,10 @@ export default function AepWizard() {
         plano_acao: sobrescrever
           ? (planoIa.length > 0 ? planoIa : setor.plano_acao)
           : (setor.plano_acao.length > 0 ? setor.plano_acao : planoIa),
-      });
-
+      };
+      const setoresAtualizados = setoresAep.map((s, i) => (i === editingSetorIdx ? { ...s, ...patch } : s));
+      setSetoresAep(setoresAtualizados);
+      await persist("rascunho", true, setoresAtualizados);
 
       setIaOpen(false);
       toast.success(forcar ? "AEP reanalisada com base na conduta escolhida" : "Análise gerada com IA");

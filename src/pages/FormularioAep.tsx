@@ -1,22 +1,32 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Building2, ChevronDown, ChevronRight, ClipboardCheck, FileSignature, Loader2, Plus,
+  Building2, ChevronDown, ChevronRight, ClipboardCheck, FileSignature, FolderTree, Loader2, Plus,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { FuncaoAepItem } from "@/components/formulario-aep/SeletorSetorFuncoesAep";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { todayDateOnly } from "@/lib/dateOnly";
+import {
+  agruparFormulariosPorSetor, baixarPdfFormularioAep, montarPdfDados, urlPreencherFormularioAep,
+} from "@/lib/formularioAepRegistro";
+import { toast } from "sonner";
 
 const formatDate = (v?: string | null) =>
   v ? new Date(v).toLocaleDateString("pt-BR") : "";
 
 export default function FormularioAep() {
   const navigate = useNavigate();
+  const expand = (useLocation().state as { expand?: string } | null)?.expand;
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const toggle = (id: string) => setExpanded((p) => ({ ...p, [id]: !p[id] }));
+  useEffect(() => {
+    if (expand) setExpanded((p) => ({ ...p, [expand]: true }));
+  }, [expand]);
 
   useRealtimeSync(
     [
@@ -24,6 +34,8 @@ export default function FormularioAep() {
       { table: "contratos", queryKey: ["formulario-aep-contratos"] },
       { table: "documentos", queryKey: ["formulario-aep-documentos"] },
       { table: "formularios_aep", queryKey: ["formulario-aep-salvos"] },
+      { table: "setores", queryKey: ["formulario-aep-setores"] },
+      { table: "funcoes", queryKey: ["formulario-aep-funcoes"] },
     ],
     "formulario-aep-sync",
   );
@@ -70,18 +82,59 @@ export default function FormularioAep() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("formularios_aep")
-        .select("id, empresa_id, contrato_id, setor_ids, created_at, updated_at")
+        .select("id, empresa_id, contrato_id, setor_ids, funcao_id, created_at, updated_at")
         .order("updated_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
   });
 
+  const { data: setores = [] } = useQuery({
+    queryKey: ["formulario-aep-setores"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("setores").select("id, nome_setor, ghe_ges, contrato_id");
+      if (error) throw error;
+      return data as { id: string; nome_setor: string; ghe_ges: string | null; contrato_id: string }[];
+    },
+  });
+
+  const { data: funcoes = [] } = useQuery({
+    queryKey: ["formulario-aep-funcoes"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("funcoes").select("id, nome_funcao, setor_id");
+      if (error) throw error;
+      return data as { id: string; nome_funcao: string; setor_id: string }[];
+    },
+  });
+
   const contratosByEmpresa = (id: string) => contratos.filter((c) => c.empresa_id === id);
-  const formulariosByContrato = (id: string) => [
-    ...salvos.filter((f) => f.contrato_id === id).map((f) => ({ ...f, salvo: true })),
+  const formulariosLegado = (id: string) => [
+    ...salvos.filter((f) => f.contrato_id === id && !f.funcao_id).map((f) => ({ ...f, salvo: true })),
     ...formularios.filter((f) => f.contrato_id === id),
   ];
+  const gruposDoContrato = (id: string) => agruparFormulariosPorSetor(
+    salvos.filter((f) => f.contrato_id === id),
+    setores.filter((s) => s.contrato_id === id),
+    funcoes,
+  ).grupos;
+
+  const baixarFuncao = async (formId: string, empresaId: string, contratoId: string, funcaoNome: string) => {
+    const empresa = empresas.find((e) => e.id === empresaId);
+    const contrato = contratos.find((c) => c.id === contratoId);
+    const { data, error } = await supabase.from("formularios_aep").select("dados").eq("id", formId).eq("empresa_id", empresaId).eq("contrato_id", contratoId).maybeSingle();
+    if (error || !data) {
+      toast.error("Não foi possível baixar o relatório.");
+      return;
+    }
+    const arquivo = `Formulario_AEP_${funcaoNome.replace(/[^\w]+/g, "_")}_${todayDateOnly()}.pdf`;
+    baixarPdfFormularioAep(montarPdfDados({
+      empresaNome: empresa?.nome_fantasia || empresa?.razao_social || "",
+      contratoNome: [contrato?.numero_contrato, contrato?.nome_contratante].filter(Boolean).join(" – ") || "Sem número",
+      funcaoNome,
+      dados: data.dados,
+    }), arquivo);
+    toast.success("PDF baixado.");
+  };
 
   return (
     <div>
@@ -113,9 +166,11 @@ export default function FormularioAep() {
             const isOpen = !!expanded[emp.id];
             const listaContratos = contratosByEmpresa(emp.id);
             const empresaNome = emp.nome_fantasia || emp.razao_social;
-            const totalFormularios = listaContratos.reduce(
-              (acc, c) => acc + formulariosByContrato(c.id).length, 0,
-            );
+            const totalFormularios = listaContratos.reduce((acc, c) => {
+              const grupos = gruposDoContrato(c.id);
+              const porFuncao = grupos.reduce((n, g) => n + g.funcoes.length, 0);
+              return acc + porFuncao + formulariosLegado(c.id).length;
+            }, 0);
             return (
               <div key={emp.id} className="glass-card rounded-xl overflow-hidden">
                 <button
@@ -154,7 +209,9 @@ export default function FormularioAep() {
                       </div>
                     ) : (
                       listaContratos.map((c) => {
-                        const forms = formulariosByContrato(c.id);
+                        const forms = formulariosLegado(c.id);
+                        const grupos = gruposDoContrato(c.id);
+                        const total = forms.length + grupos.reduce((n, g) => n + g.funcoes.length, 0);
                         return (
                           <div key={c.id} className="bg-card rounded-lg p-3 border border-border space-y-2">
                             <div className="flex items-center gap-3">
@@ -173,16 +230,40 @@ export default function FormularioAep() {
                                 )}
                               </div>
                               <Badge variant="outline" className="text-[10px] shrink-0">
-                                {forms.length} formulário{forms.length === 1 ? "" : "s"}
+                                {total} formulário{total === 1 ? "" : "s"}
                               </Badge>
                             </div>
 
-                            {forms.length === 0 ? (
+                            {total === 0 ? (
                               <p className="text-[11px] text-muted-foreground pl-7">
                                 Nenhum formulário AEP vinculado a este contrato
                               </p>
                             ) : (
-                              <div className="pl-7 space-y-1">
+                              <div className="pl-7 space-y-2">
+                                {grupos.map((grupo) => (
+                                  <div key={grupo.setorId} className="space-y-1">
+                                    <div className="flex items-center gap-2 text-sm font-medium text-foreground">
+                                      <FolderTree className="w-4 h-4 text-muted-foreground" />
+                                      {grupo.nome}
+                                    </div>
+                                    {grupo.funcoes.map((funcao) => (
+                                      <FuncaoAepItem
+                                        key={funcao.formulario.id}
+                                        nome={funcao.nome}
+                                        detalhe={`atualizado em ${formatDate(funcao.formulario.updated_at)}`}
+                                        onOpen={() => navigate(urlPreencherFormularioAep({
+                                          empresaId: funcao.formulario.empresa_id,
+                                          contratoId: funcao.formulario.contrato_id,
+                                          setorId: grupo.setorId,
+                                          funcaoId: funcao.funcaoId,
+                                          formularioId: funcao.formulario.id,
+                                          origem: "lista",
+                                        }))}
+                                        onDownload={() => baixarFuncao(funcao.formulario.id, emp.id, c.id, funcao.nome)}
+                                      />
+                                    ))}
+                                  </div>
+                                ))}
                                 {forms.map((f) => (
                                   <button
                                     key={f.id}

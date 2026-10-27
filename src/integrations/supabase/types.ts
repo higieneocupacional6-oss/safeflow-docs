@@ -1012,6 +1012,7 @@ export type Database = {
           created_by: string | null
           dados: Json
           empresa_id: string
+          funcao_id: string | null
           id: string
           pdf_path: string | null
           setor_ids: string[]
@@ -1023,6 +1024,7 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id: string
+          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]
@@ -1034,6 +1036,7 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id?: string
+          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]

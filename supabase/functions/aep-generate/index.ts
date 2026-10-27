@@ -2,7 +2,9 @@
 // via Lovable AI. Recebe contexto do setor/função + relato in loco + anexos (fotos/PDFs).
 
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
+import { createClient } from "npm:@supabase/supabase-js@2";
 import { compactarContexto, gerarJsonEmFluxo, limitarAnexos, limitarTexto } from "../_shared/aiStream.ts";
+import { exigirSessao } from "../_shared/sessao.ts";
 import { REDACAO_TECNICA, limparSaidaTecnica } from "../_shared/redacaoTecnica.ts";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR responsável pela elaboração de AEP — Análise Ergonômica Preliminar (NR-17, NR-01/GRO).
@@ -208,11 +210,24 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const key = Deno.env.get("LOVABLE_API_KEY");
+    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY");
+    const key = Deno.env.get("GEMINI_API_KEY");
+    if (!url || !anon) {
+      return new Response(JSON.stringify({ error: "Serviço indisponível." }), {
+        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
     if (!key) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurado" }), {
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const auth = req.headers.get("Authorization") || "";
+    const sb = createClient(url, anon, { global: { headers: { Authorization: auth } } });
+    if (!(await exigirSessao(sb, auth))) {
+      return new Response(JSON.stringify({ error: "Sessão expirada. Entre novamente." }), {
+        status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 

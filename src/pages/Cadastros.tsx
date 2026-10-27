@@ -1514,6 +1514,16 @@ export default function Cadastros() {
                 if (!exameForm.nome.trim()) { toast.error("Informe o nome do exame"); return; }
                 if (!exameForm.codigo_esocial.trim()) { toast.error("Informe o código eSocial"); return; }
                 if (!exameForm.descricao_esocial.trim()) { toast.error("Informe a descrição eSocial"); return; }
+                const codigoNorm = exameForm.codigo_esocial.trim().toLowerCase();
+                const nomeNorm = exameForm.nome.trim().toLowerCase();
+                const exameDuplicado = (examesCad as any[]).find((item) => item.id !== editingId && (
+                  (item.codigo_esocial || "").trim().toLowerCase() === codigoNorm
+                  || (item.nome || "").trim().toLowerCase() === nomeNorm
+                ));
+                if (exameDuplicado) {
+                  toast.error("Já existe um exame com este nome ou código eSocial. Atualize a lista antes de gravar novamente.");
+                  return;
+                }
                 setExameSaving(true);
                 try {
                   const payload = {

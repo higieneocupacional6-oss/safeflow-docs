@@ -119,6 +119,14 @@ export function GerarIaAepModal({
     try {
       const base = await carregarBaseParaIa(empresaId);
       const r = await invocarGeracaoIa<ResultadoIaAep>("formulario-aep-generate", { relato, base, contexto, criterios });
+      const vazio = !r
+        || (!Object.values(r.identificacao || {}).some((v) => String(v || "").trim())
+          && !r.funcoes_ids?.length
+          && !r.atividades?.length
+          && !r.controles?.length
+          && !r.fatores?.length
+          && !String(r.observacoes || "").trim());
+      if (vazio) throw new Error("A IA retornou uma resposta vazia. Tente novamente — seus dados foram mantidos.");
       setRes(r);
       setConflitos(null);
     } catch (e: any) {

@@ -1,30 +1,36 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, Building2, FileSignature, FolderTree, Loader2, X } from "lucide-react";
+import { ArrowLeft, Building2, FileSignature } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from "@/components/ui/select";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
-} from "@/components/ui/dialog";
+import { SeletorSetorFuncoesAep } from "@/components/formulario-aep/SeletorSetorFuncoesAep";
 import { sortByGes } from "@/lib/sortGes";
+import { todayDateOnly } from "@/lib/dateOnly";
+import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import {
+  baixarPdfFormularioAep, montarPdfDados, urlNovoFormularioAep, urlPreencherFormularioAep,
+} from "@/lib/formularioAepRegistro";
 import { toast } from "sonner";
 
 export default function FormularioAepNovo() {
   const navigate = useNavigate();
-  const [empresaId, setEmpresaId] = useState("");
-  const [contratoId, setContratoId] = useState("");
-  const [setorModalOpen, setSetorModalOpen] = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-  const [setoresSelecionados, setSetoresSelecionados] = useState<any[]>([]);
+  const [params] = useSearchParams();
+  const [empresaId, setEmpresaId] = useState(params.get("empresa") || "");
+  const [contratoId, setContratoId] = useState(params.get("contrato") || "");
+  const [funcoesPorSetor, setFuncoesPorSetor] = useState<Record<string, string[]>>({});
+  const restaurado = useRef("");
+
+  useRealtimeSync(
+    [{ table: "formularios_aep", queryKey: ["formulario-aep-novo-salvos"] }],
+    "formulario-aep-novo-sync",
+  );
 
   const { data: empresas = [], isLoading: loadingEmpresas } = useQuery({
     queryKey: ["formulario-aep-novo-empresas"],
@@ -52,13 +58,13 @@ export default function FormularioAepNovo() {
     },
   });
 
-  const { data: setores = [], isLoading: loadingSetores } = useQuery({
+  const { data: setores = [], isLoading: loadingSetores, isFetched: setoresProntos } = useQuery({
     queryKey: ["formulario-aep-novo-setores", empresaId, contratoId],
     enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from("setores")
-        .select("id, nome_setor, ghe_ges, descricao_ambiente")
+        .select("id, nome_setor, ghe_ges, descricao_ambiente, funcoes(id, nome_funcao, descricao_atividades)")
         .eq("empresa_id", empresaId)
         .eq("contrato_id", contratoId);
       if (error) throw error;
@@ -66,48 +72,97 @@ export default function FormularioAepNovo() {
     },
   });
 
-  const toggleSetor = (id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
+  const { data: salvos = [] } = useQuery({
+    queryKey: ["formulario-aep-novo-salvos", empresaId, contratoId],
+    enabled: !!empresaId && !!contratoId,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("formularios_aep")
+        .select("id, funcao_id, updated_at")
+        .eq("empresa_id", empresaId)
+        .eq("contrato_id", contratoId);
+      if (error) throw error;
+      return data as { id: string; funcao_id: string | null; updated_at: string }[];
+    },
+  });
+
+  const funcoesParam = params.get("funcoes") || "";
+  useEffect(() => {
+    if (!empresaId || !contratoId || !setoresProntos) return;
+    const chave = `${empresaId}:${contratoId}:${funcoesParam}`;
+    if (restaurado.current === chave) return;
+    restaurado.current = chave;
+    const ids = new Set(funcoesParam.split(",").filter(Boolean));
+    const next: Record<string, string[]> = {};
+    for (const setor of setores as any[]) {
+      const doSetor = (setor.funcoes || []).map((f: any) => f.id).filter((id: string) => ids.has(id));
+      if (doSetor.length) next[setor.id] = doSetor;
+    }
+    setFuncoesPorSetor(next);
+  }, [empresaId, contratoId, setoresProntos, setores, funcoesParam]);
+
+  const funcoesEscolhidas = useMemo(() => Object.values(funcoesPorSetor).flat(), [funcoesPorSetor]);
+  const salvas = useMemo(() => {
+    const map: Record<string, { id: string; updated_at: string }> = {};
+    for (const row of salvos) {
+      if (!row.funcao_id) continue;
+      const atual = map[row.funcao_id];
+      if (!atual || atual.updated_at < row.updated_at) map[row.funcao_id] = { id: row.id, updated_at: row.updated_at };
+    }
+    return map;
+  }, [salvos]);
+
+  const aplicarSelecao = (next: Record<string, string[]>) => {
+    setFuncoesPorSetor(next);
+    const ids = Object.values(next).flat();
+    restaurado.current = `${empresaId}:${contratoId}:${ids.join(",")}`;
+    navigate(urlNovoFormularioAep(empresaId, contratoId, ids), { replace: true });
   };
 
-  const handleConfirmSetores = () => {
-    const escolhidos = (setores as any[]).filter((s) => selectedIds.has(s.id));
-    setSetoresSelecionados(escolhidos);
-    setSetorModalOpen(false);
+  const abrirFuncao = (setorId: string, funcaoId: string, formularioId?: string) => {
+    navigate(urlPreencherFormularioAep({
+      empresaId, contratoId, setorId, funcaoId, formularioId,
+      origem: "novo", funcoes: funcoesEscolhidas,
+    }));
   };
 
-  const removerSetor = (id: string) => {
-    setSetoresSelecionados((prev) => prev.filter((s) => s.id !== id));
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(id);
-      return next;
-    });
+  const baixarFuncao = async (setorId: string, funcaoId: string, formularioId: string) => {
+    const setor = (setores as any[]).find((s) => s.id === setorId);
+    const funcao = setor?.funcoes?.find((f: any) => f.id === funcaoId);
+    const empresa = (empresas as any[]).find((e) => e.id === empresaId);
+    const contrato = (contratos as any[]).find((c) => c.id === contratoId);
+    const { data, error } = await supabase.from("formularios_aep").select("dados").eq("id", formularioId).eq("empresa_id", empresaId).eq("contrato_id", contratoId).maybeSingle();
+    if (error || !data) {
+      toast.error("Não foi possível baixar o relatório.");
+      return;
+    }
+    const nomeFuncao = funcao?.nome_funcao || "funcao";
+    const arquivo = `Formulario_AEP_${nomeFuncao.replace(/[^\w]+/g, "_")}_${todayDateOnly()}.pdf`;
+    baixarPdfFormularioAep(montarPdfDados({
+      empresaNome: empresa?.nome_fantasia || empresa?.razao_social || "",
+      contratoNome: [contrato?.numero_contrato, contrato?.nome_contratante].filter(Boolean).join(" – ") || "Sem número",
+      funcaoNome: nomeFuncao,
+      dados: data.dados,
+    }), arquivo);
+    toast.success("PDF baixado.");
   };
 
   const handleCriar = () => {
     if (!empresaId) return toast.error("Selecione a empresa");
     if (!contratoId) return toast.error("Selecione o contrato");
-    if (setoresSelecionados.length === 0) return toast.error("Selecione ao menos um setor");
-    navigate("/formulario-aep/preencher", {
-      state: {
-        empresaId,
-        contratoId,
-        setorIds: setoresSelecionados.map((s) => s.id),
-      },
-    });
+    const pares = (setores as any[]).flatMap((setor) =>
+      (funcoesPorSetor[setor.id] || []).map((funcaoId: string) => ({ setorId: setor.id, funcaoId })),
+    );
+    if (pares.length === 0) return toast.error("Selecione ao menos uma função");
+    const alvo = pares.find((p) => !salvas[p.funcaoId]) || pares[0];
+    abrirFuncao(alvo.setorId, alvo.funcaoId, salvas[alvo.funcaoId]?.id);
   };
 
   return (
     <div>
       <PageHeader
         title="Novo Formulário AEP"
-        description="Selecione a empresa, o contrato e os setores que farão parte da análise"
+        description="Selecione a empresa, o contrato, o setor e as funções da análise"
         actions={
           <Button variant="outline" onClick={() => navigate("/formulario-aep")}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
@@ -125,8 +180,9 @@ export default function FormularioAepNovo() {
             onValueChange={(v) => {
               setEmpresaId(v);
               setContratoId("");
-              setSetoresSelecionados([]);
-              setSelectedIds(new Set());
+              setFuncoesPorSetor({});
+              restaurado.current = "";
+              navigate(urlNovoFormularioAep(v, "", []), { replace: true });
             }}
             disabled={loadingEmpresas}
           >
@@ -152,8 +208,9 @@ export default function FormularioAepNovo() {
               value={contratoId}
               onValueChange={(v) => {
                 setContratoId(v);
-                setSetoresSelecionados([]);
-                setSelectedIds(new Set());
+                setFuncoesPorSetor({});
+                restaurado.current = "";
+                navigate(urlNovoFormularioAep(empresaId, v, []), { replace: true });
               }}
               disabled={loadingContratos}
             >
@@ -179,41 +236,15 @@ export default function FormularioAepNovo() {
         )}
 
         {empresaId && contratoId && (
-          <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <FolderTree className="w-4 h-4 text-muted-foreground" /> Selecione setores
-            </Label>
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start font-normal"
-              onClick={() => setSetorModalOpen(true)}
-            >
-              {setoresSelecionados.length === 0
-                ? "Clique para selecionar os setores"
-                : `${setoresSelecionados.length} setor(es) selecionado(s)`}
-            </Button>
-
-            {setoresSelecionados.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1">
-                {setoresSelecionados.map((s) => (
-                  <Badge key={s.id} variant="secondary" className="flex items-center gap-1 py-1 px-2">
-                    <span>
-                      {s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => removerSetor(s.id)}
-                      className="ml-1 rounded-full hover:bg-muted-foreground/20 p-0.5"
-                      aria-label={`Remover ${s.nome_setor}`}
-                    >
-                      <X className="w-3 h-3" />
-                    </button>
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </div>
+          <SeletorSetorFuncoesAep
+            setores={setores as any[]}
+            loading={loadingSetores}
+            funcoesPorSetor={funcoesPorSetor}
+            salvas={salvas}
+            onChange={aplicarSelecao}
+            onAbrir={abrirFuncao}
+            onBaixar={baixarFuncao}
+          />
         )}
 
         <div className="flex justify-end gap-2 pt-2 border-t border-border">
@@ -223,64 +254,12 @@ export default function FormularioAepNovo() {
           <Button
             className="bg-accent text-accent-foreground hover:bg-accent/90"
             onClick={handleCriar}
-            disabled={!empresaId || !contratoId || setoresSelecionados.length === 0}
+            disabled={!empresaId || !contratoId || funcoesEscolhidas.length === 0}
           >
             Criar formulário
           </Button>
         </div>
       </Card>
-
-      <Dialog open={setorModalOpen} onOpenChange={setSetorModalOpen}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Selecione os setores</DialogTitle>
-          </DialogHeader>
-
-          {loadingSetores ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-            </div>
-          ) : setores.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-6 text-center">
-              Nenhum setor cadastrado para esta empresa e contrato.
-            </p>
-          ) : (
-            <div className="max-h-80 overflow-y-auto space-y-1 py-2">
-              {setores.map((s: any) => (
-                <label
-                  key={s.id}
-                  className="flex items-center gap-3 rounded-lg border border-border px-3 py-2 cursor-pointer hover:bg-muted/40 transition-colors"
-                >
-                  <Checkbox
-                    checked={selectedIds.has(s.id)}
-                    onCheckedChange={() => toggleSetor(s.id)}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-medium text-foreground truncate">
-                      {s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}
-                    </p>
-                    {s.descricao_ambiente && (
-                      <p className="text-[11px] text-muted-foreground truncate">{s.descricao_ambiente}</p>
-                    )}
-                  </div>
-                </label>
-              ))}
-            </div>
-          )}
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setSetorModalOpen(false)}>
-              Cancelar
-            </Button>
-            <Button
-              className="bg-accent text-accent-foreground hover:bg-accent/90"
-              onClick={handleConfirmSetores}
-            >
-              OK
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

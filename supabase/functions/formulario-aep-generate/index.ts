@@ -3,6 +3,7 @@
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { compactarContexto, gerarJsonEmFluxo, limitarTexto } from "../_shared/aiStream.ts";
+import { exigirSessao } from "../_shared/sessao.ts";
 
 const marcaSchema = { type: "string", description: "Número, 'X' ou vazio" };
 const linhaSchema = (cols: string[]) => ({
@@ -70,11 +71,10 @@ Deno.serve(async (req) => {
   try {
     const auth = req.headers.get("Authorization") || "";
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
-    const { data: claims, error: authErr } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
-    if (authErr || !claims?.claims?.sub) return json({ error: "Sessão expirada. Entre novamente." }, 401);
+    if (!(await exigirSessao(sb, auth))) return json({ error: "Sessão expirada. Entre novamente." }, 401);
 
-    const key = Deno.env.get("LOVABLE_API_KEY");
-    if (!key) return json({ error: "LOVABLE_API_KEY não configurado" }, 500);
+    const key = Deno.env.get("GEMINI_API_KEY");
+    if (!key) return json({ error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase." }, 500);
 
     const body = await req.json();
     const relato = typeof body.relato === "string" ? body.relato.trim() : "";
@@ -104,7 +104,7 @@ ${JSON.stringify(body.criterios ?? {}, null, 1)}
 ${limitarTexto(relato, 30_000)}`,
     });
 
-    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA, tools: [{ type: "web_search" }] });
+    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") return new Response(null, { status: 499, headers: corsHeaders });
     console.error(e);

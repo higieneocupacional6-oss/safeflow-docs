@@ -2,6 +2,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { gerarJsonEmFluxo, limitarTexto } from "../_shared/aiStream.ts";
+import { exigirSessao } from "../_shared/sessao.ts";
 import { CAMPOS_APR, circunstanciaTecnicaApr, cenariosValidosApr, formulariosCompativeisApr, classificacoesSalvasApr, recalcularLinhaApr } from "../_shared/aprErgoIa.ts";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, EXIGENCIAS_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../_shared/aprErgoPlanilha.ts";
 
@@ -9,15 +10,18 @@ const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim()
   criterios: z.object({ duracao: z.array(z.string().max(500)).length(5), intensidade: z.array(z.string().max(500)).length(5), fatores: z.array(z.tuple([z.string().max(100), z.array(z.string().max(1000))])).max(10) }),
   base: z.array(z.object({ nome: z.string().max(255), tipo: z.enum(["pdf", "texto"]), data: z.string().max(14000000) })).max(6),
 });
-// Saída estruturada estrita não aceita aspas duplas em literais de enum: normaliza para ' e reverte no pós-processamento.
+// Saída estruturada não aceita aspas duplas em literais de enum: normaliza para ' e reverte no pós-processamento.
+// Gemini rejeita enum com string vazia (HTTP 400). "" em opc é só marcador de campo opcional:
+// schemaEstrito tira o campo de required e prepararSchemaGemini remove o "" antes do envio.
 const semAspas = (s: string) => s.replace(/["“”]/g, "'");
-const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v.map(semAspas))] });
+const enumerado = (v: readonly string[]) => ({ type: "string", enum: [...new Set(v.map(semAspas).filter((s) => s.trim()))] });
+const opc = (v: readonly string[]) => ({ type: "string", enum: ["", ...new Set(v.map(semAspas).filter((s) => s.trim()))] });
 const schema = { type: "object", properties: {
   cabecalho: { type: "object", properties: { atividades: { type: "string" }, ambiente: { type: "string" } } },
   linhas: { type: "array", items: { type: "object", properties: {
     funcao_id: { type: "string" }, funcao_ids: { type: "array", items: { type: "string" } }, cenario: { type: "string" }, circunstancia: { type: "string" }, recomendacoes: { type: "string" }, codigo_aep: { type: "string" }, formulario_aep_id: { type: "string" },
-    situacao: opc(SITUACOES_APR), exigencia: opc(EXIGENCIAS_APR.map((e) => e[1])), tipo: opc(TIPOS_APR),
-    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR.map(semAspas))] } },
+    situacao: enumerado(SITUACOES_APR), exigencia: enumerado(EXIGENCIAS_APR.map((e) => e[1])), tipo: enumerado(TIPOS_APR),
+    medidas: { type: "array", items: { type: "string", enum: [...new Set(MEDIDAS_APR.map(semAspas).filter((s) => s.trim()))] } },
     estimativa: opc(ESTIMATIVAS_APR.map((e) => e[0])), intensidade: opc(INTENSIDADES_APR.map((e) => e[0])), severidade: opc(SEVERIDADES_APR.map((e) => e[1])),
   } } }, observacoes: { type: "string" },
 } };
@@ -34,12 +38,12 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const json = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   try {
-    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("LOVABLE_API_KEY");
-    if (!url || !anon || !key) return json("Serviço de IA não configurado.", 500);
+    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("GEMINI_API_KEY");
+    if (!url || !anon) return json("Serviço indisponível.", 500);
+    if (!key) return json("GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.", 500);
     const auth = req.headers.get("Authorization") || "";
     const sb = createClient(url, anon, { global: { headers: { Authorization: auth } } });
-    const { data: claims, error: authError } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
-    if (authError || !claims?.claims?.sub) return json("Sessão expirada. Entre novamente.", 401);
+    if (!(await exigirSessao(sb, auth))) return json("Sessão expirada. Entre novamente.", 401);
     const parsed = Body.safeParse(await req.json());
     if (!parsed.success) return json("Verifique o relato e os arquivos enviados (até 6).", 400);
     const body = parsed.data;

@@ -1,16 +1,19 @@
 import { todayDateOnly } from "@/lib/dateOnly";
-import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
+import { usePersistedState } from "@/hooks/usePersistedState";
 import { gerarPdfFormularioAep } from "@/lib/formularioAepPdf";
 import { useToast } from "@/hooks/use-toast";
 import { EtapaReconhecimento, reconhecimentoVazio, type ReconhecimentoState } from "@/components/formulario-aep/EtapaReconhecimento";
-import { useLocation, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Loader2, Sparkles, BookOpen, Save, Download } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BaseAepModal, GerarIaAepModal, type ResultadoIaAep } from "@/components/formulario-aep/FormularioAepIa";
 import { CATEGORIAS, DURACAO, INTENSIDADE } from "@/components/formulario-aep/EtapaReconhecimento";
 import { supabase } from "@/integrations/supabase/client";
 import { carregarContextoFormularioAep } from "@/lib/formularioAepContexto";
+import {
+  baixarPdfFormularioAep, estadoDeDadosSalvos, montarPdfDados, urlNovoFormularioAep,
+} from "@/lib/formularioAepRegistro";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -88,48 +91,69 @@ function TabelaMarcacao({
 
 export default function FormularioAepPreencher() {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [searchParams] = useSearchParams();
   const prefill = (useLocation().state as PrefillState) || null;
-  const empresaId = prefill?.empresaId || "";
-  const contratoId = prefill?.contratoId || "";
+  const empresaId = searchParams.get("empresa") || prefill?.empresaId || "";
+  const contratoId = searchParams.get("contrato") || prefill?.contratoId || "";
+  const funcaoId = searchParams.get("funcao") || "";
+  const setorId = searchParams.get("setor") || "";
+  const formularioIdUrl = searchParams.get("id") || prefill?.formularioId || "";
+  const origem = searchParams.get("origem") === "lista" ? "lista" : "novo";
+  const funcoesEscopo = (searchParams.get("funcoes") || funcaoId).split(",").filter(Boolean);
+  const setorIds = setorId ? [setorId] : (prefill?.setorIds || []);
 
-  const chave = `formulario-aep:${empresaId}:${contratoId}`;
+  const chave = `formulario-aep:${empresaId}:${contratoId}:${funcaoId || formularioIdUrl || "novo"}`;
   const [etapa, setEtapa] = usePersistedState<number>(`${chave}:etapa`, 1);
   const [reconhecimento, setReconhecimento] = usePersistedState<ReconhecimentoState>(`${chave}:etapa2`, reconhecimentoVazio());
   const [ident, setIdent] = usePersistedState(`${chave}:ident`, {
     gerencia_executiva: "", gerencia: "", local_fisico: "", nome_gere: "", codigo_gere: "",
     horario_avaliacao: "", jornada: "", expostos: "", descricao: "",
   });
-  const [funcoesArr, setFuncoesArr] = usePersistedState<string[]>(`${chave}:funcoes`, []);
-  const funcoesSel = new Set(funcoesArr);
+  const [funcoesArr, setFuncoesArr] = usePersistedState<string[]>(`${chave}:funcoes`, funcaoId ? [funcaoId] : []);
+  const funcoesSel = new Set(funcaoId ? [funcaoId] : funcoesArr);
   const [atividades, setAtividades] = usePersistedState<LinhaTabela[]>(`${chave}:atividades`, linhasVazias());
   const [controles, setControles] = usePersistedState<LinhaTabela[]>(`${chave}:controles`, linhasVazias());
-  const [formularioId, setFormularioId] = usePersistedState<string>(`${chave}:id`, prefill?.formularioId || "");
+  const [formularioId, setFormularioId] = usePersistedState<string>(`${chave}:id`, formularioIdUrl);
   const [salvoHash, setSalvoHash] = usePersistedState<string>(`${chave}:salvo`, "");
   const [salvando, setSalvando] = useState(false);
   const [baixando, setBaixando] = useState(false);
+  const aplicado = useRef("");
   const { toast } = useToast();
-  const dadosForm = useMemo(() => ({ ident, funcoes: funcoesArr, atividades, controles, reconhecimento }), [ident, funcoesArr, atividades, controles, reconhecimento]);
+  const dadosForm = useMemo(() => ({ ident, funcoes: funcaoId ? [funcaoId] : funcoesArr, atividades, controles, reconhecimento }), [ident, funcoesArr, atividades, controles, reconhecimento, funcaoId]);
   const hashAtual = JSON.stringify(dadosForm);
   const salvoAtual = !!formularioId && salvoHash === hashAtual;
 
-  // Abrir formulário salvo a partir da lista
+  const { data: registroSalvo } = useQuery({
+    queryKey: ["formulario-aep-registro", empresaId, contratoId, funcaoId, formularioIdUrl],
+    enabled: !!empresaId && !!contratoId && (!!funcaoId || !!formularioIdUrl),
+    queryFn: async () => {
+      if (formularioIdUrl) {
+        const porId = await supabase.from("formularios_aep").select("id, dados, funcao_id, updated_at").eq("id", formularioIdUrl).eq("empresa_id", empresaId).eq("contrato_id", contratoId).maybeSingle();
+        if (porId.error) throw porId.error;
+        if (porId.data) return porId.data;
+      }
+      if (!funcaoId) return null;
+      const porFuncao = await supabase.from("formularios_aep").select("id, dados, funcao_id, updated_at").eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("funcao_id", funcaoId).maybeSingle();
+      if (porFuncao.error) throw porFuncao.error;
+      return porFuncao.data;
+    },
+  });
+
   useEffect(() => {
-    const id = prefill?.formularioId;
-    if (!id || id === formularioId && salvoHash) return;
-    (async () => {
-      const { data } = await supabase.from("formularios_aep").select("dados").eq("id", id).maybeSingle();
-      const d = (data?.dados || {}) as any;
-      if (!data) return;
-      setIdent((p) => ({ ...p, ...(d.ident || {}) }));
-      setFuncoesArr(d.funcoes || []);
-      setAtividades(d.atividades || linhasVazias());
-      setControles(d.controles || linhasVazias());
-      setReconhecimento(d.reconhecimento || reconhecimentoVazio());
-      setFormularioId(id);
-      setSalvoHash(JSON.stringify({ ident: { ...ident, ...(d.ident || {}) }, funcoes: d.funcoes || [], atividades: d.atividades || linhasVazias(), controles: d.controles || linhasVazias(), reconhecimento: d.reconhecimento || reconhecimentoVazio() }));
-    })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [prefill?.formularioId]);
+    if (!registroSalvo) return;
+    const marca = `${funcaoId}:${registroSalvo.id}:${registroSalvo.updated_at}`;
+    if (aplicado.current === marca) return;
+    aplicado.current = marca;
+    const estado = estadoDeDadosSalvos(registroSalvo.dados, funcaoId || registroSalvo.funcao_id || undefined);
+    setIdent(estado.ident);
+    setFuncoesArr(estado.funcoes);
+    setAtividades(estado.atividades);
+    setControles(estado.controles);
+    setReconhecimento(estado.reconhecimento);
+    setFormularioId(registroSalvo.id);
+    setSalvoHash(JSON.stringify({ ident: estado.ident, funcoes: estado.funcoes, atividades: estado.atividades, controles: estado.controles, reconhecimento: estado.reconhecimento }));
+  }, [registroSalvo, funcaoId, setIdent, setFuncoesArr, setAtividades, setControles, setReconhecimento, setFormularioId, setSalvoHash]);
 
   const { data: nomes } = useQuery({
     queryKey: ["formulario-aep-nomes", empresaId, contratoId],
@@ -162,7 +186,6 @@ export default function FormularioAepPreencher() {
     },
   });
 
-  const setorIds = prefill?.setorIds || [];
   const { data: setoresCtx = [] } = useQuery({
     queryKey: ["formulario-aep-setores-ctx", empresaId, contratoId, setorIds.join(",")],
     enabled: !!empresaId && !!contratoId,
@@ -179,11 +202,11 @@ export default function FormularioAepPreencher() {
   const [baseOpen, setBaseOpen] = useState(false);
   const [iaOpen, setIaOpen] = useState(false);
   const { data: ctxIntegrado } = useQuery({
-    queryKey: ["formulario-aep-ctx-integrado", empresaId, contratoId, setorIds.join(","), funcoesArr.join(","), formularioId],
+    queryKey: ["formulario-aep-ctx-integrado", empresaId, contratoId, setorIds.join(","), (funcaoId || funcoesArr.join(",")), formularioId],
     enabled: !!empresaId && !!contratoId && setoresCtx.length > 0,
     queryFn: () => carregarContextoFormularioAep({
       empresaId, contratoId, formularioAtualId: formularioId,
-      setores: setoresCtx as any, funcoesSelecionadas: new Set(funcoesArr),
+      setores: setoresCtx as any, funcoesSelecionadas: new Set(funcaoId ? [funcaoId] : funcoesArr),
     }),
   });
 
@@ -227,7 +250,7 @@ export default function FormularioAepPreencher() {
       return novo;
     });
     const validas = new Set(funcoes.map((f: any) => f.id));
-    setFuncoesArr((prev) => [...new Set([...prev, ...(r.funcoes_ids || []).filter((id) => validas.has(id))])]);
+    setFuncoesArr((prev) => (funcaoId ? [funcaoId] : [...new Set([...prev, ...(r.funcoes_ids || []).filter((id) => validas.has(id))])]));
     const mesclar = (atual: LinhaTabela[], novas: ResultadoIaAep["atividades"]) =>
       atual.map((l, i) => {
         const n = novas?.[i];
@@ -257,10 +280,17 @@ export default function FormularioAepPreencher() {
   };
   const nomeFuncao = (id: string) => funcoes.find((f: any) => f.id === id)?.nome_funcao || id;
 
-  const montarPdf = () => gerarPdfFormularioAep({
-    empresaNome: nomes?.empresa || "", contratoNome: nomes?.contrato || "",
-    ident, funcoesNomes: funcoesArr.map(nomeFuncao), atividades, controles, reconhecimento,
+  const montarPdf = () => montarPdfDados({
+    empresaNome: nomes?.empresa || "",
+    contratoNome: nomes?.contrato || "",
+    funcaoNome: (funcaoId ? [nomeFuncao(funcaoId)] : funcoesArr.map(nomeFuncao)).join("; "),
+    dados: dadosForm,
   });
+
+  const voltar = () => {
+    if (origem === "lista") navigate("/formulario-aep", { state: { expand: empresaId } });
+    else navigate(urlNovoFormularioAep(empresaId, contratoId, funcoesEscopo));
+  };
 
   const salvar = async () => {
     setSalvando(true);
@@ -270,28 +300,54 @@ export default function FormularioAepPreencher() {
         psico_relatorio_ids: Array.from(new Set((ctxIntegrado?.psicossocial || []).map((p: any) => p.relatorio_id).filter(Boolean))),
         formularios_anteriores_ids: (ctxIntegrado?.formularios_anteriores || []).map((f: any) => f.id),
       };
-      const registro = { empresa_id: empresaId, contrato_id: contratoId, setor_ids: setorIds, dados: { ...dadosForm, fontes_ia: fontes } as any };
-      let id = formularioId;
+      const registro = {
+        empresa_id: empresaId,
+        contrato_id: contratoId,
+        setor_ids: setorIds,
+        funcao_id: funcaoId || null,
+        dados: { ...dadosForm, funcao_id: funcaoId || null, setor_id: setorId || setorIds[0] || null, fontes_ia: fontes } as any,
+      };
+      let id = formularioId || registroSalvo?.id || "";
+      if (!id && funcaoId) {
+        const existente = await supabase.from("formularios_aep").select("id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("funcao_id", funcaoId).maybeSingle();
+        if (existente.error) throw existente.error;
+        id = existente.data?.id || "";
+      }
       if (id) {
-        const { error } = await supabase.from("formularios_aep").update(registro).eq("id", id);
+        const { error } = await supabase.from("formularios_aep").update(registro).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
         if (error) throw error;
       } else {
         const { data, error } = await supabase.from("formularios_aep").insert({ ...registro, created_by: user?.id }).select("id").single();
-        if (error) throw error;
-        id = data.id;
+        if (error?.code === "23505" && funcaoId) {
+          const existente = await supabase.from("formularios_aep").select("id").eq("empresa_id", empresaId).eq("contrato_id", contratoId).eq("funcao_id", funcaoId).maybeSingle();
+          if (existente.error || !existente.data) throw error;
+          const atualizado = await supabase.from("formularios_aep").update(registro).eq("id", existente.data.id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
+          if (atualizado.error) throw atualizado.error;
+          id = existente.data.id;
+        } else {
+          if (error) throw error;
+          id = data.id;
+        }
       }
-      // Pasta da empresa: empresa/contrato/formulário
       const pasta = `${empresaId}/${contratoId}/${id}`;
-      const pdf = montarPdf();
+      const pdf = gerarPdfFormularioAep(montarPdf());
       const up = await supabase.storage.from("formularios-aep").upload(`${pasta}/formulario-aep.pdf`, pdf, { upsert: true, contentType: "application/pdf" });
-      if (up.error) throw up.error;
-      const js = await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashAtual], { type: "application/json" }), { upsert: true, contentType: "application/json" });
-      if (js.error) throw js.error;
-      const { error: e2 } = await supabase.from("formularios_aep").update({ pdf_path: `${pasta}/formulario-aep.pdf` }).eq("id", id);
-      if (e2) throw e2;
+      if (!up.error) {
+        await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashAtual], { type: "application/json" }), { upsert: true, contentType: "application/json" });
+        await supabase.from("formularios_aep").update({ pdf_path: `${pasta}/formulario-aep.pdf` }).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
+      }
       setFormularioId(id);
       setSalvoHash(hashAtual);
-      toast({ title: "Formulário salvo", description: `Salvo na pasta de ${nomes?.empresa || "empresa"} • ${nomes?.contrato || "contrato"}.` });
+      await queryClient.invalidateQueries({ queryKey: ["formulario-aep-salvos"] });
+      await queryClient.invalidateQueries({ queryKey: ["formulario-aep-novo-salvos"] });
+      await queryClient.invalidateQueries({ queryKey: ["formulario-aep-registro"] });
+      toast({
+        title: "Formulário salvo",
+        description: up.error
+          ? "Os dados foram gravados. O arquivo da pasta não pôde ser atualizado; o download do relatório continua disponível."
+          : `Salvo na pasta de ${nomes?.empresa || "empresa"} • ${nomes?.contrato || "contrato"}.`,
+      });
+      voltar();
     } catch (e: any) {
       toast({ title: "Não foi possível salvar", description: e?.message || "Tente novamente. Seus dados continuam na tela.", variant: "destructive" });
     } finally {
@@ -303,18 +359,13 @@ export default function FormularioAepPreencher() {
     if (!salvoAtual) return;
     setBaixando(true);
     try {
-      const blob = montarPdf();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      const nome = `Formulario_AEP_${(nomes?.empresa || "empresa").replace(/[^\w]+/g, "_")}_${todayDateOnly()}.pdf`;
-      a.href = url; a.download = nome;
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 30_000);
+      const nomeFunc = funcaoId ? nomeFuncao(funcaoId) : (nomes?.empresa || "empresa");
+      const nome = `Formulario_AEP_${nomeFunc.replace(/[^\w]+/g, "_")}_${todayDateOnly()}.pdf`;
+      baixarPdfFormularioAep(montarPdf(), nome);
       toast({ title: "PDF baixado", description: nome });
-      ["etapa", "etapa2", "ident", "funcoes", "atividades", "controles", "id", "salvo"].forEach((k) => clearPersistedState(`${chave}:${k}`));
-      setTimeout(() => navigate("/formulario-aep/novo"), 800);
     } catch (e: any) {
       toast({ title: "Falha ao gerar o PDF", description: e?.message || "Tente novamente.", variant: "destructive" });
+    } finally {
       setBaixando(false);
     }
   };
@@ -333,7 +384,7 @@ export default function FormularioAepPreencher() {
     <div>
       <PageHeader
         title="Formulário AEP"
-        description="Preencha a identificação e as tabelas da avaliação"
+        description={funcaoId ? `Função: ${nomeFuncao(funcaoId)}` : "Preencha a identificação e as tabelas da avaliação"}
         actions={
           <div className="flex gap-2">
           {empresaId && contratoId && etapa === 1 && (
@@ -342,7 +393,7 @@ export default function FormularioAepPreencher() {
               <Button onClick={() => setIaOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90"><Sparkles className="w-4 h-4 mr-2" /> Gerar IA</Button>
             </>
           )}
-          <Button variant="outline" onClick={() => (etapa === 2 ? (setEtapa(1), window.scrollTo(0, 0)) : navigate("/formulario-aep/novo"))}>
+          <Button variant="outline" onClick={() => (etapa === 2 ? (setEtapa(1), window.scrollTo(0, 0)) : voltar())}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Voltar
           </Button>
           </div>
@@ -405,7 +456,11 @@ export default function FormularioAepPreencher() {
 
             <div className="mt-5 space-y-2">
               <Label className="text-xs">Funções amostradas em campo</Label>
-              {isLoading ? (
+              {funcaoId ? (
+                <div className="rounded-lg border border-border px-3 py-2 text-sm text-foreground">
+                  {nomeFuncao(funcaoId)}
+                </div>
+              ) : isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
               ) : funcoes.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Nenhuma função cadastrada para esta empresa e contrato.</p>

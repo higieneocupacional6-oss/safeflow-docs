@@ -42,29 +42,42 @@ export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, s
   const ctype = resp.headers.get("Content-Type") || "";
   if (resp.status === 401) throw new Error("Sessão expirada. Entre novamente para gerar a análise. Seus dados foram mantidos.");
   if (!resp.ok || !ctype.includes("ndjson") || !resp.body) {
-    let msg = "";
-    try { msg = (await resp.json())?.error || ""; } catch { /* sem corpo JSON */ }
-    if (resp.ok && !msg) msg = "Resposta inesperada do serviço de IA.";
+    let body: any = null;
+    try { body = await resp.json(); } catch { /* sem corpo JSON */ }
+    const msg = body?.error || body?.message || "";
+    const texto = `${msg} ${JSON.stringify(body || {})}`;
+    if (resp.status === 400 && /jwt|token|auth|authorization|unauthor|sess[aã]o/i.test(texto)) {
+      throw new Error("Sessão expirada. Entre novamente para gerar a análise. Seus dados foram mantidos.");
+    }
+    if (resp.ok && !msg) throw new Error("Resposta inesperada do serviço de IA.");
     throw new Error(msg || `A geração com IA falhou (código ${resp.status}). Tente novamente.`);
   }
 
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+  const aplicarLinha = (line: string): T | undefined => {
+    if (!line.trim()) return;
+    let ev: any;
+    try { ev = JSON.parse(line); } catch { return; }
+    if (ev.type === "result") {
+      if (saidaVaziaCliente(ev.output)) throw new Error("A IA retornou uma resposta vazia. Tente novamente — seus dados foram mantidos.");
+      return ev.output as T;
+    }
+    if (ev.type === "error") throw new Error(ev.error || "A geração com IA falhou.");
+  };
   try {
     while (true) {
       const { done, value } = await reader.read();
-      if (done) break;
-      buffer += decoder.decode(value, { stream: true });
+      if (value) buffer += decoder.decode(value, { stream: true });
+      if (done) buffer += decoder.decode() + "\n";
       const lines = buffer.split("\n");
       buffer = lines.pop() || "";
       for (const line of lines) {
-        if (!line.trim()) continue;
-        let ev: any;
-        try { ev = JSON.parse(line); } catch { continue; }
-        if (ev.type === "result") return ev.output as T;
-        if (ev.type === "error") throw new Error(ev.error || "A geração com IA falhou.");
+        const got = aplicarLinha(line);
+        if (got !== undefined) return got;
       }
+      if (done) break;
     }
   } catch (e) {
     if ((e as Error)?.name === "AbortError") throw e;
@@ -72,4 +85,17 @@ export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, s
     throw new Error("A conexão com a IA foi interrompida. Tente novamente — seus dados foram mantidos.");
   }
   throw new Error("A geração com IA terminou sem resultado. Tente novamente — seus dados foram mantidos.");
+}
+
+/** Espelha saidaJsonVazia do aiStream: objeto/lista sem conteúdo aplicável. */
+export function saidaVaziaCliente(valor: unknown): boolean {
+  if (valor == null) return true;
+  if (typeof valor === "string") return !valor.trim();
+  if (typeof valor === "number" || typeof valor === "boolean") return false;
+  if (Array.isArray(valor)) return valor.length === 0 || valor.every(saidaVaziaCliente);
+  if (typeof valor === "object") {
+    const vals = Object.values(valor as Record<string, unknown>);
+    return vals.length === 0 || vals.every(saidaVaziaCliente);
+  }
+  return true;
 }

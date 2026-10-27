@@ -21,15 +21,27 @@ SELECT public.bootstrap_promote_admin('seu-email@empresa.com');
 
 A função só é executável por `service_role` (não pelo anon/authenticated).
 
-### 2. Segredo de IA
+### 2. Segredo de IA (Google Gemini)
 
-As funções de geração usam `LOVABLE_API_KEY` (gateway Lovable). Em Project Settings → Edge Functions → Secrets, defina:
+As funções de geração usam a API Gemini (Google AI Studio), priorizando o plano gratuito. Em **Project Settings → Edge Functions → Secrets**, defina:
 
 ```
-LOVABLE_API_KEY=<sua chave>
+GEMINI_API_KEY=<sua chave do Google AI Studio>
 ```
 
-Sem isso, cadastros/documentos funcionam; geração por IA retorna erro de serviço não configurado.
+Como obter a chave:
+
+1. Acesse https://aistudio.google.com/apikey
+2. Crie uma chave de API (plano gratuito)
+3. Cole o valor **somente** no secret `GEMINI_API_KEY` do Supabase (nunca em `VITE_*` nem no frontend)
+
+Pela CLI (com `supabase login`):
+
+```bash
+npx supabase secrets set GEMINI_API_KEY=SUA_CHAVE --project-ref <ref-do-projeto>
+```
+
+Sem esse secret, cadastros/documentos funcionam; geração por IA retorna aviso de chave ausente. Quando a cota gratuita acaba, o sistema informa o limite e **não** inicia cobrança automática.
 
 ### 3. Frontend
 

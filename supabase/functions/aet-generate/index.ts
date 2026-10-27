@@ -190,9 +190,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const key = Deno.env.get("LOVABLE_API_KEY");
+    const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurado" }), {
+      return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -2,6 +2,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { gerarJsonEmFluxo } from "../_shared/aiStream.ts";
+import { exigirSessao } from "../_shared/sessao.ts";
 import { fatoresVale } from "../_shared/aetValeIa.ts";
 import { novaAcaoMensal } from "../_shared/aetValeCronograma.ts";
 
@@ -12,13 +13,12 @@ Deno.serve(async req => {
   if(req.method === "OPTIONS") return new Response("ok",{headers:corsHeaders});
   const fail = (error:string,status:number) => new Response(JSON.stringify({error}),{status,headers:{...corsHeaders,"Content-Type":"application/json"}});
   try {
-    const url=Deno.env.get("SUPABASE_URL"), anon=Deno.env.get("SUPABASE_ANON_KEY"), key=Deno.env.get("LOVABLE_API_KEY");
-    if(!url || !anon || !key) return fail("Serviço de IA não configurado.",500);
+    const url=Deno.env.get("SUPABASE_URL"), anon=Deno.env.get("SUPABASE_ANON_KEY"), key=Deno.env.get("GEMINI_API_KEY");
+    if(!url || !anon) return fail("Serviço indisponível.",500);
+    if(!key) return fail("GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.",500);
     const auth=req.headers.get("Authorization") || "";
-    if(!auth.startsWith("Bearer ")) return fail("Sessão expirada. Entre novamente.",401);
     const sb=createClient(url,anon,{global:{headers:{Authorization:auth}}});
-    const {data:claims,error:ae}=await sb.auth.getClaims(auth.slice(7));
-    if(ae || !claims?.claims?.sub) return fail("Sessão expirada. Entre novamente.",401);
+    if(!(await exigirSessao(sb,auth))) return fail("Sessão expirada. Entre novamente.",401);
     const parsed=Body.safeParse(await req.json().catch(()=>null));
     if(!parsed.success) return fail("Selecione uma empresa e um contrato válidos.",400);
     const {empresaId,contratoId}=parsed.data;

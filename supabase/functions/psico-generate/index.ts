@@ -1,6 +1,8 @@
 // Edge function: gera os textos técnicos do Relatório Psicossocial (NR-01 / NR-17)
 // a partir dos dados reais cadastrados + PDFs da base técnica do usuário.
 
+import { gerarJsonGemini, limitarTexto } from "../_shared/aiStream.ts";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -104,9 +106,11 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const key = Deno.env.get("LOVABLE_API_KEY");
+    const key = Deno.env.get("GEMINI_API_KEY");
     if (!key) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY não configurada." }), {
+      return new Response(JSON.stringify({
+        error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.",
+      }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -116,7 +120,7 @@ Deno.serve(async (req) => {
 
     const userText = `# DADOS REAIS DO SISTEMA (fonte primária — não contradizer, não inventar)
 \`\`\`json
-${JSON.stringify(contexto || {}, null, 2)}
+${limitarTexto(JSON.stringify(contexto || {}, null, 2), 120_000)}
 \`\`\`
 
 # BASE TÉCNICA ANEXADA
@@ -131,66 +135,39 @@ ${pdfs.length === 0
 - Registre em "lacunas" toda informação necessária que não estava disponível nos dados recebidos.
 - Revise integralmente a gramática de todos os campos antes de responder.`;
 
-    const userContent: any[] = [{ type: "text", text: userText }];
+    const userContent: unknown[] = [{ type: "input_text", text: userText }];
     for (const p of pdfs) {
       if (!p?.data) continue;
       userContent.push({
-        type: "file",
-        file: { filename: p.name || "base.pdf", file_data: `data:application/pdf;base64,${p.data}` },
+        type: "input_file",
+        filename: p.name || "base.pdf",
+        file_data: `data:application/pdf;base64,${p.data}`,
       });
     }
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Lovable-API-Key": key,
-        "X-Lovable-AIG-SDK": "fetch",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-3.7-flash",
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userContent },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "psico_output", strict: true, schema: RESPONSE_SCHEMA },
-        },
-      }),
+    const result = await gerarJsonGemini({
+      key,
+      systemPrompt: SYSTEM_PROMPT,
+      userContent,
+      schema: RESPONSE_SCHEMA,
+      signal: req.signal,
     });
-
-    if (!resp.ok) {
-      const errText = await resp.text();
-      console.error("Gateway error", resp.status, errText);
-      const msg = resp.status === 429
-        ? "Limite de requisições da IA atingido. Tente novamente em instantes."
-        : resp.status === 402
-          ? "Créditos de IA esgotados. Adicione créditos no workspace."
-          : "Falha ao gerar textos com IA: " + errText.slice(0, 400);
-      return new Response(JSON.stringify({ error: msg }), {
-        status: resp.status === 429 || resp.status === 402 ? resp.status : 500,
+    if (!result.ok) {
+      return new Response(JSON.stringify({ error: result.error }), {
+        status: result.status === 429 ? 429 : result.status === 403 ? 403 : 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const data = await resp.json();
-    const raw = data?.choices?.[0]?.message?.content;
-    let parsed: unknown;
-    try {
-      parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
-    } catch {
-      return new Response(JSON.stringify({ error: "Resposta da IA não pôde ser interpretada." }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    return new Response(JSON.stringify({ output: parsed }), {
+    return new Response(JSON.stringify({ output: result.output }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error(e);
-    return new Response(JSON.stringify({ error: (e as Error).message || "Erro inesperado" }), {
+    if ((e as Error)?.name === "AbortError") {
+      return new Response(null, { status: 499, headers: corsHeaders });
+    }
+    console.error("psico-generate", (e as Error)?.name || "error");
+    return new Response(JSON.stringify({ error: "Erro inesperado na geração. Tente novamente." }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }

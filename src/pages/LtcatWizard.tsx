@@ -817,7 +817,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!contratoId) return null;
       const { data, error } = await supabase
         .from("contratos")
-        .select("id, tipo, nome, epi_epc_riscos(risco_id)")
+        .select("*")
         .eq("id", contratoId)
         .maybeSingle();
       if (error) throw error;
@@ -1948,26 +1948,23 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     });
 
     // Persistir parecer técnico vinculado ao risco (todas as funções/colaboradores deste risco)
-    try {
-      if (empresaId && finalItems.length > 0) {
-        const pareceresPayload = finalItems.map(it => ({
-          empresa_id: empresaId,
-          setor_id: currentRiskSetor.id,
-          funcao_id: it.funcao_id,
-          agente_id: riskForm.agente_id,
-          colaborador_nome: it.colaborador,
-          parecer_tecnico: riskForm.parecer_tecnico,
-          aposentadoria_especial: riskForm.aposentadoria_especial,
-        }));
-        // Insalubridade espelha o LTCAT: salvar parecer no mesmo escopo
-        const tipoEscopoEscrita = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
-        await supabase.from("ltcat_pareceres").upsert(
-          pareceresPayload.map(p => ({ ...p, tipo_documento: tipoEscopoEscrita })),
-          { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
-        );
-      }
-    } catch (e) {
-      console.warn("[LTCAT] Falha ao persistir parecer no DB:", e);
+    if (empresaId && finalItems.length > 0) {
+      const pareceresPayload = finalItems.map(it => ({
+        empresa_id: empresaId,
+        setor_id: currentRiskSetor.id,
+        funcao_id: it.funcao_id,
+        agente_id: riskForm.agente_id,
+        colaborador_nome: it.colaborador || "",
+        parecer_tecnico: riskForm.parecer_tecnico,
+        aposentadoria_especial: riskForm.aposentadoria_especial,
+      }));
+      // Insalubridade espelha o LTCAT: salvar parecer no mesmo escopo
+      const tipoEscopoEscrita = tipoDocumento === "insalubridade" ? "ltcat" : tipoDocumento;
+      const { error: parecerError } = await supabase.from("ltcat_pareceres").upsert(
+        pareceresPayload.map(p => ({ ...p, tipo_documento: tipoEscopoEscrita })),
+        { onConflict: "empresa_id,setor_id,funcao_id,agente_id,colaborador_nome" }
+      );
+      if (parecerError) throw new Error(parecerError.message);
     }
 
     try {
@@ -1991,7 +1988,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         setRiscos(nextRiscos);
       }
       const saved = await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
-      if (!saved) throw new Error("O banco não confirmou o salvamento da avaliação.");
+      if (!saved) return;
       toast.success("Risco finalizado com sucesso!");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
@@ -2001,7 +1998,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       clearWizardPersistedState();
       setStep(2);
     } catch (err) {
-      toast.error("Erro ao salvar avaliação");
+      toast.error(err instanceof Error ? err.message : "Erro ao salvar avaliação");
     }
   };
 

@@ -2,6 +2,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { gerarJsonEmFluxo } from "../_shared/aiStream.ts";
+import { exigirSessao } from "../_shared/sessao.ts";
 import { CHECKS_ETAPA2, TEXTOS_ETAPA2, CAMPOS_ETAPA1, fatoresVale, formulariosValeExatos, etapa2Vazia, exigeDiagnostico } from "../_shared/aetValeIa.ts";
 const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim().max(30000), atuais: z.object({ etapa1: z.record(z.string().max(20000)), etapa2: z.object({ textos: z.record(z.string().max(20000)), checks: z.record(z.array(z.string().max(500))), diagnosticos: z.record(z.string().max(20000)), plano: z.array(z.object({ fator_id: z.string(), o_que: z.string(), por_que: z.string(), onde: z.string(), quem: z.string(), quando: z.string(), como: z.string(), quanto: z.string() })) }) }) });
 const str = { type: "string" };
@@ -15,13 +16,12 @@ Deno.serve(async req => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const fail = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   try {
-    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("LOVABLE_API_KEY");
-    if (!url || !anon || !key) return fail("Serviço de IA não configurado.", 500);
+    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("GEMINI_API_KEY");
+    if (!url || !anon) return fail("Serviço indisponível.", 500);
+    if (!key) return fail("GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.", 500);
     const auth = req.headers.get("Authorization") || "";
-    if (!auth.startsWith("Bearer ")) return fail("Sessão expirada. Entre novamente.", 401);
     const sb = createClient(url, anon, { global: { headers: { Authorization: auth } } });
-    const { data: claims, error: authError } = await sb.auth.getClaims(auth.replace("Bearer ", ""));
-    if (authError || !claims?.claims?.sub) return fail("Sessão expirada. Entre novamente.", 401);
+    if (!(await exigirSessao(sb, auth))) return fail("Sessão expirada. Entre novamente.", 401);
     const parsed = Body.safeParse(await req.json().catch(() => null));
     if (!parsed.success) return fail("Verifique o relato e os campos preenchidos.", 400);
     const b = parsed.data;
