@@ -78,6 +78,7 @@ export default function AprErgoRegistro() {
   const [fontesIa, setFontesIa] = useState<string[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const alvoFoto = useRef<number>(0);
+  const registroCarregado = useRef("");
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["apr-ergo-registro", registroId], enabled: !!registroId,
@@ -103,10 +104,11 @@ export default function AprErgoRegistro() {
   });
 
   useEffect(() => {
-    if (!data || cab) return;
+    if (!data || registroCarregado.current === data.id) return;
+    registroCarregado.current = data.id;
     const t = (data.snap.tabela || {}) as { cabecalho?: Cabecalho; linhas?: Linha[] };
     setCab({ empresa: data.empresa_nome || "", data: "", pessoas: "", localSso: "", localFisico: "", gere: data.setorNome, gerencia: "", cargo: "", funcao: "", atividades: "", ambiente: "", elaborador: "", ...(t.cabecalho || {}) });
-    if (t.linhas?.length) setLinhas(mesclarAprExposicoes(t.linhas, data.compartilhadas).map((l) => recalcularLinhaApr({ ...linhaVazia(), ...l })));
+    setLinhas(t.linhas?.length ? mesclarAprExposicoes(t.linhas, data.compartilhadas).map((l) => recalcularLinhaApr({ ...linhaVazia(), ...l })) : [linhaVazia(), linhaVazia()]);
     if (Array.isArray(data.snap.apr_fontes_aep)) setFontesIa(data.snap.apr_fontes_aep.filter((id): id is string => typeof id === "string"));
   }, [data, cab]);
 
