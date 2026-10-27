@@ -500,7 +500,7 @@ export default function FormularioAepPreencher() {
             </div>
 
             <div className="mt-5 grid gap-4 sm:grid-cols-3">
-              {campo("horario_avaliacao", "Horário da avaliação")}
+              {campo("horario_avaliacao", "Data da avaliação")}
               {campo("jornada", "Jornada de trabalho")}
               {campo("expostos", "Nº de trabalhadores expostos")}
             </div>
