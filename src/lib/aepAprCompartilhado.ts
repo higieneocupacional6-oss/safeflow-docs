@@ -24,11 +24,12 @@ export function exposicoesAep(dados: any, registroId?: string): ExposicaoAtivida
     return [{ atividade_id: atividade, atividade_numero: numero, codigo_aep: codigo, duracao: unico(m, "D"), intensidade: unico(m, "I") }];
   });
 }
-export function exposicoesApr(linhas: any[]): ExposicaoAtividade[] {
-  return linhas.flatMap((l) => {
+export function exposicoesApr(linhas: any[], registroId?: string): ExposicaoAtividade[] {
+  return linhas.flatMap((l, i) => {
     const codigo = codigoFatorApr(l);
-    if (!codigo || !l.atividade_id) return [];
-    return [{ atividade_id: l.atividade_id, atividade_numero: l.atividade_numero, codigo_aep: codigo,
+    const atividadeId = l.atividade_id || (registroId ? `apr:${registroId}:atividade:${i + 1}` : "");
+    if (!codigo || !atividadeId) return [];
+    return [{ atividade_id: atividadeId, atividade_numero: l.atividade_numero || (i < 5 ? i + 1 : undefined), codigo_aep: codigo,
       duracao: ESTIMATIVAS_APR.findIndex(([s]) => s === l.estimativa) + 1,
       intensidade: INTENSIDADES_APR.findIndex(([s]) => s === l.intensidade) + 1 }];
   });
@@ -86,7 +87,7 @@ export async function carregarExposicoes(escopo: EscopoExposicao, excluir?: stri
     ...(apr.data || []).flatMap((f) => {
       const s = f.draft_snapshot as any;
       if (f.id === excluir || s?.setor_id !== escopo.setor) return [];
-      return exposicoesApr((s.tabela?.linhas || []).filter((l: any) => (l.setor_id || s.setor_id) === escopo.setor && (l.funcao_id === escopo.funcao || l.funcao_ids?.length === 1 && l.funcao_ids[0] === escopo.funcao || !l.funcao_id && !l.funcao_ids?.length && s.funcao_id === escopo.funcao)));
+      return exposicoesApr((s.tabela?.linhas || []).map((l: any, i: number) => ({ ...l, atividade_id: l.atividade_id || `apr:${f.id}:atividade:${i + 1}`, atividade_numero: l.atividade_numero || (i < 5 ? i + 1 : undefined) })).filter((l: any) => (l.setor_id || s.setor_id) === escopo.setor && (l.funcao_id === escopo.funcao || l.funcao_ids?.length === 1 && l.funcao_ids[0] === escopo.funcao || !l.funcao_id && !l.funcao_ids?.length && s.funcao_id === escopo.funcao)), f.id);
     }),
   ];
 }
