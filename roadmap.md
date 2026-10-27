@@ -1,7 +1,7 @@
 # AEP / APR-ERGO — campos compartilhados
-- [ ] Remover a marcação IA validar de todo o PDF APR sem alterar os dados originais.
-- [ ] Sincronizar duração, intensidade e ID da atividade por escopo exato, preservando conflitos e demais campos.
-- [ ] Testar os dois sentidos, salvamento, recarga e PDF em registros temporários.
+- [x] Remover marcações legadas IA validar de todos os textos do PDF APR sem alterar os originais; PDF baixado inspecionado.
+- [x] Compartilhar duração, intensidade e IDs estáveis entre registros AEP/APR do escopo exato; preservar ambiguidades e edições manuais, proteger atualizações concorrentes. Aplicado o vínculo por função que faltava no banco.
+- [x] Testados APR → AEP e AEP → APR com salvamento, recarga, reabertura e igualdade do ID da atividade; 32 testes aprovados, aplicação compilada, PDF conferido, registros temporários removidos sem alterar dados reais.
 
 # Variáveis e datas dos documentos
 - [x] Corrigir persistência e contexto por risco das quatro variáveis no LTCAT e Insalubridade; descrição na avaliação-pai e nos dois RPCs, grupos preservam tipo/técnica/exposição/descrição.
