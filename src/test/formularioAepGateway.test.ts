@@ -24,6 +24,11 @@ describe("Formulário AEP — serviço configurado", () => {
     expect(await chamarFormularioAepGateway(opts)).toEqual({ ok: false, status: 403, error: "Acesso negado", retryable: false });
     expect(fetch).toHaveBeenCalledTimes(1);
   });
+  it("remove opção vazia de enum e usa o nome do schema da geração", () => {
+    const body = pedidoFormularioAep("JSON", opts.userContent, { type: "object", properties: { estimativa: { type: "string", enum: ["", "Raro"] } } }, "apr_ergo");
+    expect(body.response_format.json_schema.name).toBe("apr_ergo");
+    expect(body.response_format.json_schema.schema.properties.estimativa.enum).toEqual(["Raro"]);
+  });
   it("não aplica resultado truncado", async () => {
     await expect(textoFluxoFormulario(new Response('data: {"choices":[{"delta":{"content":"parcial"},"finish_reason":"length"}]}\n'))).rejects.toThrow("incompleta");
   });
