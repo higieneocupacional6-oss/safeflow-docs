@@ -12,6 +12,7 @@ import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADE
 import { baixarBlobApr, gerarPdfApr, nomePdfApr } from "@/lib/aprErgoPdf";
 
 import { AprErgoExcluirModal } from "@/components/AprErgoExcluirModal";
+import { carregarExposicoes, codigoFatorApr, mesclarAprExposicoes } from "@/lib/aepAprCompartilhado";
 
 const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
   situacao: () => SITUACOES_APR, tipo: () => TIPOS_APR, exigencia: (l) => exigenciasDaSituacao(l.situacao),
@@ -19,7 +20,7 @@ const LISTAS: Partial<Record<keyof Linha, (l: Linha) => readonly string[]>> = {
 };
 const AUTOMATICOS: (keyof Linha)[] = ["perfil", "classificacao"];
 
-type Linha = { cenario: string; circunstancia: string; situacao: string; exigencia: string; tipo: string; medidas: string; estimativa: string; intensidade: string; perfil: string; severidade: string; classificacao: string; fotos: string[]; recomendacoes: string; funcao_id?: string; funcao_nome?: string; setor_id?: string };
+type Linha = { cenario: string; circunstancia: string; situacao: string; exigencia: string; tipo: string; medidas: string; estimativa: string; intensidade: string; perfil: string; severidade: string; classificacao: string; fotos: string[]; recomendacoes: string; funcao_id?: string; funcao_nome?: string; setor_id?: string; atividade_id?: string; atividade_numero?: number; codigo_aep?: string };
 type Cabecalho = { empresa: string; data: string; pessoas: string; localSso: string; localFisico: string; gere: string; gerencia: string; cargo: string; funcao: string; atividades: string; ambiente: string; elaborador: string };
 const linhaVazia = (): Linha => ({ cenario: "", circunstancia: "", situacao: "", exigencia: "", tipo: "", medidas: "", estimativa: "", intensidade: "", perfil: "", severidade: "", classificacao: "", fotos: [], recomendacoes: "" });
 const COLUNAS: { key: keyof Linha; titulo: string; w: string; destaque?: boolean }[] = [
@@ -96,7 +97,8 @@ export default function AprErgoRegistro() {
         const ids = fid ? [fid] : Array.isArray(snap.funcao_ids) ? snap.funcao_ids : null;
         cargos = [...new Set((s?.funcoes || []).filter((f) => !ids || ids.includes(f.id)).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
-      return { ...data, snap, setorNome, setorArquivo, cargos };
+      const compartilhadas = await carregarExposicoes({ empresa: data.empresa_id || "", contrato: data.contrato_id || "", setor: String(snap.setor_id || ""), funcao: String(snap.funcao_id || "") }, data.id);
+      return { ...data, snap, setorNome, setorArquivo, cargos, compartilhadas };
     },
   });
 
@@ -104,13 +106,14 @@ export default function AprErgoRegistro() {
     if (!data || cab) return;
     const t = (data.snap.tabela || {}) as { cabecalho?: Cabecalho; linhas?: Linha[] };
     setCab({ empresa: data.empresa_nome || "", data: "", pessoas: "", localSso: "", localFisico: "", gere: data.setorNome, gerencia: "", cargo: "", funcao: "", atividades: "", ambiente: "", elaborador: "", ...(t.cabecalho || {}) });
-    if (t.linhas?.length) setLinhas(t.linhas.map((l) => recalcularLinhaApr({ ...linhaVazia(), ...l })));
+    if (t.linhas?.length) setLinhas(mesclarAprExposicoes(t.linhas, data.compartilhadas).map((l) => recalcularLinhaApr({ ...linhaVazia(), ...l })));
     if (Array.isArray(data.snap.apr_fontes_aep)) setFontesIa(data.snap.apr_fontes_aep.filter((id): id is string => typeof id === "string"));
   }, [data, cab]);
 
   const setLinha = (i: number, k: keyof Linha, v: string) => setLinhas((ls) => ls.map((l, j) => {
     if (j !== i) return l;
     const nova = { ...l, [k]: v };
+    if (k === "exigencia") { nova.codigo_aep = codigoFatorApr({ exigencia: v }); }
     if (k === "situacao" && l.exigencia && !exigenciasDaSituacao(v).includes(l.exigencia)) nova.exigencia = "";
     return recalcularLinhaApr(nova);
   }));
@@ -130,8 +133,11 @@ export default function AprErgoRegistro() {
     if (!data || !cab) return;
     setSalvando(true);
     try {
-      const { data: saved, error } = await supabase.from("documentos").update({ status: "salvo", draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: { ...cab, cargo: data.cargos.join("; ") }, linhas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
+      const fontes = await carregarExposicoes({ empresa: data.empresa_id || "", contrato: data.contrato_id || "", setor: String(data.snap.setor_id || ""), funcao: String(data.snap.funcao_id || "") }, data.id);
+      const vinculadas = mesclarAprExposicoes(linhas, fontes).map((l, i) => ({ ...l, atividade_id: l.atividade_id || crypto.randomUUID(), atividade_numero: l.atividade_numero || (i < 5 ? i + 1 : undefined), codigo_aep: codigoFatorApr(l), setor_id: l.setor_id || String(data.snap.setor_id || ""), funcao_id: l.funcao_id || String(data.snap.funcao_id || "") })).map(recalcularLinhaApr);
+      const { data: saved, error } = await supabase.from("documentos").update({ status: "salvo", draft_snapshot: { ...data.snap, apr_fontes_aep: fontesIa, tabela: { cabecalho: { ...cab, cargo: data.cargos.join("; ") }, linhas: vinculadas } } }).eq("id", data.id).eq("tipo", "APR-ERGO").select("id").single();
       if (error || !saved) throw new Error("Não foi possível salvar. Tente novamente.");
+      setLinhas(vinculadas);
       qc.invalidateQueries({ queryKey: ["apr-ergo-registro", registroId] }); qc.invalidateQueries({ queryKey: ["apr-ergo-registros"] }); qc.invalidateQueries({ queryKey: ["apr-ergo-documentos"] });
       toast.success("APR-ERGO salva");
     } catch { toast.error("Não foi possível salvar. Seus dados continuam na tela."); }

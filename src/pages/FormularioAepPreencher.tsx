@@ -11,6 +11,7 @@ import { BaseAepModal, GerarIaAepModal, type ResultadoIaAep } from "@/components
 import { CATEGORIAS, DURACAO, INTENSIDADE } from "@/components/formulario-aep/EtapaReconhecimento";
 import { supabase } from "@/integrations/supabase/client";
 import { carregarContextoFormularioAep } from "@/lib/formularioAepContexto";
+import { carregarExposicoes, mesclarAepExposicoes } from "@/lib/aepAprCompartilhado";
 import {
   baixarPdfFormularioAep, estadoDeDadosSalvos, montarPdfDados, urlNovoFormularioAep,
 } from "@/lib/formularioAepRegistro";
@@ -118,9 +119,10 @@ export default function FormularioAepPreencher() {
   const [salvoHash, setSalvoHash] = usePersistedState<string>(`${chave}:salvo`, "");
   const [salvando, setSalvando] = useState(false);
   const [baixando, setBaixando] = useState(false);
+  const [atividadeIds, setAtividadeIds] = usePersistedState<string[]>(`${chave}:atividade-ids`, []);
   const aplicado = useRef("");
   const { toast } = useToast();
-  const dadosForm = useMemo(() => ({ ident, funcoes: funcaoId ? [funcaoId] : funcoesArr, atividades, controles, reconhecimento }), [ident, funcoesArr, atividades, controles, reconhecimento, funcaoId]);
+  const dadosForm = useMemo(() => ({ ident, funcoes: funcaoId ? [funcaoId] : funcoesArr, atividades, controles, reconhecimento, atividade_ids: atividadeIds }), [ident, funcoesArr, atividades, controles, reconhecimento, funcaoId, atividadeIds]);
   const hashAtual = JSON.stringify(dadosForm);
   const salvoAtual = !!formularioId && salvoHash === hashAtual;
 
@@ -140,6 +142,21 @@ export default function FormularioAepPreencher() {
     },
   });
 
+  const { data: exposicoesCompartilhadas } = useQuery({
+    queryKey: ["aep-apr-exposicoes", empresaId, contratoId, setorId, funcaoId, registroSalvo?.updated_at],
+    enabled: !!empresaId && !!contratoId && !!setorId && !!funcaoId && registroSalvo !== undefined,
+    queryFn: () => carregarExposicoes({ empresa: empresaId, contrato: contratoId, setor: setorId, funcao: funcaoId }, registroSalvo?.id),
+  });
+  const exposicaoAplicada = useRef("");
+  useEffect(() => {
+    if (!exposicoesCompartilhadas) return;
+    const chaveAplicacao = JSON.stringify([registroSalvo?.updated_at, exposicoesCompartilhadas]);
+    if (exposicaoAplicada.current === chaveAplicacao) return;
+    exposicaoAplicada.current = chaveAplicacao;
+    setReconhecimento((r) => mesclarAepExposicoes(r, exposicoesCompartilhadas));
+    setAtividadeIds((ids) => Array.from({ length: 5 }, (_, i) => ids[i] || exposicoesCompartilhadas.find((e) => e.atividade_numero === i + 1)?.atividade_id || crypto.randomUUID()));
+  }, [exposicoesCompartilhadas, registroSalvo, setReconhecimento, setAtividadeIds]);
+
   useEffect(() => {
     if (!registroSalvo) return;
     const marca = `${funcaoId}:${registroSalvo.id}:${registroSalvo.updated_at}`;
@@ -151,8 +168,9 @@ export default function FormularioAepPreencher() {
     setAtividades(estado.atividades);
     setControles(estado.controles);
     setReconhecimento(estado.reconhecimento);
+    setAtividadeIds((registroSalvo.dados as any)?.atividade_ids || []);
     setFormularioId(registroSalvo.id);
-    setSalvoHash(JSON.stringify({ ident: estado.ident, funcoes: estado.funcoes, atividades: estado.atividades, controles: estado.controles, reconhecimento: estado.reconhecimento }));
+    setSalvoHash(JSON.stringify({ ident: estado.ident, funcoes: estado.funcoes, atividades: estado.atividades, controles: estado.controles, reconhecimento: estado.reconhecimento, atividade_ids: (registroSalvo.dados as any)?.atividade_ids || [] }));
   }, [registroSalvo, funcaoId, setIdent, setFuncoesArr, setAtividades, setControles, setReconhecimento, setFormularioId, setSalvoHash]);
 
   const { data: nomes } = useQuery({

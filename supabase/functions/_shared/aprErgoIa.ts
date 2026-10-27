@@ -2,7 +2,7 @@ import { ESTIMATIVAS_APR, INTENSIDADES_APR, perfilApr, classificacaoApr } from "
 export { SITUACOES_APR, TIPOS_APR } from "./aprErgoPlanilha.ts";
 export const MAX_BASE_APR = 6;
 export const CAMPOS_APR = ["cenario", "circunstancia", "situacao", "exigencia", "tipo", "medidas", "estimativa", "intensidade", "perfil", "severidade", "classificacao", "recomendacoes"] as const;
-export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[]; funcao_id?: string; funcao_ids?: string[]; funcao_nome?: string; setor_id?: string };
+export type LinhaApr = Record<typeof CAMPOS_APR[number], string> & { fotos: string[]; funcao_id?: string; funcao_ids?: string[]; funcao_nome?: string; setor_id?: string; atividade_id?: string; atividade_numero?: number; codigo_aep?: string; exposicao_compartilhada?: unknown };
 export const CAMPOS_RESUMO_APR = ["atividades", "ambiente"] as const;
 export type ResumoApr = Record<typeof CAMPOS_RESUMO_APR[number], string>;
 export type PropostaApr = { linhas: LinhaApr[]; fontes_aep: string[]; observacoes: string; cabecalho?: ResumoApr };
@@ -44,7 +44,7 @@ export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], su
     const atual = atuais[i]; const nova = propostas[i];
     const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
     const vinculo = atual?.circunstancia.trim() && !substituir ? atual : nova?.funcao_id || nova?.funcao_ids?.length ? nova : atual;
-    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_ids: vinculo?.funcao_ids, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id });
+    return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_ids: vinculo?.funcao_ids, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id, atividade_id: vinculo?.atividade_id, atividade_numero: vinculo?.atividade_numero, codigo_aep: vinculo?.codigo_aep, exposicao_compartilhada: vinculo?.exposicao_compartilhada });
   });
 }
 export function contarConflitosApr(atuais: LinhaApr[], propostas: LinhaApr[]): number {
