@@ -14,12 +14,12 @@ const unico = (m: Record<string, string>, prefixo: string) => {
   const ativos = Object.keys(m).filter((k) => new RegExp(`^${prefixo}[1-5]$`).test(k) && String(m[k]).trim());
   return ativos.length === 1 ? Number(ativos[0].slice(1)) : 0;
 };
-export function exposicoesAep(dados: any): ExposicaoAtividade[] {
+export function exposicoesAep(dados: any, registroId?: string): ExposicaoAtividade[] {
   return Object.entries(dados?.reconhecimento?.marcas || {}).flatMap(([codigo, marca]) => {
     const m = marca as Record<string, string>, numero = unico(m, "A");
     if (!numero) return [];
     const anterior = (dados.reconhecimento.compartilhado || []).find((e: ExposicaoAtividade) => e.codigo_aep === codigo && e.atividade_numero === numero);
-    const atividade = dados.atividade_ids?.[numero - 1] || anterior?.atividade_id;
+    const atividade = dados.atividade_ids?.[numero - 1] || anterior?.atividade_id || (registroId ? `aep:${registroId}:atividade:${numero}` : "");
     if (!atividade) return [];
     return [{ atividade_id: atividade, atividade_numero: numero, codigo_aep: codigo, duracao: unico(m, "D"), intensidade: unico(m, "I") }];
   });
@@ -81,7 +81,7 @@ export async function carregarExposicoes(escopo: EscopoExposicao, excluir?: stri
   return [
     ...(aep.data || []).flatMap((f) => {
       const d = f.dados as any;
-      return f.id !== excluir && f.setor_ids.length === 1 && f.setor_ids[0] === escopo.setor && d?.funcoes?.length === 1 && d.funcoes[0] === escopo.funcao ? exposicoesAep(d) : [];
+      return f.id !== excluir && f.setor_ids.length === 1 && f.setor_ids[0] === escopo.setor && d?.funcoes?.length === 1 && d.funcoes[0] === escopo.funcao ? exposicoesAep(d, f.id) : [];
     }),
     ...(apr.data || []).flatMap((f) => {
       const s = f.draft_snapshot as any;

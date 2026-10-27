@@ -115,7 +115,7 @@ export default function AprErgoRegistro() {
     const nova = { ...l, [k]: v };
     if (k === "exigencia") { nova.codigo_aep = codigoFatorApr({ exigencia: v }); }
     if (k === "situacao" && l.exigencia && !exigenciasDaSituacao(v).includes(l.exigencia)) nova.exigencia = "";
-    return recalcularLinhaApr(nova);
+    return recalcularLinhaApr(mesclarAprExposicoes([nova], data?.compartilhadas || [])[0]);
   }));
   const setC = (k: keyof Cabecalho, v: string) => setCab((c) => (c ? { ...c, [k]: v } : c));
 

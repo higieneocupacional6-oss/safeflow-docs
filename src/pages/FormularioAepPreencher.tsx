@@ -314,6 +314,11 @@ export default function FormularioAepPreencher() {
     setSalvando(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
+      const compartilhadas = await carregarExposicoes({ empresa: empresaId, contrato: contratoId, setor: setorId, funcao: funcaoId }, formularioId || registroSalvo?.id);
+      const reconhecimentoSalvo = mesclarAepExposicoes(reconhecimento, compartilhadas);
+      const idsSalvos = Array.from({ length: 5 }, (_, i) => atividadeIds[i] || compartilhadas.find((e) => e.atividade_numero === i + 1)?.atividade_id || crypto.randomUUID());
+      const dadosSalvos = { ...dadosForm, reconhecimento: reconhecimentoSalvo, atividade_ids: idsSalvos };
+      const hashSalvo = JSON.stringify(dadosSalvos);
       const fontes = {
         psico_relatorio_ids: Array.from(new Set((ctxIntegrado?.psicossocial || []).map((p: any) => p.relatorio_id).filter(Boolean))),
         formularios_anteriores_ids: (ctxIntegrado?.formularios_anteriores || []).map((f: any) => f.id),
@@ -323,7 +328,7 @@ export default function FormularioAepPreencher() {
         contrato_id: contratoId,
         setor_ids: setorIds,
         funcao_id: funcaoId || null,
-        dados: { ...dadosForm, funcao_id: funcaoId || null, setor_id: setorId || setorIds[0] || null, fontes_ia: fontes } as any,
+        dados: { ...dadosSalvos, funcao_id: funcaoId || null, setor_id: setorId || setorIds[0] || null, fontes_ia: fontes } as any,
       };
       let id = formularioId || registroSalvo?.id || "";
       if (!id && funcaoId) {
@@ -348,14 +353,16 @@ export default function FormularioAepPreencher() {
         }
       }
       const pasta = `${empresaId}/${contratoId}/${id}`;
-      const pdf = gerarPdfFormularioAep(montarPdf());
+      const pdf = gerarPdfFormularioAep(montarPdfDados({ empresaNome: nomes?.empresa || "", contratoNome: nomes?.contrato || "", funcaoNome: (funcaoId ? [nomeFuncao(funcaoId)] : funcoesArr.map(nomeFuncao)).join("; "), dados: dadosSalvos }));
       const up = await supabase.storage.from("formularios-aep").upload(`${pasta}/formulario-aep.pdf`, pdf, { upsert: true, contentType: "application/pdf" });
       if (!up.error) {
-        await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashAtual], { type: "application/json" }), { upsert: true, contentType: "application/json" });
+        await supabase.storage.from("formularios-aep").upload(`${pasta}/dados.json`, new Blob([hashSalvo], { type: "application/json" }), { upsert: true, contentType: "application/json" });
         await supabase.from("formularios_aep").update({ pdf_path: `${pasta}/formulario-aep.pdf` }).eq("id", id).eq("empresa_id", empresaId).eq("contrato_id", contratoId);
       }
       setFormularioId(id);
-      setSalvoHash(hashAtual);
+      setReconhecimento(reconhecimentoSalvo);
+      setAtividadeIds(idsSalvos);
+      setSalvoHash(hashSalvo);
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-salvos"] });
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-novo-salvos"] });
       await queryClient.invalidateQueries({ queryKey: ["formulario-aep-registro"] });
