@@ -38,9 +38,9 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   const json = (error: string, status: number) => new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
   try {
-    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("GEMINI_API_KEY");
+    const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY"), key = Deno.env.get("LOVABLE_API_KEY")?.trim();
     if (!url || !anon) return json("Serviço indisponível.", 500);
-    if (!key) return json("GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.", 500);
+    if (!key) return json("O serviço de IA não está configurado. Seus dados foram mantidos.", 500);
     const auth = req.headers.get("Authorization") || "";
     const sb = createClient(url, anon, { global: { headers: { Authorization: auth } } });
     if (!(await exigirSessao(sb, auth))) return json("Sessão expirada. Entre novamente.", 401);
