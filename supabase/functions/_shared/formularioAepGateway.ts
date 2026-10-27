@@ -86,6 +86,7 @@ export async function chamarFormularioAepGateway(opts: {
     const payload = await response.json().catch(() => ({}));
     const rawMessage = payload.message || payload.error?.message || (typeof payload.error === "string" ? payload.error : "");
     const message = String(rawMessage || "A geração com IA não pôde ser concluída. Seus dados foram mantidos.").split(opts.key).join("[redacted]");
+    console.error("Lovable AI error", { schema: opts.schemaName || "formulario_aep", status: response.status, detalhe: message.slice(0, 500) });
     const retryable = (response.status === 429 || response.status >= 500) && payload.props?.retryable !== false && !payload.props?.requires;
     if (!retryable || attempt === 3) return { ok: false, status: response.status, error: message, retryable };
     const retryAfter = Number(response.headers.get("Retry-After"));
