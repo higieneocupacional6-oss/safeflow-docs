@@ -1,14 +1,15 @@
 import { describe, it, expect } from "vitest";
 import PizZip from "pizzip";
-import { gerarPlanoAprDocx, nomeArquivoPlanoDocx } from "@/lib/aprErgoPlanoDocx";
+import { Packer } from "docx";
+import { montarPlanoAprDocx, nomeArquivoPlanoDocx } from "@/lib/aprErgoPlanoDocx";
 import { novaAcaoPlanoApr } from "@/lib/aprErgoPlano";
 
 describe("Word do plano APR-ERGO", () => {
   it("inclui todos os setores, riscos e ações", async () => {
     const a = { ...novaAcaoPlanoApr("1"), setor: "GERE 01", risco: "Postura inadequada", o_que: "Ajustar bancada" };
     const b = { ...novaAcaoPlanoApr("2"), setor: "GERE 02", risco: "Levantamento de carga", o_que: "Instalar talha" };
-    const blob = await gerarPlanoAprDocx([a, b], "Empresa X", "C-1");
-    const zip = new PizZip(await new Response(blob).arrayBuffer());
+    const buf = await Packer.toBuffer(montarPlanoAprDocx([a, b], "Empresa X", "C-1"));
+    const zip = new PizZip(buf);
     const xml = zip.file("word/document.xml")!.asText();
     for (const t of ["GERE 01", "GERE 02", "Postura inadequada", "Levantamento de carga", "Ajustar bancada", "Instalar talha"]) expect(xml).toContain(t);
   });

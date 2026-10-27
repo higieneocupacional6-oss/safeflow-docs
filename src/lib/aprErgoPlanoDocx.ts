@@ -26,7 +26,7 @@ export function nomeArquivoPlanoDocx(empresa: string, contrato: string) {
   return `Plano_Acao_APR_ERGO_${limpar(empresa) || "Empresa"}_${limpar(contrato) || "Contrato"}.docx`;
 }
 
-export async function gerarPlanoAprDocx(acoes: AcaoPlanoApr[], empresa: string, contrato: string): Promise<Blob> {
+export function montarPlanoAprDocx(acoes: AcaoPlanoApr[], empresa: string, contrato: string): Document {
   const grupos = new Map<string, AcaoPlanoApr[]>();
   for (const a of acoes) {
     const chave = a.setor || "Sem setor vinculado";
@@ -58,5 +58,9 @@ export async function gerarPlanoAprDocx(acoes: AcaoPlanoApr[], empresa: string, 
       children: conteudo,
     }],
   });
-  return Packer.toBlob(doc);
+  return doc;
+}
+
+export function gerarPlanoAprDocx(acoes: AcaoPlanoApr[], empresa: string, contrato: string): Promise<Blob> {
+  return Packer.toBlob(montarPlanoAprDocx(acoes, empresa, contrato));
 }
