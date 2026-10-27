@@ -8,7 +8,7 @@ describe("Word do plano APR-ERGO", () => {
     const a = { ...novaAcaoPlanoApr("1"), setor: "GERE 01", risco: "Postura inadequada", o_que: "Ajustar bancada" };
     const b = { ...novaAcaoPlanoApr("2"), setor: "GERE 02", risco: "Levantamento de carga", o_que: "Instalar talha" };
     const blob = await gerarPlanoAprDocx([a, b], "Empresa X", "C-1");
-    const zip = new PizZip(await blob.arrayBuffer());
+    const zip = new PizZip(await new Response(blob).arrayBuffer());
     const xml = zip.file("word/document.xml")!.asText();
     for (const t of ["GERE 01", "GERE 02", "Postura inadequada", "Levantamento de carga", "Ajustar bancada", "Instalar talha"]) expect(xml).toContain(t);
   });
