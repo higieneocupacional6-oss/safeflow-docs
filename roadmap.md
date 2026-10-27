@@ -1,3 +1,8 @@
+# AEP / APR-ERGO — campos compartilhados
+- [ ] Remover a marcação IA validar de todo o PDF APR sem alterar os dados originais.
+- [ ] Sincronizar duração, intensidade e ID da atividade por escopo exato, preservando conflitos e demais campos.
+- [ ] Testar os dois sentidos, salvamento, recarga e PDF em registros temporários.
+
 # Variáveis e datas dos documentos
 - [x] Corrigir persistência e contexto por risco das quatro variáveis no LTCAT e Insalubridade; descrição na avaliação-pai e nos dois RPCs, grupos preservam tipo/técnica/exposição/descrição.
 - [x] Unificar datas civis sem conversão de fuso em formulários, regras e documentos de todos os módulos; banco mantém colunas date e timestamps de auditoria independentes.
