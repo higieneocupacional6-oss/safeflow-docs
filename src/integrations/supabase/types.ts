@@ -988,6 +988,7 @@ export type Database = {
           created_by: string | null
           dados: Json
           empresa_id: string
+          funcao_id: string | null
           id: string
           pdf_path: string | null
           setor_ids: string[]
@@ -999,6 +1000,7 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id: string
+          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]
@@ -1010,6 +1012,7 @@ export type Database = {
           created_by?: string | null
           dados?: Json
           empresa_id?: string
+          funcao_id?: string | null
           id?: string
           pdf_path?: string | null
           setor_ids?: string[]
@@ -1028,6 +1031,13 @@ export type Database = {
             columns: ["empresa_id"]
             isOneToOne: false
             referencedRelation: "empresas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "formularios_aep_funcao_id_fkey"
+            columns: ["funcao_id"]
+            isOneToOne: false
+            referencedRelation: "funcoes"
             referencedColumns: ["id"]
           },
         ]
