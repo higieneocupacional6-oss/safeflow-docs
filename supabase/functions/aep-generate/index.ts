@@ -211,14 +211,14 @@ Deno.serve(async (req) => {
 
   try {
     const url = Deno.env.get("SUPABASE_URL"), anon = Deno.env.get("SUPABASE_ANON_KEY");
-    const key = Deno.env.get("GEMINI_API_KEY");
+    const key = Deno.env.get("LOVABLE_API_KEY")?.trim();
     if (!url || !anon) {
       return new Response(JSON.stringify({ error: "Serviço indisponível." }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
     if (!key) {
-      return new Response(JSON.stringify({ error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase." }), {
+      return new Response(JSON.stringify({ error: "O serviço de IA não está configurado. Seus dados foram mantidos." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -106,10 +106,10 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const key = Deno.env.get("GEMINI_API_KEY");
+    const key = Deno.env.get("LOVABLE_API_KEY")?.trim();
     if (!key) {
       return new Response(JSON.stringify({
-        error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase.",
+        error: "O serviço de IA não está configurado. Seus dados foram mantidos.",
       }), {
         status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -150,6 +150,7 @@ ${pdfs.length === 0
       systemPrompt: SYSTEM_PROMPT,
       userContent,
       schema: RESPONSE_SCHEMA,
+      schemaName: "psicossocial",
       signal: req.signal,
     });
     if (!result.ok) {

@@ -4,6 +4,8 @@
 // periódicos e, ao final, {type:"result"} ou {type:"error"}.
 // A chave fica só em Deno.env (GEMINI_API_KEY). Nunca no frontend nem nos logs.
 
+import { chamarFormularioAepGateway } from "./formularioAepGateway.ts";
+
 const MAX_TEXT_CHARS = 180_000;
 const MAX_ANEXO_BYTES_TOTAL = 18 * 1024 * 1024;
 
@@ -168,6 +170,13 @@ export function saidaJsonVazia(valor: unknown): boolean {
   }
   return true;
 }
+
+/** Chave gerenciada do Lovable AI usada por todas as gerações. */
+export function obterChaveIa(): string | null {
+  return Deno.env.get("LOVABLE_API_KEY")?.trim() || null;
+}
+
+export const MENSAGEM_IA_NAO_CONFIGURADA = "O serviço de IA não está configurado. Seus dados foram mantidos.";
 
 export function obterChaveGemini(): string | null {
   const key = Deno.env.get("GEMINI_API_KEY")?.trim();
@@ -470,7 +479,6 @@ export async function gerarJsonEmFluxo(opts: {
   const jsonHeaders = { ...corsHeaders, "Content-Type": "application/json" };
   // tools (ex.: web_search do gateway antigo) não existem no plano gratuito Gemini — ignorados de propósito.
   void opts.tools;
-  void opts.schemaName;
 
   const temImagem = (opts.userContent || []).some((c: any) => c?.type === "input_image" || c?.type === "image_url");
   const model = opts.model || (temImagem ? GEMINI_MODELO_VISAO : GEMINI_MODELO_PADRAO);
@@ -492,12 +500,13 @@ export async function gerarJsonEmFluxo(opts: {
       try {
         // Retentativas (503/429) e fallback ocorrem aqui: o NDJSON só recebe pings
         // até um único {type:"result"} ou {type:"error"} final.
-        const result = await (opts.chamar ? opts.chamar() : chamarGeminiJson({
+        void model;
+        const result = await (opts.chamar ? opts.chamar() : chamarFormularioAepGateway({
           key,
-          model,
           systemPrompt: opts.systemPrompt,
           userContent: opts.userContent,
           schema: opts.schema,
+          schemaName: opts.schemaName,
           signal: req.signal,
         }));
         if (!result.ok) {
@@ -530,7 +539,7 @@ export async function gerarJsonEmFluxo(opts: {
 
   // Atalho: se a chave estiver vazia, responde JSON imediato (não deveria ocorrer — callers checam).
   if (!key) {
-    return new Response(JSON.stringify({ error: mensagemSemChaveGemini() }), { status: 500, headers: jsonHeaders });
+    return new Response(JSON.stringify({ error: MENSAGEM_IA_NAO_CONFIGURADA, retryable: false }), { status: 500, headers: jsonHeaders });
   }
 
   return new Response(stream, { status: 200, headers });
@@ -544,13 +553,14 @@ export async function gerarJsonGemini(opts: {
   schema: unknown;
   model?: string;
   signal?: AbortSignal;
+  schemaName?: string;
 }): Promise<{ ok: true; output: any } | { ok: false; status: number; error: string }> {
-  const result = await chamarGeminiJson({
+  const result = await chamarFormularioAepGateway({
     key: opts.key,
-    model: opts.model || GEMINI_MODELO_PADRAO,
     systemPrompt: opts.systemPrompt,
     userContent: opts.userContent,
     schema: opts.schema,
+    schemaName: opts.schemaName,
     signal: opts.signal,
   });
   if (!result.ok) return { ok: false, status: result.status, error: result.error };

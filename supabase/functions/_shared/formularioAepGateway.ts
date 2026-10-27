@@ -1,8 +1,19 @@
 import { GEMINI_MODELO_PADRAO, partesGeminiDeConteudo, schemaEstrito, esperarMs, type ChamadaGemini } from "./aiStream.ts";
 import { createLovableAiGatewayRunIdFetch } from "./run-id.ts";
 
-// Repair only Formulário AEP's provider configuration; retain its Gemini model and schema.
-export function pedidoFormularioAep(systemPrompt: string, userContent: unknown[], schema: unknown) {
+// Managed Lovable AI adapter shared by every AI generation endpoint; retains the Gemini model and each schema.
+/** Remove literais vazios de enum (o Gemini rejeita) sem alterar as demais opções. */
+export function semEnumVazio(schema: any): any {
+  if (Array.isArray(schema)) return schema.map(semEnumVazio);
+  if (!schema || typeof schema !== "object") return schema;
+  const out: any = {};
+  for (const [k, v] of Object.entries(schema)) {
+    out[k] = k === "enum" && Array.isArray(v) ? v.filter((x) => typeof x !== "string" || x.trim() !== "") : semEnumVazio(v);
+  }
+  return out;
+}
+
+export function pedidoFormularioAep(systemPrompt: string, userContent: unknown[], schema: unknown, nome = "formulario_aep") {
   const { textParts, inlineParts } = partesGeminiDeConteudo(userContent);
   const content = [
     ...inlineParts.map((part) => {
@@ -18,7 +29,7 @@ export function pedidoFormularioAep(systemPrompt: string, userContent: unknown[]
     stream: true,
     temperature: 0.2,
     messages: [{ role: "system", content: systemPrompt }, { role: "user", content }],
-    response_format: { type: "json_schema", json_schema: { name: "formulario_aep", strict: true, schema: schemaEstrito(schema) } },
+    response_format: { type: "json_schema", json_schema: { name: nome.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 64) || "saida", strict: true, schema: semEnumVazio(schemaEstrito(schema)) } },
   };
 }
 
@@ -54,14 +65,14 @@ export async function textoFluxoFormulario(response: Response): Promise<string> 
 }
 
 export async function chamarFormularioAepGateway(opts: {
-  key: string; systemPrompt: string; userContent: unknown[]; schema: unknown; signal?: AbortSignal;
+  key: string; systemPrompt: string; userContent: unknown[]; schema: unknown; signal?: AbortSignal; schemaName?: string;
 }): Promise<ChamadaGemini> {
   const gateway = createLovableAiGatewayRunIdFetch();
   for (let attempt = 1; attempt <= 3; attempt++) {
     const response = await gateway.fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST", signal: opts.signal,
       headers: { "Content-Type": "application/json", "Lovable-API-Key": opts.key, "X-Lovable-AIG-SDK": "fetch" },
-      body: JSON.stringify(pedidoFormularioAep(opts.systemPrompt, opts.userContent, opts.schema)),
+      body: JSON.stringify(pedidoFormularioAep(opts.systemPrompt, opts.userContent, opts.schema, opts.schemaName)),
     });
     if (response.ok) {
       try {
@@ -75,6 +86,7 @@ export async function chamarFormularioAepGateway(opts: {
     const payload = await response.json().catch(() => ({}));
     const rawMessage = payload.message || payload.error?.message || (typeof payload.error === "string" ? payload.error : "");
     const message = String(rawMessage || "A geração com IA não pôde ser concluída. Seus dados foram mantidos.").split(opts.key).join("[redacted]");
+    console.error("Lovable AI error", { schema: opts.schemaName || "formulario_aep", status: response.status, detalhe: message.slice(0, 500) });
     const retryable = (response.status === 429 || response.status >= 500) && payload.props?.retryable !== false && !payload.props?.requires;
     if (!retryable || attempt === 3) return { ok: false, status: response.status, error: message, retryable };
     const retryAfter = Number(response.headers.get("Retry-After"));
