@@ -130,3 +130,9 @@
 - [x] Remover limite de cenários e manter vínculos de função/setor sem duplicatas
 - [x] Adicionar Baixar PDF completo da planilha atual com fotos e paginação
 - [x] Validar 18 testes, geração real de 11 cenários e download autenticado; PDF com fotos/texto longo em seis páginas e análise em três páginas, sem cortes; quebra de texto em negrito ajustada; nenhum registro real alterado
+
+# APR-ERGO — listagem consolidada e plano de ação 5W2H
+- [x] Listagem: todos os setores do contrato com suas avaliações em uma página, sem seleção prévia.
+- [x] Botão Plano de Ação abrindo planilha 5W2H consolidada (setor, função, risco, prioridade, resultado esperado, vínculo com a APR).
+- [x] Gerar IA a partir das APR-ERGO salvas do escopo exato, priorizando riscos críticos, sem inventar dados.
+- [x] Edição, salvamento persistente e falha de IA sem perda de dados; testes e validação.
