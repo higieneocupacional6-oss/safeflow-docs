@@ -124,7 +124,6 @@ export default function AprErgoPlano() {
   return <div>
     <PageHeader title="Plano de Ação APR-ERGO" actions={<div className="flex flex-wrap gap-2 items-center">
       <span className={`text-xs ${status === "erro" ? "text-destructive" : "text-muted-foreground"}`}>{status === "salvo" ? "Salvo" : status === "pendente" ? "Alterações pendentes" : "Erro ao salvar"}</span>
-      <Button variant="outline" onClick={() => navigate(`/documentos/apr-ergo/editar/${registrosQuery.data?.[0]?.id || ""}`)} disabled><span className="hidden">Voltar</span></Button>
       <Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button variant="outline" disabled={gerando || carregando || !!erro} onClick={gerarIa}>{gerando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Sparkles className="w-4 h-4 mr-2" />}Gerar IA</Button>
       <Button className="bg-accent text-accent-foreground hover:bg-accent/90" disabled={salvando || carregando || !!erro} onClick={salvar}>{salvando ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
