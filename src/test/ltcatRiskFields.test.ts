@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import Docxtemplater from "docxtemplater";
 import PizZip from "pizzip";
-import { ltcatEvaluationFields, ltcatRiskFields } from "@/lib/ltcatRiskFields";
+import { descricaoTecnicaGravada, ltcatEvaluationFields, ltcatRiskFields } from "@/lib/ltcatRiskFields";
 import { formatDateOnly } from "@/lib/dateOnly";
 import { createAgentScopedParser } from "@/lib/setorLoopScope";
 import { sanitizeRiscosForTest } from "./ltcatRiskFixture";
@@ -24,6 +24,13 @@ describe.each(["LTCAT", "INSALUBRIDADE"])("%s qualitative document generation", 
     expect(xml).toContain(`Descrição ${type}|Pessoa ${type}|Técnica ${type}|Exposição ${type}|29/10/2026`);
     expect(xml).not.toContain("OUTRO RISCO");
   });
+});
+
+it("recupera a descrição técnica da avaliação pai ou da própria linha", () => {
+  expect(descricaoTecnicaGravada({ descricao_avaliacao: "Inspeção visual do posto." }, [])).toBe("Inspeção visual do posto.");
+  expect(descricaoTecnicaGravada({ descricao_tecnica: "Radiação não ionizante." }, [{ descricao_avaliacao: "outra" }])).toBe("Radiação não ionizante.");
+  expect(descricaoTecnicaGravada({}, [{ descricao_avaliacao: "Agente biológico sem medição." }])).toBe("Agente biológico sem medição.");
+  expect(descricaoTecnicaGravada({}, [])).toBe("");
 });
 
 it("keeps different techniques and exposures on each exact evaluation", () => {

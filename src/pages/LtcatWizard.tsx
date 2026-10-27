@@ -1,5 +1,5 @@
 import { formatDateOnly } from "@/lib/dateOnly";
-import { ltcatEvaluationFields, ltcatRiskFields } from "@/lib/ltcatRiskFields";
+import { descricaoTecnicaGravada, ltcatEvaluationFields, ltcatRiskFields } from "@/lib/ltcatRiskFields";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, ArrowRight, Check, Plus, Trash2, FileDown, Loader2, FileText, Settings, Copy, AlertTriangle, Search, X, Save, ShieldCheck, AlertCircle, Calculator, Sun, CloudOff, Thermometer, Pencil } from "lucide-react";
@@ -28,6 +28,7 @@ import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib,
 import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
 import { buildAgentFlags, buildMetalQuantitativeFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import { createAgentScopedParser } from "@/lib/setorLoopScope";
+import { LtcatListagemSetores } from "@/components/ltcat/LtcatListagemSetores";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
@@ -40,8 +41,10 @@ import {
   createSerialSaveQueue,
   diffLtcatEvaluations,
   LatestRequestGuard,
+  podeReidratarLtcat,
   stableFingerprint,
   type LtcatPersistenceBaseline,
+  type LtcatSaveAck,
   type LtcatSerializedEvaluation,
 } from "@/lib/ltcatPersistence";
 import {
@@ -1031,6 +1034,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const durableQueueRef = useRef(createIndexedDbLtcatQueue());
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pendingProtectedRef = useRef(false);
+  const unsavedRef = useRef(false);
+  const savingDraftRef = useRef(false);
+  savingDraftRef.current = savingDraft;
   // 🛡️ Janela de supressão para evitar que o próprio save dispare a re-hidratação
   // via realtime (que reseta `riscos` e provoca loop de "salvando..." + perda de dados).
   const suppressReloadUntilRef = useRef(0);
@@ -1093,6 +1099,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
   const hasUnsavedChanges =
     !!empresaId && currentPersistedFingerprint !== lastSavedFingerprintRef.current;
+  unsavedRef.current = hasUnsavedChanges;
   const hasLocalRecoveryChanges =
     !!empresaId && currentDraftFingerprint !== lastCheckpointFingerprintRef.current;
 
@@ -1216,14 +1223,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           if (typeof (doc as any).current_step === "number") setStep((doc as any).current_step);
 
           draftSnapshot = (doc as any).draft_snapshot;
-          if (draftSnapshot && typeof draftSnapshot === "object") {
-            if (draftSnapshot.currentRiskSetor) setCurrentRiskSetor(draftSnapshot.currentRiskSetor);
-            if (draftSnapshot.riskForm) setRiskForm(draftSnapshot.riskForm);
-            if (Array.isArray(draftSnapshot.riscos) && draftSnapshot.riscos.length > 0) {
-              setRiscos(draftSnapshot.riscos as RiscoEntry[]);
-              markSnapshotAsSaved(draftSnapshot, "load");
-            }
-          }
         }
 
         // O documento é a fronteira definitiva de persistência. Nunca carregar o
@@ -1272,6 +1271,9 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             lastSavedFingerprintRef.current = stableFingerprint(createLtcatPersistedSnapshot(emptySnapshot));
           } else {
             explicitDeletedEvaluationIdsRef.current.clear();
+            if (Array.isArray(emptySnapshot.riscos)) setRiscos(emptySnapshot.riscos as RiscoEntry[]);
+            if (emptySnapshot.riskForm) setRiskForm(emptySnapshot.riskForm);
+            if (emptySnapshot.currentRiskSetor) setCurrentRiskSetor(emptySnapshot.currentRiskSetor);
             markSnapshotAsSaved(emptySnapshot, "load");
           }
           setDocLoaded(true);
@@ -1381,7 +1383,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             fonte_geradora: av.fonte_geradora || "",
             danos_saude: av.danos_saude || "",
             medidas_controle: av.medidas_controle || "",
-            descricao_tecnica: av.descricao_avaliacao || "",
+            descricao_tecnica: descricaoTecnicaGravada(av, [...(resByAv[av.id] || []), ...(compByAv[av.id] || [])]),
             tecnica_id: av.tecnica_id || "",
             equipamento_id: av.equipamento_id || "",
             resultado: av.resultado?.toString() || "",
@@ -1567,17 +1569,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   // mudanças em tempo real (dados criados em outro dispositivo com o mesmo login).
   useEffect(() => {
     if (!isEditMode || !documentoId || !empresaId) return;
-    if (savingDraft || hasUnsavedChanges) return;
     const trigger = () => {
-      // Ignora gatilhos disparados pelo próprio save (realtime ecoa nossas escritas).
-      if (isPersistingRef.current) return;
+      // Não substitui edição local, gravação em andamento nem fila ainda não confirmada.
+      if (!podeReidratarLtcat({
+        persisting: isPersistingRef.current,
+        unsaved: unsavedRef.current,
+        pendingProtected: pendingProtectedRef.current,
+      })) return;
       if (Date.now() < suppressReloadUntilRef.current) return;
       if (reloadDebounceRef.current) clearTimeout(reloadDebounceRef.current);
       reloadDebounceRef.current = setTimeout(() => setReloadTick(t => t + 1), 500);
     };
-
-    // Re-hidrata ao entrar na etapa "Listagem" (step 2) ou "Gerar" (step 3)
-    if (step === 2 || step === 3) trigger();
 
     const onFocus = () => trigger();
     const onVisibility = () => { if (document.visibilityState === "visible") trigger(); };
@@ -1968,6 +1970,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     }
 
     try {
+      const previousRiscos = riscos;
       const novoGes = (riskForm.funcoes_ges || "").trim();
       let nextRiscos: RiscoEntry[] = [];
       if (editingRiskId) {
@@ -1987,9 +1990,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         nextRiscos = [...propagated, ...newRisks];
         setRiscos(nextRiscos);
       }
-      const saved = await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
-      if (!saved) return;
-      toast.success("Risco finalizado com sucesso!");
+      const ack = await handleSaveDraft(true, { riscos: nextRiscos, step: 2 }, true);
+      if (ack === "failed") {
+        setRiscos(previousRiscos);
+        return;
+      }
+      if (ack === "confirmed") toast.success("Risco finalizado com sucesso!");
+      else toast.info("Avaliação protegida neste dispositivo. A confirmação no banco continua automaticamente.");
       setRiskDialogOpen(false);
       setResultsModalOpen(false);
       setComponentesModalOpen(false);
@@ -2035,10 +2042,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
     setRiscos(nextRiscos);
     try {
-      const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
-      if (!saved) throw new Error("O banco não confirmou a exclusão.");
+      const ack = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+      if (ack === "failed") throw new Error("O banco não confirmou a exclusão.");
       setDeleteItemsModalOpen(false);
-      toast.success("Itens removidos com sucesso");
+      if (ack === "confirmed") toast.success("Itens removidos com sucesso");
+      else toast.info("Exclusão protegida neste dispositivo e aguardando confirmação do banco.");
     } catch (error) {
       explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
       setRiscos(previousRiscos);
@@ -3423,7 +3431,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         fonte_geradora: risk.fonte_geradora || "",
         danos_saude: risk.danos_saude || "",
         medidas_controle: risk.medidas_controle || "",
-        descricao_avaliacao: risk.descricao_tecnica || (item as any).descricao_avaliacao || "",
+        descricao_avaliacao: descricaoTecnicaGravada(risk, [item]),
         parecer_tecnico: risk.parecer_tecnico || "",
         aposentadoria_especial: risk.aposentadoria_especial || "",
         data_avaliacao: risk.data_avaliacao || "",
@@ -3621,18 +3629,18 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     silent = false,
     overrides: Record<string, any> = {},
     force = false,
-  ): Promise<boolean> => {
+  ): Promise<LtcatSaveAck> => {
     const snapshot = buildDraftSnapshot(overrides);
     const fingerprint = stableFingerprint(createLtcatPersistedSnapshot(snapshot));
 
     if (!snapshot.empresaId) {
       if (!silent) toast.error("Selecione uma empresa antes de salvar");
-      return false;
+      return "failed";
     }
 
     if (!force && fingerprint === lastSavedFingerprintRef.current && !pendingProtectedRef.current) {
       if (!silent) toast.info("Nenhuma alteração para salvar");
-      return true; // já persistido no banco
+      return "confirmed";
     }
 
     isPersistingRef.current = true;
@@ -3657,7 +3665,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (!navigator.onLine) {
         schedulePendingRetry(operation);
         if (!silent) toast.info("Sem conexão — suas alterações estão protegidas e serão sincronizadas automaticamente.");
-        return true;
+        return "queued";
       }
 
       try {
@@ -3680,25 +3688,25 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             setSaveState("pending");
             schedulePendingRetry(rebased);
           }
-          return true;
+          return "queued";
         }
         markSnapshotAsSaved(snapshot, silent ? "auto" : "manual");
         if (!silent) toast.success("Salvo com sucesso");
-        return true;
+        return "confirmed";
       } catch (error) {
         if (isVersionConflictMessage(error instanceof Error ? error.message : String(error))) {
           await durableQueueRef.current.put({ ...operation, conflict: true });
           setSaveState("conflict");
           setSaveError("Existe uma versão mais recente no banco. Suas alterações locais continuam protegidas.");
           toast.error("Existe uma alteração mais recente. Seus dados locais foram preservados para revisão.");
-          return false;
+          return "conflict";
         }
         if (isTransientSaveError(error) || !navigator.onLine) {
           setSaveState(navigator.onLine ? "pending" : "offline");
           setSaveError("Alterações protegidas e pendentes de sincronização.");
           schedulePendingRetry(operation);
           if (!silent) toast.info("Alterações protegidas. A sincronização continuará automaticamente.");
-          return true;
+          return "queued";
         }
         throw error;
       }
@@ -3710,7 +3718,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         "Não foi possível salvar as alterações. Seus dados foram mantidos nesta tela. Tente novamente." +
           (err?.message ? ` (${err.message})` : ""),
       );
-      return false;
+      return "failed";
     } finally {
       setSavingDraft(false);
       isPersistingRef.current = false;
@@ -3724,7 +3732,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     silent = false,
     overrides: Record<string, any> = {},
     force = false,
-  ): Promise<boolean> => saveQueueRef.current(() => handleSaveDraftInner(silent, overrides, force));
+  ): Promise<LtcatSaveAck> => saveQueueRef.current(() => handleSaveDraftInner(silent, overrides, force));
 
   useEffect(() => {
     if (!user?.id) return;
@@ -3785,13 +3793,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     idsToRemove.forEach((id) => explicitDeletedEvaluationIdsRef.current.add(id));
     const nextRiscos = riscos.filter((risk) => !idsToRemove.includes(risk.id));
     setRiscos(nextRiscos);
-    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
-    if (!saved) {
+    const ack = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (ack === "failed") {
       explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
       setRiscos(previousRiscos);
       return;
     }
-    toast.success(successMessage);
+    if (ack === "confirmed") toast.success(successMessage);
+    else toast.info("Exclusão protegida neste dispositivo e aguardando confirmação do banco.");
   };
 
   const deleteRiskItem = async (agenteId: string, setorId: string, itemId: string) => {
@@ -3810,21 +3819,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       };
     }).filter((risk) => risk.items.length > 0);
     setRiscos(nextRiscos);
-    const saved = await handleSaveDraft(true, { riscos: nextRiscos }, true);
-    if (!saved) {
+    const ack = await handleSaveDraft(true, { riscos: nextRiscos }, true);
+    if (ack === "failed") {
       explicitDeletedEvaluationIdsRef.current = previousDeletedIds;
       setRiscos(previousRiscos);
       return;
     }
-    toast.success("Avaliação removida com sucesso");
+    if (ack === "confirmed") toast.success("Avaliação removida com sucesso");
+    else toast.info("Exclusão protegida neste dispositivo e aguardando confirmação do banco.");
   };
 
   const importFichaTecnica = async () => {
     if (!empresaId || !contratoId) return;
     setImportingFicha(true);
     try {
-      const saved = await handleSaveDraft(true, {}, true);
-      if (!saved) throw new Error("Não foi possível salvar o documento antes da importação.");
+      const ack = await handleSaveDraft(true, {}, true);
+      if (ack !== "confirmed") throw new Error("Não foi possível confirmar o documento no banco antes da importação.");
       const docId = currentDraftIdRef.current || currentDraftId || documentoId;
       if (!docId) throw new Error("Documento sem identificador permanente.");
       const { data, error } = await (supabase as any).rpc("import_ficha_tecnica_resultados", {
@@ -3959,8 +3969,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         status: "rascunho",
       };
 
-      const saved = await handleSaveDraft(false, baseFields, true);
-      if (!saved) throw new Error("O banco não confirmou o salvamento do documento.");
+      const ack = await handleSaveDraft(false, baseFields, true);
+      if (ack !== "confirmed") throw new Error("O banco não confirmou o salvamento do documento.");
 
       if (allErrors.length > 0) {
         setSmartErrors(allErrors);
@@ -4015,8 +4025,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         setDocumentValidated(true);
 
         // Update status in documentos table
-        const saved = await handleSaveDraft(false, { status: "concluido" }, true);
-        if (!saved) throw new Error("O banco não confirmou a validação do documento.");
+        const ack = await handleSaveDraft(false, { status: "concluido" }, true);
+        if (ack !== "confirmed") throw new Error("O banco não confirmou a validação do documento.");
 
         toast.success("Documento validado com sucesso!", {
           description: "Você já pode clicar em 'Gerar Documento' para baixar o arquivo final.",
@@ -4093,11 +4103,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         .upload(storagePath, output);
 
       // 🔒 Anti-duplicação: usa o documento corrente (rascunho) e atualiza o file_path
-      const saved = await handleSaveDraft(false, {
+      const ack = await handleSaveDraft(false, {
         file_path: storagePath,
         status: uploadErr ? "erro" : "concluido",
       }, true);
-      if (!saved) throw new Error("O banco não confirmou a geração do documento.");
+      if (ack !== "confirmed") throw new Error("O banco não confirmou a geração do documento.");
 
       saveAs(output, fileName);
       toast.success("📄 Documento gerado e salvo com sucesso!");
@@ -4367,8 +4377,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             </div>
           )}
 
-          {/* Step 3: Listagem Refatorada */}
-          {step === 2 && (
+          {step === 2 && modo === "ltcat" && (
+            <LtcatListagemSetores
+              riscos={riscos}
+              setores={setores}
+              unidades={unidades || []}
+              saving={savingDraft}
+              onBack={() => setStep(1)}
+              onEdit={(entryId) => {
+                const entry = riscos.find((risk) => risk.id === entryId);
+                if (!entry) return;
+                openRiskModal(setores.find((setor: any) => setor.id === entry.setor_id) || { id: entry.setor_id, nome_setor: entry.setor_nome }, entry);
+              }}
+              onDelete={(agenteId, setorId, itemId) => { void deleteRiskItem(agenteId, setorId, itemId); }}
+            />
+          )}
+
+          {/* Step 3: Listagem dos demais laudos que compartilham este assistente */}
+          {step === 2 && modo !== "ltcat" && (
             <div className="space-y-8 animate-in fade-in duration-500">
               {(() => {
                 const sectorsWithRisks = Array.from(new Set(riscos.map(r => r.setor_id)))
@@ -4693,8 +4719,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                         toast.error("Aguarde o documento terminar de carregar antes de avançar.");
                         return;
                       }
-                      const ok = await handleSaveDraft(true);
-                      if (!ok) return;
+                      const ack = await handleSaveDraft(true);
+                      if (ack !== "confirmed") {
+                        if (ack === "queued" || ack === "conflict") {
+                          toast.info("Aguardando confirmação do banco. Seus dados foram mantidos nesta tela.");
+                        }
+                        return;
+                      }
                     }
                     setStep(step + 1);
                   }}

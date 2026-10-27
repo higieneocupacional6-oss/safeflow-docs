@@ -1,5 +1,20 @@
 type Row = Record<string, any>;
 
+const textoCampo = (value: unknown) => (value == null ? "" : String(value).trim());
+
+/** Descrição técnica gravada nesta avaliação, com fallback só nas linhas dela. */
+export function descricaoTecnicaGravada(origem: unknown, linhas: unknown[] = []) {
+  const registro = (origem || {}) as Row;
+  const direta = textoCampo(registro.descricao_tecnica) || textoCampo(registro.descricao_avaliacao);
+  if (direta) return direta;
+  for (const linha of linhas) {
+    const atual = (linha || {}) as Row;
+    const valor = textoCampo(atual.descricao_avaliacao) || textoCampo(atual.descricao_tecnica);
+    if (valor) return valor;
+  }
+  return "";
+}
+
 /** Same-risk fields only; no lookup in another agent, sector or document. */
 export function ltcatEvaluationFields(risk: Row, row: Row, techniques: Row[]) {
   const technique = techniques.find(t => t.id === (row.tecnica_id || risk.tecnica_id))?.nome || "";

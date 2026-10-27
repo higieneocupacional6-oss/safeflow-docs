@@ -136,6 +136,15 @@ export const diffLtcatEvaluations = (
   };
 };
 
+export type LtcatSaveAck = "confirmed" | "queued" | "conflict" | "failed";
+
+/** Reidratação remota só quando não há gravação, edição local ou fila pendente. */
+export const podeReidratarLtcat = (flags: {
+  persisting: boolean;
+  unsaved: boolean;
+  pendingProtected: boolean;
+}) => !flags.persisting && !flags.unsaved && !flags.pendingProtected;
+
 export const hasLtcatPersistenceChanges = (changes: LtcatIncrementalChanges) =>
   changes.upserts.length > 0 ||
   changes.deleteEvaluationIds.length > 0 ||
