@@ -1,3 +1,7 @@
+# AET (VALE) — demora ao salvar
+- [x] Consolidar gravações pendentes, eliminar reenvios e espera por atualização de listas; preservar fotos e campos. 30 testes aprovados, build OK.
+- [ ] Validar salvamento/reabertura autenticados: navegador permanece no carregamento de acesso, mesmo com sessão renovada; nenhum documento alterado ou criado. Fila, falhas, fotos e relatório verificados nos testes.
+
 # Formulário AEP — falha de configuração da IA
 - [x] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados; função implantada.
 - [x] Validar geração real autenticada na página atual até a prévia, sem aplicar/salvar propostas; zero erros de execução, 22 testes aprovados e build OK.
