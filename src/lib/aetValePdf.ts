@@ -27,7 +27,7 @@ export function nomePdfVale(empresa: string, funcao: string) {
   const seguro = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
   return `AET_VALE_${seguro(empresa) || "EMPRESA"}_${seguro(funcao) || "FUNCAO"}.pdf`;
 }
-export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: FatorVale[], aep: FatorVale[]): Blob {
+export function gerarPdfVale(dados: AetValeDados, empresa: string, _fatores: FatorVale[], aep: FatorVale[]): Blob {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   let y = 14;
   const width = 182;
