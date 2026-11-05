@@ -21,6 +21,7 @@ import { AetValeFotoIa } from "@/components/aet-vale/AetValeFotoIa";
 import { aplicarAnotacaoFoto, substituirFotoVale } from "../../supabase/functions/_shared/aetValeFotos";
 import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
+import { AetValeSaveQueue } from "@/lib/aetValeSaveQueue";
 import { fatoresVale, riscosAprValeAltos, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
@@ -106,37 +107,45 @@ export default function AetValeRegistro() {
   // Autosave: every change (texts, AI analyses, annotated images, plans) is
   // persisted to the same AET record; writes are serialized so none is lost.
   const [autoStatus, setAutoStatus] = useState<"salvo" | "pendente" | "salvando" | "erro">("salvo");
-  const fila = useRef<Promise<void>>(Promise.resolve());
-  const ultimoSalvo = useRef<string | null>(null);
+  const fila = useRef<AetValeSaveQueue<AetValeDados> | null>(null);
+  const ultimoSalvo = useRef<AetValeDados | null>(null);
   const pendenteRef = useRef<AetValeDados | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextoRef = useRef({ registro: registroQuery.data, snap, setor: setorQuery.data, funcao: funcaoQuery.data });
+  contextoRef.current = { registro: registroQuery.data, snap, setor: setorQuery.data, funcao: funcaoQuery.data };
+  if (!fila.current) fila.current = new AetValeSaveQueue(async (d, marcarSalvo, alterado) => {
+    const { registro, snap: atual, setor, funcao } = contextoRef.current;
+    if (!registro) throw new Error("Registro indisponível");
+    const patch: Record<string, unknown> = {};
+    if (alterado) {
+      patch.draft_snapshot = { ...atual, dados: d };
+      patch.nome_documento = `AET (VALE) — ${setor?.nome_setor || "Setor"} — ${d.cargo || funcao?.nome_funcao || "Função"}`;
+    }
+    if (marcarSalvo) patch.status = "salvo";
+    const { data, error } = await supabase.from("documentos").update(patch as never)
+      .eq("id", registro.id).eq("tipo", "AET-VALE").eq("empresa_id", registro.empresa_id || "").eq("contrato_id", registro.contrato_id || "")
+      .select("id").single();
+    if (error || !data) throw error || new Error("O registro não foi atualizado");
+    ultimoSalvo.current = d;
+    if (pendenteRef.current === d) pendenteRef.current = null;
+    queryClient.setQueryData(["aet-vale-registro", registro.id], { ...registro, ...patch });
+  });
   const persistir = (d: AetValeDados, marcarSalvo: boolean) => {
-    const registro = registroQuery.data;
-    if (!registro) return Promise.resolve(false);
-    let ok = false;
-    const run = fila.current.then(async () => {
-      const json = JSON.stringify(d);
-      if (!marcarSalvo && json === ultimoSalvo.current) { ok = true; return; }
-      setAutoStatus("salvando");
-      const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${d.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
-      const patch: Record<string, unknown> = { draft_snapshot: { ...snap, setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados: d }, nome_documento: nome };
-      if (marcarSalvo) patch.status = "salvo";
-      const { error } = await supabase.from("documentos").update(patch as never)
-        .eq("id", registro.id).eq("tipo", "AET-VALE").eq("empresa_id", registro.empresa_id || "").eq("contrato_id", registro.contrato_id || "");
-      if (error) { setAutoStatus("erro"); return; }
-      ultimoSalvo.current = json; ok = true;
-      if (pendenteRef.current === d) pendenteRef.current = null;
-      setAutoStatus(pendenteRef.current ? "pendente" : "salvo");
-    }).catch(() => setAutoStatus("erro"));
-    fila.current = run;
-    return run.then(() => ok);
+    if (!registroQuery.data || !fila.current) return Promise.resolve(false);
+    setAutoStatus("salvando");
+    return fila.current.save(d, marcarSalvo).then(ok => {
+      if (ok && pendenteRef.current === d) pendenteRef.current = null;
+      setAutoStatus(ok ? (pendenteRef.current ? "pendente" : "salvo") : "erro");
+      return ok;
+    });
   };
   useEffect(() => {
     if (!dados || !registroQuery.data) return;
-    if (ultimoSalvo.current === null) { ultimoSalvo.current = JSON.stringify(dados); return; }
-    if (JSON.stringify(dados) === ultimoSalvo.current) return;
+    if (ultimoSalvo.current === null) { ultimoSalvo.current = dados; fila.current?.initialize(dados, registroQuery.data.status === "salvo"); return; }
+    if (dados === ultimoSalvo.current) return;
     pendenteRef.current = dados; setAutoStatus("pendente");
-    const t = setTimeout(() => { void persistir(dados, false); }, 1500);
-    return () => clearTimeout(t);
+    timerRef.current = setTimeout(() => { timerRef.current = null; void persistir(dados, false); }, 1500);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dados]);
   useEffect(() => {
@@ -144,14 +153,16 @@ export default function AetValeRegistro() {
     window.addEventListener("beforeunload", aviso);
     return () => { window.removeEventListener("beforeunload", aviso); if (pendenteRef.current) void persistir(pendenteRef.current, false); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registroQuery.data]);
+  }, [registroId]);
 
   const salvar = async () => {
     if (!dados || !registroQuery.data || salvando) return;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     setSalvando(true);
     try {
       if (!(await persistir(dados, true))) throw new Error();
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
+      void queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] });
+      void queryClient.invalidateQueries({ queryKey: ["documentos"] });
       toast.success("Registro AET (VALE) salvo");
     } catch { toast.error("Não foi possível salvar. Tente novamente."); }
     finally { setSalvando(false); }

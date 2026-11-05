@@ -1,4 +1,8 @@
 # Formulário AEP — falha de configuração da IA
+# AET (VALE) — demora ao salvar
+- [ ] Consolidar gravações pendentes, eliminar reenvios e espera por atualização de listas; preservar fotos e campos.
+- [ ] Testar fila, falhas e salvamento/reabertura autenticados sem alterar avaliações reais.
+
 - [x] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados; função implantada.
 - [x] Validar geração real autenticada na página atual até a prévia, sem aplicar/salvar propostas; zero erros de execução, 22 testes aprovados e build OK.
 
