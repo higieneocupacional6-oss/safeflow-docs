@@ -63,21 +63,38 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, _fatores: Fat
     if (f.imagem) { const props=doc.getImageProperties(f.imagem); const scale=Math.min(bw/props.width,bh/props.height); const w=props.width*scale,h=props.height*scale; doc.addImage(f.imagem,props.fileType,x+(bw-w)/2,top+(bh-h)/2,w,h); }
   };
   /** Registro fotográfico: fixed 12,68 × 9,32 cm photos side by side on a landscape page, captions below. */
+  // Only AI-annotated images go to the report (originals stay in the system),
+  // fixed 12,68 × 9,32 cm boxes side by side, technical considerations below each.
   const fotosRegistro = (items: AetValeFoto[]) => {
-    const PW=126.8, PH=93.2, GAP=6, X0=(297-2*PW-GAP)/2;
-    for (let i=0;i<items.length;i+=2) {
-      doc.addPage("a4","landscape"); y=18;
-      doc.setFillColor(225,225,225); doc.rect(X0,y,2*PW+GAP,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text(i ? "Registro fotográfico (continuação)" : "Registro fotográfico",X0+2,y+6); y+=13;
-      const pair=items.slice(i,i+2);
-      for (const [j,f] of pair.entries()) {
-        const x=X0+j*(PW+GAP); caixaFoto(f,x,y,PW,PH);
-        doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.text(`Foto ${i+j+1}`,x,y+PH+6);
-        doc.setFont("helvetica","normal"); doc.setFontSize(9); const linhas=(doc.splitTextToSize(f.descricao || "—",PW) as string[]).slice(0,12); doc.text(linhas,x,y+PH+11,{lineHeightFactor:1.3});
+    const anot = items.map((f,i) => ({ f, n: i+1 })).filter(x => x.f.anotacao?.imagem);
+    if (!anot.length) return;
+    const PW=126.8, PH=93.2, GAP=6, X0=(297-2*PW-GAP)/2, LH=4.1, BOTTOM=200;
+    const consideracoes = (f: AetValeFoto) => {
+      const a = f.anotacao!;
+      const txt = [...a.marcacoes.map((m,k) => `${k+1}. Problema: ${m.problema}\n    Melhoria: ${m.melhoria}`), a.observacao ? `Observação: ${a.observacao}` : ""].filter(Boolean).join("\n");
+      return (doc.splitTextToSize(txt || f.descricao || "—", PW) as string[]);
+    };
+    const cabecalho = (t: string) => { doc.addPage("a4","landscape"); y=18; doc.setFillColor(225,225,225); doc.rect(X0,y,2*PW+GAP,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(0,0,0); doc.text(t,X0+2,y+6); y+=13; };
+    for (let i=0;i<anot.length;i+=2) {
+      cabecalho(i ? "Registro fotográfico — análise ergonômica (continuação)" : "Registro fotográfico — análise ergonômica");
+      const pair = anot.slice(i,i+2);
+      let restos = pair.map(() => [] as string[]);
+      for (const [j,{f,n}] of pair.entries()) {
+        const x=X0+j*(PW+GAP);
+        caixaFoto({ ...f, imagem: f.anotacao!.imagem }, x, y, PW, PH);
+        doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.text(`Foto ${n} — considerações técnicas`,x,y+PH+6);
+        doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+        const linhas = consideracoes(f), cabe = Math.floor((BOTTOM-(y+PH+11))/LH);
+        doc.text(linhas.slice(0,cabe),x,y+PH+11,{lineHeightFactor:1.35}); restos[j]=linhas.slice(cabe);
+      }
+      while (restos.some(r => r.length)) {
+        cabecalho("Registro fotográfico — considerações (continuação)");
+        const cabe = Math.floor((BOTTOM-y)/LH);
+        doc.setFont("helvetica","normal"); doc.setFontSize(8.5);
+        restos = restos.map((r,j) => { if (r.length) doc.text(r.slice(0,cabe),X0+j*(PW+GAP),y,{lineHeightFactor:1.35}); return r.slice(cabe); });
       }
     }
     doc.addPage("a4","portrait"); y=18;
-    const temAnotadas = items.some(f => f.anotacao?.imagem);
-    if (temAnotadas) anotadas(items,0);
   };
   const fotos = (items: AetValeFoto[]) => {
     for (let i=0;i<items.length;i+=2) {
