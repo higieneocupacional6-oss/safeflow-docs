@@ -103,16 +103,55 @@ export default function AetValeRegistro() {
     catch { toast.error("Não foi possível ler a foto selecionada."); }
   };
 
+  // Autosave: every change (texts, AI analyses, annotated images, plans) is
+  // persisted to the same AET record; writes are serialized so none is lost.
+  const [autoStatus, setAutoStatus] = useState<"salvo" | "pendente" | "salvando" | "erro">("salvo");
+  const fila = useRef<Promise<void>>(Promise.resolve());
+  const ultimoSalvo = useRef<string | null>(null);
+  const pendenteRef = useRef<AetValeDados | null>(null);
+  const persistir = (d: AetValeDados, marcarSalvo: boolean) => {
+    const registro = registroQuery.data;
+    if (!registro) return Promise.resolve(false);
+    let ok = false;
+    const run = fila.current.then(async () => {
+      const json = JSON.stringify(d);
+      if (!marcarSalvo && json === ultimoSalvo.current) { ok = true; return; }
+      setAutoStatus("salvando");
+      const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${d.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
+      const patch: Record<string, unknown> = { draft_snapshot: { ...snap, setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados: d }, nome_documento: nome };
+      if (marcarSalvo) patch.status = "salvo";
+      const { error } = await supabase.from("documentos").update(patch as never)
+        .eq("id", registro.id).eq("tipo", "AET-VALE").eq("empresa_id", registro.empresa_id || "").eq("contrato_id", registro.contrato_id || "");
+      if (error) { setAutoStatus("erro"); return; }
+      ultimoSalvo.current = json; ok = true;
+      if (pendenteRef.current === d) pendenteRef.current = null;
+      setAutoStatus(pendenteRef.current ? "pendente" : "salvo");
+    }).catch(() => setAutoStatus("erro"));
+    fila.current = run;
+    return run.then(() => ok);
+  };
+  useEffect(() => {
+    if (!dados || !registroQuery.data) return;
+    if (ultimoSalvo.current === null) { ultimoSalvo.current = JSON.stringify(dados); return; }
+    if (JSON.stringify(dados) === ultimoSalvo.current) return;
+    pendenteRef.current = dados; setAutoStatus("pendente");
+    const t = setTimeout(() => { void persistir(dados, false); }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dados]);
+  useEffect(() => {
+    const aviso = (e: BeforeUnloadEvent) => { if (pendenteRef.current) { void persistir(pendenteRef.current, false); e.preventDefault(); } };
+    window.addEventListener("beforeunload", aviso);
+    return () => { window.removeEventListener("beforeunload", aviso); if (pendenteRef.current) void persistir(pendenteRef.current, false); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registroQuery.data]);
+
   const salvar = async () => {
     if (!dados || !registroQuery.data || salvando) return;
     setSalvando(true);
     try {
-      const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${dados.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
-      const { error } = await supabase.from("documentos")
-        .update({ draft_snapshot: { ...snap, setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados }, status: "salvo", nome_documento: nome })
-        .eq("id", registroQuery.data.id).eq("tipo", "AET-VALE").eq("empresa_id", registroQuery.data.empresa_id || "").eq("contrato_id", registroQuery.data.contrato_id || "");
-      if (error) throw error;
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registro", registroId] }), queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
+      if (!(await persistir(dados, true))) throw new Error();
+      await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
       toast.success("Registro AET (VALE) salvo");
     } catch { toast.error("Não foi possível salvar. Tente novamente."); }
     finally { setSalvando(false); }
@@ -133,7 +172,9 @@ export default function AetValeRegistro() {
       {etapa === 1 && <Button variant="outline" onClick={() => setIaAberta(true)}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}
       <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+      <span className="self-center text-xs text-muted-foreground" aria-live="polite">{autoStatus === "salvo" ? "Tudo salvo" : autoStatus === "salvando" ? "Salvando…" : autoStatus === "pendente" ? "Alterações pendentes" : "Erro ao salvar automaticamente"}</span>
       <Button variant="outline" size="icon" aria-label="Baixar PDF" title="Baixar PDF" disabled={aepQuery.isLoading || aprQuery.isLoading || aepQuery.isError || aprQuery.isError} onClick={() => {
+        void persistir(dados, false);
         try { baixarBlobApr(gerarPdfVale(dados, registroQuery.data?.empresa_nome || "", fatores, riscosAep), nomePdfVale(registroQuery.data?.empresa_nome || "", funcaoQuery.data?.nome_funcao || dados.cargo)); }
         catch { toast.error("Não foi possível gerar o PDF. Seus dados foram mantidos."); }
       }}><Download className="w-4 h-4" /></Button>
