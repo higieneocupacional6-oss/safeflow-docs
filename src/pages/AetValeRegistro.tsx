@@ -203,9 +203,9 @@ export default function AetValeRegistro() {
 
     <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
       <h2 className="font-heading font-semibold">Registro fotográfico</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{dados.fotos.map((foto, idx) => <div key={idx} className="space-y-2">
+      <div className="flex gap-4 overflow-x-auto pb-2">{dados.fotos.map((foto, idx) => <div key={idx} className="space-y-2 shrink-0" style={{ width: "12.68cm" }}>
         <input ref={(el) => { inputsFoto.current[idx] = el; }} type="file" accept="image/*" className="hidden" onChange={(e) => { void escolherFoto(idx, e.target.files?.[0]); e.target.value = ""; }} />
-        <button type="button" onClick={() => (foto.imagem ? setFotoAberta(foto.imagem) : inputsFoto.current[idx]?.click())} className="w-full rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden" style={{ aspectRatio: "5.27 / 3.96" }} aria-label={`Foto ${idx + 1}`}>
+        <button type="button" onClick={() => (foto.imagem ? setFotoAberta(foto.imagem) : inputsFoto.current[idx]?.click())} className="rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden" style={{ width: "12.68cm", height: "9.32cm" }} aria-label={`Foto ${idx + 1}`}>
           {foto.imagem ? <img src={foto.imagem} alt={`Foto ${idx + 1}`} className="w-full h-full object-contain" /> : <span className="flex flex-col items-center gap-2 text-muted-foreground text-xs"><ImagePlus className="w-6 h-6" />Adicionar foto</span>}
         </button>
         {foto.imagem && <Button type="button" variant="outline" size="sm" onClick={() => inputsFoto.current[idx]?.click()}>Substituir foto</Button>}
@@ -218,10 +218,10 @@ export default function AetValeRegistro() {
       <h2 className="font-heading font-semibold">Verbalização</h2>
       <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
     </section>
-    </> : etapa === 2 ? <AetValeEtapa2 registroId={registroId} dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
+    </> : etapa === 2 ? <AetValeEtapa2 registroId={registroId} dados={dados.etapa2} aep={riscosAep} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
       try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? substituirFotoVale(f, imagem) : f) } } : d); }
       catch { toast.error("Não foi possível ler a foto selecionada."); }
-    }} /> : <AetValePlano dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} />}
+    }} /> : <AetValePlano dados={dados.etapa2} fatores={riscosAep} onChange={v => set("etapa2", v)} />}
 
     <div className="flex justify-between">
       {etapa > 1 && <Button variant="outline" onClick={() => irPara(etapa - 1)}><ArrowLeft className="w-4 h-4 mr-2" />Anterior</Button>}

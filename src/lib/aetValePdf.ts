@@ -2,7 +2,7 @@ import { formatDateOnly } from "@/lib/dateOnly";
 import jsPDF from "jspdf";
 import autoTable, { type CellInput } from "jspdf-autotable";
 import type { AetValeDados, AetValeFoto } from "./aetVale";
-import { CHECKS_ETAPA2, TEXTOS_ETAPA2, type FatorVale } from "../../supabase/functions/_shared/aetValeIa";
+import { CHECKS_ETAPA2, TEXTOS_ETAPA2, diagnosticoVale, planoVale, type FatorVale } from "../../supabase/functions/_shared/aetValeIa";
 
 export const CAMPOS_PDF_VALE = {
   gerencia_area: "Gerência de área", descricao_ambiente: "Descrição do ambiente", data_avaliacao: "Data da avaliação", revisao: "Revisão",
@@ -21,15 +21,13 @@ export const SECOES_PDF_VALE = [
   ["9. Organização do trabalho", ["normas_producao", "conteudo_tempo", "psicossociais", "ritmo", "exigencias_tempo", "conteudo_tarefas", "taxa_ocupacao", "operacoes_turno"], []],
   ["10. Medidas de controles existentes", ["engenharia", "administrativos"], ["controles"]],
   ["11. Existe local adequado para pausas?", [], ["local_pausa", "pausa"]],
-  ["12. Descrição dos fatores de risco ergonômico", ["descricao_fatores"], []],
-  ["13. Ferramentas de análise e resultados encontrados", ["resultados", "biomecanicos"], ["ferramentas"]],
-  ["14. Conclusão / Diagnóstico", ["conclusao"], []],
+  ["12. Ferramentas de análise e resultados encontrados", ["resultados", "biomecanicos"], ["ferramentas"]],
 ] as const;
 export function nomePdfVale(empresa: string, funcao: string) {
   const seguro = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
   return `AET_VALE_${seguro(empresa) || "EMPRESA"}_${seguro(funcao) || "FUNCAO"}.pdf`;
 }
-export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: FatorVale[], aep: FatorVale[]): Blob {
+export function gerarPdfVale(dados: AetValeDados, empresa: string, _fatores: FatorVale[], aep: FatorVale[]): Blob {
   const doc = new jsPDF({ unit: "mm", format: "a4", compress: true });
   let y = 14;
   const width = 182;
@@ -47,27 +45,48 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
   };
   const section = (title: string) => { if (y > 252) { doc.addPage(); y=18; } doc.setFillColor(225,225,225); doc.rect(14,y,width,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.setTextColor(0,0,0); doc.text(title,16,y+6,{maxWidth:178}); y+=12; };
   const campos = (keys: (keyof typeof CAMPOS_PDF_VALE)[]) => tabela(["Campo", "Informação"], keys.map(k => [CAMPOS_PDF_VALE[k], k === "data_avaliacao" ? formatDateOnly(dados[k], dados[k]) : dados[k]]), [1,3]);
+  const anotadas = (items: AetValeFoto[], base: number) => {
+    for (const [j,f] of items.entries()) {
+      if (!f.anotacao?.imagem) continue;
+      const props=doc.getImageProperties(f.anotacao.imagem);
+      const scale=Math.min(width/props.width,200/props.height);
+      const w=props.width*scale,h=props.height*scale;
+      if (y+14+h > 277) { doc.addPage("a4","portrait"); y=18; }
+      section(`Foto ${base+j+1} — análise ergonômica anotada`);
+      doc.addImage(f.anotacao.imagem,props.fileType,14+(width-w)/2,y,w,h); y+=h+4;
+      tabela(["Problema observado", "Melhoria recomendada"],f.anotacao.marcacoes.map(m=>[m.problema,m.melhoria]),[1,2]);
+      if (f.anotacao.observacao) tabela(["Observação"],[[f.anotacao.observacao]]);
+    }
+  };
+  const caixaFoto = (f: AetValeFoto, x: number, top: number, bw: number, bh: number) => {
+    doc.setDrawColor(160,160,160); doc.rect(x,top,bw,bh);
+    if (f.imagem) { const props=doc.getImageProperties(f.imagem); const scale=Math.min(bw/props.width,bh/props.height); const w=props.width*scale,h=props.height*scale; doc.addImage(f.imagem,props.fileType,x+(bw-w)/2,top+(bh-h)/2,w,h); }
+  };
+  /** Registro fotográfico: fixed 12,68 × 9,32 cm photos side by side on a landscape page, captions below. */
+  const fotosRegistro = (items: AetValeFoto[]) => {
+    const PW=126.8, PH=93.2, GAP=6, X0=(297-2*PW-GAP)/2;
+    for (let i=0;i<items.length;i+=2) {
+      doc.addPage("a4","landscape"); y=18;
+      doc.setFillColor(225,225,225); doc.rect(X0,y,2*PW+GAP,9,"F"); doc.setFont("helvetica","bold"); doc.setFontSize(10); doc.text(i ? "Registro fotográfico (continuação)" : "Registro fotográfico",X0+2,y+6); y+=13;
+      const pair=items.slice(i,i+2);
+      for (const [j,f] of pair.entries()) {
+        const x=X0+j*(PW+GAP); caixaFoto(f,x,y,PW,PH);
+        doc.setFont("helvetica","bold"); doc.setFontSize(9); doc.text(`Foto ${i+j+1}`,x,y+PH+6);
+        doc.setFont("helvetica","normal"); doc.setFontSize(9); const linhas=(doc.splitTextToSize(f.descricao || "—",PW) as string[]).slice(0,12); doc.text(linhas,x,y+PH+11,{lineHeightFactor:1.3});
+      }
+    }
+    doc.addPage("a4","portrait"); y=18;
+    const temAnotadas = items.some(f => f.anotacao?.imagem);
+    if (temAnotadas) anotadas(items,0);
+  };
   const fotos = (items: AetValeFoto[]) => {
     for (let i=0;i<items.length;i+=2) {
-      if (y+72 > 277) { doc.addPage(); y=18; }
+      if (y+80 > 277) { doc.addPage(); y=18; }
       const pair = items.slice(i,i+2);
-      for (const [j,f] of pair.entries()) {
-        const x=14+j*93; doc.setDrawColor(160,160,160); doc.rect(x,y,89,66.9);
-        if (f.imagem) { const props=doc.getImageProperties(f.imagem); const scale=Math.min(85/props.width,62.9/props.height); const w=props.width*scale,h=props.height*scale; doc.addImage(f.imagem,props.fileType,x+(89-w)/2,y+(66.9-h)/2,w,h); }
-      }
+      for (const [j,f] of pair.entries()) caixaFoto(f,14+j*93,y,89,66.9);
       y+=69;
-      tabela([`Foto ${i+1}`, `Foto ${i+2}`], [pair.map(f => f.descricao || "—")]);
-      for (const [j,f] of pair.entries()) {
-        if (!f.anotacao?.imagem) continue;
-        const props=doc.getImageProperties(f.anotacao.imagem);
-        const scale=Math.min(width/props.width,220/props.height);
-        const w=props.width*scale,h=props.height*scale;
-        if (y+12+h > 277) { doc.addPage(); y=18; }
-        section(`Foto ${i+j+1} — análise ergonômica anotada`);
-        doc.addImage(f.anotacao.imagem,props.fileType,14+(width-w)/2,y,w,h); y+=h+4;
-        tabela(["Problema observado", "Melhoria recomendada"],f.anotacao.marcacoes.map(m=>[m.problema,m.melhoria]),[1,2]);
-        if (f.anotacao.observacao) tabela(["Observação"],[[f.anotacao.observacao]]);
-      }
+      tabela(pair.map((_,j) => `Foto ${i+j+1}`), [pair.map(f => f.descricao || "—")]);
+      anotadas(pair,i);
     }
   };
   tabela(["ANEXO 04 — ANÁLISE ERGONÔMICA DO TRABALHO — AET (VALE)"], [[`Empresa: ${empresa}`]]);
@@ -77,27 +96,30 @@ export function gerarPdfVale(dados: AetValeDados, empresa: string, fatores: Fato
   if (!aep.length) tabela(["Resultado"], [["Nenhum risco Alto ou Muito Alto identificado nos registros da APR-ERGO consultados."]]);
   section("Origem da demanda"); tabela(["Origem", "Detalhamento"], [[dados.origens.join("; "), dados.origem_detalhe]]);
   section("Campos de análise"); campos(["demanda_ergonomica","descricao_tarefa","analise_atividade"]);
-  if (y + 100 > 277) { doc.addPage(); y=18; }
-  section("Registro fotográfico"); fotos(dados.fotos);
+  fotosRegistro(dados.fotos);
   section("Verbalização"); campos(["verbalizacao"]);
   for (const [title, texts, checks] of SECOES_PDF_VALE) {
     section(title);
-    if (title.startsWith("12.")) tabela(["Origem", "Circunstância / Fonte", "Situação", "Tipo", "Exposição", "Perfil", "Severidade", "Classificação"], fatores.map(f => [f.origem,f.circunstancia,f.situacao,f.tipo,f.estimativa,f.perfil,f.severidade,f.classificacao]),[1,3,2,1,2,1,1,1.5]);
     const rows: string[][] = [];
     for (const k of checks) { const [label,options] = CHECKS_ETAPA2[k]; rows.push([label, options.map(o => `${(dados.etapa2.checks[k] || []).includes(o) ? "[X]" : "[ ]"} ${o}`).join("\n")]); }
     for (const k of texts) rows.push([TEXTOS_ETAPA2[k],dados.etapa2.textos[k] || ""]);
-    if (title.startsWith("14.")) for (const [id,texto] of Object.entries(dados.etapa2.diagnosticos)) { const f=fatores.find(v => v.id===id); rows.push([f ? `${f.circunstancia} — ${f.classificacao} (${f.origem})` : `Diagnóstico — ${id}`,texto]); }
     if (rows.length) tabela(["Campo", "Informação"],rows,[1,3]);
     if (title.startsWith("1.")) fotos(dados.etapa2.fotos);
   }
+  section("13. Diagnóstico ergonômico");
+  const altos = aep.filter(diagnosticoVale);
+  tabela(["Fator (Alto)", "Diagnóstico"], altos.length ? altos.map(f => [f.circunstancia, dados.etapa2.diagnosticos[f.id] || "—"]) : [["—", "Nenhum fator classificado como Alto nos Dados da AEP."]], [1,3]);
+  section("14. Conclusão técnica");
+  tabela(["Conclusão técnica"], [[dados.etapa2.textos.conclusao || "—"]]);
   section("15. Plano de ação — 5W2H");
-  for (const [i,a] of dados.etapa2.plano.entries()) {
-    const f=fatores.find(v => v.id===a.fator_id);
-    tabela([`Ação ${i+1} — Risco e conclusão`, "Informação"], [[f?.circunstancia || a.fator_id || "—", dados.etapa2.diagnosticos[a.fator_id] || "—"]],[1,3]);
+  const plano = planoVale(dados.etapa2.plano, aep);
+  for (const [i,a] of plano.entries()) {
+    const f=aep.find(v => v.id===a.fator_id);
+    tabela([`Ação ${i+1} — Risco`, "Classificação"], [[f?.circunstancia || "—", f?.classificacao || "—"]],[3,1]);
     tabela(["O quê", "Por quê", "Onde", "Quando", "Quem", "Como", "Quanto custa"], [[a.o_que,a.por_que,a.onde,a.quando || "A definir",a.quem || "A definir",a.como,a.quanto || "A definir"]],[2,2,1,1,1,2,1]);
   }
-  if (!dados.etapa2.plano.length) tabela(["O quê", "Por quê", "Onde", "Quando", "Quem", "Como", "Quanto custa"],[]);
+  if (!plano.length) tabela(["O quê", "Por quê", "Onde", "Quando", "Quem", "Como", "Quanto custa"],[]);
   const total=doc.getNumberOfPages();
-  for(let p=1;p<=total;p++) { doc.setPage(p); doc.setFont("helvetica","normal"); doc.setFontSize(8); doc.text(`AET (VALE) — ${empresa}`,14,10,{maxWidth:182}); doc.text(`Página ${p}/${total}`,196,289,{align:"right"}); }
+  for(let p=1;p<=total;p++) { doc.setPage(p); doc.setFont("helvetica","normal"); doc.setFontSize(8); const pw=doc.internal.pageSize.getWidth(), ph=doc.internal.pageSize.getHeight(); doc.text(`AET (VALE) — ${empresa}`,14,10,{maxWidth:pw-28}); doc.text(`Página ${p}/${total}`,pw-14,ph-8,{align:"right"}); }
   return doc.output("blob");
 }
