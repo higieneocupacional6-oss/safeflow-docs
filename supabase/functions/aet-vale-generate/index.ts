@@ -3,7 +3,7 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 import { z } from "npm:zod@3";
 import { gerarJsonEmFluxo } from "../_shared/aiStream.ts";
 import { exigirSessao } from "../_shared/sessao.ts";
-import { CHECKS_ETAPA2, TEXTOS_ETAPA2, CAMPOS_ETAPA1, fatoresVale, formulariosValeExatos, etapa2Vazia, exigeDiagnostico } from "../_shared/aetValeIa.ts";
+import { CHECKS_ETAPA2, TEXTOS_ETAPA2, CAMPOS_ETAPA1, fatoresVale, formulariosValeExatos, etapa2Vazia, exigeDiagnostico, riscosAprValeAltos, diagnosticoVale } from "../_shared/aetValeIa.ts";
 const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim().max(30000), atuais: z.object({ etapa1: z.record(z.string().max(20000)), etapa2: z.object({ textos: z.record(z.string().max(20000)), checks: z.record(z.array(z.string().max(500))), diagnosticos: z.record(z.string().max(20000)), plano: z.array(z.object({ fator_id: z.string(), o_que: z.string(), por_que: z.string(), onde: z.string(), quem: z.string(), quando: z.string(), como: z.string(), quanto: z.string() })) }) }) });
 const str = { type: "string" };
 const obj = (properties: Record<string, unknown>) => ({ type: "object", properties, required: Object.keys(properties), additionalProperties: false });
