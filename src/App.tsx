@@ -1,3 +1,4 @@
+import { lazy, Suspense } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
@@ -8,41 +9,41 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GlobalRealtimeSync } from "@/hooks/useGlobalRealtime";
 
-import Index from "./pages/Index";
+const Index = lazy(() => import("./pages/Index"));
 import Login from "./pages/Login";
-import Empresas from "./pages/Empresas";
-import EmpresasContratos from "./pages/EmpresasContratos";
-import Cadastros from "./pages/Cadastros";
-import Templates from "./pages/Templates";
-import Documentos from "./pages/Documentos";
-import LtcatWizard from "./pages/LtcatWizard";
-import PgrWizard from "./pages/PgrWizard";
-import PcmsoWizard from "./pages/PcmsoWizard";
-import AetWizard from "./pages/AetWizard";
-import AepWizard from "./pages/AepWizard";
-import AetValeNovo from "./pages/AetValeNovo";
-import AetValeRegistro from "./pages/AetValeRegistro";
-import AetValePlanoContrato from "./pages/AetValePlanoContrato";
-import SetoresFuncoes from "./pages/SetoresFuncoes";
-import Usuarios from "./pages/Usuarios";
-import NotFound from "./pages/NotFound";
-import ControleDocumentos from "./pages/ControleDocumentos";
-import Psicossocial from "./pages/Psicossocial";
-import PsicossocialEmpresa from "./pages/PsicossocialEmpresa";
-import PsicossocialAvaliacao from "./pages/PsicossocialAvaliacao";
-import PsicossocialRelatorio from "./pages/PsicossocialRelatorio";
-import TemplatesPsicossociais from "./pages/TemplatesPsicossociais";
-import AvaliacaoPsicossocialPublica from "./pages/AvaliacaoPsicossocialPublica";
-import ChangePassword from "./pages/ChangePassword";
-import FichaTecnica from "./pages/FichaTecnica";
-import FichaTecnicaContrato from "./pages/FichaTecnicaContrato";
-import FormularioAep from "./pages/FormularioAep";
-import FormularioAepNovo from "./pages/FormularioAepNovo";
-import FormularioAepPreencher from "./pages/FormularioAepPreencher";
-import AprErgo from "./pages/AprErgo";
-import AprErgoNovo from "./pages/AprErgoNovo";
-import AprErgoRegistro from "./pages/AprErgoRegistro";
-import AprErgoPlano from "./pages/AprErgoPlano";
+const Empresas = lazy(() => import("./pages/Empresas"));
+const EmpresasContratos = lazy(() => import("./pages/EmpresasContratos"));
+const Cadastros = lazy(() => import("./pages/Cadastros"));
+const Templates = lazy(() => import("./pages/Templates"));
+const Documentos = lazy(() => import("./pages/Documentos"));
+const LtcatWizard = lazy(() => import("./pages/LtcatWizard"));
+const PgrWizard = lazy(() => import("./pages/PgrWizard"));
+const PcmsoWizard = lazy(() => import("./pages/PcmsoWizard"));
+const AetWizard = lazy(() => import("./pages/AetWizard"));
+const AepWizard = lazy(() => import("./pages/AepWizard"));
+const AetValeNovo = lazy(() => import("./pages/AetValeNovo"));
+const AetValeRegistro = lazy(() => import("./pages/AetValeRegistro"));
+const AetValePlanoContrato = lazy(() => import("./pages/AetValePlanoContrato"));
+const SetoresFuncoes = lazy(() => import("./pages/SetoresFuncoes"));
+const Usuarios = lazy(() => import("./pages/Usuarios"));
+const NotFound = lazy(() => import("./pages/NotFound"));
+const ControleDocumentos = lazy(() => import("./pages/ControleDocumentos"));
+const Psicossocial = lazy(() => import("./pages/Psicossocial"));
+const PsicossocialEmpresa = lazy(() => import("./pages/PsicossocialEmpresa"));
+const PsicossocialAvaliacao = lazy(() => import("./pages/PsicossocialAvaliacao"));
+const PsicossocialRelatorio = lazy(() => import("./pages/PsicossocialRelatorio"));
+const TemplatesPsicossociais = lazy(() => import("./pages/TemplatesPsicossociais"));
+const AvaliacaoPsicossocialPublica = lazy(() => import("./pages/AvaliacaoPsicossocialPublica"));
+const ChangePassword = lazy(() => import("./pages/ChangePassword"));
+const FichaTecnica = lazy(() => import("./pages/FichaTecnica"));
+const FichaTecnicaContrato = lazy(() => import("./pages/FichaTecnicaContrato"));
+const FormularioAep = lazy(() => import("./pages/FormularioAep"));
+const FormularioAepNovo = lazy(() => import("./pages/FormularioAepNovo"));
+const FormularioAepPreencher = lazy(() => import("./pages/FormularioAepPreencher"));
+const AprErgo = lazy(() => import("./pages/AprErgo"));
+const AprErgoNovo = lazy(() => import("./pages/AprErgoNovo"));
+const AprErgoRegistro = lazy(() => import("./pages/AprErgoRegistro"));
+const AprErgoPlano = lazy(() => import("./pages/AprErgoPlano"));
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -50,8 +51,8 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: true,
       refetchOnReconnect: true,
       refetchOnMount: "always",
-      staleTime: 0,
-      gcTime: 60_000,
+      staleTime: 30_000,
+      gcTime: 5 * 60_000,
       retry: 1,
     },
   },
@@ -70,6 +71,7 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <GlobalRealtimeSync />
+          <Suspense fallback={<div className="flex min-h-screen items-center justify-center text-muted-foreground">Carregando…</div>}>
           <Routes>
 
             <Route path="/login" element={<Login />} />
@@ -118,6 +120,7 @@ const App = () => (
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
+          </Suspense>
         </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
