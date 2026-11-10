@@ -29,6 +29,13 @@
       "when": 1793099449822,
       "tag": "0003_formulario_aep_por_funcao",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794334995061,
+      "tag": "0004_audit_log_store_changed_fields_only",
+      "breakpoints": true
     }
   ]
 }
