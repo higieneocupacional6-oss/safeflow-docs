@@ -5,7 +5,7 @@
 - Civil dates use src/lib/dateOnly.ts for formatting, local defaults and day arithmetic; persist ISO date strings in PostgreSQL date columns and keep audit timestamps as instants to avoid timezone/DST day shifts.
 - LTCAT/Insalubridade descriptions persist on each parent evaluation in both save RPCs; ltcatRiskFields shares exact-risk aliases across row/risk template scopes, and grouping retains assessment type, technique, exposure and description distinctions to prevent field leakage.
 
-- Auth initialization must settle on success, rejected session reads and timeouts, validate identities with the auth server, and ignore stale lookups after newer auth events; storage failures must not revoke other devices or bypass protected routes.
+- Auth initialization must settle on success, rejected session reads and timeouts, validate identities with the auth server, and ignore stale lookups after newer auth events; network/5xx auth failures and same-user token refreshes keep the verified identity (no UI reset), so outages never log users out or bypass protected routes.
 
 - APR-ERGO records reuse documentos with tipo APR-ERGO and sector+function IDs in draft_snapshot (one APR per chosen function; status rascunho until first save, then salvo); company, contract, sectors and functions are read from their existing registries, and no emission workflow is implied by draft creation.
 - Formulário AEP and APR share exposure fields through aepAprCompartilhado over their existing saved records, using exact company/contract/sector/function/activity identities, stable activity keys and imported-field baselines; ambiguous sources and manual conflicts never overwrite values, and workbook calculations remain authoritative.

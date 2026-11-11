@@ -27,7 +27,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let active = true;
+    class TransientAuthError extends Error {}
+    // Network/backend outages (not explicit rejections) must not log the user out.
+    const isRejection = (e: { status?: number; name?: string }) =>
+      !(e.name === "AuthRetryableFetchError" || (typeof e.status === "number" && (e.status === 0 || e.status >= 500)));
     let revision = 0;
+    let currentUserId: string | null = null;
+    let lastGood: Session | null = null;
+    let lastRole: AppRole | null = null;
     const current = (version: number) => active && revision === version;
     const clearIdentity = () => {
       setSession(null);
@@ -49,9 +56,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!candidate) { clearIdentity(); return; }
         // getSession reads local storage; only the auth server can validate the identity.
         let verified = await supabase.auth.getUser(candidate.access_token);
+        if (verified.error && !isRejection(verified.error)) throw new TransientAuthError();
         if (verified.error || !verified.data.user) {
           if (!current(version)) return;
           const renewed = await supabase.auth.refreshSession();
+          if (renewed.error && !isRejection(renewed.error)) throw new TransientAuthError();
           if (renewed.error || !renewed.data.session) throw new Error("Session unavailable");
           candidate = renewed.data.session;
           verified = await supabase.auth.getUser(candidate.access_token);
@@ -64,13 +73,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           supabase.from("profiles").select("nome").eq("user_id", uid).maybeSingle(),
         ]);
         if (!current(version)) return;
+        currentUserId = uid;
+        lastGood = candidate;
         setSession(candidate);
         setUser(verified.data.user);
-        setRole((roleData?.role as AppRole) ?? "usuario");
-        setProfileName(profileData?.nome?.trim() || null);
-      } catch {
-        // Do not revoke other devices or delete stored sessions on transient connectivity failures.
-        if (current(version)) clearIdentity();
+        if (roleData?.role || !lastRole) { lastRole = (roleData?.role as AppRole) ?? "usuario"; }
+        setRole(lastRole);
+        if (profileData) setProfileName(profileData.nome?.trim() || null);
+      } catch (err) {
+        // Transient network/backend failures keep the already-verified identity instead of logging out.
+        if (!current(version)) return;
+        if (err instanceof TransientAuthError && lastGood && currentUserId === candidate?.user.id) {
+          setSession(candidate ?? lastGood);
+          return;
+        }
+        currentUserId = null; lastGood = null; lastRole = null;
+        clearIdentity();
       } finally {
         if (current(version)) {
           window.clearTimeout(timeout);
@@ -79,17 +97,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Token refresh for the same verified user only swaps the token; no re-verification or UI reset.
+      if (newSession && currentUserId === newSession.user.id && (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "USER_UPDATED")) {
+        lastGood = newSession;
+        setSession(newSession);
+        if (event !== "USER_UPDATED") return;
+      }
       const version = ++revision;
       if (!newSession) {
+        currentUserId = null; lastGood = null; lastRole = null;
         clearIdentity();
         window.clearTimeout(timeout);
         setLoading(false);
       } else {
         // Never await another auth method inside the auth listener's locked callback.
-        if (user?.id !== newSession.user.id) {
-        setRole(null);
-        setProfileName(null);
+        if (currentUserId !== newSession.user.id) {
+          setRole(null);
+          setProfileName(null);
         }
         window.setTimeout(() => { void restore(newSession, version); }, 0);
       }

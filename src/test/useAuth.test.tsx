@@ -51,4 +51,13 @@ describe("auth initialization recovery", () => {
     await act(async () => { vi.advanceTimersByTime(15000); });
     expect(screen.getByText("signed-out")).toBeInTheDocument();
   });
+  it("keeps a verified user signed in when the connection drops during a token refresh", async () => {
+    mock.getSession.mockResolvedValue({ data: { session: session("u1") } });
+    render(<AuthProvider><Probe /></AuthProvider>);
+    await waitFor(() => expect(screen.getByText("u1")).toBeInTheDocument());
+    mock.getUser.mockResolvedValue({ data: { user: null }, error: Object.assign(new Error("fetch failed"), { name: "AuthRetryableFetchError", status: 0 }) });
+    act(() => { mock.listener?.("TOKEN_REFRESHED", session("u1")); mock.listener?.("INITIAL_SESSION", session("u1")); });
+    await new Promise(r => setTimeout(r, 20));
+    expect(screen.getByText("u1")).toBeInTheDocument();
+  });
 });
