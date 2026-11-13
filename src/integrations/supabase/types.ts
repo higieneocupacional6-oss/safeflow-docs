@@ -2669,6 +2669,7 @@ export type Database = {
         }
         Returns: Json
       }
+      is_active_member: { Args: never; Returns: boolean }
       psico_get_public_link: { Args: { _token: string }; Returns: Json }
       psico_submit_resposta: {
         Args: { _payload: Json; _token: string }

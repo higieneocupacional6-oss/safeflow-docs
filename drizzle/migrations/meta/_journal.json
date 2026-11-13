@@ -36,6 +36,13 @@
       "when": 1794334995061,
       "tag": "0004_audit_log_store_changed_fields_only",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794597219919,
+      "tag": "0005_restrict_policies_to_active_members",
+      "breakpoints": true
     }
   ]
 }
