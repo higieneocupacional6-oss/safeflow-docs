@@ -93,7 +93,7 @@ export function BaseAepModal({ empresaId, open, onOpenChange, limite = MAX_ARQUI
 
 const ROTULOS: Record<string, string> = {
   gerencia_executiva: "Gerência Executiva", gerencia: "Gerência", local_fisico: "Local Físico", nome_gere: "Nome GERE",
-  codigo_gere: "Código GERE", horario_avaliacao: "Horário da avaliação", jornada: "Jornada de trabalho",
+  codigo_gere: "Código GERE", horario_avaliacao: "Data da avaliação", jornada: "Jornada de trabalho",
   expostos: "Nº de trabalhadores expostos", descricao: "Descrição resumida",
 };
 

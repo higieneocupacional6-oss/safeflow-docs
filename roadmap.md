@@ -1,3 +1,16 @@
+# AET (VALE) — demora ao salvar
+- [x] Consolidar gravações pendentes, eliminar reenvios e espera por atualização de listas; preservar fotos e campos. 30 testes aprovados, build OK.
+- [ ] Validar salvamento/reabertura autenticados: navegador permanece no carregamento de acesso, mesmo com sessão renovada; nenhum documento alterado ou criado. Fila, falhas, fotos e relatório verificados nos testes.
+
+# Formulário AEP — falha de configuração da IA
+- [x] Corrigir dependência da chave ausente usando o serviço de IA já configurado, mantendo modelo, autenticação e dados; função implantada.
+- [x] Validar geração real autenticada na página atual até a prévia, sem aplicar/salvar propostas; zero erros de execução, 22 testes aprovados e build OK.
+
+# AEP / APR-ERGO — campos compartilhados
+- [x] Remover marcações legadas IA validar de todos os textos do PDF APR sem alterar os originais; PDF baixado inspecionado.
+- [x] Compartilhar duração, intensidade e IDs estáveis entre registros AEP/APR do escopo exato; preservar ambiguidades e edições manuais, proteger atualizações concorrentes. Aplicado o vínculo por função que faltava no banco.
+- [x] Testados APR → AEP e AEP → APR com salvamento, recarga, reabertura e igualdade do ID da atividade; 32 testes aprovados, aplicação compilada, PDF conferido, registros temporários removidos sem alterar dados reais.
+
 # Variáveis e datas dos documentos
 - [x] Corrigir persistência e contexto por risco das quatro variáveis no LTCAT e Insalubridade; descrição na avaliação-pai e nos dois RPCs, grupos preservam tipo/técnica/exposição/descrição.
 - [x] Unificar datas civis sem conversão de fuso em formulários, regras e documentos de todos os módulos; banco mantém colunas date e timestamps de auditoria independentes.
@@ -121,3 +134,9 @@
 - [x] Remover limite de cenários e manter vínculos de função/setor sem duplicatas
 - [x] Adicionar Baixar PDF completo da planilha atual com fotos e paginação
 - [x] Validar 18 testes, geração real de 11 cenários e download autenticado; PDF com fotos/texto longo em seis páginas e análise em três páginas, sem cortes; quebra de texto em negrito ajustada; nenhum registro real alterado
+
+# APR-ERGO — listagem consolidada e plano de ação 5W2H
+- [x] Listagem: todos os setores do contrato com suas avaliações em uma página, sem seleção prévia.
+- [x] Botão Plano de Ação abrindo planilha 5W2H consolidada (setor, função, risco, prioridade, resultado esperado, vínculo com a APR).
+- [x] Gerar IA a partir das APR-ERGO salvas do escopo exato, priorizando riscos críticos, sem inventar dados.
+- [x] Edição, salvamento persistente e falha de IA sem perda de dados; testes e validação.

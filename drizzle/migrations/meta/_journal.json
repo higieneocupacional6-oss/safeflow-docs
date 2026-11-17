@@ -22,6 +22,27 @@
       "when": 1792884123870,
       "tag": "0002_persist_ltcat_evaluation_description",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793099449822,
+      "tag": "0003_formulario_aep_por_funcao",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1794334995061,
+      "tag": "0004_audit_log_store_changed_fields_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1794597219919,
+      "tag": "0005_restrict_policies_to_active_members",
+      "breakpoints": true
     }
   ]
 }

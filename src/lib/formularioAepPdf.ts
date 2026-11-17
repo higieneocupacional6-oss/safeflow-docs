@@ -58,7 +58,7 @@ function pagina1(doc: jsPDF, d: FormularioAepPdfDados, fs: number) {
     columnStyles: { 0: { fontStyle: "bold", cellWidth: 48, fillColor: CINZA } },
     body: [
       ["Funções amostradas em campo", d.funcoesNomes.join("; ")],
-      ["Horário da avaliação", i.horario_avaliacao || ""],
+      ["Data da avaliação", i.horario_avaliacao || ""],
       ["Jornada de trabalho", i.jornada || ""],
       ["Nº de trabalhadores expostos", i.expostos || ""],
       ["Descrição resumida", i.descricao || ""],
@@ -152,9 +152,8 @@ function pagina2(doc: jsPDF, d: FormularioAepPdfDados, fs: number) {
     body.push([{ content: titulo, colSpan: 1 + COLUNAS.length, styles: { fillColor: CINZA, fontStyle: "bold" } }]);
     itens.forEach((item) => {
       const codigo = item.split(":")[0];
-      const ia = d.reconhecimento.ia?.[codigo];
       body.push([
-        { content: item + (ia ? (ia.validar ? "  [IA · validar]" : "  [IA · informado]") : ""), styles: { halign: "left" } },
+        { content: item, styles: { halign: "left" } },
         ...COLUNAS.map((c) => d.reconhecimento.marcas[codigo]?.[c] || ""),
       ]);
     });

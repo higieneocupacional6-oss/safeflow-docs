@@ -21,6 +21,7 @@ import { AetValeFotoIa } from "@/components/aet-vale/AetValeFotoIa";
 import { aplicarAnotacaoFoto, substituirFotoVale } from "../../supabase/functions/_shared/aetValeFotos";
 import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
+import { AetValeSaveQueue } from "@/lib/aetValeSaveQueue";
 import { fatoresVale, riscosAprValeAltos, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
@@ -103,16 +104,65 @@ export default function AetValeRegistro() {
     catch { toast.error("Não foi possível ler a foto selecionada."); }
   };
 
+  // Autosave: every change (texts, AI analyses, annotated images, plans) is
+  // persisted to the same AET record; writes are serialized so none is lost.
+  const [autoStatus, setAutoStatus] = useState<"salvo" | "pendente" | "salvando" | "erro">("salvo");
+  const fila = useRef<AetValeSaveQueue<AetValeDados> | null>(null);
+  const ultimoSalvo = useRef<AetValeDados | null>(null);
+  const pendenteRef = useRef<AetValeDados | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const contextoRef = useRef({ registro: registroQuery.data, snap, setor: setorQuery.data, funcao: funcaoQuery.data });
+  contextoRef.current = { registro: registroQuery.data, snap, setor: setorQuery.data, funcao: funcaoQuery.data };
+  if (!fila.current) fila.current = new AetValeSaveQueue(async (d, marcarSalvo, alterado) => {
+    const { registro, snap: atual, setor, funcao } = contextoRef.current;
+    if (!registro) throw new Error("Registro indisponível");
+    const patch: Record<string, unknown> = {};
+    if (alterado) {
+      patch.draft_snapshot = { ...atual, dados: d };
+      patch.nome_documento = `AET (VALE) — ${setor?.nome_setor || "Setor"} — ${d.cargo || funcao?.nome_funcao || "Função"}`;
+    }
+    if (marcarSalvo) patch.status = "salvo";
+    const { data, error } = await supabase.from("documentos").update(patch as never)
+      .eq("id", registro.id).eq("tipo", "AET-VALE").eq("empresa_id", registro.empresa_id || "").eq("contrato_id", registro.contrato_id || "")
+      .select("id").single();
+    if (error || !data) throw error || new Error("O registro não foi atualizado");
+    ultimoSalvo.current = d;
+    if (pendenteRef.current === d) pendenteRef.current = null;
+    queryClient.setQueryData(["aet-vale-registro", registro.id], { ...registro, ...patch });
+  });
+  const persistir = (d: AetValeDados, marcarSalvo: boolean) => {
+    if (!registroQuery.data || !fila.current) return Promise.resolve(false);
+    setAutoStatus("salvando");
+    return fila.current.save(d, marcarSalvo).then(ok => {
+      if (ok && pendenteRef.current === d) pendenteRef.current = null;
+      setAutoStatus(ok ? (pendenteRef.current ? "pendente" : "salvo") : "erro");
+      return ok;
+    });
+  };
+  useEffect(() => {
+    if (!dados || !registroQuery.data) return;
+    if (ultimoSalvo.current === null) { ultimoSalvo.current = dados; fila.current?.initialize(dados, registroQuery.data.status === "salvo"); return; }
+    if (dados === ultimoSalvo.current) return;
+    pendenteRef.current = dados; setAutoStatus("pendente");
+    timerRef.current = setTimeout(() => { timerRef.current = null; void persistir(dados, false); }, 1500);
+    return () => { if (timerRef.current) clearTimeout(timerRef.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dados]);
+  useEffect(() => {
+    const aviso = (e: BeforeUnloadEvent) => { if (pendenteRef.current) { void persistir(pendenteRef.current, false); e.preventDefault(); } };
+    window.addEventListener("beforeunload", aviso);
+    return () => { window.removeEventListener("beforeunload", aviso); if (pendenteRef.current) void persistir(pendenteRef.current, false); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [registroId]);
+
   const salvar = async () => {
     if (!dados || !registroQuery.data || salvando) return;
+    if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
     setSalvando(true);
     try {
-      const nome = `AET (VALE) — ${setorQuery.data?.nome_setor || "Setor"} — ${dados.cargo || funcaoQuery.data?.nome_funcao || "Função"}`;
-      const { error } = await supabase.from("documentos")
-        .update({ draft_snapshot: { ...snap, setor_id: snap.setor_id, funcao_id: snap.funcao_id, dados }, status: "salvo", nome_documento: nome })
-        .eq("id", registroQuery.data.id).eq("tipo", "AET-VALE").eq("empresa_id", registroQuery.data.empresa_id || "").eq("contrato_id", registroQuery.data.contrato_id || "");
-      if (error) throw error;
-      await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registro", registroId] }), queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
+      if (!(await persistir(dados, true))) throw new Error();
+      void queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] });
+      void queryClient.invalidateQueries({ queryKey: ["documentos"] });
       toast.success("Registro AET (VALE) salvo");
     } catch { toast.error("Não foi possível salvar. Tente novamente."); }
     finally { setSalvando(false); }
@@ -133,7 +183,9 @@ export default function AetValeRegistro() {
       {etapa === 1 && <Button variant="outline" onClick={() => setIaAberta(true)}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}
       <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
+      <span className="self-center text-xs text-muted-foreground" aria-live="polite">{autoStatus === "salvo" ? "Tudo salvo" : autoStatus === "salvando" ? "Salvando…" : autoStatus === "pendente" ? "Alterações pendentes" : "Erro ao salvar automaticamente"}</span>
       <Button variant="outline" size="icon" aria-label="Baixar PDF" title="Baixar PDF" disabled={aepQuery.isLoading || aprQuery.isLoading || aepQuery.isError || aprQuery.isError} onClick={() => {
+        void persistir(dados, false);
         try { baixarBlobApr(gerarPdfVale(dados, registroQuery.data?.empresa_nome || "", fatores, riscosAep), nomePdfVale(registroQuery.data?.empresa_nome || "", funcaoQuery.data?.nome_funcao || dados.cargo)); }
         catch { toast.error("Não foi possível gerar o PDF. Seus dados foram mantidos."); }
       }}><Download className="w-4 h-4" /></Button>
@@ -203,9 +255,9 @@ export default function AetValeRegistro() {
 
     <section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">
       <h2 className="font-heading font-semibold">Registro fotográfico</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{dados.fotos.map((foto, idx) => <div key={idx} className="space-y-2">
+      <div className="flex gap-4 overflow-x-auto pb-2">{dados.fotos.map((foto, idx) => <div key={idx} className="space-y-2 shrink-0" style={{ width: "12.68cm" }}>
         <input ref={(el) => { inputsFoto.current[idx] = el; }} type="file" accept="image/*" className="hidden" onChange={(e) => { void escolherFoto(idx, e.target.files?.[0]); e.target.value = ""; }} />
-        <button type="button" onClick={() => (foto.imagem ? setFotoAberta(foto.imagem) : inputsFoto.current[idx]?.click())} className="w-full rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden" style={{ aspectRatio: "5.27 / 3.96" }} aria-label={`Foto ${idx + 1}`}>
+        <button type="button" onClick={() => (foto.imagem ? setFotoAberta(foto.imagem) : inputsFoto.current[idx]?.click())} className="rounded-md border border-dashed border-border bg-muted/40 flex items-center justify-center overflow-hidden" style={{ width: "12.68cm", height: "9.32cm" }} aria-label={`Foto ${idx + 1}`}>
           {foto.imagem ? <img src={foto.imagem} alt={`Foto ${idx + 1}`} className="w-full h-full object-contain" /> : <span className="flex flex-col items-center gap-2 text-muted-foreground text-xs"><ImagePlus className="w-6 h-6" />Adicionar foto</span>}
         </button>
         {foto.imagem && <Button type="button" variant="outline" size="sm" onClick={() => inputsFoto.current[idx]?.click()}>Substituir foto</Button>}
@@ -218,10 +270,10 @@ export default function AetValeRegistro() {
       <h2 className="font-heading font-semibold">Verbalização</h2>
       <div className="space-y-2"><Label>Verbalização do Empregado</Label><Textarea rows={4} value={dados.verbalizacao} onChange={(e) => set("verbalizacao", e.target.value)} /></div>
     </section>
-    </> : etapa === 2 ? <AetValeEtapa2 registroId={registroId} dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
+    </> : etapa === 2 ? <AetValeEtapa2 registroId={registroId} dados={dados.etapa2} aep={riscosAep} onChange={v => set("etapa2", v)} onFoto={async (idx, file) => {
       try { const imagem = await lerFoto(file); setDados(d => d ? { ...d, etapa2: { ...d.etapa2, fotos: d.etapa2.fotos.map((f, i) => i === idx ? substituirFotoVale(f, imagem) : f) } } : d); }
       catch { toast.error("Não foi possível ler a foto selecionada."); }
-    }} /> : <AetValePlano dados={dados.etapa2} fatores={fatores} onChange={v => set("etapa2", v)} />}
+    }} /> : <AetValePlano dados={dados.etapa2} fatores={riscosAep} onChange={v => set("etapa2", v)} />}
 
     <div className="flex justify-between">
       {etapa > 1 && <Button variant="outline" onClick={() => irPara(etapa - 1)}><ArrowLeft className="w-4 h-4 mr-2" />Anterior</Button>}

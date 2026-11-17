@@ -4,6 +4,7 @@ import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { compactarContexto, gerarJsonEmFluxo, limitarTexto } from "../_shared/aiStream.ts";
 import { exigirSessao } from "../_shared/sessao.ts";
+import { chamarFormularioAepGateway } from "../_shared/formularioAepGateway.ts";
 
 const marcaSchema = { type: "string", description: "Número, 'X' ou vazio" };
 const linhaSchema = (cols: string[]) => ({
@@ -73,8 +74,8 @@ Deno.serve(async (req) => {
     const sb = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_ANON_KEY")!, { global: { headers: { Authorization: auth } } });
     if (!(await exigirSessao(sb, auth))) return json({ error: "Sessão expirada. Entre novamente." }, 401);
 
-    const key = Deno.env.get("GEMINI_API_KEY");
-    if (!key) return json({ error: "GEMINI_API_KEY não configurada. Crie a chave em https://aistudio.google.com/apikey e cadastre o secret nas Edge Functions do Supabase." }, 500);
+    const key = Deno.env.get("LOVABLE_API_KEY")?.trim();
+    if (!key) return json({ error: "O serviço de IA não está configurado. Seus dados foram mantidos.", retryable: false }, 500);
 
     const body = await req.json();
     const relato = typeof body.relato === "string" ? body.relato.trim() : "";
@@ -104,7 +105,9 @@ ${JSON.stringify(body.criterios ?? {}, null, 1)}
 ${limitarTexto(relato, 30_000)}`,
     });
 
-    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA });
+    return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: PROMPT, userContent: content, schemaName: "formulario_aep", schema: SCHEMA,
+      chamar: () => chamarFormularioAepGateway({ key, systemPrompt: PROMPT, userContent: content, schema: SCHEMA, signal: req.signal }),
+    });
   } catch (e) {
     if ((e as Error)?.name === "AbortError") return new Response(null, { status: 499, headers: corsHeaders });
     console.error(e);

@@ -6,6 +6,10 @@ type CabecalhoPdf = Record<string, string>;
 type ColunaPdf = { key: keyof LinhaApr; titulo: string; w: string };
 type CorPdf = [number, number, number];
 export const TITULO_PDF_APR = "ANEXO 3 – ANÁLISE PRELIMINAR DE RISCOS ERGONÔMICOS (APR-ERGO)";
+/** Legacy validation badges may have been copied into any saved text field. Originals stay intact. */
+export function textoPdfApr(texto: string): string {
+  return texto.replace(/\[\s*IA\s*[·:—-]?\s*validar\s*\]/gi, "").trim();
+}
 export function nomePdfApr(setor: string, empresa: string) {
   const seguro = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9_-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "");
   return `APR_ERGO_${seguro(setor) || "SETOR"}_${seguro(empresa) || "Empresa"}_2026.pdf`;
@@ -13,6 +17,9 @@ export function nomePdfApr(setor: string, empresa: string) {
 
 /** Vector text and explicit row continuations keep all content, not screenshots or clipped A4 slices. */
 export function gerarPdfApr(cab: CabecalhoPdf, linhas: LinhaApr[], colunas: ColunaPdf[], cores: Record<string, { fundo: CorPdf; texto: CorPdf }> = {}): Blob {
+  cab = Object.fromEntries(Object.entries(cab).map(([k, v]) => [k, textoPdfApr(v)]));
+  linhas = linhas.map((l) => Object.fromEntries(Object.entries(l).map(([k, v]) => [k, typeof v === "string" ? textoPdfApr(v) : v])) as LinhaApr);
+  colunas = colunas.map((c) => ({ ...c, titulo: textoPdfApr(c.titulo) }));
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a3", compress: true });
   const margem = 10, largura = doc.internal.pageSize.getWidth() - margem * 2;
   const soma = colunas.reduce((n, c) => n + parseFloat(c.w), 0);

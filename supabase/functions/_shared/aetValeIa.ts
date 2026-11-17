@@ -167,6 +167,10 @@ export type Etapa2Vale = { textos: Record<string, string>; checks: Record<string
 export function etapa2Vazia(): Etapa2Vale { return { textos: {}, checks: {}, fotos: [{ imagem: "", descricao: "" }, { imagem: "", descricao: "" }], diagnosticos: {}, plano: [] }; }
 export function mesclarEtapa2(v?: Partial<Etapa2Vale>): Etapa2Vale { const b = etapa2Vazia(); return { ...b, ...v, textos: { ...v?.textos }, checks: { ...v?.checks }, diagnosticos: { ...v?.diagnosticos }, fotos: v?.fotos?.length ? v.fotos : b.fotos, plano: Array.isArray(v?.plano) ? v.plano : [] }; }
 const norm = (v: unknown) => String(v || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+/** Diagnosis only for Dados da AEP factors classified exactly as Alto. */
+export function diagnosticoVale(f: { classificacao: string }) { return norm(f.classificacao) === "alto"; }
+/** Action plan only for Dados da AEP factors (Alto/Muito Alto). */
+export function planoVale<T extends { fator_id: string }>(plano: T[], aep: { id: string }[]) { const ids = new Set(aep.map(f => f.id)); return plano.filter(a => ids.has(a.fator_id)); }
 export function exigeDiagnostico(v: string) { return ["medio", "alto", "muito alto", "critico", "moderado"].includes(norm(v)); }
 const chaveFator = (...v: unknown[]) => { let h = 2166136261; for (const c of v.map(norm).join("|") ) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return (h >>> 0).toString(36); };
 export function fatoresVale(aprs: any[], aeps: any[], alvo: { setorId: string; funcaoId: string; funcaoNome: string; setorNome?: string; ghe?: string }): FatorVale[] {
