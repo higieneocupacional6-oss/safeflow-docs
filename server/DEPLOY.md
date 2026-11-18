@@ -5,6 +5,14 @@
 - Node.js 20+
 - PostgreSQL 15 com o banco `segcrm`
 - Reverse proxy com HTTPS (Nginx ou Caddy)
+- Ferramentas nativas para compilar `argon2` (Linux):
+
+```bash
+sudo apt-get update
+sudo apt-get install -y build-essential python3
+```
+
+Sem `make`/`g++`, o `npm install` em `server/` falha e o TypeScript não encontra `express` / tipagens.
 
 ## Desenvolvimento local
 
@@ -26,12 +34,12 @@ Health checks: `GET /health` (processo), `GET /health/ready` (API + banco), `GET
 ## Preparação (VPS)
 
 ```bash
-cd /opt/safeflow-docs
+cd /var/www/safeflow-docs   # ou o caminho do projeto na VPS
+sudo apt-get update && sudo apt-get install -y build-essential python3
 npm install
-cd server && npm install && cd ..
+cd server && rm -rf node_modules && npm install && cd ..
 cp server/.env.example server/.env
 # Edite server/.env com PG*, CORS_ORIGIN (URL pública HTTPS), COOKIE_SECURE=true, DATA_DIR
-# Em desenvolvimento o servidor já aceita localhost em qualquer porta do Vite.
 ```
 
 Aplique as migrações de autenticação se ainda não estiverem no `segcrm`:
