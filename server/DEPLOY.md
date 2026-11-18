@@ -92,23 +92,18 @@ O Express escuta em `HOST:PORT` e serve:
 - API em `/api`, `/health`, `/admin`
 - SPA em `FRONTEND_DIST` (padrão `../dist`)
 
-## Nginx (exemplo)
+## Nginx
 
-```nginx
-server {
-  listen 443 ssl;
-  server_name app.seudominio.com;
-  # ssl_certificate ...;
+Arquivo pronto: [`server/nginx/safeflow.segnorte.com.br.conf`](nginx/safeflow.segnorte.com.br.conf)
 
-  location / {
-    proxy_pass http://127.0.0.1:4000;
-    proxy_http_version 1.1;
-    proxy_set_header Host $host;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-  }
-}
+```bash
+sudo cp server/nginx/safeflow.segnorte.com.br.conf /etc/nginx/sites-available/
+sudo ln -sf /etc/nginx/sites-available/safeflow.segnorte.com.br.conf /etc/nginx/sites-enabled/
+sudo nginx -t && sudo systemctl reload nginx
+sudo certbot --nginx -d safeflow.segnorte.com.br
 ```
+
+No `server/.env`: `CORS_ORIGIN=https://safeflow.segnorte.com.br` e `COOKIE_SECURE=true`.
 
 ## Dados de arquivo
 
