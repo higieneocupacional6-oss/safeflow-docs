@@ -8,6 +8,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
 import { GlobalRealtimeSync } from "@/hooks/useGlobalRealtime";
+import { PwaUpdateToast } from "@/components/PwaUpdateToast";
 
 const Index = lazy(() => import("./pages/Index"));
 import Login from "./pages/Login";
@@ -68,6 +69,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <PwaUpdateToast />
       <BrowserRouter>
         <AuthProvider>
           <GlobalRealtimeSync />

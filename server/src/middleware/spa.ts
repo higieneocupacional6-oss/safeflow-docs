@@ -32,6 +32,18 @@ export const createSpaMiddleware = (): RequestHandler[] => {
     index: false,
     fallthrough: true,
     maxAge: env.nodeEnv === "production" ? "1h" : 0,
+    setHeaders(res, filePath) {
+      // SW e manifest precisam ser revalidados para o PWA receber updates.
+      const base = path.basename(filePath);
+      if (
+        base === "sw.js" ||
+        base === "registerSW.js" ||
+        base.endsWith(".webmanifest") ||
+        /^workbox-.*\.js$/i.test(base)
+      ) {
+        res.setHeader("Cache-Control", "no-cache");
+      }
+    },
   });
 
   const spaFallback: RequestHandler = (req, res, next) => {
