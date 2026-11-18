@@ -66,16 +66,26 @@ Na raiz (gera `dist/` + compila o server):
 
 ```bash
 npm run build:vps
-npm run start:vps
 ```
 
-Equivalente manual:
+### PM2 (recomendado na VPS)
 
 ```bash
-npm run build
-cd server
-npm run build
-NODE_ENV=production npm run start
+cd /var/www/safeflow-docs/server
+mkdir -p logs
+# Confirme PORT=4000 e demais variáveis em server/.env
+pm2 start ecosystem.config.cjs
+pm2 save
+pm2 startup
+pm2 status
+curl -s http://127.0.0.1:4000/health/ready
+```
+
+Sem PM2:
+
+```bash
+npm run start:vps
+# ou: cd server && NODE_ENV=production npm run start:prod
 ```
 
 O Express escuta em `HOST:PORT` e serve:
