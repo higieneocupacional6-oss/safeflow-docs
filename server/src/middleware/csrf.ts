@@ -1,14 +1,9 @@
 import type { RequestHandler } from "express";
 import { CSRF_COOKIE, setCsrfCookie } from "../auth/cookies.js";
 import { createOpaqueToken, safeEqual } from "../auth/tokens.js";
-import { env } from "../config/env.js";
+import { isAllowedOrigin, isAllowedReferer } from "../config/origins.js";
 
 const mutating = new Set(["POST", "PUT", "PATCH", "DELETE"]);
-
-const originAllowed = (origin: string | undefined) => {
-  if (!origin) return false;
-  return env.corsOrigins.includes(origin);
-};
 
 export const issueCsrfToken = (req: Parameters<RequestHandler>[0], res: Parameters<RequestHandler>[1]) => {
   const existing = req.cookies?.[CSRF_COOKIE] as string | undefined;
@@ -27,8 +22,8 @@ export const requireCsrf: RequestHandler = (req, res, next) => {
 
   const origin = req.header("origin");
   const referer = req.header("referer");
-  const originOk = originAllowed(origin);
-  const refererOk = Boolean(referer && env.corsOrigins.some((allowed) => referer.startsWith(allowed)));
+  const originOk = isAllowedOrigin(origin);
+  const refererOk = isAllowedReferer(referer);
   if (!originOk && !refererOk) {
     res.status(403).json({ error: "Origem não permitida." });
     return;

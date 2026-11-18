@@ -1,40 +1,22 @@
 import { useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
 
-/**
- * Subscribes to Postgres realtime changes for a list of tables and
- * invalidates matching React Query caches so every screen stays in sync.
- *
- * Usage: useRealtimeSync([
- *   { table: "riscos", queryKey: ["riscos"] },
- *   { table: "unidades", queryKey: ["unidades"] },
- * ]);
- */
-export function useRealtimeSync(
-  subscriptions: { table: string; queryKey: unknown[] }[],
-  channelName = "global-cadastros-sync"
-) {
+/** Sem postgres_changes: invalida queries ao focar a janela. */
+export function useRealtimeSync(_tables?: string[]) {
   const queryClient = useQueryClient();
 
   useEffect(() => {
-    const channel = supabase.channel(channelName);
-
-    subscriptions.forEach(({ table, queryKey }) => {
-      (channel as any).on(
-        "postgres_changes",
-        { event: "*", schema: "public", table },
-        () => {
-          queryClient.invalidateQueries({ queryKey });
-        }
-      );
-    });
-
-    channel.subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
+    const refresh = () => {
+      void queryClient.invalidateQueries();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refresh();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [queryClient]);
 }

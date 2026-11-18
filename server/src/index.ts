@@ -1,10 +1,14 @@
 import { createApp } from "./app.js";
 import { env } from "./config/env.js";
 import { closePool } from "./db/pool.js";
+import { ensureDataDir } from "./files/storage.js";
 
+await ensureDataDir();
 const app = createApp();
 const server = app.listen(env.port, env.host, () => {
-  console.log(`API disponível em http://${env.host}:${env.port}`);
+  console.log(`SegCRM em http://${env.host}:${env.port}`);
+  console.log(`Frontend: ${env.frontendDist}`);
+  console.log(`Arquivos: ${env.dataDir}`);
 });
 
 let closing = false;

@@ -42,11 +42,11 @@ export default function Psicossocial() {
     },
   });
 
-  const { data: contratos = [] } = useQuery({
+  const { data: contratos = [], isError: erroContratos } = useQuery({
     queryKey: ["psico-contratos"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("contratos").select("id, empresa_id, numero_contrato, objeto:escopo_contrato, local_trabalho");
+        .from("contratos").select("id, empresa_id, numero_contrato, escopo_contrato, local_trabalho").order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -162,12 +162,16 @@ export default function Psicossocial() {
             </div>
             <div className="grid gap-1.5">
               <Label>Contrato *</Label>
-              <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId}>
-                <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
+              <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || erroContratos}>
+                <SelectTrigger><SelectValue placeholder={erroContratos ? "Falha ao carregar contratos" : "Selecione o contrato"} /></SelectTrigger>
                 <SelectContent>
-                  {contratosEmpresa.map((c: any) => (
+                  {erroContratos ? (
+                    <SelectItem value="__erro" disabled>Não foi possível carregar os contratos</SelectItem>
+                  ) : contratosEmpresa.length === 0 ? (
+                    <SelectItem value="__vazio" disabled>Nenhum contrato nesta empresa</SelectItem>
+                  ) : contratosEmpresa.map((c: any) => (
                     <SelectItem key={c.id} value={c.id}>
-                      {c.numero_contrato || c.objeto || "Contrato"}
+                      {c.numero_contrato || c.escopo_contrato || "Contrato"}
                     </SelectItem>
                   ))}
                 </SelectContent>

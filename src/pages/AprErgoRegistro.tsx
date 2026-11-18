@@ -89,16 +89,33 @@ export default function AprErgoRegistro() {
       let setorNome = "";
       let setorArquivo = "";
       let cargos: string[] = [];
-      if (typeof snap.setor_id === "string") {
-        const { data: s, error: setorError } = await supabase.from("setores").select("nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("id", snap.setor_id).eq("empresa_id", data.empresa_id || "").eq("contrato_id", data.contrato_id || "").maybeSingle();
+      if (typeof snap.setor_id === "string" && data.empresa_id && data.contrato_id) {
+        const { data: s, error: setorError } = await supabase
+          .from("setores")
+          .select("id, nome_setor, ghe_ges, funcoes(id, nome_funcao)")
+          .eq("id", snap.setor_id)
+          .eq("empresa_id", data.empresa_id)
+          .eq("contrato_id", data.contrato_id)
+          .maybeSingle();
         if (setorError) throw setorError;
         setorNome = s ? `${s.ghe_ges ? `${s.ghe_ges} — ` : ""}${s.nome_setor}` : "";
         setorArquivo = s?.nome_setor || "";
         const fid = typeof snap.funcao_id === "string" ? snap.funcao_id : null;
-        const ids = fid ? [fid] : Array.isArray(snap.funcao_ids) ? snap.funcao_ids : null;
+        const ids = fid ? [fid] : Array.isArray(snap.funcao_ids) ? snap.funcao_ids.filter((x): x is string => typeof x === "string") : null;
         cargos = [...new Set((s?.funcoes || []).filter((f) => !ids || ids.includes(f.id)).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
-      const compartilhadas = await carregarExposicoes({ empresa: data.empresa_id || "", contrato: data.contrato_id || "", setor: String(snap.setor_id || ""), funcao: String(snap.funcao_id || "") }, data.id);
+      let compartilhadas: Awaited<ReturnType<typeof carregarExposicoes>> = [];
+      try {
+        compartilhadas = await carregarExposicoes({
+          empresa: data.empresa_id || "",
+          contrato: data.contrato_id || "",
+          setor: typeof snap.setor_id === "string" ? snap.setor_id : "",
+          funcao: typeof snap.funcao_id === "string" ? snap.funcao_id : "",
+        }, data.id);
+      } catch {
+        // Campos compartilhados AEP são auxiliares; não bloqueiam a abertura do registro.
+        compartilhadas = [];
+      }
       return { ...data, snap, setorNome, setorArquivo, cargos, compartilhadas };
     },
   });

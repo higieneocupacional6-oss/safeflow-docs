@@ -248,6 +248,10 @@ export const setInitialPassword = async (email: string, password: string, client
   return result.rows[0] as { id: string; email: string };
 };
 
+/** Define app.current_user_id na conexão atual (SET LOCAL / is_local=true). */
 export const setAppUserContext = async (client: PoolClient, userId: string | null) => {
-  await client.query(`SELECT set_config('app.current_user_id', $1, true)`, [userId ?? ""]);
+  // Terceiro argumento true = válido só nesta transação (mesma conexão do INSERT).
+  await client.query(`SELECT set_config('app.current_user_id', $1, true)`, [
+    userId && userId.length > 0 ? userId : "",
+  ]);
 };

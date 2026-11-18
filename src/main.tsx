@@ -1,7 +1,7 @@
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
-import { SupabaseConfigGate } from "./components/SupabaseConfigGate";
+import { ApiConfigGate } from "./components/ApiConfigGate";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -11,8 +11,8 @@ if (!root) {
 
 createRoot(root).render(
   <AppErrorBoundary>
-    <SupabaseConfigGate>
+    <ApiConfigGate>
       <App />
-    </SupabaseConfigGate>
+    </ApiConfigGate>
   </AppErrorBoundary>,
 );

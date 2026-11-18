@@ -6,6 +6,15 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 CREATE SCHEMA IF NOT EXISTS app;
 
+-- Lido pela API via SET LOCAL app.current_user_id (ver setAppUserContext).
+CREATE OR REPLACE FUNCTION app.current_user_id()
+RETURNS uuid
+LANGUAGE sql
+VOLATILE
+AS $$
+  SELECT NULLIF(current_setting('app.current_user_id', true), '')::uuid
+$$;
+
 CREATE TABLE IF NOT EXISTS app.users (
   id uuid PRIMARY KEY,
   email text NOT NULL,

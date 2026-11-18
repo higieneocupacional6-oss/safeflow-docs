@@ -77,7 +77,7 @@ export default function Usuarios() {
         if (error) throw error;
         toast.success("Usuário atualizado");
       } else {
-        if (form.password.length < 6) { toast.error("Senha mínima 6 caracteres"); setSaving(false); return; }
+        if (form.password.length < 8) { toast.error("Senha mínima 8 caracteres"); setSaving(false); return; }
         const { error } = await supabase.functions.invoke("manage-users", {
           body: { action: "create", nome: form.nome.trim(), email: form.email.trim(), password: form.password, role: form.role },
         });
@@ -96,7 +96,7 @@ export default function Usuarios() {
   const handleResetPassword = async (row: UsuarioRow) => {
     const password = window.prompt(`Informe a nova senha inicial para ${row.nome}:`);
     if (!password) return;
-    if (password.length < 6) return toast.error("A senha deve ter pelo menos 6 caracteres");
+    if (password.length < 8) return toast.error("A senha deve ter pelo menos 8 caracteres");
     const { error } = await supabase.functions.invoke("manage-users", {
       body: { action: "reset_password", user_id: row.user_id, password },
     });
@@ -106,7 +106,6 @@ export default function Usuarios() {
 
   const handleDelete = async (row: UsuarioRow) => {
     if (!confirm(`Excluir usuário ${row.nome}? O acesso será removido.`)) return;
-    // Remove profile + roles (auth.users só pode ser excluído via service role)
     const { error: rErr } = await supabase.from("user_roles").delete().eq("user_id", row.user_id);
     const { error: pErr } = await supabase.from("profiles").update({ ativo: false }).eq("user_id", row.user_id);
     if (rErr || pErr) { toast.error("Erro ao excluir"); return; }

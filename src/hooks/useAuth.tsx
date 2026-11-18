@@ -1,12 +1,12 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { Session, User } from "@supabase/supabase-js";
-import { supabase } from "@/integrations/supabase/client";
+import { apiRequest, checkApiHealth, clearApiCsrf, setApiCsrf } from "@/lib/apiClient";
+import type { AuthUser } from "@/lib/db/client";
 
 type AppRole = "admin" | "usuario";
 
 interface AuthContextValue {
-  session: Session | null;
-  user: User | null;
+  session: { user: AuthUser } | null;
+  user: AuthUser | null;
   role: AppRole | null;
   loading: boolean;
   isAdmin: boolean;
@@ -19,150 +19,86 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState<Session | null>(null);
-  const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<AppRole | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [profileName, setProfileName] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
-    class TransientAuthError extends Error {}
-    // Network/backend outages (not explicit rejections) must not log the user out.
-    const isRejection = (e: { status?: number; name?: string }) =>
-      !(e.name === "AuthRetryableFetchError" || (typeof e.status === "number" && (e.status === 0 || e.status >= 500)));
-    let revision = 0;
-    let currentUserId: string | null = null;
-    let lastGood: Session | null = null;
-    let lastRole: AppRole | null = null;
-    const current = (version: number) => active && revision === version;
-    const clearIdentity = () => {
-      setSession(null);
-      setUser(null);
-      setRole(null);
-      setProfileName(null);
-    };
-    // Storage/broker or network failures must never leave the protected shell loading forever.
     const timeout = window.setTimeout(() => {
       if (!active) return;
-      revision += 1;
-      clearIdentity();
+      setUser(null);
       setLoading(false);
     }, 15000);
 
-    const restore = async (candidate: Session | null, version: number) => {
-      try {
-        if (!current(version)) return;
-        if (!candidate) { clearIdentity(); return; }
-        // getSession reads local storage; only the auth server can validate the identity.
-        let verified = await supabase.auth.getUser(candidate.access_token);
-        if (verified.error && !isRejection(verified.error)) throw new TransientAuthError();
-        if (verified.error || !verified.data.user) {
-          if (!current(version)) return;
-          const renewed = await supabase.auth.refreshSession();
-          if (renewed.error && !isRejection(renewed.error)) throw new TransientAuthError();
-          if (renewed.error || !renewed.data.session) throw new Error("Session unavailable");
-          candidate = renewed.data.session;
-          verified = await supabase.auth.getUser(candidate.access_token);
-        }
-        if (verified.error || !verified.data.user) throw new Error("Session unavailable");
-        if (!current(version)) return;
-        const uid = verified.data.user.id;
-        const [{ data: roleData }, { data: profileData }] = await Promise.all([
-          supabase.from("user_roles").select("role").eq("user_id", uid).order("role", { ascending: true }).limit(1).maybeSingle(),
-          supabase.from("profiles").select("nome").eq("user_id", uid).maybeSingle(),
-        ]);
-        if (!current(version)) return;
-        currentUserId = uid;
-        lastGood = candidate;
-        setSession(candidate);
-        setUser(verified.data.user);
-        if (roleData?.role || !lastRole) { lastRole = (roleData?.role as AppRole) ?? "usuario"; }
-        setRole(lastRole);
-        if (profileData) setProfileName(profileData.nome?.trim() || null);
-      } catch (err) {
-        // Transient network/backend failures keep the already-verified identity instead of logging out.
-        if (!current(version)) return;
-        if (err instanceof TransientAuthError && lastGood && currentUserId === candidate?.user.id) {
-          setSession(candidate ?? lastGood);
-          return;
-        }
-        currentUserId = null; lastGood = null; lastRole = null;
-        clearIdentity();
-      } finally {
-        if (current(version)) {
-          window.clearTimeout(timeout);
-          setLoading(false);
-        }
-      }
-    };
-
-    const { data: sub } = supabase.auth.onAuthStateChange((event, newSession) => {
-      // Token refresh for the same verified user only swaps the token; no re-verification or UI reset.
-      if (newSession && currentUserId === newSession.user.id && (event === "TOKEN_REFRESHED" || event === "SIGNED_IN" || event === "USER_UPDATED")) {
-        lastGood = newSession;
-        setSession(newSession);
-        if (event !== "USER_UPDATED") return;
-      }
-      const version = ++revision;
-      if (!newSession) {
-        currentUserId = null; lastGood = null; lastRole = null;
-        clearIdentity();
-        window.clearTimeout(timeout);
-        setLoading(false);
-      } else {
-        // Never await another auth method inside the auth listener's locked callback.
-        if (currentUserId !== newSession.user.id) {
-          setRole(null);
-          setProfileName(null);
-        }
-        window.setTimeout(() => { void restore(newSession, version); }, 0);
-      }
-    });
-
-    const initialVersion = revision;
     void (async () => {
       try {
-        const { data, error } = await supabase.auth.getSession();
-        if (error) throw error;
-        await restore(data.session, initialVersion);
+        await checkApiHealth();
+        const me = await apiRequest<{ user: AuthUser }>("/api/auth/me");
+        if (!active) return;
+        setUser(me.user);
       } catch {
-        if (current(initialVersion)) {
-          clearIdentity();
+        if (active) setUser(null);
+      } finally {
+        if (active) {
           window.clearTimeout(timeout);
           setLoading(false);
         }
       }
     })();
 
-    return () => { active = false; window.clearTimeout(timeout); sub.subscription.unsubscribe(); };
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+    };
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) return { error: error.message };
-
-    // Verifica se está ativo
-    const { data: { user: u } } = await supabase.auth.getUser();
-    if (u) {
-      const { data: profile } = await supabase
-        .from("profiles").select("ativo").eq("user_id", u.id).maybeSingle();
-      if (profile && profile.ativo === false) {
-        await supabase.auth.signOut();
+    try {
+      await apiRequest("/api/auth/csrf");
+      const result = await apiRequest<{ user: AuthUser; csrfToken?: string }>("/api/auth/login", {
+        method: "POST",
+        csrf: true,
+        body: { email, password },
+      });
+      if (result.csrfToken) setApiCsrf(result.csrfToken);
+      if (!result.user.ativo) {
+        await apiRequest("/api/auth/logout", { method: "POST", csrf: true });
+        clearApiCsrf();
         return { error: "Usuário inativo. Contate o administrador." };
       }
+      setUser(result.user);
+      return { error: null };
+    } catch (error) {
+      return { error: error instanceof Error ? error.message : "Falha no login." };
     }
-    return { error: null };
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
+    try {
+      await apiRequest("/api/auth/logout", { method: "POST", csrf: true });
+    } catch {
+      /* ignore */
+    }
+    clearApiCsrf();
+    setUser(null);
   };
 
-  const mustChangePassword = user?.user_metadata?.must_change_password === true;
+  const role = (user?.role as AppRole | undefined) ?? null;
 
   return (
-    <AuthContext.Provider value={{ session, user, role, loading, isAdmin: role === "admin", mustChangePassword, profileName, signIn, signOut }}>
+    <AuthContext.Provider
+      value={{
+        session: user ? { user } : null,
+        user,
+        role,
+        loading,
+        isAdmin: role === "admin",
+        mustChangePassword: user?.mustChangePassword === true,
+        profileName: user?.nome?.trim() || null,
+        signIn,
+        signOut,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

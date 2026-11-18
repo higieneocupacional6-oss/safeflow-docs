@@ -3,6 +3,7 @@ import { fileURLToPath } from "node:url";
 import dotenv from "dotenv";
 
 const serverRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
+const repoRoot = path.resolve(serverRoot, "..");
 dotenv.config({ path: path.join(serverRoot, ".env") });
 
 const read = (name: string) => {
@@ -41,6 +42,14 @@ const cookieSecure = read("COOKIE_SECURE")
   ? read("COOKIE_SECURE") === "true"
   : nodeEnv === "production" || cookieSameSite === "none";
 
+const frontendDistRaw = read("FRONTEND_DIST") ?? path.join(repoRoot, "dist");
+const frontendDist = path.isAbsolute(frontendDistRaw)
+  ? frontendDistRaw
+  : path.resolve(serverRoot, frontendDistRaw);
+
+const dataDirRaw = read("DATA_DIR") ?? path.join(serverRoot, "data", "files");
+const dataDir = path.isAbsolute(dataDirRaw) ? dataDirRaw : path.resolve(serverRoot, dataDirRaw);
+
 export const env = {
   nodeEnv,
   port: portInteger("PORT", 4000),
@@ -56,6 +65,11 @@ export const env = {
   sessionTtlHours: positiveInteger("SESSION_TTL_HOURS", 12),
   loginMaxFailures: positiveInteger("LOGIN_MAX_FAILURES", 5),
   loginMaxFailuresWindowMinutes: positiveInteger("LOGIN_LOCK_MINUTES", 15),
+  frontendDist,
+  dataDir,
+  geminiApiKey: read("GEMINI_API_KEY"),
+  geminiModel: read("GEMINI_MODEL") ?? "gemini-3.8-flash",
+  geminiFallbackModel: read("GEMINI_FALLBACK_MODEL"),
   pg: {
     host: read("PGHOST"),
     port: read("PGPORT") ? portInteger("PGPORT", 5432) : 5432,
