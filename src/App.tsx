@@ -27,6 +27,7 @@ const AetValeRegistro = lazy(() => import("./pages/AetValeRegistro"));
 const AetValePlanoContrato = lazy(() => import("./pages/AetValePlanoContrato"));
 const SetoresFuncoes = lazy(() => import("./pages/SetoresFuncoes"));
 const Usuarios = lazy(() => import("./pages/Usuarios"));
+const AiDiagnostico = lazy(() => import("./pages/AiDiagnostico"));
 const NotFound = lazy(() => import("./pages/NotFound"));
 const ControleDocumentos = lazy(() => import("./pages/ControleDocumentos"));
 const Psicossocial = lazy(() => import("./pages/Psicossocial"));
@@ -120,6 +121,7 @@ const App = () => (
             <Route path="/documentos/aep/novo" element={<Protected><AepWizard /></Protected>} />
             <Route path="/documentos/aep/editar/:documentoId" element={<Protected><AepWizard /></Protected>} />
             <Route path="/usuarios" element={<Protected admin><Usuarios /></Protected>} />
+            <Route path="/diagnostico-ia" element={<Protected admin><AiDiagnostico /></Protected>} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </Suspense>

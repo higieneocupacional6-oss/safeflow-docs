@@ -7,16 +7,33 @@ export const CAMPOS_RESUMO_APR = ["atividades", "ambiente"] as const;
 export type ResumoApr = Record<typeof CAMPOS_RESUMO_APR[number], string>;
 export type PropostaApr = { linhas: LinhaApr[]; fontes_aep: string[]; observacoes: string; cabecalho?: ResumoApr };
 
+/**
+ * Normaliza valores de campo APR para string antes de .trim().
+ * Arrays (ex.: medidas do schema Gemini) viram lista unida por "; ".
+ * Objetos e nulos não são serializados — retornam "".
+ */
+export function textoCampoApr(v: unknown): string {
+  if (v == null) return "";
+  if (typeof v === "string") return v;
+  if (typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map((item) => textoCampoApr(item)).filter(Boolean).join("; ");
+  return "";
+}
+
 export function aplicarResumoApr<T extends ResumoApr>(atual: T, proposta: Partial<ResumoApr> | undefined, substituir: boolean): T {
   const resultado = { ...atual };
   for (const k of CAMPOS_RESUMO_APR) {
-    const valor = proposta?.[k]?.trim();
-    if (valor && (substituir || !atual[k].trim())) resultado[k] = valor;
+    const valor = textoCampoApr(proposta?.[k]).trim();
+    if (valor && (substituir || !textoCampoApr(atual[k]).trim())) resultado[k] = valor;
   }
   return resultado;
 }
 export function contarConflitosResumoApr(atual: ResumoApr, proposta?: Partial<ResumoApr>): number {
-  return CAMPOS_RESUMO_APR.filter((k) => atual[k].trim() && proposta?.[k]?.trim() && atual[k].trim() !== proposta[k]?.trim()).length;
+  return CAMPOS_RESUMO_APR.filter((k) => {
+    const a = textoCampoApr(atual[k]).trim();
+    const p = textoCampoApr(proposta?.[k]).trim();
+    return a && p && a !== p;
+  }).length;
 }
 /** Conduta administrativa fixa (matriz de conduta da APR-HO); acompanha sempre a classificação calculada. */
 export const CONDUTAS_APR: Record<string, string> = {
@@ -42,13 +59,21 @@ export function sincronizarCondutaApr(recomendacoes: string, classificacao: stri
 export function aplicarPropostaApr(atuais: LinhaApr[], propostas: LinhaApr[], substituir: boolean): LinhaApr[] {
   return Array.from({ length: Math.max(atuais.length, propostas.length) }, (_, i) => {
     const atual = atuais[i]; const nova = propostas[i];
-    const campos = Object.fromEntries(CAMPOS_APR.map((k) => [k, nova?.[k]?.trim() && (substituir || !atual?.[k]?.trim()) ? nova[k] : atual?.[k] || ""])) as Record<typeof CAMPOS_APR[number], string>;
-    const vinculo = atual?.circunstancia.trim() && !substituir ? atual : nova?.funcao_id || nova?.funcao_ids?.length ? nova : atual;
+    const campos = Object.fromEntries(CAMPOS_APR.map((k) => {
+      const proposta = textoCampoApr(nova?.[k]).trim();
+      const existente = textoCampoApr(atual?.[k]).trim();
+      return [k, proposta && (substituir || !existente) ? proposta : (atual?.[k] != null && typeof atual[k] === "string" ? atual[k] : existente)];
+    })) as Record<typeof CAMPOS_APR[number], string>;
+    const vinculo = textoCampoApr(atual?.circunstancia).trim() && !substituir ? atual : nova?.funcao_id || nova?.funcao_ids?.length ? nova : atual;
     return recalcularLinhaApr({ ...campos, fotos: atual?.fotos || [], funcao_id: vinculo?.funcao_id, funcao_ids: vinculo?.funcao_ids, funcao_nome: vinculo?.funcao_nome, setor_id: vinculo?.setor_id, atividade_id: vinculo?.atividade_id, atividade_numero: vinculo?.atividade_numero, codigo_aep: vinculo?.codigo_aep, exposicao_compartilhada: vinculo?.exposicao_compartilhada });
   });
 }
 export function contarConflitosApr(atuais: LinhaApr[], propostas: LinhaApr[]): number {
-  return propostas.reduce((n, l, i) => n + CAMPOS_APR.filter((k) => atuais[i]?.[k]?.trim() && l[k]?.trim() && atuais[i][k].trim() !== l[k].trim()).length, 0);
+  return propostas.reduce((n, l, i) => n + CAMPOS_APR.filter((k) => {
+    const a = textoCampoApr(atuais[i]?.[k]).trim();
+    const p = textoCampoApr(l[k]).trim();
+    return a && p && a !== p;
+  }).length, 0);
 }
 /** No quantity cap: exact function/sector identity and distinct technical circumstances only. */
 export function cenariosValidosApr<T extends { funcao_id?: string; funcao_ids?: string[]; setor_id?: string; circunstancia: string; situacao: string; exigencia: string }>(linhas: T[], setorId: string, funcaoIds: string[]): T[] {

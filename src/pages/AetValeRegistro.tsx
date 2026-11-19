@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Download, ImagePlus, Loader2, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { CORES_NIVEL_RISCO } from "@/lib/aepRisco";
 import { dadosVaziosAetVale, ORIGENS_DEMANDA, type AetValeDados } from "@/lib/aetVale";
+import { rotaAetValeEscopo } from "@/lib/aetValeNav";
 import { AetValeEtapa2 } from "@/components/aet-vale/AetValeEtapa2";
 import { AetValeIaModal } from "@/components/aet-vale/AetValeIaModal";
 import { AetValePlano } from "@/components/aet-vale/AetValePlano";
@@ -23,6 +24,8 @@ import { gerarPdfVale, nomePdfVale } from "@/lib/aetValePdf";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
 import { AetValeSaveQueue } from "@/lib/aetValeSaveQueue";
 import { fatoresVale, riscosAprValeAltos, mesclarEtapa2, aplicarPropostaVale } from "../../supabase/functions/_shared/aetValeIa";
+
+type RetornoLista = { empresaId?: string; contratoId?: string; setores?: string[] };
 
 const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 8 * 1024 * 1024) {
@@ -39,6 +42,7 @@ const lerFoto = (file: File) => new Promise<string>((resolve, reject) => {
 export default function AetValeRegistro() {
   const { registroId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const [dados, setDados] = useState<AetValeDados | null>(null);
   const [salvando, setSalvando] = useState(false);
@@ -46,6 +50,7 @@ export default function AetValeRegistro() {
   const [iaAberta, setIaAberta] = useState(false);
   const [fotoAberta, setFotoAberta] = useState<string | null>(null);
   const inputsFoto = useRef<(HTMLInputElement | null)[]>([]);
+  const retornoState = (location.state || {}) as RetornoLista;
 
   const registroQuery = useQuery({ queryKey: ["aet-vale-registro", registroId], enabled: !!registroId, queryFn: async () => {
     const { data, error } = await supabase.from("documentos").select("id, empresa_id, contrato_id, empresa_nome, draft_snapshot, status").eq("id", registroId || "").eq("tipo", "AET-VALE").single();
@@ -155,6 +160,19 @@ export default function AetValeRegistro() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [registroId]);
 
+  const voltarParaLista = () => {
+    const registro = registroQuery.data;
+    const setores = [
+      ...(Array.isArray(retornoState.setores) ? retornoState.setores : []),
+      snap.setor_id || "",
+    ];
+    navigate(rotaAetValeEscopo({
+      empresaId: registro?.empresa_id || retornoState.empresaId,
+      contratoId: registro?.contrato_id || retornoState.contratoId,
+      setores,
+    }));
+  };
+
   const salvar = async () => {
     if (!dados || !registroQuery.data || salvando) return;
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -164,6 +182,7 @@ export default function AetValeRegistro() {
       void queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] });
       void queryClient.invalidateQueries({ queryKey: ["documentos"] });
       toast.success("Registro AET (VALE) salvo");
+      voltarParaLista();
     } catch { toast.error("Não foi possível salvar. Tente novamente."); }
     finally { setSalvando(false); }
   };
@@ -173,22 +192,30 @@ export default function AetValeRegistro() {
   const fatores = fatoresVale(aprQuery.data || [], aepQuery.data || [], { setorId: snap.setor_id || "", funcaoId: snap.funcao_id || "", funcaoNome: funcaoQuery.data?.nome_funcao || "", setorNome: setorQuery.data?.nome_setor, ghe: setorQuery.data?.ghe_ges || "" });
   const irPara = (v: number) => { setEtapa(v); window.scrollTo({ top: 0, behavior: "auto" }); };
 
+  const baixarPdf = () => {
+    if (!dados || !registroQuery.data) return;
+    void persistir(dados, false);
+    try {
+      baixarBlobApr(
+        gerarPdfVale(dados, registroQuery.data.empresa_nome || "", fatores, riscosAep),
+        nomePdfVale(registroQuery.data.empresa_nome || "", funcaoQuery.data?.nome_funcao || dados.cargo),
+      );
+      voltarParaLista();
+    } catch { toast.error("Não foi possível gerar o PDF. Seus dados foram mantidos."); }
+  };
+
   if (registroQuery.isLoading || !dados) {
-    if (registroQuery.isError) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro AET (VALE).</p><Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}>Voltar</Button></div>;
+    if (registroQuery.isError) return <div className="py-8 space-y-4"><p>Não foi possível abrir este registro AET (VALE).</p><Button variant="outline" onClick={() => navigate(rotaAetValeEscopo({ empresaId: retornoState.empresaId, contratoId: retornoState.contratoId, setores: retornoState.setores }))}>Voltar</Button></div>;
     return <Loader2 className="w-6 h-6 animate-spin mx-auto my-12" />;
   }
 
   return <div className="max-w-5xl">
     <PageHeader title="AET (VALE) — Registro" description={`${registroQuery.data?.empresa_nome || ""}`} actions={<div className="flex gap-2">
       {etapa === 1 && <Button variant="outline" onClick={() => setIaAberta(true)}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}
-      <Button variant="outline" onClick={() => navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
+      <Button variant="outline" onClick={voltarParaLista}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>
       <Button onClick={() => void salvar()} disabled={salvando}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button>
       <span className="self-center text-xs text-muted-foreground" aria-live="polite">{autoStatus === "salvo" ? "Tudo salvo" : autoStatus === "salvando" ? "Salvando…" : autoStatus === "pendente" ? "Alterações pendentes" : "Erro ao salvar automaticamente"}</span>
-      <Button variant="outline" size="icon" aria-label="Baixar PDF" title="Baixar PDF" disabled={aepQuery.isLoading || aprQuery.isLoading || aepQuery.isError || aprQuery.isError} onClick={() => {
-        void persistir(dados, false);
-        try { baixarBlobApr(gerarPdfVale(dados, registroQuery.data?.empresa_nome || "", fatores, riscosAep), nomePdfVale(registroQuery.data?.empresa_nome || "", funcaoQuery.data?.nome_funcao || dados.cargo)); }
-        catch { toast.error("Não foi possível gerar o PDF. Seus dados foram mantidos."); }
-      }}><Download className="w-4 h-4" /></Button>
+      <Button variant="outline" size="icon" aria-label="Baixar PDF" title="Baixar PDF" disabled={aepQuery.isLoading || aprQuery.isLoading || aepQuery.isError || aprQuery.isError} onClick={baixarPdf}><Download className="w-4 h-4" /></Button>
     </div>} />
 
     {etapa === 1 ? <><section className="rounded-lg border border-border bg-card p-4 space-y-4 mb-4">

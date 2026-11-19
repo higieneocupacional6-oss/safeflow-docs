@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Download, FileCheck2, Loader2, Save, Sparkles, Square } from "lucide-react";
 import { toast } from "sonner";
@@ -14,9 +14,13 @@ import { invocarGeracaoIa } from "@/lib/aiEdgeStream";
 import { baixarBlobApr } from "@/lib/aprErgoPdf";
 import { renderPlanoValeTemplate } from "@/lib/aetValePlanoTemplate";
 import { cronogramaVazio, mesclarAcoesMensais, type CronogramaVale, type AcaoMensalVale } from "../../supabase/functions/_shared/aetValeCronograma";
+import { rotaAetValeEscopo } from "@/lib/aetValeNav";
 
 export default function AetValePlanoContrato() {
-  const {empresaId,contratoId}=useParams(); const navigate=useNavigate(); const qc=useQueryClient();
+  const {empresaId,contratoId}=useParams(); const navigate=useNavigate(); const location=useLocation(); const qc=useQueryClient();
+  const setoresRetorno = Array.isArray((location.state as { setores?: string[] } | null)?.setores)
+    ? (location.state as { setores: string[] }).setores
+    : [];
   const [plano,setPlano]=useState<CronogramaVale|null>(null), [salvando,setSalvando]=useState(false), [gerando,setGerando]=useState(false), [exportando,setExportando]=useState(false), [proposta,setProposta]=useState<AcaoMensalVale[]|null>(null), [validado,setValidado]=useState(false);
   const controle=useRef<AbortController|null>(null); const documentoId=useRef<string|null>(null); const versao=useRef<number|null>(null);
   const contexto=useQuery({queryKey:["aet-vale-plano",empresaId,contratoId],enabled:!!empresaId && !!contratoId,queryFn:async()=>{
@@ -56,7 +60,7 @@ export default function AetValePlanoContrato() {
   if(contexto.isError) return <div className="py-8"><p>Não foi possível abrir o plano de ação.</p><Button onClick={()=>void contexto.refetch()}>Tentar novamente</Button></div>;
   if(!plano || !contexto.data) return <Loader2 className="w-6 h-6 animate-spin m-8" />;
   const candidatos=contexto.data.templates.filter(t=>/aet|ergon/i.test(t.title)); const templates=candidatos.length ? candidatos : contexto.data.templates;
-  return <div><PageHeader title="AET (VALE) — Plano de ação" description={`${contexto.data.empresa.razao_social} — ${contexto.data.contrato.numero_contrato || ""}`} actions={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>navigate("/documentos/aet-vale")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>{gerando ? <Button variant="outline" onClick={()=>controle.current?.abort()}><Square className="w-4 h-4 mr-2" />Parar</Button> : <Button variant="outline" onClick={()=>void gerar()}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}<Button disabled={salvando} onClick={()=>void salvar()}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button></div>} />
+  return <div><PageHeader title="AET (VALE) — Plano de ação" description={`${contexto.data.empresa.razao_social} — ${contexto.data.contrato.numero_contrato || ""}`} actions={<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>navigate(rotaAetValeEscopo({ empresaId, contratoId, setores: setoresRetorno }))}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>{gerando ? <Button variant="outline" onClick={()=>controle.current?.abort()}><Square className="w-4 h-4 mr-2" />Parar</Button> : <Button variant="outline" onClick={()=>void gerar()}><Sparkles className="w-4 h-4 mr-2" />Gerar IA</Button>}<Button disabled={salvando} onClick={()=>void salvar()}>{salvando ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}Salvar</Button></div>} />
     {gerando && <p className="text-sm flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" />Analisando avaliações salvas…</p>}
     <AetValeCronograma dados={plano} onChange={alterar} />
     <section className="py-6 space-y-4 border-t border-border"><h2 className="font-heading font-semibold">Template AET</h2><Select value={plano.templateId} onValueChange={v=>alterar({...plano,templateId:v})}><SelectTrigger className="max-w-lg" aria-label="Template AET"><SelectValue placeholder="Escolher template" /></SelectTrigger><SelectContent>{templates.map(t=><SelectItem key={t.id} value={t.id}>{t.title}</SelectItem>)}</SelectContent></Select>{!templates.length && <p className="text-sm text-muted-foreground">Nenhum template cadastrado.</p>}<div className="flex flex-wrap gap-2"><Button variant="outline" disabled={!plano.templateId || exportando} onClick={()=>void exportar(false)}><FileCheck2 className="w-4 h-4 mr-2" />Validar documento</Button><Button disabled={!validado || exportando} onClick={()=>void exportar(true)}><Download className="w-4 h-4 mr-2" />Gerar documento</Button></div></section>

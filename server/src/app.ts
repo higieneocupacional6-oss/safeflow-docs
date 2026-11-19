@@ -8,6 +8,7 @@ import { errorHandler, notFound } from "./middleware/errorHandler.js";
 import { createSpaMiddleware } from "./middleware/spa.js";
 import { adminDatabaseRouter } from "./routes/adminDatabase.js";
 import { aiRouter } from "./routes/ai.js";
+import { aiDiagnosticsRouter } from "./routes/aiDiagnostics.js";
 import { authRouter } from "./routes/auth.js";
 import { dataRouter } from "./routes/data.js";
 import { filesRouter } from "./routes/files.js";
@@ -38,6 +39,7 @@ export const createApp = () => {
   app.use(filesRouter);
   app.use(usersRouter);
   app.use(aiRouter);
+  app.use(aiDiagnosticsRouter);
   app.use(adminDatabaseRouter);
   for (const middleware of createSpaMiddleware()) {
     app.use(middleware);

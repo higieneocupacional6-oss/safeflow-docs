@@ -1,6 +1,6 @@
 import {
   Building2, FileText, LayoutTemplate, Database, Users, FolderTree, Brain,
-  ShieldCheck, FileSignature, ClipboardList, ClipboardCheck, FlaskConical,
+  ShieldCheck, FileSignature, ClipboardList, ClipboardCheck, FlaskConical, Activity,
 } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import { useAuth } from "@/hooks/useAuth";
@@ -50,6 +50,7 @@ const grupos: { label: string; items: Item[] }[] = [
       { title: "Templates", url: "/templates", icon: LayoutTemplate, end: true },
       { title: "Templates Psicossociais", url: "/templates/avaliacoes-psicossociais", icon: ClipboardList },
       { title: "Usuários", url: "/usuarios", icon: ShieldCheck, admin: true },
+      { title: "Diagnóstico IA", url: "/diagnostico-ia", icon: Activity, admin: true },
     ],
   },
 ];

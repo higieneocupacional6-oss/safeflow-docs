@@ -68,8 +68,16 @@ export const env = {
   frontendDist,
   dataDir,
   geminiApiKey: read("GEMINI_API_KEY"),
-  geminiModel: read("GEMINI_MODEL") ?? "gemini-3.8-flash",
-  geminiFallbackModel: read("GEMINI_FALLBACK_MODEL"),
+  geminiModel: read("GEMINI_MODEL") ?? "gemini-3.1-flash-lite",
+  geminiFallbackModel: read("GEMINI_FALLBACK_MODEL") ?? "gemini-3.5-flash-lite",
+  /** Contingência — só servidor; usados se o Gemini falhar (cota/429/indisponível). */
+  groqApiKey: read("GROQ_API_KEY"),
+  // llama-3.3-70b-versatile foi descontinuado na API Groq; default atual compatível com chat+json.
+  groqModel: read("GROQ_MODEL") ?? "openai/gpt-oss-120b",
+  openRouterApiKey: read("OPENROUTER_API_KEY"),
+  openRouterModel: read("OPENROUTER_MODEL") ?? "openai/gpt-4o-mini",
+  openRouterHttpReferer: read("OPENROUTER_HTTP_REFERER"),
+  openRouterAppTitle: read("OPENROUTER_APP_TITLE") ?? "SegCRM",
   pg: {
     host: read("PGHOST"),
     port: read("PGPORT") ? portInteger("PGPORT", 5432) : 5432,

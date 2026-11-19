@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { BaseAepModal } from "@/components/formulario-aep/FormularioAepIa";
 import { AprErgoIaModal } from "@/components/AprErgoIaModal";
-import { aplicarPropostaApr, aplicarResumoApr, recalcularLinhaApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
+import { aplicarPropostaApr, aplicarResumoApr, recalcularLinhaApr, textoCampoApr, MAX_BASE_APR, type PropostaApr } from "../../supabase/functions/_shared/aprErgoIa";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../../supabase/functions/_shared/aprErgoPlanilha";
 import { baixarBlobApr, gerarPdfApr, nomePdfApr } from "@/lib/aprErgoPdf";
 
@@ -164,9 +164,10 @@ export default function AprErgoRegistro() {
   };
 
   const aplicarIa = (res: PropostaApr, substituir: boolean) => {
-    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas, substituir));
+    setLinhas((atuais) => aplicarPropostaApr(atuais, res.linhas || [], substituir));
     setCab((atual) => atual ? aplicarResumoApr(atual, res.cabecalho, substituir) : atual);
-    setFontesIa((ids) => [...new Set([...ids, ...res.fontes_aep])]);
+    const fontes = Array.isArray(res.fontes_aep) ? res.fontes_aep.filter((id): id is string => typeof id === "string") : [];
+    setFontesIa((ids) => [...new Set([...ids, ...fontes])]);
     toast.success("Análise aplicada. Revise e salve a APR-ERGO.");
   };
 
@@ -259,7 +260,7 @@ export default function AprErgoRegistro() {
                 </td>
               : c.key === "medidas" ? <td key={c.key} className={`${cel} p-0 relative`}>
                   <textarea ref={ajustarAltura} rows={7} aria-label={`${c.titulo} linha ${i + 1}`} title={l.medidas} value={l.medidas} onChange={(e) => { setLinha(i, "medidas", e.target.value); ajustarAltura(e.currentTarget); }} className={`${inp} min-h-[100px] pr-4`} />
-                  <select aria-label={`Adicionar medida de controle linha ${i + 1}`} title="Adicionar medida da aba Medidas de Controle" value="" onChange={(e) => e.target.value && setLinha(i, "medidas", l.medidas.trim() ? `${l.medidas.trim()}; ${e.target.value}` : e.target.value)} className="absolute top-0 right-0 w-4 h-4 text-[10px] bg-muted cursor-pointer">
+                  <select aria-label={`Adicionar medida de controle linha ${i + 1}`} title="Adicionar medida da aba Medidas de Controle" value="" onChange={(e) => { if (!e.target.value) return; const base = textoCampoApr(l.medidas).trim(); setLinha(i, "medidas", base ? `${base}; ${e.target.value}` : e.target.value); }} className="absolute top-0 right-0 w-4 h-4 text-[10px] bg-muted cursor-pointer">
                     <option value="">+</option>{[...new Set(MEDIDAS_APR)].map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
                 </td>

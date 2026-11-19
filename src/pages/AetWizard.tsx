@@ -2598,10 +2598,11 @@ export default function AetWizard() {
                           p.resultado_esperado ? `Resultado esperado: ${p.resultado_esperado}` : "",
                         ].filter(Boolean).join(" | ");
                         return {
-                          o_que: String(p.o_que || ""),
+                          // Aceita aliases do modelo (acao/prazo_dias) sem alterar o formulário.
+                          o_que: String(p.o_que || p.acao || ""),
                           como: [String(p.como || ""), extras].filter(Boolean).join("\n"),
                           responsavel: String(p.responsavel || ""),
-                          prazo: String(p.prazo || ""),
+                          prazo: String(p.prazo || p.prazo_dias || ""),
                         };
                       });
                       patch.plano_acao = mergeArr(setor.plano_acao, next);

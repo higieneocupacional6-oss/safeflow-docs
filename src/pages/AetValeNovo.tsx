@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Building2, ClipboardList, Download, CalendarRange, FileSignature, FolderTree, Loader2 } from "lucide-react";
 import { toast } from "sonner";
@@ -16,6 +16,7 @@ import { sortByGes } from "@/lib/sortGes";
 import { selecionarSetorAep } from "@/lib/aepContexto";
 import { setoresAprErgoDoContrato, rotuloStatusAprErgo } from "@/lib/aprErgo";
 import { baixarAetValeSalva } from "@/lib/aetValeDownload";
+import { setoresDaQuery } from "@/lib/aetValeNav";
 import {
   criarRegistroAetVale, funcaoDoRegistroAetVale, riscosAepAltos, setorDoRegistroAetVale,
   type AetValeSetor,
@@ -23,10 +24,30 @@ import {
 
 export default function AetValeNovo() {
   const navigate = useNavigate();
+  const [params, setParams] = useSearchParams();
   const queryClient = useQueryClient();
-  const [empresaId, setEmpresaId] = useState("");
-  const [contratoId, setContratoId] = useState("");
-  const [selecionados, setSelecionados] = useState<string[]>([]);
+  const empresaId = params.get("empresa") || "";
+  const contratoId = params.get("contrato") || "";
+  const selecionados = setoresDaQuery(params.get("setores"));
+  const setEscopo = (patch: { empresa?: string; contrato?: string; setores?: string[] }) => {
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (patch.empresa !== undefined) {
+        if (patch.empresa) next.set("empresa", patch.empresa); else next.delete("empresa");
+        next.delete("contrato");
+        next.delete("setores");
+      }
+      if (patch.contrato !== undefined) {
+        if (patch.contrato) next.set("contrato", patch.contrato); else next.delete("contrato");
+        next.delete("setores");
+      }
+      if (patch.setores !== undefined) {
+        const ids = [...new Set(patch.setores.filter(Boolean))];
+        if (ids.length) next.set("setores", ids.join(",")); else next.delete("setores");
+      }
+      return next;
+    }, { replace: true });
+  };
   const [temporarios, setTemporarios] = useState<string[]>([]);
   const [modal, setModal] = useState(false);
   const [funcSel, setFuncSel] = useState<Record<string, string[]>>({});
@@ -34,6 +55,9 @@ export default function AetValeNovo() {
   const salvandoRef = useRef(false);
   const [baixando, setBaixando] = useState<string | null>(null);
   const baixar = async (id: string) => { setBaixando(id); try { await baixarAetValeSalva(id, empresaId, contratoId); } catch (e) { toast.error(e instanceof Error ? e.message : "Não foi possível baixar a avaliação."); } finally { setBaixando(null); } };
+  const abrirRegistro = (id: string) => navigate(`/documentos/aet-vale/registro/${id}`, {
+    state: { empresaId, contratoId, setores: selecionados },
+  });
 
   const empresasQuery = useQuery({ queryKey: ["aet-vale-empresas"], queryFn: async () => {
     const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
@@ -62,7 +86,7 @@ export default function AetValeNovo() {
   ], "aet-vale-cadastro");
 
   const setores = (setoresQuery.data || []) as AetValeSetor[];
-  const mudarEscopo = () => { setSelecionados([]); setTemporarios([]); setFuncSel({}); };
+  const mudarEscopoLocal = () => { setTemporarios([]); setFuncSel({}); };
 
   const funcaoIndicada = (setor: AetValeSetor, funcaoId: string) => {
     const encontrado = selecionarSetorAep(aepQuery.data || [], { setorId: setor.id, funcaoIds: [funcaoId] });
@@ -110,7 +134,7 @@ export default function AetValeNovo() {
       }
       await Promise.all([queryClient.invalidateQueries({ queryKey: ["aet-vale-registros"] }), queryClient.invalidateQueries({ queryKey: ["documentos"] })]);
       toast.success("Registro(s) AET (VALE) criado(s)");
-      if (ids[0]) navigate(`/documentos/aet-vale/registro/${ids[0]}`);
+      if (ids[0]) abrirRegistro(ids[0]);
     } catch { toast.error("Não foi possível criar o registro. Tente novamente."); }
     finally { salvandoRef.current = false; setSalvando(null); }
   };
@@ -120,10 +144,10 @@ export default function AetValeNovo() {
     <PageHeader title="AET (VALE)" description="Seleção de empresa, contrato, setores e funções para análise ergonômica" actions={<Button variant="outline" onClick={() => navigate("/documentos")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>} />
     <div className="max-w-3xl space-y-5 mb-6">
       <div className="space-y-2"><Label className="flex items-center gap-2"><Building2 className="w-4 h-4" />Empresa</Label>
-        <Select value={empresaId} disabled={empresasQuery.isLoading || !!salvando} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); mudarEscopo(); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
+        <Select value={empresaId} disabled={empresasQuery.isLoading || !!salvando} onValueChange={(v) => { mudarEscopoLocal(); setEscopo({ empresa: v }); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
       </div>
       {empresaId && <div className="space-y-2"><Label className="flex items-center gap-2"><FileSignature className="w-4 h-4" />Contrato</Label>
-        <Select value={contratoId} disabled={contratosQuery.isLoading || !!salvando} onValueChange={(v) => { setContratoId(v); mudarEscopo(); }}><SelectTrigger aria-label="Contrato"><SelectValue placeholder="Selecione o contrato" /></SelectTrigger><SelectContent>{(contratosQuery.data || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}</SelectItem>)}{contratosQuery.data?.length === 0 && <SelectItem value="vazio" disabled>Nenhum contrato cadastrado</SelectItem>}</SelectContent></Select>
+        <Select value={contratoId} disabled={contratosQuery.isLoading || !!salvando} onValueChange={(v) => { mudarEscopoLocal(); setEscopo({ contrato: v }); }}><SelectTrigger aria-label="Contrato"><SelectValue placeholder="Selecione o contrato" /></SelectTrigger><SelectContent>{(contratosQuery.data || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}</SelectItem>)}{contratosQuery.data?.length === 0 && <SelectItem value="vazio" disabled>Nenhum contrato cadastrado</SelectItem>}</SelectContent></Select>
       </div>}
       {contratoId && <Button variant="outline" disabled={!!salvando || setoresQuery.isLoading} onClick={() => { setTemporarios(selecionados); setModal(true); }}><FolderTree className="w-4 h-4 mr-2" />Selecionar setores</Button>}
       {erro && <div className="text-sm text-destructive flex flex-wrap gap-3 items-center">Não foi possível carregar os cadastros ou registros.<Button variant="outline" onClick={() => { void empresasQuery.refetch(); if (empresaId) void contratosQuery.refetch(); if (contratoId) { void setoresQuery.refetch(); void aepQuery.refetch(); void registrosQuery.refetch(); } }}>Tentar novamente</Button></div>}
@@ -152,15 +176,15 @@ export default function AetValeNovo() {
         {registros.length > 0 && <div><h3 className="text-xs font-medium text-muted-foreground mb-2">Registros AET (VALE)</h3>
           <ul className="divide-y divide-border">{registros.map((r) => {
             const nome = s.funcoes.find((f) => f.id === funcaoDoRegistroAetVale(r.draft_snapshot))?.nome_funcao || "Função não identificada";
-            return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => navigate(`/documentos/aet-vale/registro/${r.id}`)}>{nome}</Button><div className="flex items-center gap-2"><Badge variant="outline" className="shrink-0">{rotuloStatusAprErgo(r.status)}</Badge><Button variant="ghost" size="icon" aria-label={`Baixar registro ${nome}`} title="Baixar PDF" disabled={r.status !== "salvo" || !!baixando} onClick={() => void baixar(r.id)}><Download className="w-4 h-4" /></Button></div></li>;
+            return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => abrirRegistro(r.id)}>{nome}</Button><div className="flex items-center gap-2"><Badge variant="outline" className="shrink-0">{rotuloStatusAprErgo(r.status)}</Badge><Button variant="ghost" size="icon" aria-label={`Baixar registro ${nome}`} title="Baixar PDF" disabled={r.status !== "salvo" || !!baixando} onClick={() => void baixar(r.id)}><Download className="w-4 h-4" /></Button></div></li>;
           })}</ul>
         </div>}
       </section>;
     })}</div>
-    {contratoId && <div className="flex flex-col items-end gap-2 py-6"><Button disabled={!!salvando || !selecionados.length} onClick={() => { const setor = setores.find(s => selecionados.includes(s.id) && (funcSel[s.id] || []).length); if (setor) void registrar(setor); else toast.error("Selecione uma função para avançar."); }}>Avançar<ArrowRight className="w-4 h-4 ml-2" /></Button><Button variant="outline" aria-label="Plano de ação mensal" title="Plano de ação mensal" onClick={() => navigate(`/documentos/aet-vale/plano/${empresaId}/${contratoId}`)}><CalendarRange className="w-4 h-4 mr-2" />Plano de ação</Button></div>}
+    {contratoId && <div className="flex flex-col items-end gap-2 py-6"><Button disabled={!!salvando || !selecionados.length} onClick={() => { const setor = setores.find(s => selecionados.includes(s.id) && (funcSel[s.id] || []).length); if (setor) void registrar(setor); else toast.error("Selecione uma função para avançar."); }}>Avançar<ArrowRight className="w-4 h-4 ml-2" /></Button><Button variant="outline" aria-label="Plano de ação mensal" title="Plano de ação mensal" onClick={() => navigate(`/documentos/aet-vale/plano/${empresaId}/${contratoId}`, { state: { setores: selecionados } })}><CalendarRange className="w-4 h-4 mr-2" />Plano de ação</Button></div>}
     <Dialog open={modal} onOpenChange={setModal}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Selecione os setores</DialogTitle></DialogHeader>
       <div className="max-h-80 overflow-y-auto space-y-2">{setores.map((s) => <label key={s.id} className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer"><Checkbox checked={temporarios.includes(s.id)} onCheckedChange={(checked) => setTemporarios((ids) => checked === true ? [...ids.filter((id) => id !== s.id), s.id] : ids.filter((id) => id !== s.id))} /><span className="text-sm break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</span></label>)}{setores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor cadastrado neste contrato</p>}</div>
-      <DialogFooter><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={() => { setSelecionados(temporarios); setModal(false); }}>OK</Button></DialogFooter>
+      <DialogFooter><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={() => { setEscopo({ setores: temporarios }); setModal(false); }}>OK</Button></DialogFooter>
     </DialogContent></Dialog>
   </div>;
 }

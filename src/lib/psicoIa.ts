@@ -139,13 +139,6 @@ export function montarContexto(args: {
 
 export async function gerarTextosIa(contexto: ContextoIa): Promise<SaidaIaPsico> {
   const baseTecnica = await carregarBaseTecnica();
-  const { data, error } = await supabase.functions.invoke("psico-generate", {
-    body: { contexto, baseTecnica },
-  });
-  if (error) {
-    const msg = (await (error as any)?.context?.json?.().catch(() => null))?.error;
-    throw new Error(msg || error.message || "Falha ao consultar a IA.");
-  }
-  if ((data as any)?.error) throw new Error((data as any).error);
-  return (data as any).output as SaidaIaPsico;
+  const { invocarGeracaoIa } = await import("@/lib/aiEdgeStream");
+  return invocarGeracaoIa<SaidaIaPsico>("psico-generate", { contexto, baseTecnica });
 }

@@ -19,6 +19,23 @@ describe("APR-ERGO IA", () => {
     expect(aplicarPropostaApr([atual], [linha({ circunstancia: "IA", tipo: "Fisico" })], false)[0]).toMatchObject({ circunstancia: "Manual", tipo: "Fisico", fotos: ["foto"] });
     expect(contarConflitosApr([atual], [linha({ circunstancia: "IA" })])).toBe(1);
   });
+  it("normaliza medidas vindas como array do Gemini sem chamar .trim em não-string", () => {
+    const proposta = linha({
+      circunstancia: "Transporte manual de caixas",
+      situacao: "Movimentação Manual de Cargas",
+      medidas: ["Pausas periódicas", "Dispositivos para auxiliar na atividade"] as unknown as string,
+    });
+    expect(() => contarConflitosApr([linha()], [proposta])).not.toThrow();
+    const aplicadas = aplicarPropostaApr([linha()], [proposta], false);
+    expect(aplicadas[0].medidas).toBe("Pausas periódicas; Dispositivos para auxiliar na atividade");
+    expect(typeof aplicadas[0].medidas).toBe("string");
+    expect(aplicadas[0].circunstancia).toBe("Transporte manual de caixas");
+  });
+  it("não serializa objetos em campos de texto e preserva existentes", () => {
+    const atual = linha({ circunstancia: "Manual", medidas: "Controle existente" });
+    const proposta = { ...linha({ circunstancia: "IA" }), medidas: { lista: ["x"] } as unknown as string };
+    expect(aplicarPropostaApr([atual], [proposta], false)[0]).toMatchObject({ circunstancia: "Manual", medidas: "Controle existente" });
+  });
   it("substitui somente campos propostos após confirmação e mantém linhas adicionais", () => {
     expect(aplicarPropostaApr([linha({ circunstancia: "Manual", fotos: ["foto"] }), linha({ cenario: "2" })], [linha({ circunstancia: "IA" })], true)).toMatchObject([{ circunstancia: "IA", fotos: ["foto"] }, { cenario: "2" }]);
   });

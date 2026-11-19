@@ -47,6 +47,7 @@ export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, s
   const reader = resp.body.getReader();
   const decoder = new TextDecoder();
   let buffer = "";
+
   const aplicarLinha = (line: string): T | undefined => {
     if (!line.trim()) return;
     let ev: any;
@@ -56,9 +57,11 @@ export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, s
       return;
     }
     if (ev.type === "result") {
-      const output = ev.data ?? ev.output;
+      const output = ev.output ?? ev.data;
       if (saidaVaziaCliente(output)) {
-        throw new Error("A IA retornou uma resposta vazia. Tente novamente — seus dados foram mantidos.");
+        throw new Error(
+          "A IA retornou uma resposta vazia ou sem campos aplicáveis ao formulário. Tente novamente — seus dados foram mantidos.",
+        );
       }
       return output as T;
     }
@@ -69,9 +72,12 @@ export async function invocarGeracaoIa<T = any>(funcao: string, body: unknown, s
     while (true) {
       const { done, value } = await reader.read();
       if (value) buffer += decoder.decode(value, { stream: true });
-      if (done) buffer += decoder.decode() + "\n";
+      if (done) buffer += decoder.decode();
+
       const lines = buffer.split("\n");
-      buffer = lines.pop() || "";
+      // Mantém fragmento incompleto entre chunks; no fim processa tudo.
+      buffer = done ? "" : (lines.pop() || "");
+
       for (const line of lines) {
         const got = aplicarLinha(line);
         if (got !== undefined) return got;
