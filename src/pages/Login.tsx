@@ -4,7 +4,9 @@ import { Loader2, Mail, Lock, ShieldCheck, FileText, BarChart3 } from "lucide-re
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { BrandLogo } from "@/components/BrandLogo";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "sonner";
 
 export default function Login() {
@@ -18,7 +20,7 @@ export default function Login() {
 
   if (!authLoading && user) {
     if (mustChangePassword) return <Navigate to="/alterar-senha" replace />;
-    const from = (location.state as any)?.from?.pathname || "/empresas";
+    const from = (location.state as any)?.from?.pathname || "/";
     return <Navigate to={from} replace />;
   }
 
@@ -35,7 +37,7 @@ export default function Login() {
       return;
     }
     toast.success("Bem-vindo!");
-    navigate("/empresas", { replace: true });
+    navigate("/", { replace: true });
     } catch {
       const msg = "Não foi possível verificar sua sessão. Confira a conexão e tente novamente.";
       setError(msg);
@@ -48,50 +50,47 @@ export default function Login() {
   return (
     <div className="min-h-screen grid lg:grid-cols-2">
       {/* Left brand panel */}
-      <div className="relative hidden lg:flex flex-col justify-between p-12 overflow-hidden bg-gradient-brand">
-        <div className="absolute inset-0 opacity-30"
-          style={{ backgroundImage: "radial-gradient(circle at 20% 30%, hsl(0 0% 100% / 0.3), transparent 40%), radial-gradient(circle at 80% 70%, hsl(165 100% 53% / 0.4), transparent 40%)" }} />
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="h-14 w-14 rounded-2xl bg-white/15 backdrop-blur-sm ring-1 ring-white/30 shadow-lg grid place-items-center"><ShieldCheck className="h-7 w-7 text-white" /></div>
-          <div>
-            <h1 className="text-2xl font-bold text-white tracking-tight">SEGDOC</h1>
-            <p className="text-xs text-white/80 uppercase tracking-[0.22em]">Gestão SST</p>
-          </div>
+      <div className="relative hidden overflow-hidden bg-nav p-12 lg:flex lg:flex-col lg:justify-between">
+        <div
+          className="absolute inset-0 opacity-40"
+          style={{
+            backgroundImage:
+              "radial-gradient(circle at 18% 25%, hsl(0 0% 100% / 0.14), transparent 42%), radial-gradient(circle at 85% 75%, hsl(152 30% 45% / 0.22), transparent 45%)",
+          }}
+        />
+        <div className="relative z-10">
+          <BrandLogo priority tone="light" size="xl" className="gap-3" />
         </div>
 
         <div className="relative z-10 space-y-6">
-          <h2 className="font-heading text-4xl xl:text-5xl font-bold text-white leading-tight">
-            Documentação<br />de SST simples,<br />segura e profissional.
+          <h2 className="font-heading text-4xl font-bold leading-tight text-white xl:text-5xl">
+            Portal profissional<br />para Segurança<br />e Saúde do Trabalho.
           </h2>
-          <p className="text-white/85 text-lg max-w-md">
-            Centralize LTCAT, PGR, riscos e funções com agilidade e conformidade regulatória.
+          <p className="max-w-md text-lg text-white/80">
+            Organize cadastros, documentos e avaliações com clareza, confiança e conformidade.
           </p>
-          <div className="grid grid-cols-3 gap-4 pt-6 max-w-md">
+          <div className="grid max-w-md grid-cols-3 gap-4 pt-6">
             {[
               { icon: ShieldCheck, label: "Seguro" },
               { icon: FileText, label: "Documentos" },
               { icon: BarChart3, label: "Análises" },
             ].map(({ icon: Icon, label }) => (
-              <div key={label} className="rounded-xl bg-white/10 backdrop-blur-sm border border-white/20 p-4 text-white">
-                <Icon className="h-5 w-5 mb-2" />
+              <div key={label} className="rounded-xl border border-white/15 bg-white/10 p-4 text-white backdrop-blur-sm">
+                <Icon className="mb-2 h-5 w-5" />
                 <p className="text-xs font-medium">{label}</p>
               </div>
             ))}
           </div>
         </div>
 
-        <p className="relative z-10 text-xs text-white/60">© {new Date().getFullYear()} SegDoc · Todos os direitos reservados</p>
+        <p className="relative z-10 text-xs text-white/55">© {new Date().getFullYear()} SegDoc · Todos os direitos reservados</p>
       </div>
 
       {/* Right form */}
-      <div className="flex items-center justify-center p-6 sm:p-12 bg-background">
+      <div className="flex items-center justify-center bg-background p-6 sm:p-12">
         <div className="w-full max-w-md">
-          <div className="lg:hidden flex items-center gap-3 mb-8">
-            <div className="h-12 w-12 rounded-xl bg-gradient-brand grid place-items-center shadow-sm"><ShieldCheck className="h-6 w-6 text-primary-foreground" /></div>
-            <div>
-              <h1 className="font-heading text-xl font-bold">SEG<span className="text-gradient-brand">DOC</span></h1>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-[0.2em]">Gestão SST</p>
-            </div>
+          <div className="mb-8 lg:hidden">
+            <BrandLogo priority tone="dark" size="lg" className="gap-3" />
           </div>
 
           <div className="space-y-2 mb-8">
@@ -131,11 +130,12 @@ export default function Login() {
             </Button>
           </form>
 
-          <p className="text-center text-xs text-muted-foreground mt-8">
+          <p className="mt-8 text-center text-xs text-muted-foreground">
             Acesso restrito · Solicite credenciais ao administrador
           </p>
         </div>
       </div>
+      <ThemeToggle />
     </div>
   );
 }

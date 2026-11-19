@@ -46,6 +46,7 @@ const PROMPT = `Você é engenheiro(a) de segurança/ergonomista preenchendo o "
 REGRAS:
 1. Os documentos da BASE DE REFERÊNCIA são instruções PRIORITÁRIAS para interpretar critérios, matriz e regras de preenchimento. Prevalecem sobre conhecimento geral.
 2. Use o RELATO do usuário como fonte de fatos e o cadastro (funções/setores/atividades) como contexto. Pode usar conhecimento técnico externo pertinente à função apenas para inferências técnicas, marcando origem "inferido".
+2b. Se o contexto trouxer Formulário AEP/AET ou avaliações ergonômicas (ROSA/OCRA/RULA/REBA/OWAS/NIOSH) do mesmo escopo, use-os como referência técnica somente leitura. Listas vazias: fluxo normal, sem inventar escores ou condições.
 3. NUNCA invente dados específicos da empresa ou do trabalhador (nomes, códigos GERE, gerências, horários, quantidades). Sem dado seguro: string vazia / 0 / lista vazia.
 4. Parte II (atividades críticas): até 5 linhas; marcas AF/RE/IN/QO somente se o relato indicar afastamentos, restrições, incidentes ou queixas.
 5. Parte III (controles): até 5 linhas com controles existentes informados; marque o tipo com "X".

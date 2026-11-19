@@ -51,6 +51,7 @@ const RPC_JSONB_ARGS: Record<string, ReadonlySet<string>> = {
   sync_ltcat_avaliacoes: new Set(["_avaliacoes"]),
   psico_submit_resposta: new Set(["_payload"]),
   psico_get_public_link: new Set(),
+  portal_get_public_link: new Set(),
   import_ficha_tecnica_resultados: new Set(),
   has_role: new Set(),
 };

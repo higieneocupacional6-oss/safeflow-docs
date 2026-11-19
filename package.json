@@ -14,7 +14,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "build:vps": "vite build && npm --prefix server run build",
-    "start:vps": "npm --prefix server run start"
+    "start:vps": "npm --prefix server run start",
+    "brand:assets": "node scripts/generate-brand-assets.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -106,8 +107,10 @@
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
     "lovable-tagger": "^1.1.13",
+    "png-to-ico": "^3.0.2",
     "postcss": "^8.5.6",
     "postgres": "^3.4.9",
+    "sharp": "^0.35.5",
     "tailwindcss": "^3.4.17",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",

@@ -12,7 +12,7 @@ import { requireCsrf } from "../middleware/csrf.js";
 
 export const rpcRouter = Router();
 
-const PUBLIC_RPC = new Set(["psico_get_public_link", "psico_submit_resposta"]);
+const PUBLIC_RPC = new Set(["psico_get_public_link", "psico_submit_resposta", "portal_get_public_link"]);
 const ALLOWED = new Set([
   "update_shared_record",
   "save_ltcat_documento_v2",
@@ -21,6 +21,7 @@ const ALLOWED = new Set([
   "has_role",
   "psico_get_public_link",
   "psico_submit_resposta",
+  "portal_get_public_link",
 ]);
 
 rpcRouter.use(attachAuth);

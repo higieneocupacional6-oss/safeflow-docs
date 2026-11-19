@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import { AppErrorBoundary } from "./components/AppErrorBoundary";
 import { ApiConfigGate } from "./components/ApiConfigGate";
+import { ThemeProvider } from "./hooks/useTheme";
 import "./index.css";
 
 const root = document.getElementById("root");
@@ -11,8 +12,10 @@ if (!root) {
 
 createRoot(root).render(
   <AppErrorBoundary>
-    <ApiConfigGate>
-      <App />
-    </ApiConfigGate>
+    <ThemeProvider>
+      <ApiConfigGate>
+        <App />
+      </ApiConfigGate>
+    </ThemeProvider>
   </AppErrorBoundary>,
 );

@@ -5,6 +5,13 @@ import { gerarJsonEmFluxo, limitarTexto } from "../_shared/aiStream.ts";
 import { exigirSessao } from "../_shared/sessao.ts";
 import { CAMPOS_APR, circunstanciaTecnicaApr, cenariosValidosApr, formulariosCompativeisApr, classificacoesSalvasApr, recalcularLinhaApr } from "../_shared/aprErgoIa.ts";
 import { SITUACOES_APR, TIPOS_APR, ESTIMATIVAS_APR, INTENSIDADES_APR, SEVERIDADES_APR, EXIGENCIAS_APR, MEDIDAS_APR, exigenciasDaSituacao } from "../_shared/aprErgoPlanilha.ts";
+import {
+  FERRAMENTAS_ERGO_INTEGRADAS,
+  filtrarAvaliacoesErgonomicas,
+  filtrarDocumentosAepAet,
+  INSTRUCAO_CONTEXTO_ERGO_INTEGRADO,
+  montarContextoErgoIntegrado,
+} from "../_shared/contextoErgoIntegrado.ts";
 
 const Body = z.object({ registroId: z.string().uuid(), relato: z.string().trim().min(10).max(30000),
   criterios: z.object({ duracao: z.array(z.string().max(500)).length(5), intensidade: z.array(z.string().max(500)).length(5), fatores: z.array(z.tuple([z.string().max(100), z.array(z.string().max(1000))])).max(10) }),
@@ -27,7 +34,7 @@ const schema = { type: "object", properties: {
   } } }, observacoes: { type: "string" },
 } };
 const TABELA = { situacao_exigencia_esocial: EXIGENCIAS_APR, estimativa_tempo: ESTIMATIVAS_APR, intensidade_nivel: INTENSIDADES_APR, severidade: SEVERIDADES_APR.map(([l, d, i]) => [l, d, i]) };
-const prompt = `Você é ergonomista elaborando APR-ERGO conforme a planilha Anexo 03. Produza análise técnica formal da atividade real: relação entre atividade, exigência ergonômica, condição e repercussão; recomendações específicas na fonte, processo, organização, mobiliário, equipamentos e método. Não invente atividades, controles existentes, exposições, medições ou condições. Referências são contexto técnico, não prova de fatos. Gere TODOS os cenários ergonômicos necessários das atividades reais de CADA função, sem limite fixo por função ou setor (não limitar a três nem a oito). Quando houver várias funções, analise suas atividades EM CONJUNTO em UMA ÚNICA planilha: reúna atividades, condições e exigências comuns, sem separar ou repetir cenários por função. Inclua diferenças relevantes somente quando gerarem riscos distintos. Não fragmente artificialmente riscos nem crie cenários sem fundamento técnico. Cada linha deve indicar funcao_ids com os IDs exatos de todas as funções abrangidas; para uma única função pode indicar funcao_id. circunstancia deve descrever a tarefa real, fonte de exigência ergonômica e condições de execução; NUNCA inclua nomes de funções nessa coluna. Os vínculos ficam exclusivamente nos IDs internos. Textos objetivos, completos, sem mencionar cadastro, IA ou fontes dentro das células.
+const prompt = `Você é ergonomista elaborando APR-ERGO conforme a planilha Anexo 03. Produza análise técnica formal da atividade real: relação entre atividade, exigência ergonômica, condição e repercussão; recomendações específicas na fonte, processo, organização, mobiliário, equipamentos e método. Não invente atividades, controles existentes, exposições, medições ou condições. Referências são contexto técnico, não prova de fatos. ${INSTRUCAO_CONTEXTO_ERGO_INTEGRADO} Gere TODOS os cenários ergonômicos necessários das atividades reais de CADA função, sem limite fixo por função ou setor (não limitar a três nem a oito). Quando houver várias funções, analise suas atividades EM CONJUNTO em UMA ÚNICA planilha: reúna atividades, condições e exigências comuns, sem separar ou repetir cenários por função. Inclua diferenças relevantes somente quando gerarem riscos distintos. Não fragmente artificialmente riscos nem crie cenários sem fundamento técnico. Cada linha deve indicar funcao_ids com os IDs exatos de todas as funções abrangidas; para uma única função pode indicar funcao_id. circunstancia deve descrever a tarefa real, fonte de exigência ergonômica e condições de execução; NUNCA inclua nomes de funções nessa coluna. Os vínculos ficam exclusivamente nos IDs internos. Textos objetivos, completos, sem mencionar cadastro, IA ou fontes dentro das células.
 Cabeçalho: atividades deve reunir as descrições das atividades de TODAS as funções do SETOR em um resumo técnico único de aproximadamente quatro linhas (até 650 caracteres); não se limitar à função mencionada no relato. ambiente deve ser uma descrição geral objetiva e breve (até 400 caracteres), baseada na descricao_ambiente do setor, relato e Base; não suponha instalações ou condições ausentes.
 Use a Base para interpretar os critérios de exposição e severidade no contexto real, mantendo as opções e fórmulas da planilha abaixo; não crie outra matriz. A conduta administrativa é inserida pelo sistema conforme a classificação calculada. Para Alto e Muito Alto, recomendacoes deve ficar vazio: o sistema insere SOMENTE a conduta da matriz, sem sugestões ou observações extras. Nos demais níveis, pode conter sugestões práticas específicas para a atividade, sem repetir a conduta administrativa.
 MOVIMENTAÇÃO MANUAL DE CARGAS: analise as atividades de CADA função do setor e identifique levantamento, transporte, sustentação, movimentação ou descarga manual de cargas. Quando aplicável, crie as linhas pertinentes (situacao "Movimentação Manual de Cargas" ou outra coerente) conforme as atividades reais. Para essa análise use EXCLUSIVAMENTE os arquivos da Base "Instruções de Ergonomia para Levantamento, Transporte e Descarga Manual de Cargas – Corredor Norte" e "Manual de Sinalização Alivie a Carga" (identifique-os pelo nome, mesmo abreviado); não use fontes externas. Relacione suas diretrizes às funções, tarefas, cargas, condições de execução e medidas preventivas nas recomendações. Se esses arquivos não estiverem na Base, informe em observacoes.
@@ -70,8 +77,23 @@ Deno.serve(async (req) => {
       if (!data || data.length < 100) break;
     }
     const compativeis = formulariosCompativeisApr(formularios, setorId, setor.funcoes.map((f: { id: string }) => f.id)).slice(0, 5);
+    const escopoIntegrado = {
+      empresaId: doc.empresa_id,
+      contratoId: doc.contrato_id,
+      setorId,
+      funcaoIds: setor.funcoes.map((f: { id: string }) => f.id),
+      funcaoNomes: setor.funcoes.map((f: { nome_funcao: string }) => f.nome_funcao),
+    };
+    const [{ data: aepAetDocs }, { data: ergoAvals }] = await Promise.all([
+      sb.from("documentos").select("id, status, updated_at, draft_snapshot").eq("tipo", "AEP-AET").eq("empresa_id", doc.empresa_id).eq("contrato_id", doc.contrato_id).neq("status", "rascunho").filter("draft_snapshot->>setor_id", "eq", setorId).order("updated_at", { ascending: false }).limit(40),
+      sb.from("ergonomia_avaliacoes").select("id, ferramenta, colaborador_nome, funcao, setor_ref, setor_nome, data_avaliacao, atividade, escore_final, classificacao, nivel_acao, recomendacoes, aet_documento_id, created_at").eq("setor_ref", setorId).in("ferramenta", [...FERRAMENTAS_ERGO_INTEGRADAS]).order("created_at", { ascending: false }).limit(80),
+    ]);
+    const formulario_aep_aet_e_ergonomia = montarContextoErgoIntegrado(
+      filtrarDocumentosAepAet(aepAetDocs || [], escopoIntegrado),
+      filtrarAvaliacoesErgonomicas(ergoAvals || [], escopoIntegrado),
+    );
     const content: unknown[] = body.base.filter((b) => b.tipo === "pdf").map((b) => ({ type: "input_file", filename: b.nome, file_data: `data:application/pdf;base64,${b.data}` }));
-    content.push({ type: "input_text", text: `RELATO: ${body.relato}\nEMPRESA: ${doc.empresa_nome}\nSETOR: ${JSON.stringify(setor)}\nAEP COMPATÍVEL: ${JSON.stringify(compativeis)}\nTABELA APR-ERGO: ${JSON.stringify(TABELA)}\nCRITÉRIOS AEP: ${JSON.stringify(body.criterios)}\nBASE: ${body.base.filter((b) => b.tipo === "texto").map((b) => `${b.nome}\n${limitarTexto(b.data, 40000)}`).join("\n")}` });
+    content.push({ type: "input_text", text: `RELATO: ${body.relato}\nEMPRESA: ${doc.empresa_nome}\nSETOR: ${JSON.stringify(setor)}\nAEP COMPATÍVEL: ${JSON.stringify(compativeis)}\nFORMULARIO_AEP_AET_E_ERGONOMIA: ${JSON.stringify(formulario_aep_aet_e_ergonomia)}\nTABELA APR-ERGO: ${JSON.stringify(TABELA)}\nCRITÉRIOS AEP: ${JSON.stringify(body.criterios)}\nBASE: ${body.base.filter((b) => b.tipo === "texto").map((b) => `${b.nome}\n${limitarTexto(b.data, 40000)}`).join("\n")}` });
     return await gerarJsonEmFluxo({ req, corsHeaders, key, systemPrompt: prompt, userContent: content, schemaName: "apr_ergo", schema,
       posProcessar: (output) => {
         const fontes = new Set<string>();

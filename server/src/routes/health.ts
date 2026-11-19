@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { databaseConfigured, env } from "../config/env.js";
 import { getPool } from "../db/pool.js";
+import { resolvePublicAppInfo } from "../lib/publicAppUrl.js";
 
 export const healthRouter = Router();
 
@@ -30,6 +31,14 @@ healthRouter.get("/health", (_req, res) => {
     service: "segcrm-api",
     time: new Date().toISOString(),
   });
+});
+
+/**
+ * Origem pública para links/QR (questionário psicossocial no celular).
+ * Em localhost, sugere o IP LAN da máquina para o aparelho alcançar o Vite/API.
+ */
+healthRouter.get("/api/public-app", (req, res) => {
+  res.status(200).json(resolvePublicAppInfo(req));
 });
 
 /** Readiness: API + PostgreSQL segcrm. */

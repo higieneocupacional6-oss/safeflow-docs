@@ -24,16 +24,7 @@ import {
 import { Link } from "react-router-dom";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { calcularPsicossocial, type AvaliacaoPsicossocial } from "@/components/PsicossocialModal";
-
-const PUBLIC_BASE_URL =
-  (import.meta as any).env?.VITE_PUBLIC_APP_URL?.replace(/\/$/, "") ||
-  (typeof window !== "undefined" && /lovable\.app|safedocs/.test(window.location.hostname)
-    ? `${window.location.protocol}//safedocs.lovable.app`
-    : (typeof window !== "undefined" ? window.location.origin : ""));
-
-function publicUrl(token: string) {
-  return `${PUBLIC_BASE_URL}/avaliacao-psicossocial/${token}`;
-}
+import { resolvePublicPsicoUrl } from "@/lib/psicoLink";
 
 export default function TemplatesPsicossociais() {
   const qc = useQueryClient();
@@ -48,6 +39,7 @@ export default function TemplatesPsicossociais() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [empresaSel, setEmpresaSel] = useState<string>("");
   const [qrOpen, setQrOpen] = useState<{ token: string; empresa: string } | null>(null);
+  const [publicLinkUrl, setPublicLinkUrl] = useState("");
   const [qrDataUrl, setQrDataUrl] = useState<string>("");
   const [relOpen, setRelOpen] = useState<{ empresa_id: string; empresa: string } | null>(null);
 
@@ -86,12 +78,28 @@ export default function TemplatesPsicossociais() {
   });
 
   useEffect(() => {
-    if (qrOpen?.token) {
-      QRCode.toDataURL(publicUrl(qrOpen.token), { width: 360, margin: 2 })
-        .then(setQrDataUrl).catch(() => setQrDataUrl(""));
-    } else {
+    if (!qrOpen?.token) {
       setQrDataUrl("");
+      setPublicLinkUrl("");
+      return;
     }
+    let cancelled = false;
+    setQrDataUrl("");
+    setPublicLinkUrl("");
+    (async () => {
+      const url = await resolvePublicPsicoUrl(qrOpen.token);
+      if (cancelled) return;
+      setPublicLinkUrl(url);
+      try {
+        const dataUrl = await QRCode.toDataURL(url, { width: 360, margin: 2 });
+        if (!cancelled) setQrDataUrl(dataUrl);
+      } catch {
+        if (!cancelled) setQrDataUrl("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [qrOpen]);
 
   const handleGerar = async () => {
@@ -120,7 +128,11 @@ export default function TemplatesPsicossociais() {
   };
 
   const copyLink = async (token: string) => {
-    await navigator.clipboard.writeText(publicUrl(token));
+    const url = publicLinkUrl && qrOpen?.token === token
+      ? publicLinkUrl
+      : await resolvePublicPsicoUrl(token);
+    setPublicLinkUrl(url);
+    await navigator.clipboard.writeText(url);
     toast.success("Link copiado");
   };
 
@@ -283,9 +295,12 @@ export default function TemplatesPsicossociais() {
           <DialogHeader><DialogTitle>QR Code — {qrOpen?.empresa}</DialogTitle></DialogHeader>
           <div className="flex flex-col items-center gap-3">
             {qrDataUrl && <img src={qrDataUrl} alt="QR Code" className="w-72 h-72 border rounded-lg" />}
-            <Input readOnly value={qrOpen ? publicUrl(qrOpen.token) : ""} />
+            <Input readOnly value={publicLinkUrl || "Resolvendo endereço acessível…"} />
+            <p className="text-[11px] text-muted-foreground w-full text-left">
+              Use este link/QR no celular na mesma rede Wi‑Fi do computador.
+            </p>
             <div className="flex gap-2 w-full">
-              <Button variant="outline" className="flex-1" onClick={() => qrOpen && copyLink(qrOpen.token)}>
+              <Button variant="outline" className="flex-1" onClick={() => qrOpen && void copyLink(qrOpen.token)} disabled={!publicLinkUrl}>
                 <Copy className="w-4 h-4 mr-1" />Copiar link
               </Button>
               <Button variant="outline" className="flex-1" onClick={copyQrImage}>

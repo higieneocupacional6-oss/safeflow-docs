@@ -32,6 +32,8 @@ export const PUBLIC_TABLES = [
   "pareceres_tecnicos",
   "pcmso_documentos",
   "pcmso_observacoes_padrao",
+  "portal_clientes_arquivos",
+  "portal_clientes_links",
   "profiles",
   "psico_avaliacoes",
   "psico_base_tecnica",
@@ -64,6 +66,7 @@ export const FILE_BUCKETS = [
   "formulario-aep-base",
   "formularios-aep",
   "aet-imagens",
+  "portal-clientes",
 ] as const;
 
 export type FileBucket = (typeof FILE_BUCKETS)[number];

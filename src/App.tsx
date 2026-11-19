@@ -36,12 +36,22 @@ const PsicossocialAvaliacao = lazy(() => import("./pages/PsicossocialAvaliacao")
 const PsicossocialRelatorio = lazy(() => import("./pages/PsicossocialRelatorio"));
 const TemplatesPsicossociais = lazy(() => import("./pages/TemplatesPsicossociais"));
 const AvaliacaoPsicossocialPublica = lazy(() => import("./pages/AvaliacaoPsicossocialPublica"));
+const PortalClientes = lazy(() => import("./pages/PortalClientes"));
+const PortalClientesLink = lazy(() => import("./pages/PortalClientesLink"));
+const PortalClientesPublico = lazy(() => import("./pages/PortalClientesPublico"));
 const ChangePassword = lazy(() => import("./pages/ChangePassword"));
 const FichaTecnica = lazy(() => import("./pages/FichaTecnica"));
 const FichaTecnicaContrato = lazy(() => import("./pages/FichaTecnicaContrato"));
 const FormularioAep = lazy(() => import("./pages/FormularioAep"));
 const FormularioAepNovo = lazy(() => import("./pages/FormularioAepNovo"));
 const FormularioAepPreencher = lazy(() => import("./pages/FormularioAepPreencher"));
+const FormularioAepAet = lazy(() => import("./pages/FormularioAepAet"));
+const FormularioAepAetNovo = lazy(() => import("./pages/FormularioAepAetNovo"));
+const FormularioAepAetEmpresa = lazy(() => import("./pages/FormularioAepAetEmpresa"));
+const FormularioAepAetContrato = lazy(() => import("./pages/FormularioAepAetContrato"));
+const FormularioAepAetRegistro = lazy(() => import("./pages/FormularioAepAetRegistro"));
+const FerramentasErgonomicas = lazy(() => import("./pages/FerramentasErgonomicas"));
+const FerramentasErgonomicasFerramenta = lazy(() => import("./pages/FerramentasErgonomicasFerramenta"));
 const AprErgo = lazy(() => import("./pages/AprErgo"));
 const AprErgoNovo = lazy(() => import("./pages/AprErgoNovo"));
 const AprErgoRegistro = lazy(() => import("./pages/AprErgoRegistro"));
@@ -80,12 +90,16 @@ const App = () => (
             <Route path="/login" element={<Login />} />
             <Route path="/alterar-senha" element={<ProtectedRoute><ChangePassword /></ProtectedRoute>} />
             <Route path="/avaliacao-psicossocial/:token" element={<AvaliacaoPsicossocialPublica />} />
-            <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+            <Route path="/p/:token" element={<PortalClientesPublico />} />
+            <Route path="/portal-clientes/:token" element={<PortalClientesPublico />} />
+            <Route path="/" element={<Protected><Index /></Protected>} />
             <Route path="/empresas" element={<Protected><Empresas /></Protected>} />
             <Route path="/empresas-contratos" element={<Protected><EmpresasContratos /></Protected>} />
             <Route path="/cadastros" element={<Protected><Cadastros /></Protected>} />
             <Route path="/templates" element={<Protected><Templates /></Protected>} />
             <Route path="/templates/avaliacoes-psicossociais" element={<Protected><TemplatesPsicossociais /></Protected>} />
+            <Route path="/portal-clientes" element={<Protected><PortalClientes /></Protected>} />
+            <Route path="/portal-clientes/link/:linkId" element={<Protected><PortalClientesLink /></Protected>} />
             <Route path="/setores-funcoes" element={<Protected><SetoresFuncoes /></Protected>} />
             <Route path="/documentos" element={<Protected><Documentos /></Protected>} />
             <Route path="/documentos/apr-ergo" element={<Protected><AprErgo /></Protected>} />
@@ -100,6 +114,14 @@ const App = () => (
             <Route path="/formulario-aep" element={<Protected><FormularioAep /></Protected>} />
             <Route path="/formulario-aep/novo" element={<Protected><FormularioAepNovo /></Protected>} />
             <Route path="/formulario-aep/preencher" element={<Protected><FormularioAepPreencher /></Protected>} />
+            <Route path="/formulario-aep-aet" element={<Protected><FormularioAepAet /></Protected>} />
+            <Route path="/formulario-aep-aet/novo" element={<Protected><FormularioAepAetNovo /></Protected>} />
+            <Route path="/formulario-aep-aet/:empresaId" element={<Protected><FormularioAepAetEmpresa /></Protected>} />
+            <Route path="/formulario-aep-aet/:empresaId/:contratoId" element={<Protected><FormularioAepAetContrato /></Protected>} />
+            <Route path="/formulario-aep-aet/:empresaId/:contratoId/funcao/:avaliacaoId" element={<Protected><FormularioAepAetRegistro /></Protected>} />
+            <Route path="/formulario-aep-aet/:empresaId/:contratoId/offline/:offlineId" element={<Protected><FormularioAepAetRegistro /></Protected>} />
+            <Route path="/ferramentas-ergonomicas" element={<Protected><FerramentasErgonomicas /></Protected>} />
+            <Route path="/ferramentas-ergonomicas/:toolSlug" element={<Protected><FerramentasErgonomicasFerramenta /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId" element={<Protected><PsicossocialEmpresa /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId" element={<Protected><PsicossocialAvaliacao /></Protected>} />
             <Route path="/psicossocial/:empresaId/:contratoId/avaliacao/:avaliacaoId/relatorio" element={<Protected><PsicossocialRelatorio /></Protected>} />

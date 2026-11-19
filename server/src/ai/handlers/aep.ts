@@ -1,9 +1,12 @@
 import { compactarContexto, limitarAnexos, limitarTexto, type PedidoGeracao } from "../gemini.js";
 import { limparSaidaTecnica, REDACAO_TECNICA } from "../redacao.js";
+import { INSTRUCAO_CONTEXTO_ERGO_INTEGRADO } from "../lib/contextoErgoIntegrado.js";
 
 const SYSTEM_PROMPT = `Você é um ERGONOMISTA SÊNIOR responsável pela elaboração de AEP — Análise Ergonômica Preliminar (NR-17, NR-01/GRO).
 
-HIERARQUIA: INFORMAÇÃO DO USUÁRIO → DADOS DA EMPRESA → GES/SETOR/AMBIENTE/FUNÇÕES → CADASTRO → FOTOGRAFIAS → ANÁLISE → AEP.
+HIERARQUIA: INFORMAÇÃO DO USUÁRIO → DADOS DA EMPRESA → GES/SETOR/AMBIENTE/FUNÇÕES → Formulário AEP/AET e avaliações ergonômicas do mesmo escopo → CADASTRO → FOTOGRAFIAS → ANÁLISE → AEP.
+
+${INSTRUCAO_CONTEXTO_ERGO_INTEGRADO}
 
 REGRAS OBRIGATÓRIAS:
 - Toda análise deriva EXCLUSIVAMENTE das informações fornecidas. PROIBIDO inventar função, setor, GES, quantidade, equipamento ou condição não fornecida.

@@ -13,6 +13,7 @@ import { authRouter } from "./routes/auth.js";
 import { dataRouter } from "./routes/data.js";
 import { filesRouter } from "./routes/files.js";
 import { healthRouter } from "./routes/health.js";
+import { cleanupPortalClientesExpired, portalClientesRouter } from "./routes/portalClientes.js";
 import { rpcRouter } from "./routes/rpc.js";
 import { usersRouter } from "./routes/users.js";
 
@@ -37,10 +38,17 @@ export const createApp = () => {
   app.use(dataRouter);
   app.use(rpcRouter);
   app.use(filesRouter);
+  app.use(portalClientesRouter);
   app.use(usersRouter);
   app.use(aiRouter);
   app.use(aiDiagnosticsRouter);
   app.use(adminDatabaseRouter);
+
+  // Retenção Portal Clientes: 1 ano e 10 meses + limpeza de chunks órfãos
+  void cleanupPortalClientesExpired().catch(() => {});
+  setInterval(() => {
+    void cleanupPortalClientesExpired().catch(() => {});
+  }, 6 * 60 * 60 * 1000);
   for (const middleware of createSpaMiddleware()) {
     app.use(middleware);
   }

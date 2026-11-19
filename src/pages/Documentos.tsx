@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
 import {
-  Plus, FileText, Loader2, Download, Trash2, Pencil,
-  ChevronDown, ChevronRight, Building2, FileSignature, Folder,
+  Plus, FileText, Loader2, Download, Trash2, Pencil, ArrowLeft, Search,
+  ClipboardList, Shield, HeartPulse, Flame, Activity, Boxes, Wrench, AlertTriangle,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,36 +16,53 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
+} from "@/components/ui/table";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { InsalubridadeStartModal } from "@/components/InsalubridadeStartModal";
 import { PericulosidadeStartModal } from "@/components/PericulosidadeStartModal";
 import { PcmsoStartModal } from "@/components/PcmsoStartModal";
+import { AprErgoExcluirModal } from "@/components/AprErgoExcluirModal";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import { formatDateOnly } from "@/lib/dateOnly";
 
-const docTypes = [
-  { id: "ltcat", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho" },
-  { id: "pgr", label: "PGR", desc: "Programa de Gerenciamento de Riscos" },
-  { id: "pcmso", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional" },
-  { id: "insalubridade", label: "Insalubridade", desc: "Laudo de Insalubridade" },
-  { id: "periculosidade", label: "Periculosidade", desc: "Laudo de Periculosidade" },
-  { id: "aet", label: "AET", desc: "Análise Ergonômica do Trabalho" },
-  { id: "aet-vale", label: "AET (VALE)", desc: "Análise Ergonômica do Trabalho (VALE)" },
-  { id: "aep", label: "AEP", desc: "Análise Ergonômica Preliminar" },
-  { id: "apr-ergo", label: "APR-ERGO", desc: "APR-ERGO" },
+type DocTypeMeta = {
+  id: string;
+  tipo: string;
+  label: string;
+  desc: string;
+  icon: LucideIcon;
+};
+
+const DOC_TYPES: DocTypeMeta[] = [
+  { id: "ltcat", tipo: "LTCAT", label: "LTCAT", desc: "Laudo Técnico das Condições Ambientais de Trabalho", icon: ClipboardList },
+  { id: "pgr", tipo: "PGR", label: "PGR", desc: "Programa de Gerenciamento de Riscos", icon: Shield },
+  { id: "pcmso", tipo: "PCMSO", label: "PCMSO", desc: "Programa de Controle Médico de Saúde Ocupacional", icon: HeartPulse },
+  { id: "insalubridade", tipo: "INSALUBRIDADE", label: "Insalubridade", desc: "Laudo de Insalubridade", icon: AlertTriangle },
+  { id: "periculosidade", tipo: "PERICULOSIDADE", label: "Periculosidade", desc: "Laudo de Periculosidade", icon: Flame },
+  { id: "aet", tipo: "AET", label: "AET", desc: "Análise Ergonômica do Trabalho", icon: Activity },
+  { id: "aet-vale", tipo: "AET-VALE", label: "AET (VALE)", desc: "Análise Ergonômica do Trabalho (VALE)", icon: Boxes },
+  { id: "aep", tipo: "AEP", label: "AEP", desc: "Análise Ergonômica Preliminar", icon: FileText },
+  { id: "apr-ergo", tipo: "APR-ERGO", label: "APR-ERGO", desc: "Análise Preliminar de Riscos Ergonômicos", icon: Wrench },
 ];
 
-// Ordem canônica exibida na árvore.
-const TIPO_ORDER = ["LTCAT", "INSALUBRIDADE", "PERICULOSIDADE", "PGR", "PCMSO", "AET", "AET-VALE", "AEP", "APR-ERGO"];
+const TIPO_ORDER = DOC_TYPES.map((d) => d.tipo);
 
 const tipoLabel = (t: string) => {
   const up = (t || "").toUpperCase();
-  if (up === "INSALUBRIDADE") return "Laudo de Insalubridade";
-  if (up === "PERICULOSIDADE") return "Laudo de Periculosidade";
-  if (up === "AET") return "AET";
-  if (up === "AEP") return "AEP";
-  return up;
+  const known = DOC_TYPES.find((d) => d.tipo === up);
+  if (known) return known.label;
+  if (up === "INSALUBRIDADE") return "Insalubridade";
+  if (up === "PERICULOSIDADE") return "Periculosidade";
+  return up || "Outros";
+};
+
+const iconForTipo = (t: string): LucideIcon => {
+  const up = (t || "").toUpperCase();
+  return DOC_TYPES.find((d) => d.tipo === up)?.icon || FileText;
 };
 
 export default function Documentos() {
@@ -52,11 +70,10 @@ export default function Documentos() {
   const [insalubridadeOpen, setInsalubridadeOpen] = useState(false);
   const [periculosidadeOpen, setPericulosidadeOpen] = useState(false);
   const [pcmsoOpen, setPcmsoOpen] = useState(false);
+  const [tipoSelecionado, setTipoSelecionado] = useState<string | null>(null);
   const [busca, setBusca] = useState("");
-  const [expTipo, setExpTipo] = useState<Record<string, boolean>>({});
-  const [expEmp, setExpEmp] = useState<Record<string, boolean>>({});
-  const [expCtr, setExpCtr] = useState<Record<string, boolean>>({});
   const [toDelete, setToDelete] = useState<any | null>(null);
+  const [aprExcluir, setAprExcluir] = useState<any | null>(null);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -68,7 +85,7 @@ export default function Documentos() {
       { table: "contratos", queryKey: ["contratos-doc"] },
       { table: "empresas", queryKey: ["empresas-doc"] },
     ],
-    "documentos-list-sync"
+    "documentos-list-sync",
   );
 
   const { data: documentos = [], isLoading } = useQuery({
@@ -86,7 +103,10 @@ export default function Documentos() {
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-doc"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id, razao_social, nome_fantasia, cnpj")
+        .order("razao_social");
       if (error) throw error;
       return data;
     },
@@ -95,58 +115,85 @@ export default function Documentos() {
   const { data: contratos = [] } = useQuery({
     queryKey: ["contratos-doc"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("contratos").select("id,empresa_id,numero_contrato,nome_contratante");
+      const { data, error } = await supabase
+        .from("contratos")
+        .select("id, empresa_id, numero_contrato, nome_contratante");
       if (error) throw error;
       return data;
     },
   });
 
+  const empresaById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const e of empresas as any[]) map.set(e.id, e);
+    return map;
+  }, [empresas]);
+
+  const contratoById = useMemo(() => {
+    const map = new Map<string, any>();
+    for (const c of contratos as any[]) map.set(c.id, c);
+    return map;
+  }, [contratos]);
+
   const empresaNome = (id: string | null) => {
-    const e = (empresas as any[]).find((x) => x.id === id);
-    return e?.razao_social || e?.nome_fantasia || "(Sem empresa)";
+    const e = id ? empresaById.get(id) : null;
+    return e?.nome_fantasia || e?.razao_social || "(Sem empresa)";
+  };
+  const empresaCnpj = (id: string | null) => {
+    const e = id ? empresaById.get(id) : null;
+    return e?.cnpj || "—";
   };
   const contratoNome = (id: string | null) => {
-    const c = (contratos as any[]).find((x) => x.id === id);
+    if (!id) return "Sem contrato";
+    const c = contratoById.get(id);
     if (!c) return "Sem contrato";
     return c.numero_contrato || c.nome_contratante || "Contrato";
   };
+  const dataElaboracao = (d: any) =>
+    formatDateOnly(d.data_elaboracao) || formatDateOnly(d.created_at?.slice?.(0, 10)) || "—";
 
-  // Filtro por busca (nome, empresa, contrato, tipo).
-  const docsFiltrados = useMemo(() => {
-    const q = busca.trim().toLowerCase();
-    if (!q) return documentos as any[];
-    return (documentos as any[]).filter((d) => {
-      const emp = (d.empresa_nome || empresaNome(d.empresa_id)).toLowerCase();
-      const ctr = contratoNome(d.contrato_id).toLowerCase();
-      const tipo = (d.tipo || "").toLowerCase();
-      const nome = (d.nome_documento || "").toLowerCase();
-      return emp.includes(q) || ctr.includes(q) || tipo.includes(q) || nome.includes(q);
-    });
-  }, [documentos, busca, empresas, contratos]);
-
-  // Agrupa Tipo → Empresa → Contrato → [Docs].
-  const arvore = useMemo(() => {
-    const map = new Map<string, Map<string, Map<string, any[]>>>();
-    for (const d of docsFiltrados as any[]) {
+  const contagemPorTipo = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const d of documentos as any[]) {
       const t = (d.tipo || "").toUpperCase() || "OUTROS";
-      const eKey = d.empresa_id || "__sem__";
-      const cKey = d.contrato_id || "__sem__";
-      if (!map.has(t)) map.set(t, new Map());
-      const emps = map.get(t)!;
-      if (!emps.has(eKey)) emps.set(eKey, new Map());
-      const ctrs = emps.get(eKey)!;
-      if (!ctrs.has(cKey)) ctrs.set(cKey, []);
-      ctrs.get(cKey)!.push(d);
+      map.set(t, (map.get(t) || 0) + 1);
     }
-    const tipos = Array.from(map.keys()).sort((a, b) => {
-      const ia = TIPO_ORDER.indexOf(a); const ib = TIPO_ORDER.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b);
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    });
-    return { map, tipos };
-  }, [docsFiltrados]);
+    return map;
+  }, [documentos]);
+
+  const tiposExtras = useMemo(() => {
+    const known = new Set(TIPO_ORDER);
+    return [...contagemPorTipo.keys()]
+      .filter((t) => !known.has(t))
+      .sort((a, b) => a.localeCompare(b, "pt-BR"));
+  }, [contagemPorTipo]);
+
+  const docsDoTipo = useMemo(() => {
+    if (!tipoSelecionado) return [];
+    const q = busca.trim().toLowerCase();
+    return (documentos as any[])
+      .filter((d) => ((d.tipo || "").toUpperCase() || "OUTROS") === tipoSelecionado)
+      .filter((d) => {
+        if (!q) return true;
+        const emp = (d.empresa_nome || empresaNome(d.empresa_id)).toLowerCase();
+        const cnpj = empresaCnpj(d.empresa_id).toLowerCase();
+        const ctr = contratoNome(d.contrato_id).toLowerCase();
+        const data = dataElaboracao(d).toLowerCase();
+        const nome = (d.nome_documento || "").toLowerCase();
+        return (
+          emp.includes(q)
+          || cnpj.includes(q)
+          || ctr.includes(q)
+          || data.includes(q)
+          || nome.includes(q)
+        );
+      })
+      .sort((a, b) => {
+        const da = String(a.data_elaboracao || a.created_at || "");
+        const db = String(b.data_elaboracao || b.created_at || "");
+        return db.localeCompare(da);
+      });
+  }, [documentos, tipoSelecionado, busca, empresas, contratos]);
 
   const handleSelectType = (typeId: string) => {
     setOpen(false);
@@ -163,7 +210,10 @@ export default function Documentos() {
 
   const handleDownload = async (doc: any) => {
     const path = doc.file_path || doc.upload_file_path;
-    if (!path) { toast.error("Documento ainda não gerado"); return; }
+    if (!path) {
+      toast.error("Documento ainda não gerado");
+      return;
+    }
     const bucket = doc.upload_file_path === path ? "documentos-upload" : "templates";
     try {
       const { data, error } = await supabase.storage.from(bucket).download(path);
@@ -197,213 +247,268 @@ export default function Documentos() {
     }
   };
 
+  const pedirExclusao = (doc: any) => {
+    if ((doc.tipo || "").toUpperCase() === "APR-ERGO" && doc.empresa_id && doc.contrato_id) {
+      setAprExcluir(doc);
+      return;
+    }
+    setToDelete(doc);
+  };
+
   const handleEdit = (doc: any) => {
     const tipo = (doc.tipo || "").toUpperCase();
     const map: Record<string, string> = {
-      LTCAT: "ltcat", INSALUBRIDADE: "insalubridade", PERICULOSIDADE: "periculosidade",
-      AET: "aet", AEP: "aep", PGR: "pgr", PCMSO: "pcmso",
+      LTCAT: "ltcat",
+      INSALUBRIDADE: "insalubridade",
+      PERICULOSIDADE: "periculosidade",
+      AET: "aet",
+      AEP: "aep",
+      PGR: "pgr",
+      PCMSO: "pcmso",
       "APR-ERGO": "apr-ergo",
     };
-    if (tipo === "AET-VALE") { navigate(`/documentos/aet-vale/registro/${doc.id}`); return; }
+    if (tipo === "AET-VALE") {
+      navigate(`/documentos/aet-vale/registro/${doc.id}`);
+      return;
+    }
     const slug = map[tipo];
     if (slug) navigate(`/documentos/${slug}/editar/${doc.id}`);
   };
 
-  const totalPorTipo = (t: string) => {
-    let n = 0;
-    for (const emps of arvore.map.get(t)?.values() || []) {
-      for (const arr of emps.values()) n += arr.length;
-    }
-    return n;
-  };
+  const cardsTipos: Array<{ tipo: string; label: string; desc: string; icon: LucideIcon; count: number; createId?: string }> = [
+    ...DOC_TYPES.map((dt) => ({
+      tipo: dt.tipo,
+      label: dt.label,
+      desc: dt.desc,
+      icon: dt.icon,
+      count: contagemPorTipo.get(dt.tipo) || 0,
+      createId: dt.id,
+    })),
+    ...tiposExtras.map((t) => ({
+      tipo: t,
+      label: tipoLabel(t),
+      desc: "Documentos deste tipo",
+      icon: FileText,
+      count: contagemPorTipo.get(t) || 0,
+    })),
+  ];
 
   return (
-    <div>
+    <div className="space-y-4">
       <PageHeader
         title="Documentos SST"
-        description="Estrutura por Tipo › Empresa › Contrato › Arquivos"
+        description={
+          tipoSelecionado
+            ? `Lista de ${tipoLabel(tipoSelecionado)}`
+            : "Selecione um tipo de documento para visualizar os registros"
+        }
         actions={
           <Button onClick={() => setOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
-            <Plus className="w-4 h-4 mr-2" />Novo Documento
+            <Plus className="mr-2 h-4 w-4" /> Novo Documento
           </Button>
         }
       />
 
-      <div className="glass-card rounded-xl p-3 mb-4">
-        <Input
-          placeholder="Buscar por tipo, empresa, contrato ou nome do documento..."
-          value={busca}
-          onChange={(e) => setBusca(e.target.value)}
-        />
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
-        </div>
-      ) : arvore.tipos.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center">
-          <FileText className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-muted-foreground">
-            {(documentos as any[]).length === 0
-              ? "Nenhum documento gerado ainda"
-              : "Nenhum documento encontrado para essa busca"}
-          </p>
-          {(documentos as any[]).length === 0 && (
-            <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
-              <Plus className="w-4 h-4 mr-2" />Criar Documento
-            </Button>
+      {!tipoSelecionado ? (
+        <>
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              {cardsTipos.map((card) => {
+                const Icon = card.icon;
+                return (
+                  <button
+                    key={card.tipo}
+                    type="button"
+                    onClick={() => {
+                      setBusca("");
+                      setTipoSelecionado(card.tipo);
+                    }}
+                    className="portal-surface group flex h-full flex-col gap-3 p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary">
+                        <Icon className="h-5 w-5" />
+                      </div>
+                      <Badge variant="secondary">{card.count}</Badge>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-heading text-base font-semibold text-foreground group-hover:text-primary">
+                        {card.label}
+                      </p>
+                      <p className="text-sm leading-relaxed text-muted-foreground">{card.desc}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
           )}
-        </div>
+
+          {!isLoading && (documentos as any[]).length === 0 && (
+            <div className="portal-surface p-10 text-center">
+              <FileText className="mx-auto mb-3 h-10 w-10 text-muted-foreground/40" />
+              <p className="text-muted-foreground">Nenhum documento gerado ainda</p>
+              <Button onClick={() => setOpen(true)} variant="outline" className="mt-4">
+                <Plus className="mr-2 h-4 w-4" /> Criar Documento
+              </Button>
+            </div>
+          )}
+        </>
       ) : (
-        <div className="space-y-2">
-          {arvore.tipos.map((t) => {
-            const emps = arvore.map.get(t)!;
-            const isOpen = expTipo[t] ?? true;
-            return (
-              <div key={t} className="glass-card rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpTipo((p) => ({ ...p, [t]: !isOpen }))}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors"
-                >
-                  {isOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  <FileText className="w-5 h-5 text-accent" />
-                  <span className="font-heading font-semibold text-foreground flex-1 text-left">
-                    {tipoLabel(t)}
-                  </span>
-                  <Badge className="bg-accent/10 text-accent-foreground border-accent/20">
-                    {totalPorTipo(t)} docs
-                  </Badge>
-                </button>
+        <>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setTipoSelecionado(null);
+                setBusca("");
+              }}
+            >
+              <ArrowLeft className="mr-1 h-4 w-4" /> Tipos de documento
+            </Button>
+            <Badge variant="outline" className="gap-1">
+              {(() => {
+                const Icon = iconForTipo(tipoSelecionado);
+                return <Icon className="h-3.5 w-3.5" />;
+              })()}
+              {tipoLabel(tipoSelecionado)}
+            </Badge>
+            <Badge variant="secondary">{docsDoTipo.length} registro(s)</Badge>
+          </div>
 
-                {isOpen && (
-                  <div className="border-t border-border bg-muted/10 p-3 space-y-2">
-                    {Array.from(emps.entries())
-                      .sort(([, a], [, b]) => {
-                        const ea = Array.from(a.values())[0]?.[0];
-                        const eb = Array.from(b.values())[0]?.[0];
-                        return (ea?.empresa_nome || "").localeCompare(eb?.empresa_nome || "");
-                      })
-                      .map(([empId, ctrs]) => {
-                        const empKey = `${t}_${empId}`;
-                        const empOpen = expEmp[empKey] ?? false;
-                        const firstDoc = Array.from(ctrs.values())[0]?.[0];
-                        const empNome = firstDoc?.empresa_nome || empresaNome(empId);
-                        const totalEmp = Array.from(ctrs.values()).reduce((s, arr) => s + arr.length, 0);
-                        return (
-                          <div key={empId} className="bg-card rounded-lg border border-border overflow-hidden">
-                            <button
-                              onClick={() => setExpEmp((p) => ({ ...p, [empKey]: !empOpen }))}
-                              className="w-full flex items-center gap-3 p-3 hover:bg-muted/30"
-                            >
-                              {empOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                              <Building2 className="w-4 h-4 text-muted-foreground" />
-                              <span className="font-medium text-sm flex-1 text-left">{empNome}</span>
-                              <Badge variant="outline" className="text-[10px]">{totalEmp} docs</Badge>
-                            </button>
+          <div className="relative max-w-xl">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Buscar por CNPJ, empresa, contrato ou data de elaboração…"
+              value={busca}
+              onChange={(e) => setBusca(e.target.value)}
+            />
+          </div>
 
-                            {empOpen && (
-                              <div className="border-t border-border p-2 space-y-2">
-                                {Array.from(ctrs.entries())
-                                  .sort(([a], [b]) => contratoNome(a).localeCompare(contratoNome(b)))
-                                  .map(([ctrId, docs]) => {
-                                    const ctrKey = `${empKey}_${ctrId}`;
-                                    const ctrOpen = expCtr[ctrKey] ?? false;
-                                    const cNome = ctrId === "__sem__" ? "Sem contrato vinculado" : contratoNome(ctrId);
-                                    return (
-                                      <div key={ctrId} className="bg-background/60 rounded-md border border-border/70">
-                                        <button
-                                          onClick={() => setExpCtr((p) => ({ ...p, [ctrKey]: !ctrOpen }))}
-                                          className="w-full flex items-center gap-3 p-2.5 hover:bg-muted/30"
-                                        >
-                                          {ctrOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
-                                          <FileSignature className="w-3.5 h-3.5 text-muted-foreground" />
-                                          <span className="text-sm flex-1 text-left">Contrato {cNome}</span>
-                                          <Badge variant="outline" className="text-[10px]">{docs.length}</Badge>
-                                        </button>
-
-                                        {ctrOpen && (
-                                          <div className="border-t border-border/70 p-2 space-y-1">
-                                            {docs.map((d: any) => (
-                                              <div
-                                                key={d.id}
-                                                className="flex items-center gap-3 p-2 rounded-md hover:bg-muted/40 group"
-                                              >
-                                                <Folder className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-                                                <div className="flex-1 min-w-0">
-                                                  <div className="text-sm font-medium truncate">
-                                                    {d.nome_documento || `${d.tipo} — ${d.empresa_nome || ""}`}
-                                                  </div>
-                                                  <div className="text-[11px] text-muted-foreground">
-                                                    {new Date(d.created_at).toLocaleDateString("pt-BR")}
-                                                    {d.status === "rascunho" && (
-                                                      <Badge className="ml-2 bg-amber-100 text-amber-700 border border-amber-300 text-[9px] py-0 px-1.5">
-                                                        Rascunho
-                                                      </Badge>
-                                                    )}
-                                                  </div>
-                                                </div>
-                                                <div className="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">
-                                                  <Button
-                                                    variant="ghost" size="icon" className="h-8 w-8"
-                                                    title="Download"
-                                                    disabled={!d.file_path && !d.upload_file_path}
-                                                    onClick={() => handleDownload(d)}
-                                                  >
-                                                    <Download className="w-4 h-4" />
-                                                  </Button>
-                                                  <Button
-                                                    variant="ghost" size="icon" className="h-8 w-8"
-                                                    title="Editar"
-                                                    onClick={() => handleEdit(d)}
-                                                  >
-                                                    <Pencil className="w-4 h-4" />
-                                                  </Button>
-                                                  <Button
-                                                    variant="ghost" size="icon"
-                                                    className="h-8 w-8 text-destructive hover:text-destructive"
-                                                    title="Excluir"
-                                                    onClick={() => setToDelete(d)}
-                                                  >
-                                                    <Trash2 className="w-4 h-4" />
-                                                  </Button>
-                                                </div>
-                                              </div>
-                                            ))}
-                                          </div>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            )}
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : docsDoTipo.length === 0 ? (
+            <div className="portal-surface p-10 text-center text-sm text-muted-foreground">
+              {(documentos as any[]).some((d) => ((d.tipo || "").toUpperCase() || "OUTROS") === tipoSelecionado)
+                ? "Nenhum documento encontrado para essa busca."
+                : "Nenhum documento deste tipo ainda."}
+            </div>
+          ) : (
+            <div className="portal-surface overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>CNPJ</TableHead>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Contrato</TableHead>
+                    <TableHead>Data de Elaboração</TableHead>
+                    <TableHead className="w-[130px] text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {docsDoTipo.map((d: any) => (
+                    <TableRow key={d.id}>
+                      <TableCell className="whitespace-nowrap font-mono text-xs">
+                        {empresaCnpj(d.empresa_id)}
+                      </TableCell>
+                      <TableCell className="min-w-[160px]">
+                        <div className="font-medium">
+                          {d.empresa_nome || empresaNome(d.empresa_id)}
+                        </div>
+                        {d.nome_documento && (
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {d.nome_documento}
                           </div>
-                        );
-                      })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                        )}
+                        {d.status === "rascunho" && (
+                          <Badge className="mt-1 border border-amber-300 bg-amber-100 text-[9px] text-amber-700">
+                            Rascunho
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-sm">
+                        {d.contrato_id ? contratoNome(d.contrato_id) : "Sem contrato"}
+                      </TableCell>
+                      <TableCell className="whitespace-nowrap text-sm">
+                        {dataElaboracao(d)}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Editar"
+                            onClick={() => handleEdit(d)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive"
+                            title="Excluir"
+                            onClick={() => pedirExclusao(d)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            title="Baixar"
+                            disabled={!d.file_path && !d.upload_file_path}
+                            onClick={() => void handleDownload(d)}
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </>
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
+        <DialogContent className="max-h-[90dvh] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-heading">Novo Documento</DialogTitle>
           </DialogHeader>
           <div className="space-y-2 py-2">
-            {docTypes.map((dt) => (
-              <button
-                key={dt.id}
-                onClick={() => handleSelectType(dt.id)}
-                className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 transition-colors"
-              >
-                <span className="font-heading font-semibold text-foreground">{dt.label}</span>
-                <p className="text-xs text-muted-foreground mt-0.5">{dt.desc}</p>
-              </button>
-            ))}
+            {DOC_TYPES.map((dt) => {
+              const Icon = dt.icon;
+              return (
+                <button
+                  key={dt.id}
+                  type="button"
+                  onClick={() => handleSelectType(dt.id)}
+                  className="flex w-full items-start gap-3 rounded-lg border border-border p-4 text-left transition-colors hover:border-accent hover:bg-accent/5"
+                >
+                  <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-primary">
+                    <Icon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <span className="font-heading font-semibold text-foreground">{dt.label}</span>
+                    <p className="mt-0.5 text-xs text-muted-foreground">{dt.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         </DialogContent>
       </Dialog>
@@ -422,13 +527,29 @@ export default function Documentos() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={() => toDelete && handleDelete(toDelete)}
+              onClick={() => toDelete && void handleDelete(toDelete)}
             >
               Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {aprExcluir && (
+        <AprErgoExcluirModal
+          registros={[{
+            id: aprExcluir.id,
+            nome: aprExcluir.nome_documento || `APR-ERGO — ${aprExcluir.empresa_nome || ""}`,
+          }]}
+          empresaId={aprExcluir.empresa_id}
+          contratoId={aprExcluir.contrato_id}
+          onClose={() => setAprExcluir(null)}
+          onDeleted={() => {
+            void queryClient.invalidateQueries({ queryKey: ["documentos"] });
+            setAprExcluir(null);
+          }}
+        />
+      )}
 
       <InsalubridadeStartModal open={insalubridadeOpen} onOpenChange={setInsalubridadeOpen} />
       <PericulosidadeStartModal open={periculosidadeOpen} onOpenChange={setPericulosidadeOpen} />

@@ -1,47 +1,76 @@
-import { formatDateOnly } from "@/lib/dateOnly";
 import { useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, Building2, FileSignature, Folder, Upload, Download, Loader2, Search } from "lucide-react";
+import { Download, Eye, Loader2, Plus, Search, Upload } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
-import { calcStatus } from "@/lib/notificacoes";
+import { useAuth } from "@/hooks/useAuth";
+import { formatDateOnly, normalizeDateOnly, todayDateOnly } from "@/lib/dateOnly";
+import {
+  TIPOS_CADASTRO_MANUAL,
+  TIPOS_CONTROLE_VENCIMENTO,
+  calcularDataValidade,
+  entraNoControleVencimento,
+  labelTipoDocumento,
+  statusVencimentoDocumento,
+  validadeEfetiva,
+  type TipoControleVencimento,
+} from "@/lib/documentoValidade";
+import type { StatusDoc } from "@/lib/notificacoes";
 
-const statusBadge = (s: string | null) => {
-  if (s === "vencido") return <Badge className="bg-red-100 text-red-700 border border-red-300">Vencido</Badge>;
-  if (s === "proximo") return <Badge className="bg-amber-100 text-amber-700 border border-amber-300">Próx. vencimento</Badge>;
-  if (s === "no_prazo") return <Badge className="bg-emerald-100 text-emerald-700 border border-emerald-300">No prazo</Badge>;
+const statusBadge = (s: StatusDoc | null) => {
+  if (s === "vencido") {
+    return <Badge className="border border-red-300 bg-red-100 text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-200">Vencido</Badge>;
+  }
+  if (s === "proximo") {
+    return <Badge className="border border-amber-300 bg-amber-100 text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-100">A vencer</Badge>;
+  }
+  if (s === "no_prazo") {
+    return <Badge className="border border-emerald-300 bg-emerald-100 text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">No prazo</Badge>;
+  }
   return <Badge variant="outline">—</Badge>;
 };
 
-const fmtDate = (d: string | null) => (d ? formatDateOnly(d) : "—");
+const fmtDate = (d: string | null | undefined) => (d ? formatDateOnly(d) : "—");
+
+type DocRow = Record<string, any>;
 
 export default function ControleDocumentos() {
   const qc = useQueryClient();
-  const [expandedEmp, setExpandedEmp] = useState<Record<string, boolean>>({});
-  const [expandedCtr, setExpandedCtr] = useState<Record<string, boolean>>({});
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
-  const [filtroEmpresa, setFiltroEmpresa] = useState<string>("all");
-  const [filtroTipo, setFiltroTipo] = useState<string>("all");
-  const [filtroStatus, setFiltroStatus] = useState<string>("all");
-  const [downloadModal, setDownloadModal] = useState<any>(null);
+  const [filtroEmpresa, setFiltroEmpresa] = useState("all");
+  const [filtroTipo, setFiltroTipo] = useState("all");
+  const [filtroStatus, setFiltroStatus] = useState("all");
+  const [downloadModal, setDownloadModal] = useState<DocRow | null>(null);
+  const [detalheModal, setDetalheModal] = useState<DocRow | null>(null);
+  const [cadastroOpen, setCadastroOpen] = useState(false);
+  const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadDocId, setUploadDocId] = useState<string | null>(null);
+
+  const [cadEmpresaId, setCadEmpresaId] = useState("");
+  const [cadContratoId, setCadContratoId] = useState("");
+  const [cadTipo, setCadTipo] = useState<TipoControleVencimento>("LTCAT");
+  const [cadElaboracao, setCadElaboracao] = useState(todayDateOnly());
 
   useRealtimeSync(
     [
       { table: "documentos", queryKey: ["ctrl-docs"] },
+      { table: "documentos", queryKey: ["docs-vencimento-alert"] },
       { table: "contratos", queryKey: ["ctrl-contratos"] },
       { table: "empresas", queryKey: ["ctrl-empresas"] },
     ],
-    "controle-docs-sync"
+    "controle-docs-sync",
   );
 
   const { data: empresas = [] } = useQuery({
@@ -56,46 +85,76 @@ export default function ControleDocumentos() {
     queryKey: ["ctrl-docs"],
     queryFn: async () => {
       const { data } = await supabase.from("documentos").select("*").order("created_at", { ascending: false });
-      return data || [];
+      return (data || []) as DocRow[];
     },
   });
+  const { data: profiles = [] } = useQuery({
+    queryKey: ["ctrl-profiles"],
+    queryFn: async () => (await supabase.from("profiles").select("user_id, nome, email")).data || [],
+  });
 
-  const tipos = useMemo(() => Array.from(new Set(documentos.map((d: any) => d.tipo).filter(Boolean))), [documentos]);
+  const contratosDaEmpresaCad = useMemo(
+    () => (contratos as DocRow[]).filter((c) => c.empresa_id === cadEmpresaId),
+    [contratos, cadEmpresaId],
+  );
+
+  const validadePreview = useMemo(
+    () => calcularDataValidade(cadTipo, cadElaboracao),
+    [cadTipo, cadElaboracao],
+  );
+
+  const docsControle = useMemo(() => {
+    return documentos.filter((d) => entraNoControleVencimento(d));
+  }, [documentos]);
 
   const docsFiltrados = useMemo(() => {
-    return (documentos as any[]).filter((d) => {
+    return docsControle.filter((d) => {
       if (filtroEmpresa !== "all" && d.empresa_id !== filtroEmpresa) return false;
       if (filtroTipo !== "all" && d.tipo !== filtroTipo) return false;
-      const st = calcStatus(d.data_validade);
-      if (filtroStatus === "vencido" && st !== "vencido") return false;
-      if (filtroStatus === "proximo" && st !== "proximo") return false;
-      if (filtroStatus === "no_prazo" && st !== "no_prazo") return false;
+      const st = statusVencimentoDocumento(d);
+      if (filtroStatus !== "all" && st !== filtroStatus) return false;
       if (search) {
         const q = search.toLowerCase();
-        if (
-          !(d.nome_documento || "").toLowerCase().includes(q) &&
-          !(d.tipo || "").toLowerCase().includes(q) &&
-          !(d.empresa_nome || "").toLowerCase().includes(q)
-        )
-          return false;
+        const ctr = (contratos as DocRow[]).find((c) => c.id === d.contrato_id);
+        const hay = [
+          d.nome_documento,
+          d.tipo,
+          labelTipoDocumento(d.tipo),
+          d.empresa_nome,
+          ctr?.numero_contrato,
+          ctr?.nome_contratante,
+        ]
+          .filter(Boolean)
+          .join(" ")
+          .toLowerCase();
+        if (!hay.includes(q)) return false;
       }
       return true;
     });
-  }, [documentos, filtroEmpresa, filtroTipo, filtroStatus, search]);
+  }, [docsControle, filtroEmpresa, filtroTipo, filtroStatus, search, contratos]);
 
-  const empresasComDocs = useMemo(() => {
-    const ids = new Set(docsFiltrados.map((d: any) => d.empresa_id).filter(Boolean));
-    return (empresas as any[]).filter((e) => ids.has(e.id));
-  }, [empresas, docsFiltrados]);
+  const docsOrdenados = useMemo(() => {
+    const rank = (s: StatusDoc | null) => (s === "vencido" ? 0 : s === "proximo" ? 1 : 2);
+    return [...docsFiltrados].sort((a, b) => {
+      const ra = rank(statusVencimentoDocumento(a));
+      const rb = rank(statusVencimentoDocumento(b));
+      if (ra !== rb) return ra - rb;
+      const va = validadeEfetiva(a) || "";
+      const vb = validadeEfetiva(b) || "";
+      return va.localeCompare(vb);
+    });
+  }, [docsFiltrados]);
 
-  const contratosDaEmpresa = (empId: string) => {
-    const usados = new Set(docsFiltrados.filter((d: any) => d.empresa_id === empId).map((d: any) => d.contrato_id));
-    return (contratos as any[]).filter((c) => c.empresa_id === empId && usados.has(c.id));
+  const tiposFiltro = useMemo(
+    () => Array.from(new Set(docsControle.map((d) => d.tipo).filter(Boolean))) as string[],
+    [docsControle],
+  );
+
+  const nomeResponsavel = (userId?: string | null) => {
+    if (!userId) return "—";
+    const p = (profiles as DocRow[]).find((x) => x.user_id === userId);
+    return p?.nome || p?.email || userId;
   };
-  const docsDoContrato = (empId: string, ctrId: string) =>
-    docsFiltrados.filter((d: any) => d.empresa_id === empId && d.contrato_id === ctrId);
-  const docsSemContrato = (empId: string) =>
-    docsFiltrados.filter((d: any) => d.empresa_id === empId && !d.contrato_id);
 
   const handleUploadClick = (docId: string) => {
     setUploadDocId(docId);
@@ -108,7 +167,11 @@ export default function ControleDocumentos() {
     const path = `${uploadDocId}/${Date.now()}_${file.name}`;
     const { error } = await supabase.storage.from("documentos-upload").upload(path, file, { upsert: true });
     if (error) return toast.error("Erro no upload: " + error.message);
-    await supabase.from("documentos").update({ upload_file_path: path }).eq("id", uploadDocId);
+    const { error: upErr } = await supabase
+      .from("documentos")
+      .update({ upload_file_path: path, last_modified_by: user?.id || null })
+      .eq("id", uploadDocId);
+    if (upErr) return toast.error("Falha ao vincular arquivo: " + upErr.message);
     toast.success("Arquivo anexado");
     qc.invalidateQueries({ queryKey: ["ctrl-docs"] });
     if (fileInputRef.current) fileInputRef.current.value = "";
@@ -128,178 +191,387 @@ export default function ControleDocumentos() {
     setDownloadModal(null);
   };
 
-  const renderTable = (docs: any[]) => (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Tipo</TableHead>
-          <TableHead>Nome</TableHead>
-          <TableHead>Empresa</TableHead>
-          <TableHead>Contrato</TableHead>
-          <TableHead>Elaboração</TableHead>
-          <TableHead>Validade</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead className="text-right">Ações</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {docs.map((d) => {
-          const ctr = (contratos as any[]).find((c) => c.id === d.contrato_id);
-          return (
-            <TableRow key={d.id}>
-              <TableCell><Badge variant="outline" className="font-mono text-[10px]">{d.tipo}</Badge></TableCell>
-              <TableCell className="font-medium">{d.nome_documento || `${d.tipo} - ${d.empresa_nome}`}</TableCell>
-              <TableCell className="text-sm">{d.empresa_nome}</TableCell>
-              <TableCell className="text-sm">{ctr?.numero_contrato || "—"}</TableCell>
-              <TableCell className="text-sm">{fmtDate(d.data_elaboracao)}</TableCell>
-              <TableCell className="text-sm">{fmtDate(d.data_validade)}</TableCell>
-              <TableCell>{statusBadge(calcStatus(d.data_validade))}</TableCell>
-              <TableCell className="text-right">
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleUploadClick(d.id)} title="Upload">
-                  <Upload className="w-4 h-4" />
-                </Button>
-                <Button
-                  variant="ghost" size="icon" className="h-8 w-8"
-                  onClick={() => setDownloadModal(d)}
-                  disabled={!d.file_path && !d.upload_file_path}
-                  title="Download"
-                >
-                  <Download className="w-4 h-4" />
-                </Button>
-              </TableCell>
-            </TableRow>
-          );
-        })}
-      </TableBody>
-    </Table>
-  );
+  const resetCadastro = () => {
+    setCadEmpresaId("");
+    setCadContratoId("");
+    setCadTipo("LTCAT");
+    setCadElaboracao(todayDateOnly());
+  };
+
+  const salvarCadastroManual = async () => {
+    const empresa = (empresas as DocRow[]).find((e) => e.id === cadEmpresaId);
+    const contrato = (contratos as DocRow[]).find((c) => c.id === cadContratoId);
+    const elaboracao = normalizeDateOnly(cadElaboracao);
+    if (!empresa) return toast.error("Selecione a empresa.");
+    if (!contrato) return toast.error("Selecione o contrato.");
+    if (!elaboracao) return toast.error("Informe a data de elaboração.");
+    if (!TIPOS_CONTROLE_VENCIMENTO.includes(cadTipo)) return toast.error("Tipo de documento inválido.");
+
+    const validade = calcularDataValidade(cadTipo, elaboracao);
+    if (!validade) return toast.error("Não foi possível calcular a validade.");
+
+    setSaving(true);
+    try {
+      const { data: existentes, error: dupErr } = await supabase
+        .from("documentos")
+        .select("id")
+        .eq("empresa_id", cadEmpresaId)
+        .eq("contrato_id", cadContratoId)
+        .eq("tipo", cadTipo)
+        .eq("data_elaboracao", elaboracao)
+        .limit(1);
+      if (dupErr) throw dupErr;
+      if ((existentes || []).length > 0) {
+        toast.error("Já existe documento com a mesma empresa, contrato, tipo e data de elaboração.");
+        return;
+      }
+
+      const empresaNome = empresa.nome_fantasia || empresa.razao_social || "";
+      const payload = {
+        tipo: cadTipo,
+        empresa_id: cadEmpresaId,
+        contrato_id: cadContratoId,
+        empresa_nome: empresaNome,
+        nome_documento: `${labelTipoDocumento(cadTipo)} — ${empresaNome}`,
+        data_elaboracao: elaboracao,
+        data_validade: validade,
+        status: "manual",
+        draft_snapshot: { origem: "manual" },
+        last_modified_by: user?.id || null,
+        current_step: 0,
+      };
+
+      const { error } = await supabase.from("documentos").insert(payload);
+      if (error) throw error;
+
+      toast.success("Documento cadastrado no controle de vencimentos.");
+      setCadastroOpen(false);
+      resetCadastro();
+      qc.invalidateQueries({ queryKey: ["ctrl-docs"] });
+      qc.invalidateQueries({ queryKey: ["docs-vencimento-alert"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Falha ao cadastrar documento.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div>
       <PageHeader
         title="Controle de Documentos"
-        description="Organização hierárquica por Empresa › Contrato › Documentos com controle automático de vencimento"
+        description="Acompanhe vencimentos, cadastre documentos externos e gerencie anexos"
       />
 
-      <div className="glass-card rounded-xl p-4 mb-4 grid grid-cols-1 md:grid-cols-5 gap-3">
-        <div className="relative md:col-span-2">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar por nome, tipo, empresa..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+      <Tabs defaultValue="vencidos" className="space-y-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList>
+            <TabsTrigger value="vencidos">Vencidos</TabsTrigger>
+          </TabsList>
+          <Button onClick={() => setCadastroOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Cadastro
+          </Button>
         </div>
-        <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
-          <SelectTrigger><SelectValue placeholder="Empresa" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas as empresas</SelectItem>
-            {(empresas as any[]).map((e) => (
-              <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <Select value={filtroTipo} onValueChange={setFiltroTipo}>
-          <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os tipos</SelectItem>
-            {tipos.map((t: any) => <SelectItem key={t} value={t}>{t}</SelectItem>)}
-          </SelectContent>
-        </Select>
-        <Select value={filtroStatus} onValueChange={setFiltroStatus}>
-          <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos os status</SelectItem>
-            <SelectItem value="no_prazo">No prazo</SelectItem>
-            <SelectItem value="proximo">Próximo do vencimento</SelectItem>
-            <SelectItem value="vencido">Vencidos</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
 
-      <input ref={fileInputRef} type="file" className="hidden" onChange={handleFileChange} />
+        <TabsContent value="vencidos" className="space-y-4">
+          <div className="glass-card mb-0 grid grid-cols-1 gap-3 rounded-xl p-4 md:grid-cols-5">
+            <div className="relative md:col-span-2">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por empresa, contrato, tipo..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+              <SelectTrigger><SelectValue placeholder="Empresa" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as empresas</SelectItem>
+                {(empresas as DocRow[]).map((e) => (
+                  <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroTipo} onValueChange={setFiltroTipo}>
+              <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os tipos</SelectItem>
+                {tiposFiltro.map((t) => (
+                  <SelectItem key={t} value={t}>{labelTipoDocumento(t)}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={filtroStatus} onValueChange={setFiltroStatus}>
+              <SelectTrigger><SelectValue placeholder="Status" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="no_prazo">No prazo</SelectItem>
+                <SelectItem value="proximo">A vencer</SelectItem>
+                <SelectItem value="vencido">Vencido</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      {isLoading ? (
-        <div className="flex justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
-      ) : empresasComDocs.length === 0 ? (
-        <div className="glass-card rounded-xl p-12 text-center text-muted-foreground">Nenhum documento encontrado.</div>
-      ) : (
-        <div className="space-y-2">
-          {empresasComDocs.map((emp: any) => {
-            const isOpen = !!expandedEmp[emp.id];
-            const ctrs = contratosDaEmpresa(emp.id);
-            const semCtr = docsSemContrato(emp.id);
-            const total = docsFiltrados.filter((d: any) => d.empresa_id === emp.id).length;
-            return (
-              <div key={emp.id} className="glass-card rounded-xl overflow-hidden">
-                <button onClick={() => setExpandedEmp((p) => ({ ...p, [emp.id]: !p[emp.id] }))}
-                  className="w-full flex items-center gap-3 p-4 hover:bg-muted/30 transition-colors">
-                  {isOpen ? <ChevronDown className="w-5 h-5" /> : <ChevronRight className="w-5 h-5" />}
-                  <Building2 className="w-5 h-5 text-muted-foreground" />
-                  <span className="font-heading font-semibold text-foreground flex-1 text-left">{emp.nome_fantasia || emp.razao_social}</span>
-                  <Badge className="bg-accent/10 text-accent-foreground border-accent/20">{total} docs</Badge>
-                </button>
-                {isOpen && (
-                  <div className="border-t border-border bg-muted/10 p-3 space-y-2">
-                    {ctrs.map((c: any) => {
-                      const ctrKey = `${emp.id}_${c.id}`;
-                      const ctrOpen = !!expandedCtr[ctrKey];
-                      const ds = docsDoContrato(emp.id, c.id);
-                      return (
-                        <div key={c.id} className="bg-card rounded-lg border border-border overflow-hidden">
-                          <button onClick={() => setExpandedCtr((p) => ({ ...p, [ctrKey]: !p[ctrKey] }))}
-                            className="w-full flex items-center gap-3 p-3 hover:bg-muted/30">
-                            {ctrOpen ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                            <FileSignature className="w-4 h-4 text-muted-foreground" />
-                            <span className="font-medium text-sm flex-1 text-left">
-                              Contrato {c.numero_contrato || "(sem número)"} {c.nome_contratante && <span className="text-muted-foreground">— {c.nome_contratante}</span>}
-                            </span>
-                            <Badge variant="outline" className="text-[10px]">{ds.length} docs</Badge>
-                          </button>
-                          {ctrOpen && (
-                            <div className="border-t border-border p-3">
-                              <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-                                <Folder className="w-3.5 h-3.5" /> Documentos
-                              </div>
-                              {renderTable(ds)}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {semCtr.length > 0 && (
-                      <div className="bg-card rounded-lg border border-dashed border-border p-3">
-                        <div className="flex items-center gap-2 mb-2 text-xs text-muted-foreground">
-                          <Folder className="w-3.5 h-3.5" /> Documentos sem contrato vinculado
-                        </div>
-                        {renderTable(semCtr)}
-                      </div>
-                    )}
-                  </div>
-                )}
+          <input ref={fileInputRef} type="file" className="hidden" onChange={(e) => void handleFileChange(e)} />
+
+          {isLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : docsOrdenados.length === 0 ? (
+            <div className="glass-card rounded-xl p-12 text-center text-muted-foreground">
+              Nenhum documento no controle de vencimentos.
+            </div>
+          ) : (
+            <div className="portal-surface overflow-hidden">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Empresa</TableHead>
+                    <TableHead>Contrato</TableHead>
+                    <TableHead>Tipo de documento</TableHead>
+                    <TableHead>Data de elaboração</TableHead>
+                    <TableHead>Data de vencimento</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {docsOrdenados.map((d) => {
+                    const ctr = (contratos as DocRow[]).find((c) => c.id === d.contrato_id);
+                    const st = statusVencimentoDocumento(d);
+                    return (
+                      <TableRow key={d.id}>
+                        <TableCell className="font-medium">{d.empresa_nome || "—"}</TableCell>
+                        <TableCell className="text-sm">
+                          {ctr?.numero_contrato || "—"}
+                          {ctr?.nome_contratante ? (
+                            <span className="block text-xs text-muted-foreground">{ctr.nome_contratante}</span>
+                          ) : null}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-col gap-1">
+                            <span className="text-sm font-medium">{labelTipoDocumento(d.tipo)}</span>
+                            {d.status === "manual" && (
+                              <Badge variant="outline" className="w-fit text-[10px]">Manual</Badge>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{fmtDate(d.data_elaboracao)}</TableCell>
+                        <TableCell className="text-sm">{fmtDate(validadeEfetiva(d))}</TableCell>
+                        <TableCell>{statusBadge(st)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="inline-flex items-center justify-end gap-0.5">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Detalhes"
+                              onClick={() => setDetalheModal(d)}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Upload"
+                              onClick={() => handleUploadClick(d.id)}
+                            >
+                              <Upload className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              title="Download"
+                              disabled={!d.file_path && !d.upload_file_path}
+                              onClick={() => setDownloadModal(d)}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* Detalhes */}
+      <Dialog open={!!detalheModal} onOpenChange={(o) => !o && setDetalheModal(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Detalhes do documento</DialogTitle>
+          </DialogHeader>
+          {detalheModal && (
+            <div className="grid gap-3 text-sm">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <p className="text-xs text-muted-foreground">Empresa</p>
+                  <p className="font-medium">{detalheModal.empresa_nome || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Contrato</p>
+                  <p className="font-medium">
+                    {(contratos as DocRow[]).find((c) => c.id === detalheModal.contrato_id)?.numero_contrato || "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Tipo</p>
+                  <p className="font-medium">{labelTipoDocumento(detalheModal.tipo)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Origem</p>
+                  <p className="font-medium">{detalheModal.status === "manual" ? "Cadastro manual" : "Gerado no SegDoc"}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Elaboração</p>
+                  <p className="font-medium">{fmtDate(detalheModal.data_elaboracao)}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Vencimento</p>
+                  <p className="font-medium">{fmtDate(validadeEfetiva(detalheModal))}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Status</p>
+                  <div className="mt-0.5">{statusBadge(statusVencimentoDocumento(detalheModal))}</div>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Responsável</p>
+                  <p className="font-medium">{nomeResponsavel(detalheModal.last_modified_by)}</p>
+                </div>
               </div>
-            );
-          })}
-        </div>
-      )}
+              {detalheModal.nome_documento && (
+                <div>
+                  <p className="text-xs text-muted-foreground">Nome</p>
+                  <p className="font-medium">{detalheModal.nome_documento}</p>
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3 border-t border-border/70 pt-3 text-xs text-muted-foreground">
+                <p>Criado em: {fmtDate(detalheModal.created_at?.slice?.(0, 10) || detalheModal.created_at)}</p>
+                <p>Atualizado: {fmtDate(detalheModal.updated_at?.slice?.(0, 10) || detalheModal.updated_at)}</p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetalheModal(null)}>Fechar</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
+      {/* Cadastro manual */}
+      <Dialog
+        open={cadastroOpen}
+        onOpenChange={(o) => {
+          setCadastroOpen(o);
+          if (!o) resetCadastro();
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Cadastro de documento</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-2">
+              <Label>Empresa</Label>
+              <Select
+                value={cadEmpresaId || undefined}
+                onValueChange={(v) => {
+                  setCadEmpresaId(v);
+                  setCadContratoId("");
+                }}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
+                <SelectContent>
+                  {(empresas as DocRow[]).map((e) => (
+                    <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Contrato</Label>
+              <Select
+                value={cadContratoId || undefined}
+                onValueChange={setCadContratoId}
+                disabled={!cadEmpresaId}
+              >
+                <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
+                <SelectContent>
+                  {contratosDaEmpresaCad.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "(sem número)"}
+                      {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Tipo de documento</Label>
+              <Select value={cadTipo} onValueChange={(v) => setCadTipo(v as TipoControleVencimento)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {TIPOS_CADASTRO_MANUAL.map((t) => (
+                    <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="data-elaboracao">Data de elaboração</Label>
+              <Input
+                id="data-elaboracao"
+                type="date"
+                value={cadElaboracao}
+                onChange={(e) => setCadElaboracao(e.target.value)}
+              />
+            </div>
+            <div className="rounded-lg border border-border/70 bg-muted/40 px-3 py-2 text-sm">
+              <p className="text-xs text-muted-foreground">Data de vencimento (automática)</p>
+              <p className="font-semibold text-foreground">{fmtDate(validadePreview)}</p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCadastroOpen(false)} disabled={saving}>Cancelar</Button>
+            <Button onClick={() => void salvarCadastroManual()} disabled={saving}>
+              {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Download */}
       <Dialog open={!!downloadModal} onOpenChange={() => setDownloadModal(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader><DialogTitle>Baixar documento</DialogTitle></DialogHeader>
           <div className="space-y-2 py-2">
             <button
+              type="button"
               disabled={!downloadModal?.file_path}
-              onClick={() => handleDownload(downloadModal.file_path, `${downloadModal.tipo}_original`)}
-              className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => handleDownload(downloadModal!.file_path, `${downloadModal!.tipo}_original`)}
+              className="w-full rounded-lg border border-border p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="font-semibold">Documento original emitido pelo sistema</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {downloadModal?.file_path ? "Arquivo gerado pelo SegDoc" : "Indisponível — documento ainda não foi gerado"}
               </p>
             </button>
             <button
+              type="button"
               disabled={!downloadModal?.upload_file_path}
-              onClick={() => handleDownload(downloadModal.upload_file_path, `${downloadModal.tipo}_upload`)}
-              className="w-full text-left p-4 rounded-lg border border-border hover:border-accent hover:bg-accent/5 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              onClick={() => handleDownload(downloadModal!.upload_file_path, `${downloadModal!.tipo}_upload`)}
+              className="w-full rounded-lg border border-border p-4 text-left transition-colors hover:border-primary/40 hover:bg-muted/40 disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="font-semibold">Arquivo enviado via upload</span>
-              <p className="text-xs text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-xs text-muted-foreground">
                 {downloadModal?.upload_file_path ? "Arquivo anexado manualmente" : "Indisponível — nenhum arquivo foi enviado"}
               </p>
             </button>

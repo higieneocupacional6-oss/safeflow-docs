@@ -155,7 +155,7 @@ export default function AiDiagnostico() {
     if (isAdmin) void loadStatus();
   }, [isAdmin, loadStatus]);
 
-  if (!authLoading && !isAdmin) return <Navigate to="/empresas" replace />;
+  if (!authLoading && !isAdmin) return <Navigate to="/" replace />;
 
   const providers: ProviderId[] = ["gemini", "groq", "openrouter"];
 

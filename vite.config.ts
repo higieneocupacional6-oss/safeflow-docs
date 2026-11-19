@@ -4,9 +4,9 @@ import path from "path";
 import { componentTagger } from "lovable-tagger";
 import { VitePWA } from "vite-plugin-pwa";
 
-// Cores oficiais do SegDoc (src/index.css :root)
-const SEGDOC_PRIMARY = "#218C5E"; // --primary hsl(154 62% 34%)
-const SEGDOC_BACKGROUND = "#EFF5F2"; // --background hsl(150 24% 95%)
+// Cores oficiais do SegDoc (portal SST)
+const SEGDOC_PRIMARY = "#102A43"; // azul-marinho — navegação / theme_color
+const SEGDOC_BACKGROUND = "#EFF5EF"; // fundo claro institucional
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
@@ -34,6 +34,9 @@ export default defineConfig(({ mode }) => ({
         "favicon.ico",
         "favicon.png",
         "apple-touch-icon.png",
+        "segdoc-logo.png",
+        "segdoc-logo-solid.png",
+        "og-image.png",
         "pwa-192x192.png",
         "pwa-512x512.png",
         "pwa-maskable-512x512.png",
@@ -42,7 +45,7 @@ export default defineConfig(({ mode }) => ({
         id: "/",
         name: "SegDoc - Gestão SST",
         short_name: "SegDoc",
-        description: "Sistema de Gestão de Segurança do Trabalho",
+        description: "Portal profissional de Gestão de Segurança e Saúde do Trabalho",
         lang: "pt-BR",
         dir: "ltr",
         start_url: "/",
@@ -72,10 +75,19 @@ export default defineConfig(({ mode }) => ({
             type: "image/png",
             purpose: "maskable",
           },
+          {
+            src: "apple-touch-icon.png",
+            sizes: "180x180",
+            type: "image/png",
+            purpose: "any",
+          },
         ],
       },
       workbox: {
+        clientsClaim: true,
+        cleanupOutdatedCaches: true,
         navigateFallback: "index.html",
+        // SPA offline: /avaliacao-psicossocial/:token cai no index.html do precache
         navigateFallbackDenylist: [/^\/api(?:\/|$)/, /^\/health(?:\/|$)/, /^\/admin(?:\/|$)/],
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2,webmanifest}"],
         runtimeCaching: [
@@ -99,8 +111,17 @@ export default defineConfig(({ mode }) => ({
           },
         ],
       },
+      // SW ativo também em `npm run dev` para questionário offline real
       devOptions: {
-        enabled: false,
+        enabled: true,
+        type: "module",
+        navigateFallbackAllowlist: [
+          /^\/$/,
+          /^\/avaliacao-psicossocial\//,
+          /^\/ferramentas-ergonomicas(?:\/|$)/,
+          /^\/p\//,
+          /^\/portal-clientes(?:\/|$)/,
+        ],
       },
     }),
   ].filter(Boolean),

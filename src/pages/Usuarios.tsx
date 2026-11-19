@@ -50,7 +50,7 @@ export default function Usuarios() {
 
   useEffect(() => { if (isAdmin) load(); }, [isAdmin]);
 
-  if (!authLoading && !isAdmin) return <Navigate to="/empresas" replace />;
+  if (!authLoading && !isAdmin) return <Navigate to="/" replace />;
 
   const openNew = () => {
     setEditing(null);

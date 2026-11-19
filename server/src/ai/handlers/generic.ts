@@ -1,5 +1,9 @@
 import { getPool } from "../../db/pool.js";
 import { compactarContexto, limitarTexto, type PedidoGeracao } from "../gemini.js";
+import {
+  carregarContextoErgoIntegradoPg,
+  INSTRUCAO_CONTEXTO_ERGO_INTEGRADO,
+} from "../lib/contextoErgoIntegrado.js";
 
 const db = () => {
   const pool = getPool();
@@ -78,20 +82,36 @@ export async function buildAprErgo(body: any): Promise<PedidoGeracao> {
       file_data: `data:application/pdf;base64,${b.data}`,
     }));
 
+  const setorRow = setor.rows[0] as { id?: string; funcoes?: Array<{ id: string; nome_funcao: string }> } | undefined;
+  let funcoesSetor = Array.isArray(setorRow?.funcoes) ? setorRow.funcoes : [];
+  const funcaoIdSnap = snap.funcao_id;
+  const selecionadas = typeof funcaoIdSnap === "string"
+    ? [funcaoIdSnap]
+    : Array.isArray(snap.funcao_ids) ? snap.funcao_ids.filter((id: unknown): id is string => typeof id === "string") : null;
+  if (selecionadas?.length) {
+    funcoesSetor = funcoesSetor.filter((f) => selecionadas.includes(f.id));
+  }
+
+  const integrado = await carregarContextoErgoIntegradoPg(db(), {
+    empresaId: doc.rows[0].empresa_id,
+    contratoId: doc.rows[0].contrato_id,
+    setorId: setorId || null,
+    funcaoIds: funcoesSetor.map((f) => f.id),
+    funcaoNomes: funcoesSetor.map((f) => f.nome_funcao),
+  });
+
   content.push({
     type: "input_text",
     text: limitarTexto(`RELATO: ${relato}
 EMPRESA: ${doc.rows[0].empresa_nome}
 SETOR: ${JSON.stringify(setor.rows[0] || {})}
+FORMULARIO_AEP_AET_E_ERGONOMIA: ${JSON.stringify(compactarContexto(integrado))}
 CRITÉRIOS: ${JSON.stringify(body.criterios ?? {})}
 BASE TEXTO: ${base.filter((b: any) => b?.tipo === "texto").map((b: any) => `${b.nome}\n${b.data}`).join("\n")}`),
   });
 
-  const setorRow = setor.rows[0] as { id?: string; funcoes?: Array<{ id: string; nome_funcao: string }> } | undefined;
-  const funcoesSetor = Array.isArray(setorRow?.funcoes) ? setorRow.funcoes : [];
-
   return {
-    systemPrompt: `Você é ergonomista elaborando APR-ERGO. Produza análise técnica formal. Use IDs exatos de funções do setor. Responda só JSON conforme schema. Não invente medições. medidas deve listar somente controles confirmados (strings da lista implícita do contexto); o sistema unifica medidas em texto.`,
+    systemPrompt: `Você é ergonomista elaborando APR-ERGO. Produza análise técnica formal. Use IDs exatos de funções do setor. Responda só JSON conforme schema. Não invente medições. medidas deve listar somente controles confirmados (strings da lista implícita do contexto); o sistema unifica medidas em texto. ${INSTRUCAO_CONTEXTO_ERGO_INTEGRADO}`,
     userContent: content,
     schema,
     schemaName: "apr_ergo",

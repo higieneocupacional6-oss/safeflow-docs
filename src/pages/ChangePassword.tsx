@@ -1,11 +1,13 @@
 import { FormEvent, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
-import { KeyRound, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { BrandLogo } from "@/components/BrandLogo";
 import { apiRequest, setApiCsrf } from "@/lib/apiClient";
 import { useAuth } from "@/hooks/useAuth";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import type { AuthUser } from "@/lib/db/client";
 import { toast } from "sonner";
 
@@ -33,7 +35,7 @@ export default function ChangePassword() {
       if (result.csrfToken) setApiCsrf(result.csrfToken);
       toast.success("Senha alterada com segurança.");
       // Recarrega identidade com mustChangePassword=false
-      window.location.assign("/empresas");
+      window.location.assign("/");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Falha ao alterar a senha.");
     } finally {
@@ -42,14 +44,12 @@ export default function ChangePassword() {
   };
 
   return (
-    <main className="min-h-screen grid place-items-center p-6 bg-background">
-      <section className="w-full max-w-md rounded-xl border bg-card p-6 shadow-sm">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="grid h-10 w-10 place-items-center rounded-lg bg-primary text-primary-foreground">
-            <KeyRound className="h-5 w-5" />
-          </div>
+    <main className="grid min-h-screen place-items-center bg-background p-6">
+      <section className="portal-surface w-full max-w-md p-6 sm:p-7">
+        <div className="mb-6 space-y-4">
+          <BrandLogo tone="dark" markClassName="h-11 w-11" />
           <div>
-            <h1 className="font-heading text-xl font-bold">Defina sua nova senha</h1>
+            <h1 className="font-heading text-xl font-bold text-foreground">Defina sua nova senha</h1>
             <p className="text-sm text-muted-foreground">A senha inicial precisa ser substituída no primeiro acesso.</p>
           </div>
         </div>
@@ -96,6 +96,7 @@ export default function ChangePassword() {
           </Button>
         </form>
       </section>
+      <ThemeToggle />
     </main>
   );
 }

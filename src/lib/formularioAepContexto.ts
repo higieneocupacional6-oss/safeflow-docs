@@ -1,8 +1,9 @@
 // Contexto somente leitura para o "Gerar IA" do Formulário AEP:
-// relatório Psicossocial salvo (mesma empresa+contrato, por setor/GHE/função) e
-// formulários AEP salvos anteriormente da mesma empresa (mesmo contrato priorizado).
+// relatório Psicossocial salvo (mesma empresa+contrato, por setor/GHE/função),
+// formulários AEP salvos anteriormente e Formulário AEP/AET + avaliações ergonômicas.
 import { supabase } from "@/integrations/supabase/client";
 import { carregarContextoPsicossocial } from "@/lib/psicoContexto";
+import { carregarContextoErgoIntegrado } from "@/lib/contextoErgoIntegrado";
 
 type Marcas = Record<string, Record<string, string>>;
 
@@ -53,5 +54,21 @@ export async function carregarContextoFormularioAep(args: {
   } catch (e) {
     console.warn("[formularioAepContexto] falha ao ler formulários anteriores", e);
   }
-  return { psicossocial, formularios_anteriores: anteriores };
+
+  const funcoesIds = [...args.funcoesSelecionadas];
+  const funcoesNomes = args.setores.flatMap((s) =>
+    (s.funcoes || [])
+      .filter((f) => !args.funcoesSelecionadas.size || args.funcoesSelecionadas.has(f.id))
+      .map((f) => f.nome_funcao),
+  );
+  const setorPrincipal = args.setores[0];
+  const formulario_aep_aet_e_ergonomia = await carregarContextoErgoIntegrado({
+    empresaId: args.empresaId,
+    contratoId: args.contratoId,
+    setorId: setorPrincipal?.id || null,
+    funcaoIds: funcoesIds,
+    funcaoNomes: funcoesNomes,
+  });
+
+  return { psicossocial, formularios_anteriores: anteriores, formulario_aep_aet_e_ergonomia };
 }

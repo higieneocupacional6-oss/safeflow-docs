@@ -5,6 +5,7 @@
  */
 import { compactarContexto, limitarAnexos, limitarTexto, type PedidoGeracao } from "../gemini.js";
 import { limparSaidaTecnica, REDACAO_TECNICA } from "../redacao.js";
+import { INSTRUCAO_CONTEXTO_ERGO_INTEGRADO } from "../lib/contextoErgoIntegrado.js";
 
 function extrairFocoAep(setor: Record<string, any>) {
   const texto = (v: unknown) => (typeof v === "string" ? v.trim() : "");
@@ -52,8 +53,11 @@ HIERARQUIA DE FONTES (do mais forte ao mais fraco):
 1. DIRETRIZES INTERNAS DO RESPONSÁVEL TÉCNICO (método/estilo — jamais copiar na resposta).
 2. RELATO IN LOCO e ANEXOS (fotos/PDFs) — evidência primária.
 3. CONTEXTO CADASTRADO (empresa, contrato, setor, função, ferramentas, COPSOQ, avaliações, cronoanálise prévia).
-4. AEP correspondente (aprofundamento, não cópia literal).
-5. Conhecimento técnico geral — complementar sem inventar fatos.
+4. Formulário AEP/AET e avaliações ergonômicas (ROSA/OCRA/RULA/REBA/OWAS/NIOSH) do mesmo escopo — somente leitura.
+5. AEP correspondente (aprofundamento, não cópia literal).
+6. Conhecimento técnico geral — complementar sem inventar fatos.
+
+${INSTRUCAO_CONTEXTO_ERGO_INTEGRADO}
 
 FINALIDADE EXCLUSIVA DE CADA CAMPO (proibido repetir o mesmo texto/parágrafo em campos diferentes):
 - posto_trabalho: AMBIENTE físico — mobiliário, equipamentos, ferramentas, layout, dimensões, condições ambientais observadas. NÃO descreva a sequência da atividade nem o diagnóstico.

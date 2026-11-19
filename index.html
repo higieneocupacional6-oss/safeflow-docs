@@ -1,38 +1,44 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#218C5E" />
+    <meta name="theme-color" content="#102A43" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0B1520" media="(prefers-color-scheme: dark)" />
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="SegDoc" />
-    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="application-name" content="SegDoc" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png" />
     <link rel="icon" href="/favicon.ico" sizes="any" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="mask-icon" href="/segdoc-logo.png" color="#102A43" />
     <title>SegDoc - Gestão SST</title>
-    <meta name="description" content="SegDoc - Sistema de Gestão de Segurança do Trabalho">
+    <meta name="description" content="SegDoc - Portal profissional de Gestão de Segurança e Saúde do Trabalho" />
     <meta name="author" content="SegDoc" />
 
-    
-    
     <meta property="og:type" content="website" />
-    <meta property="og:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0ff8e2d5-7400-46e1-9758-9e5a68a5a749/id-preview-293a38ea--c2502c0e-6e6d-40bb-a6fb-1b9f6af18919.lovable.app-1776479678208.png">
+    <meta property="og:site_name" content="SegDoc" />
+    <meta property="og:title" content="SegDoc - Gestão SST" />
+    <meta property="og:description" content="SegDoc - Portal profissional de Gestão de Segurança e Saúde do Trabalho" />
+    <meta property="og:image" content="/og-image.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="512" />
+    <meta property="og:image:height" content="512" />
+    <meta property="og:locale" content="pt_BR" />
 
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@Lovable" />
-    <meta name="twitter:image" content="https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/0ff8e2d5-7400-46e1-9758-9e5a68a5a749/id-preview-293a38ea--c2502c0e-6e6d-40bb-a6fb-1b9f6af18919.lovable.app-1776479678208.png">
-    <meta property="og:title" content="SegDoc - Gestão SST">
-  <meta name="twitter:title" content="SegDoc - Gestão SST">
-  <meta property="og:description" content="SegDoc - Sistema de Gestão de Segurança do Trabalho">
-  <meta name="twitter:description" content="SegDoc - Sistema de Gestão de Segurança do Trabalho">
-</head>
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="SegDoc - Gestão SST" />
+    <meta name="twitter:description" content="SegDoc - Portal profissional de Gestão de Segurança e Saúde do Trabalho" />
+    <meta name="twitter:image" content="/og-image.png" />
+  </head>
 
   <body>
     <div id="root">
-      <!-- Visible until the ~4MB JS bundle parses; React replaces this on mount. -->
-      <div style="min-height:100vh;display:flex;align-items:center;justify-content:center;font-family:system-ui,sans-serif;color:#64748b;font-size:14px">
+      <!-- Visible until the JS bundle parses; React replaces this on mount. -->
+      <div style="min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;font-family:system-ui,sans-serif;color:#64748b;font-size:14px;background:#EFF5EF">
+        <img src="/segdoc-logo.png" alt="SegDoc" width="56" height="56" style="object-fit:contain" />
         Carregando SegDoc…
       </div>
     </div>

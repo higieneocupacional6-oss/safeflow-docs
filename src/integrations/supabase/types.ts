@@ -350,6 +350,9 @@ export type Database = {
           id: string
           last_modified_by: string | null
           nome_documento: string | null
+          offline_client_id: string | null
+          offline_device_id: string | null
+          offline_device_label: string | null
           responsavel_tecnico: string | null
           revisoes: Json
           row_version: number
@@ -375,6 +378,9 @@ export type Database = {
           id?: string
           last_modified_by?: string | null
           nome_documento?: string | null
+          offline_client_id?: string | null
+          offline_device_id?: string | null
+          offline_device_label?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
           row_version?: number
@@ -400,6 +406,9 @@ export type Database = {
           id?: string
           last_modified_by?: string | null
           nome_documento?: string | null
+          offline_client_id?: string | null
+          offline_device_id?: string | null
+          offline_device_label?: string | null
           responsavel_tecnico?: string | null
           revisoes?: Json
           row_version?: number

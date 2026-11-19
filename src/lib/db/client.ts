@@ -260,7 +260,7 @@ export const db = {
     return wrap(
       apiRequest<{ data: unknown }>(`/api/rpc/${name}`, {
         method: "POST",
-        csrf: name !== "psico_get_public_link" && name !== "psico_submit_resposta",
+        csrf: name !== "psico_get_public_link" && name !== "psico_submit_resposta" && name !== "portal_get_public_link",
         body: args ?? {},
       }).then((result) => result.data),
     );

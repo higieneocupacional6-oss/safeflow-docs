@@ -23,6 +23,7 @@ import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 import { AepTemplateHelper } from "@/components/AepTemplateHelper";
 import { PsicoIntegracaoBadge } from "@/components/psico/PsicoIntegracaoBadge";
 import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoContexto";
+import { carregarContextoErgoIntegrado } from "@/lib/contextoErgoIntegrado";
 import { sortByGes } from "@/lib/sortGes";
 import {
   TIPOS_AGENTE_ERGONOMICO, PROBABILIDADES, SEVERIDADES,
@@ -484,6 +485,13 @@ export default function AepWizard() {
         funcoes: setor.funcoes_selecionadas.map((f) => f.nome),
       });
       setPsicoCtx(psicossocial.disponivel ? psicossocial : null);
+      const formulario_aep_aet_e_ergonomia = await carregarContextoErgoIntegrado({
+        empresaId: empresaId || "",
+        contratoId: contratoId || "",
+        setorId: setor.setor_id,
+        funcaoIds: setor.funcoes_selecionadas.map((f) => f.id).filter(Boolean),
+        funcaoNomes: setor.funcoes_selecionadas.map((f) => f.nome),
+      });
 
       const aep_context = {
         tipo_documento: "AEP — Análise Ergonômica Preliminar",
@@ -574,6 +582,9 @@ export default function AepWizard() {
           },
           plano_acao: setor.plano_acao,
         },
+
+        // Formulário AEP/AET + ferramentas ergonômicas (somente leitura, escopo exato)
+        formulario_aep_aet_e_ergonomia,
       };
 
       const conhecimento = await carregarConhecimentoIa("AEP");

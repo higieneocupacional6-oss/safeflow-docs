@@ -58,6 +58,7 @@ const HAS_MANY: Record<string, Record<string, string>> = {
   setores: { funcoes: "setor_id" },
   equipamentos_ho: { equipamentos_ho_registros: "equipamento_id" },
   epi_epc: { epi_epc_riscos: "epi_epc_id" },
+  portal_clientes_links: { portal_clientes_arquivos: "link_id" },
 };
 
 /** Embed → FK no registro pai. */

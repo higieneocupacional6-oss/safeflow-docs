@@ -16,17 +16,25 @@ import {
 } from "@/components/ui/dialog";
 import {
   ArrowLeft, QrCode, Copy, Sparkles, Loader2, Trash2, ClipboardList, FileBarChart2, Save, Bot,
+  RefreshCw, CloudOff, CheckCircle2, AlertTriangle, Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { parseTexto } from "@/components/PsicossocialTextInputModal";
 import { BLOCOS_COPSOQ } from "@/lib/copsoqBlocos";
 import { ESCALA_COPSOQ } from "@/components/PsicossocialModal";
-import { publicPsicoUrl, corClassificacao } from "@/lib/psicoLink";
+import {
+  corClassificacao,
+  isLoopbackPublicOrigin,
+  resolvePublicPsicoUrl,
+} from "@/lib/psicoLink";
 import { FuncoesNaoVinculadasModal } from "@/components/psico/FuncoesNaoVinculadasModal";
 import { IaBaseTecnicaModal } from "@/components/psico/IaBaseTecnicaModal";
 import { IaEscolhaModal } from "@/components/psico/IaEscolhaModal";
 import { INDICADORES_CAMPOS, normalizarFuncao } from "@/lib/psicoRelatorio";
+import { countPsicoPendingForAvaliacao } from "@/lib/psicoOfflineDb";
+import { preparePsicoOfflinePackage } from "@/lib/psicoOfflinePrepare";
+import { syncPsicoPendingRespostas } from "@/lib/psicoOfflineSync";
 
 const labelEscala = (v: number) =>
   ESCALA_COPSOQ.find((e) => e.value === v)?.label || "—";
@@ -41,6 +49,7 @@ export default function PsicossocialAvaliacao() {
   const [gerando, setGerando] = useState(false);
   const [linkOpen, setLinkOpen] = useState(false);
   const [qrDataUrl, setQrDataUrl] = useState("");
+  const [publicLinkUrl, setPublicLinkUrl] = useState("");
   const [detalhe, setDetalhe] = useState<any | null>(null);
   const [naoVinculadas, setNaoVinculadas] = useState<string[]>([]);
   const [avisoOpen, setAvisoOpen] = useState(false);
@@ -49,12 +58,24 @@ export default function PsicossocialAvaliacao() {
   const [salvandoInd, setSalvandoInd] = useState(false);
   const [baseIaOpen, setBaseIaOpen] = useState(false);
   const [iaEscolhaOpen, setIaEscolhaOpen] = useState(false);
-
+  const [sincronizando, setSincronizando] = useState(false);
+  const [preparandoOffline, setPreparandoOffline] = useState(false);
+  const [offlineCounts, setOfflineCounts] = useState({ pending: 0, error: 0, synced: 0 });
 
   useRealtimeSync(
     [{ table: "psico_respostas", queryKey: ["psico-av-resp", avaliacaoId] }],
     `psico-av-${avaliacaoId}`,
   );
+
+  const refreshOfflineCounts = async (token?: string | null) => {
+    if (!avaliacaoId) return;
+    try {
+      const counts = await countPsicoPendingForAvaliacao(avaliacaoId, token);
+      setOfflineCounts(counts);
+    } catch {
+      setOfflineCounts({ pending: 0, error: 0, synced: 0 });
+    }
+  };
 
   const { data: avaliacao } = useQuery({
     queryKey: ["psico-av", avaliacaoId],
@@ -123,16 +144,98 @@ export default function PsicossocialAvaliacao() {
   };
 
   useEffect(() => {
-    if (linkOpen && link?.token) {
-      QRCode.toDataURL(publicPsicoUrl(link.token), { width: 360, margin: 2 })
-        .then(setQrDataUrl)
-        .catch(() => setQrDataUrl(""));
-    }
+    if (!linkOpen || !link?.token) return;
+    let cancelled = false;
+    setQrDataUrl("");
+    setPublicLinkUrl("");
+    (async () => {
+      const url = await resolvePublicPsicoUrl(link.token);
+      if (cancelled) return;
+      setPublicLinkUrl(url);
+      try {
+        const dataUrl = await QRCode.toDataURL(url, { width: 360, margin: 2 });
+        if (!cancelled) setQrDataUrl(dataUrl);
+      } catch {
+        if (!cancelled) setQrDataUrl("");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [linkOpen, link?.token]);
+
+  useEffect(() => {
+    void refreshOfflineCounts(link?.token);
+  }, [avaliacaoId, link?.token]);
+
+  useEffect(() => {
+    const onFocus = () => void refreshOfflineCounts(link?.token);
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [avaliacaoId, link?.token]);
+
+  const sincronizarOffline = async () => {
+    if (!avaliacaoId) return;
+    if (!navigator.onLine) {
+      toast.error("Sem conexão. Conecte-se à internet para sincronizar.");
+      return;
+    }
+    setSincronizando(true);
+    try {
+      const result = await syncPsicoPendingRespostas({
+        avaliacaoId,
+        token: link?.token || null,
+      });
+      await refreshOfflineCounts(link?.token);
+      qc.invalidateQueries({ queryKey: ["psico-av-resp", avaliacaoId] });
+
+      if (result.total === 0) {
+        toast.message("Nenhuma resposta pendente neste dispositivo.", {
+          description: "Respostas de outros aparelhos entram ao sincronizarem com internet nesse mesmo aparelho ou ao reabrirem o link.",
+        });
+        return;
+      }
+      if (result.errors === 0) {
+        toast.success(
+          `${result.synced} recebida(s)${result.duplicates ? ` · ${result.duplicates} já existia(m)` : ""}.`,
+        );
+      } else {
+        toast.error(
+          `${result.synced} ok · ${result.errors} com erro. Falhas permanecem na fila local para nova tentativa.`,
+        );
+      }
+    } catch (e: any) {
+      toast.error("Falha na sincronização: " + (e?.message || ""));
+    } finally {
+      setSincronizando(false);
+    }
+  };
+
+  const prepararQuestionarioOffline = async () => {
+    if (!link?.token) {
+      toast.error("Gere o link da avaliação antes de preparar o pacote offline.");
+      return;
+    }
+    if (!navigator.onLine) {
+      toast.error("É necessário internet na primeira preparação deste dispositivo.");
+      return;
+    }
+    setPreparandoOffline(true);
+    try {
+      await preparePsicoOfflinePackage(link.token);
+      toast.success("Questionário preparado neste dispositivo para uso sem internet.");
+    } catch (e: any) {
+      toast.error(e?.message || "Falha ao preparar pacote offline.");
+    } finally {
+      setPreparandoOffline(false);
+    }
+  };
 
   const copiar = async () => {
     if (!link?.token) return;
-    await navigator.clipboard.writeText(publicPsicoUrl(link.token));
+    const url = publicLinkUrl || (await resolvePublicPsicoUrl(link.token));
+    setPublicLinkUrl(url);
+    await navigator.clipboard.writeText(url);
     toast.success("Link copiado");
   };
 
@@ -267,9 +370,29 @@ export default function PsicossocialAvaliacao() {
         description={`${avaliacao?.empresas?.razao_social || ""} — Contrato ${avaliacao?.contratos?.numero_contrato || "—"}`}
         actions={
           <>
-            <Button variant="outline" onClick={abrirLink}>
-              <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button variant="outline" onClick={abrirLink}>
+                <QrCode className="w-4 h-4 mr-1.5" /> Preciso de Link
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                title="Sincronizar respostas offline deste dispositivo"
+                aria-label="Sincronizar respostas offline"
+                onClick={() => void sincronizarOffline()}
+                disabled={sincronizando}
+                className="relative"
+              >
+                {sincronizando
+                  ? <Loader2 className="h-4 w-4 animate-spin" />
+                  : <RefreshCw className="h-4 w-4" />}
+                {(offlineCounts.pending > 0 || offlineCounts.error > 0) && (
+                  <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold text-white">
+                    {offlineCounts.pending + offlineCounts.error}
+                  </span>
+                )}
+              </Button>
+            </div>
             <Button variant="outline" onClick={() => setBaseIaOpen(true)}>
               <Bot className="w-4 h-4 mr-1.5" /> IA
             </Button>
@@ -285,6 +408,23 @@ export default function PsicossocialAvaliacao() {
         }
       />
 
+
+      {(offlineCounts.pending > 0 || offlineCounts.error > 0 || offlineCounts.synced > 0) && (
+        <Card className="flex flex-wrap items-center gap-3 border-dashed p-3 text-sm">
+          <span className="font-medium text-foreground">Offline neste dispositivo:</span>
+          <Badge variant="outline" className="gap-1 border-amber-300 bg-amber-50 text-amber-800">
+            <CloudOff className="h-3 w-3" /> {offlineCounts.pending} pendente{offlineCounts.pending === 1 ? "" : "s"}
+          </Badge>
+          <Badge variant="outline" className="gap-1 border-emerald-300 bg-emerald-50 text-emerald-800">
+            <CheckCircle2 className="h-3 w-3" /> {offlineCounts.synced} sincronizada{offlineCounts.synced === 1 ? "" : "s"}
+          </Badge>
+          {offlineCounts.error > 0 && (
+            <Badge variant="outline" className="gap-1 border-red-300 bg-red-50 text-red-800">
+              <AlertTriangle className="h-3 w-3" /> {offlineCounts.error} erro{offlineCounts.error === 1 ? "" : "s"}
+            </Badge>
+          )}
+        </Card>
+      )}
 
       <Card className="p-5 space-y-3">
         <div className="flex items-center gap-2">
@@ -395,14 +535,36 @@ Seu trabalho exige prazos muito curtos?
               ) : (
                 <Loader2 className="w-6 h-6 animate-spin mx-auto" />
               )}
-              <Input readOnly value={publicPsicoUrl(link.token)} className="text-xs" />
+              <Input readOnly value={publicLinkUrl || "Resolvendo endereço acessível…"} className="text-xs" />
+              {publicLinkUrl && !isLoopbackPublicOrigin(publicLinkUrl) ? (
+                <p className="text-[11px] text-muted-foreground text-left">
+                  1ª abertura de cada aparelho precisa de internet (baixa o questionário). Depois funciona offline.
+                  Celular e PC na mesma Wi‑Fi em desenvolvimento local.
+                </p>
+              ) : publicLinkUrl ? (
+                <p className="text-[11px] text-amber-700 text-left">
+                  Ainda em localhost. Abra o SegDoc pelo IP da rede (ex.: http://172.x.x.x:3080) ou configure
+                  VITE_PUBLIC_APP_URL / PUBLIC_APP_URL.
+                </p>
+              ) : null}
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={preparandoOffline || !navigator.onLine}
+                onClick={() => void prepararQuestionarioOffline()}
+              >
+                {preparandoOffline
+                  ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
+                  : <Download className="w-4 h-4 mr-1.5" />}
+                Preparar offline neste dispositivo
+              </Button>
             </div>
           ) : (
             <div className="py-8 text-center"><Loader2 className="w-6 h-6 animate-spin mx-auto" /></div>
           )}
           <DialogFooter>
             <Button variant="outline" onClick={() => setLinkOpen(false)}>Fechar</Button>
-            <Button onClick={copiar} disabled={!link?.token}>
+            <Button onClick={() => void copiar()} disabled={!link?.token || !publicLinkUrl}>
               <Copy className="w-4 h-4 mr-1.5" /> Copiar link
             </Button>
           </DialogFooter>

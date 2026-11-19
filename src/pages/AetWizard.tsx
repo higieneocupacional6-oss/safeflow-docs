@@ -35,6 +35,7 @@ import { PsicoIntegracaoBadge } from "@/components/psico/PsicoIntegracaoBadge";
 import { carregarContextoPsicossocial, type PsicoContextoIa } from "@/lib/psicoContexto";
 import { AepIntegracaoBadge } from "@/components/psico/AepIntegracaoBadge";
 import { carregarContextoAep, type AepContextoIa } from "@/lib/aepContexto";
+import { carregarContextoErgoIntegrado } from "@/lib/contextoErgoIntegrado";
 import { ToolAssessmentModal, type ToolAssessmentResult } from "@/components/ergonomia/ToolAssessmentModal";
 import { baixarPdfAvaliacao } from "@/lib/ergonomia/persist";
 import { gerarJustificativaDeterministica, refinarJustificativaIA } from "@/lib/ergonomia/justificativa";
@@ -42,7 +43,7 @@ import type { FerramentaTipo } from "@/lib/ergonomia/types";
 import { objetivoFerramenta, interpretarFerramentaAuto } from "@/lib/ergonomia/objetivoInterpretacao";
 import { buildAetCronoTemplateData } from "@/lib/aetCronoTemplate";
 
-const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS"];
+const FERRAMENTAS_COM_MODAL: FerramentaTipo[] = ["RULA", "REBA", "NIOSH", "OWAS", "ROSA", "OCRA"];
 
 type Revisao = { data_revisao: string; descricao_revisao: string };
 type Colaborador = { nome_colaborador: string; data_avaliacao: string; funcao: string };
@@ -124,6 +125,7 @@ const FERRAMENTAS_CATEGORIAS: { categoria: string; itens: string[] }[] = [
   { categoria: "Membros superiores", itens: ["RULA", "REBA", "OCRA"] },
   { categoria: "Movimentação de carga", itens: ["NIOSH"] },
   { categoria: "Postural", itens: ["OWAS", "Moore-Garg"] },
+  { categoria: "Escritório / PVD", itens: ["ROSA"] },
 ];
 
 const DIMENSOES_LABELS: { key: keyof AvaliacoesDimensionais; label: string }[] = [
@@ -276,7 +278,7 @@ function FerramentasModal({
 
         <div className="space-y-4">
           <p className="text-xs text-muted-foreground">
-            Ferramentas com <strong>modal próprio</strong> (RULA, REBA, NIOSH) executam o cálculo oficial, geram um relatório em PDF
+            Ferramentas com <strong>modal próprio</strong> (RULA, REBA, NIOSH, OWAS, ROSA, OCRA) executam o cálculo oficial, geram um relatório em PDF
             e integram automaticamente o resultado à AET. As demais permitem registro manual.
           </p>
           <div className="space-y-2">
@@ -1766,7 +1768,7 @@ export default function AetWizard() {
               <h2 className="font-heading font-semibold flex items-center gap-2">
                 <Wrench className="w-4 h-4" />Ferramentas Ergonômicas
               </h2>
-              <p className="text-xs text-muted-foreground">RULA, REBA, OCRA, NIOSH, OWAS, Moore-Garg</p>
+              <p className="text-xs text-muted-foreground">RULA, REBA, OCRA, NIOSH, OWAS, ROSA, Moore-Garg</p>
             </div>
             <Button size="sm" variant="outline" onClick={() => setFerramentasOpen(true)}>
               {setor.ferramentas.length > 0 ? `Editar (${setor.ferramentas.length})` : "Adicionar"}
@@ -2095,7 +2097,7 @@ export default function AetWizard() {
           <ToolAssessmentModal
             open={!!toolModalTool}
             onOpenChange={(v) => { if (!v) { setToolModalTool(null); setFerramentasOpen(true); } }}
-            tool={toolModalTool as "RULA" | "REBA" | "NIOSH" | "OWAS"}
+            tool={toolModalTool as "RULA" | "REBA" | "NIOSH" | "OWAS" | "ROSA" | "OCRA"}
             cabecalho={{
               funcao: (setorAlvo.funcoes_selecionadas || []).map((f) => f.nome).join(", ") || setorAlvo.funcao_nome || "",
               empresa_nome: empresaSelecionada?.razao_social || empresaNome || "",
@@ -2466,10 +2468,18 @@ export default function AetWizard() {
                       funcaoIds: setor.funcoes_selecionadas.map((f) => f.id).filter(Boolean),
                     });
                     setAepCtx(aep.disponivel ? aep : null);
+                    const formulario_aep_aet_e_ergonomia = await carregarContextoErgoIntegrado({
+                      empresaId: empresaId || "",
+                      contratoId: contratoId || "",
+                      setorId: setor.setor_id,
+                      funcaoIds: setor.funcoes_selecionadas.map((f) => f.id).filter(Boolean),
+                      funcaoNomes: setor.funcoes_selecionadas.map((f) => f.nome),
+                    });
 
                     const contexto = {
                       psicossocial_empresa: psicossocial,
                       aep_contexto: aep,
+                      formulario_aep_aet_e_ergonomia,
                       empresa: {
                         razao_social: emp.razao_social,
                         cnpj: emp.cnpj,

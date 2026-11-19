@@ -129,12 +129,97 @@ function respostasOwas(r: any): Row[] {
   ];
 }
 
+function respostasRosa(r: any): Row[] {
+  const dur: Record<string, string> = {
+    "-1": "Menos de 1 h / <30 min contínuos",
+    "0": "1–4 h / 30 min–1 h contínuos",
+    "1": "Mais de 4 h / >1 h contínuo",
+  };
+  return [
+    ["Altura do assento", String(r.alturaAssento)],
+    ["Espaço insuficiente sob a mesa", yn(r.alturaEspacoInsuficiente)],
+    ["Altura não regulável", yn(r.alturaNaoRegulavel)],
+    ["Profundidade do assento", String(r.profundidadeAssento)],
+    ["Profundidade não regulável", yn(r.profundidadeNaoRegulavel)],
+    ["Apoio para braços", String(r.apoioBracos)],
+    ["Apoios muito separados", yn(r.apoioMuitoSeparados)],
+    ["Superfície dura/danificada", yn(r.apoioSuperficieDura)],
+    ["Apoios não ajustáveis", yn(r.apoioNaoAjustavel)],
+    ["Encosto", String(r.encosto)],
+    ["Superfície alta / ombros encolhidos", yn(r.encostoSuperficieAlta)],
+    ["Encosto não ajustável", yn(r.encostoNaoAjustavel)],
+    ["Duração — cadeira", dur[String(r.duracaoCadeira)] || String(r.duracaoCadeira)],
+    ["Monitor", String(r.monitor)],
+    ["Giro do pescoço", yn(r.monitorGiroPescoco)],
+    ["Documentos sem atril", yn(r.monitorSemAtril)],
+    ["Brilho/reflexos", yn(r.monitorBrilho)],
+    ["Monitor muito longe", yn(r.monitorMuitoLonge)],
+    ["Duração — monitor", dur[String(r.duracaoMonitor)] || String(r.duracaoMonitor)],
+    ["Telefone", String(r.telefone)],
+    ["Telefone entre ombro e pescoço", yn(r.telefoneOmbroPescoco)],
+    ["Sem mãos livres", yn(r.telefoneSemMaosLivres)],
+    ["Duração — telefone", dur[String(r.duracaoTelefone)] || String(r.duracaoTelefone)],
+    ["Mouse", String(r.mouse)],
+    ["Agarre em pinça", yn(r.mousePinça)],
+    ["Mouse/teclado em alturas diferentes", yn(r.mouseAlturaDiferente)],
+    ["Pressão inadequada na mão", yn(r.mousePressao)],
+    ["Duração — mouse", dur[String(r.duracaoMouse)] || String(r.duracaoMouse)],
+    ["Teclado", String(r.teclado)],
+    ["Desvio lateral", yn(r.tecladoDesvio)],
+    ["Teclado muito alto", yn(r.tecladoMuitoAlto)],
+    ["Alcance de objetos altos", yn(r.tecladoAlcanceAlto)],
+    ["Teclado não ajustável", yn(r.tecladoNaoAjustavel)],
+    ["Duração — teclado", dur[String(r.duracaoTeclado)] || String(r.duracaoTeclado)],
+  ];
+}
+
+function respostasOcra(r: any): Row[] {
+  if (r?.modalidade === "indice") {
+    return [
+      ["Modalidade", "Índice OCRA"],
+      ["Lado", String(r.lado)],
+      ["Ações técnicas / ciclo", String(r.acoesTecnicasCiclo)],
+      ["Tempo de ciclo (s)", String(r.tempoCicloSeg)],
+      ["TNTR (min)", String(r.tntrMin)],
+      ["Ff (força)", String(r.Ff)],
+      ["Fp (postura)", String(r.Fp)],
+      ["Fa (adicionais)", String(r.Fa)],
+      ["Fr (recuperação)", String(r.Fr)],
+      ["Fd (duração)", String(r.Fd)],
+    ];
+  }
+  return [
+    ["Modalidade", "Checklist OCRA"],
+    ["Lado", String(r.lado)],
+    ["Duração do turno (min)", String(r.duracaoTurnoMin)],
+    ["Trabalho não repetitivo (min)", String(r.trabalhoNaoRepetitivoMin)],
+    ["Pausas (min)", String(r.pausasMin)],
+    ["Almoço incluso (min)", String(r.almocoMin)],
+    ["FR (recuperação)", String(r.fr)],
+    ["ATD (dinâmicas)", String(r.atd)],
+    ["ATE (estáticas)", String(r.ate)],
+    ["Força moderada", String(r.forcaModerada)],
+    ["Força intensa", String(r.forcaIntensa)],
+    ["Força quase máxima", String(r.forcaQuaseMaxima)],
+    ["Ombro", String(r.ombro)],
+    ["Mãos acima da cabeça", yn(r.maosAcimaCabeca)],
+    ["Cotovelo", String(r.cotovelo)],
+    ["Punho", String(r.punho)],
+    ["Mão", String(r.mao)],
+    ["Estereotipia", String(r.estereotipia)],
+    ["Físico-mecânicos", String(r.fisicoMecanico)],
+    ["Socio-organizativos", String(r.socioOrganizativo)],
+  ];
+}
+
 function interpretarRespostas(ferramenta: FerramentaTipo, respostas: any): Row[] {
   try {
     if (ferramenta === "RULA") return respostasRula(respostas);
     if (ferramenta === "REBA") return respostasReba(respostas);
     if (ferramenta === "NIOSH") return respostasNiosh(respostas);
     if (ferramenta === "OWAS") return respostasOwas(respostas);
+    if (ferramenta === "ROSA") return respostasRosa(respostas);
+    if (ferramenta === "OCRA") return respostasOcra(respostas);
   } catch { /* ignore */ }
   return [];
 }

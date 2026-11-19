@@ -28,7 +28,7 @@ export function ProtectedRoute({ children, requireAdmin = false }: Props) {
   }
 
   if (requireAdmin && !isAdmin) {
-    return <Navigate to="/empresas" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
