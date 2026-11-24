@@ -9,7 +9,7 @@
     "start": "tsx src/index.ts",
     "start:prod": "node dist/index.js",
     "set-password": "tsx scripts/set-password.ts",
-    "prebuild": "node --input-type=module -e \"import('typescript').catch(()=>{console.error('Instale as dependências: npm install (precisa de build-essential para o argon2)');process.exit(1)})\""
+    "prebuild": "node scripts/check-build-deps.mjs"
   },
   "engines": {
     "node": ">=20"

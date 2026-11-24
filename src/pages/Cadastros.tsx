@@ -544,22 +544,8 @@ export default function Cadastros() {
       <PageHeader
         title="Cadastros Gerais"
         description="Gerencie riscos, agentes, técnicas e equipamentos"
-      />
-
-      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
-        <div className="flex items-center justify-between mb-4">
-          <TabsList>
-            <TabsTrigger value="riscos" className="gap-2"><AlertTriangle className="w-3.5 h-3.5" />Riscos / Agentes</TabsTrigger>
-            <TabsTrigger value="tecnicas" className="gap-2"><FlaskConical className="w-3.5 h-3.5" />Técnicas</TabsTrigger>
-            <TabsTrigger value="equipamentos" className="gap-2"><Wrench className="w-3.5 h-3.5" />Equipamentos</TabsTrigger>
-            <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
-            <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
-            <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
-            <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
-            <TabsTrigger value="exames" className="gap-2"><Stethoscope className="w-3.5 h-3.5" />Exames</TabsTrigger>
-            <TabsTrigger value="responsaveis" className="gap-2"><UserCheck className="w-3.5 h-3.5" />Responsáveis</TabsTrigger>
-          </TabsList>
-          <div className="flex items-center gap-2">
+        actions={
+          <>
             {tab === "equipamentos" && (
               <Button variant="outline" onClick={() => setControleOpen(true)} className="gap-2">
                 <ClipboardList className="w-4 h-4" /> Controle de Equipamentos
@@ -580,7 +566,23 @@ export default function Cadastros() {
             <Button onClick={handleNovo} className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="w-4 h-4 mr-2" />Novo
             </Button>
-          </div>
+          </>
+        }
+      />
+
+      <Tabs value={tab} onValueChange={(v) => setTab(v as TabKey)}>
+        <div className="mb-4 overflow-x-auto">
+          <TabsList>
+            <TabsTrigger value="riscos" className="gap-2"><AlertTriangle className="w-3.5 h-3.5" />Riscos / Agentes</TabsTrigger>
+            <TabsTrigger value="tecnicas" className="gap-2"><FlaskConical className="w-3.5 h-3.5" />Técnicas</TabsTrigger>
+            <TabsTrigger value="equipamentos" className="gap-2"><Wrench className="w-3.5 h-3.5" />Equipamentos</TabsTrigger>
+            <TabsTrigger value="unidades" className="gap-2"><Ruler className="w-3.5 h-3.5" />Unidades</TabsTrigger>
+            <TabsTrigger value="epi_epc" className="gap-2"><ShieldCheck className="w-3.5 h-3.5" />EPI / EPC</TabsTrigger>
+            <TabsTrigger value="pareceres" className="gap-2"><FileText className="w-3.5 h-3.5" />Parecer Técnico</TabsTrigger>
+            <TabsTrigger value="treinamentos" className="gap-2"><GraduationCap className="w-3.5 h-3.5" />Treinamentos</TabsTrigger>
+            <TabsTrigger value="exames" className="gap-2"><Stethoscope className="w-3.5 h-3.5" />Exames</TabsTrigger>
+            <TabsTrigger value="responsaveis" className="gap-2"><UserCheck className="w-3.5 h-3.5" />Responsáveis</TabsTrigger>
+          </TabsList>
         </div>
 
         <div className="glass-card rounded-xl overflow-hidden">
