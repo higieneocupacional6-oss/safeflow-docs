@@ -217,7 +217,7 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 p-4 sm:p-5">
       <input
         ref={fileInputRef}
         type="file"
