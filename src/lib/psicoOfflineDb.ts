@@ -70,8 +70,9 @@ type StoreName = "links" | "drafts" | "pending" | "packages";
 function openDb(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (event) => {
       const db = req.result;
+      const oldVersion = event.oldVersion;
       if (!db.objectStoreNames.contains("links")) {
         db.createObjectStore("links", { keyPath: "token" });
       }
@@ -83,7 +84,7 @@ function openDb(): Promise<IDBDatabase> {
         store.createIndex("by_token", "token", { unique: false });
         store.createIndex("by_status", "status", { unique: false });
         store.createIndex("by_avaliacao", "avaliacao_id", { unique: false });
-      } else if (req.oldVersion < 2) {
+      } else if (oldVersion < 2) {
         const store = req.transaction?.objectStore("pending");
         if (store && !store.indexNames.contains("by_token")) {
           store.createIndex("by_token", "token", { unique: false });

@@ -23,6 +23,7 @@ import {
   labelTipoDocumento,
   statusVencimentoDocumento,
   validadeEfetiva,
+  type DocumentoVencimentoLike,
   type TipoControleVencimento,
 } from "@/lib/documentoValidade";
 import type { StatusDoc } from "@/lib/notificacoes";
@@ -42,7 +43,7 @@ const statusBadge = (s: StatusDoc | null) => {
 
 const fmtDate = (d: string | null | undefined) => (d ? formatDateOnly(d) : "—");
 
-type DocRow = Record<string, any>;
+type DocRow = DocumentoVencimentoLike & Record<string, any>;
 
 export default function ControleDocumentos() {
   const qc = useQueryClient();

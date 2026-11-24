@@ -419,7 +419,7 @@ export default function FormularioAepAetRegistro() {
           marcarRascunho: opts?.marcarRascunho,
           preferredMode: "offline",
         });
-        if (!r.ok) throw new Error(r.error);
+        if (r.ok === false) throw new Error(r.error);
         setOfflineRow(r.row);
         if (opts?.marcarSalvo) docRef.current = docRef.current ? { ...docRef.current, status: "salvo" } : docRef.current;
         if (opts?.marcarRascunho) docRef.current = docRef.current ? { ...docRef.current, status: "rascunho" } : docRef.current;
@@ -440,7 +440,7 @@ export default function FormularioAepAetRegistro() {
           offlineDeviceId: offline?.device_id,
           offlineDeviceLabel: offline?.device_label,
         });
-        if (!r.ok) throw new Error(r.error);
+        if (r.ok === false) throw new Error(r.error);
         if (opts?.marcarSalvo) docRef.current = { ...registro, status: "salvo" };
         else if (opts?.marcarRascunho) docRef.current = { ...registro, status: "rascunho" };
         else docRef.current = { ...registro, status: r.status };

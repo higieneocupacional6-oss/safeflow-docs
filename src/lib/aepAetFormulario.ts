@@ -261,19 +261,19 @@ export function criarFotoAepAet(imagem: string, nome?: string): AepAetFoto {
 
 function lerFotos(raw: unknown): AepAetFoto[] {
   if (!Array.isArray(raw)) return [];
-  return raw
-    .map((item) => {
-      if (!item || typeof item !== "object") return null;
-      const f = item as Record<string, unknown>;
-      const imagem = typeof f.imagem === "string" ? f.imagem : "";
-      if (!imagem.startsWith("data:image/")) return null;
-      return {
-        id: typeof f.id === "string" && f.id ? f.id : novaFotoId(),
-        imagem,
-        nome: typeof f.nome === "string" ? f.nome : undefined,
-      } satisfies AepAetFoto;
-    })
-    .filter((f): f is AepAetFoto => !!f);
+  const fotos: AepAetFoto[] = [];
+  for (const item of raw) {
+    if (!item || typeof item !== "object") continue;
+    const f = item as Record<string, unknown>;
+    const imagem = typeof f.imagem === "string" ? f.imagem : "";
+    if (!imagem.startsWith("data:image/")) continue;
+    fotos.push({
+      id: typeof f.id === "string" && f.id ? f.id : novaFotoId(),
+      imagem,
+      nome: typeof f.nome === "string" ? f.nome : undefined,
+    });
+  }
+  return fotos;
 }
 
 function lerPosturas(raw: unknown): PosturaTrabalho[] {

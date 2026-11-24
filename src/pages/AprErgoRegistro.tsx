@@ -102,7 +102,12 @@ export default function AprErgoRegistro() {
         setorArquivo = s?.nome_setor || "";
         const fid = typeof snap.funcao_id === "string" ? snap.funcao_id : null;
         const ids = fid ? [fid] : Array.isArray(snap.funcao_ids) ? snap.funcao_ids.filter((x): x is string => typeof x === "string") : null;
-        cargos = [...new Set((s?.funcoes || []).filter((f) => !ids || ids.includes(f.id)).map((f) => f.nome_funcao))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+        const nomesCargos: string[] = [];
+        for (const f of s?.funcoes || []) {
+          if (ids && !ids.includes(f.id)) continue;
+          if (typeof f.nome_funcao === "string" && f.nome_funcao) nomesCargos.push(f.nome_funcao);
+        }
+        cargos = [...new Set(nomesCargos)].sort((a, b) => a.localeCompare(b, "pt-BR"));
       }
       let compartilhadas: Awaited<ReturnType<typeof carregarExposicoes>> = [];
       try {

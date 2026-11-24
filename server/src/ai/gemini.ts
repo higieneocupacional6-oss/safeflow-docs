@@ -37,9 +37,16 @@ export function compactarContexto(valor: unknown, maxStr = 4000, maxArr = 60): u
   return valor;
 }
 
-export function limitarAnexos<T extends { data?: string }>(lista: T[], max = 10): T[] {
+export type AnexoIa = {
+  data?: string;
+  name?: string;
+  mime?: string;
+  kind?: string;
+};
+
+export function limitarAnexos(lista: AnexoIa[], max = 10): AnexoIa[] {
   let total = 0;
-  const out: T[] = [];
+  const out: AnexoIa[] = [];
   for (const a of lista.slice(0, max)) {
     const size = (a?.data?.length || 0) * 0.75;
     if (!a?.data || total + size > MAX_ANEXO_BYTES_TOTAL) continue;
