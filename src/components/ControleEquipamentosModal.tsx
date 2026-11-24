@@ -196,8 +196,8 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-5xl max-h-[90vh] overflow-y-auto px-6 py-6 sm:px-8 sm:py-7">
+          <DialogHeader className="px-1">
             <div className="flex items-center justify-between gap-2 pr-8">
               <DialogTitle className="font-heading flex items-center gap-2">
                 <Wrench className="w-5 h-5 text-accent" /> Controle de Equipamentos
@@ -214,7 +214,8 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
             </div>
           </DialogHeader>
 
-          <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="space-y-4 px-1 pb-2 sm:px-2">
+          <div className="mb-0 grid grid-cols-3 gap-3">
             <div className="rounded-lg border p-3 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300">
               <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300 text-sm font-medium">
                 <CheckCircle2 className="w-4 h-4" /> Em Conformidade
@@ -236,7 +237,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
           </div>
 
           {equipamentos.length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground border rounded-lg">
+            <div className="rounded-lg border py-12 text-center text-muted-foreground">
               Nenhum equipamento cadastrado.
             </div>
           ) : (
@@ -309,6 +310,7 @@ export function ControleEquipamentosModal({ open, onOpenChange }: Props) {
               })}
             </div>
           )}
+          </div>
         </DialogContent>
       </Dialog>
 
