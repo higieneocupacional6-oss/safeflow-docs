@@ -842,7 +842,7 @@ ALTER TABLE public.documentos
   ADD CONSTRAINT documentos_contrato_id_fkey FOREIGN KEY (contrato_id) REFERENCES public.contratos(id) ON DELETE SET NULL;
 
 ALTER TABLE public.documentos
-  ADD CONSTRAINT documentos_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.templates(id);
+  ADD CONSTRAINT documentos_template_id_fkey FOREIGN KEY (template_id) REFERENCES public.templates(id) ON DELETE SET NULL;
 
 ALTER TABLE public.profiles
   ADD CONSTRAINT profiles_user_id_fkey FOREIGN KEY (user_id) REFERENCES app.users(id) ON DELETE CASCADE;

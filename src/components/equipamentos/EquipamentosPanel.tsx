@@ -8,13 +8,15 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import {
   Wrench, Plus, Upload, Download, Edit, Trash2, ChevronLeft, ClipboardList, FileCheck2, FileX2,
+  ArrowRight, Gauge, ShieldCheck, AlertTriangle, XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import JSZip from "jszip";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
-import { statusCalibracao, statusBadgeClasses } from "@/lib/calibracao";
+import { statusCalibracao, statusBadgeClasses, type CalibStatus } from "@/lib/calibracao";
 import { catalogErrorMessage, deleteCatalog, updateCatalog } from "@/lib/cadastroPersist";
+import { cn } from "@/lib/utils";
 
 const BUCKET = "certificados-calibracao";
 
@@ -27,6 +29,26 @@ interface Props {
 
 function sanitize(s: string) {
   return (s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^\w.-]+/g, "_");
+}
+
+function statusAccent(status: CalibStatus) {
+  switch (status) {
+    case "conforme":
+      return "from-emerald-500/80 to-emerald-400/40";
+    case "atencao":
+      return "from-amber-500/80 to-amber-400/40";
+    case "vencido":
+      return "from-red-500/80 to-red-400/40";
+    default:
+      return "from-slate-400/70 to-slate-300/30";
+  }
+}
+
+function StatusIcon({ status }: { status: CalibStatus }) {
+  if (status === "conforme") return <ShieldCheck className="h-3.5 w-3.5" />;
+  if (status === "atencao") return <AlertTriangle className="h-3.5 w-3.5" />;
+  if (status === "vencido") return <XCircle className="h-3.5 w-3.5" />;
+  return <Gauge className="h-3.5 w-3.5" />;
 }
 
 export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipamento, onDeleteEquipamento }: Props) {
@@ -49,7 +71,6 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
 
   const invalidate = () => queryClient.invalidateQueries({ queryKey: ["equipamentos_ho"] });
 
-  // ---------- Upload de certificado (substitui o anterior somente após sucesso) ----------
   const pickFile = (registro: any) => {
     pendingRegistro.current = registro;
     fileInputRef.current?.click();
@@ -80,12 +101,10 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
           certificado_updated_at: new Date().toISOString(),
         });
       } catch (dbErr) {
-        // rollback: remove o arquivo novo, mantém o anterior intacto
         await supabase.storage.from(BUCKET).remove([novoPath]);
         throw dbErr;
       }
 
-      // só agora remove o certificado anterior
       if (anterior && anterior !== novoPath) {
         await supabase.storage.from(BUCKET).remove([anterior]);
       }
@@ -158,7 +177,6 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
     setDelReg(null);
   };
 
-  // ---------- Listagem de certificados ----------
   const registrosPlanos = useMemo(() => {
     const out: any[] = [];
     for (const e of equipamentos) {
@@ -217,7 +235,7 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
   };
 
   return (
-    <div className="space-y-4 p-4 sm:p-5">
+    <div className="space-y-5">
       <input
         ref={fileInputRef}
         type="file"
@@ -226,178 +244,289 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
         onChange={(e) => handleFileSelected(e.target.files?.[0])}
       />
 
-      <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2">
-          {categoria && (
-            <Button variant="ghost" size="sm" className="gap-1" onClick={() => setCategoriaId(null)}>
-              <ChevronLeft className="w-4 h-4" /> Categorias
-            </Button>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="min-w-0">
+          {categoria ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="gap-1 text-muted-foreground hover:text-foreground"
+                onClick={() => setCategoriaId(null)}
+              >
+                <ChevronLeft className="h-4 w-4" /> Categorias
+              </Button>
+              <span className="hidden h-4 w-px bg-border sm:block" />
+              <div className="min-w-0">
+                <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                  Categoria
+                </p>
+                <h3 className="font-heading truncate text-lg font-semibold text-foreground">
+                  {categoria.nome}
+                </h3>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                Inventário HO
+              </p>
+              <h3 className="font-heading text-lg font-semibold text-foreground">
+                Categorias de equipamentos
+              </h3>
+            </div>
           )}
-          {categoria && <h3 className="font-heading font-semibold">{categoria.nome}</h3>}
         </div>
-        <Button variant="outline" size="sm" className="gap-2" onClick={() => setListagemOpen(true)}>
-          <ClipboardList className="w-4 h-4" /> Listagem de Certificados
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="gap-2 border-primary/20 bg-background/70 backdrop-blur-sm"
+          onClick={() => setListagemOpen(true)}
+        >
+          <ClipboardList className="h-4 w-4" /> Listagem de Certificados
         </Button>
       </div>
 
-      {/* ---------- Categorias ---------- */}
+      {/* Categorias */}
       {!categoria &&
         (equipamentos.length === 0 ? (
-          <div className="text-center py-12 text-muted-foreground border rounded-lg">
-            Nenhum equipamento cadastrado. Clique em "+ Novo" para começar.
+          <div className="portal-surface px-6 py-14 text-center">
+            <div className="mx-auto mb-3 grid h-12 w-12 place-items-center rounded-2xl bg-primary/10 text-primary">
+              <Wrench className="h-5 w-5" />
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Nenhum equipamento cadastrado. Clique em “+ Novo” para começar.
+            </p>
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {equipamentos.map((e) => {
               const regs = e.equipamentos_ho_registros || [];
               const comCert = regs.filter((r: any) => r.certificado_path).length;
+              const vencidos = regs.filter((r: any) => statusCalibracao(r.data_calibracao).status === "vencido").length;
               return (
                 <button
                   key={e.id}
+                  type="button"
                   onClick={() => setCategoriaId(e.id)}
-                  className="text-left border rounded-xl p-4 bg-card hover:border-accent hover:shadow-md transition-all group"
+                  className="portal-surface group relative flex h-full flex-col overflow-hidden p-5 text-left transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md"
                 >
-                  <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center mb-3 group-hover:bg-accent/20">
-                    <Wrench className="w-5 h-5 text-accent" />
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 opacity-70"
+                    style={{
+                      background:
+                        "radial-gradient(420px 160px at 0% 0%, hsl(var(--primary) / 0.1), transparent 55%), radial-gradient(280px 140px at 100% 0%, hsl(152 25% 55% / 0.08), transparent 50%)",
+                    }}
+                  />
+                  <div className="relative flex items-start justify-between gap-3">
+                    <div className="grid h-11 w-11 place-items-center rounded-xl bg-primary/10 text-primary ring-1 ring-primary/15 transition group-hover:bg-primary/15">
+                      <Wrench className="h-5 w-5" />
+                    </div>
+                    <ArrowRight className="mt-1 h-4 w-4 text-muted-foreground opacity-0 transition group-hover:translate-x-0.5 group-hover:opacity-100" />
                   </div>
-                  <h4 className="font-semibold text-sm leading-tight line-clamp-2" title={e.nome}>
-                    {e.nome}
-                  </h4>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {regs.length} equipamento{regs.length !== 1 ? "s" : ""}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    {comCert} com certificado
-                  </p>
+                  <div className="relative mt-4 min-w-0 flex-1 space-y-1">
+                    <p className="font-heading text-base font-semibold leading-snug text-foreground group-hover:text-primary">
+                      {e.nome}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {regs.length} equipamento{regs.length !== 1 ? "s" : ""} nesta categoria
+                    </p>
+                  </div>
+                  <div className="relative mt-4 flex flex-wrap gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border/80 bg-background/70 px-2.5 py-1 text-[11px] font-medium text-foreground">
+                      <Gauge className="h-3 w-3 text-primary" />
+                      {regs.length} série{regs.length !== 1 ? "s" : ""}
+                    </span>
+                    <span className="inline-flex items-center gap-1 rounded-full border border-emerald-300/60 bg-emerald-50/80 px-2.5 py-1 text-[11px] font-medium text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200">
+                      <FileCheck2 className="h-3 w-3" />
+                      {comCert} cert.
+                    </span>
+                    {vencidos > 0 && (
+                      <span className="inline-flex items-center gap-1 rounded-full border border-red-300/70 bg-red-50/80 px-2.5 py-1 text-[11px] font-medium text-red-800 dark:border-red-800 dark:bg-red-950/40 dark:text-red-200">
+                        <XCircle className="h-3 w-3" />
+                        {vencidos} venc.
+                      </span>
+                    )}
+                  </div>
                 </button>
               );
             })}
           </div>
         ))}
 
-      {/* ---------- Equipamentos da categoria ---------- */}
+      {/* Detalhe da categoria */}
       {categoria && (
-        <>
-          <div className="flex gap-2">
-            <Button size="sm" className="gap-1.5" onClick={() => onNovoRegistro(categoria.id, categoria.nome)}>
-              <Plus className="w-4 h-4" /> Novo equipamento
-            </Button>
-            <Button variant="outline" size="sm" className="gap-1.5" onClick={() => onEditEquipamento(categoria)}>
-              <Edit className="w-3.5 h-3.5" /> Editar categoria
+        <div className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="gap-1.5 bg-accent text-accent-foreground hover:bg-accent/90"
+              onClick={() => onNovoRegistro(categoria.id, categoria.nome)}
+            >
+              <Plus className="h-4 w-4" /> Novo equipamento
             </Button>
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              className="gap-1.5 text-destructive"
+              className="gap-1.5"
+              onClick={() => onEditEquipamento(categoria)}
+            >
+              <Edit className="h-3.5 w-3.5" /> Editar categoria
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-destructive hover:text-destructive"
               onClick={() => onDeleteEquipamento(categoria.id)}
             >
-              <Trash2 className="w-3.5 h-3.5" /> Excluir categoria
+              <Trash2 className="h-3.5 w-3.5" /> Excluir categoria
             </Button>
           </div>
 
           {(categoria.equipamentos_ho_registros || []).length === 0 ? (
-            <div className="text-center py-12 text-muted-foreground border rounded-lg">
+            <div className="portal-surface px-6 py-14 text-center text-sm text-muted-foreground">
               Nenhum equipamento nesta categoria.
             </div>
           ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
               {(categoria.equipamentos_ho_registros || []).map((r: any) => {
                 const st = statusCalibracao(r.data_calibracao);
                 return (
-                  <div key={r.id} className="border rounded-xl p-4 bg-card space-y-2">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="text-xs text-muted-foreground">Nº de Série</div>
-                        <div className="font-semibold truncate" title={r.numero_serie}>{r.numero_serie}</div>
+                  <article
+                    key={r.id}
+                    className="portal-surface group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/25 hover:shadow-md"
+                  >
+                    <div
+                      aria-hidden
+                      className={cn(
+                        "absolute inset-y-0 left-0 w-1 bg-gradient-to-b",
+                        statusAccent(st.status),
+                      )}
+                    />
+                    <div className="space-y-3 p-4 pl-5">
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+                            Nº de série
+                          </p>
+                          <p className="truncate font-mono text-sm font-semibold tracking-tight text-foreground" title={r.numero_serie}>
+                            {r.numero_serie}
+                          </p>
+                        </div>
+                        <Badge variant="outline" className={cn("shrink-0 gap-1", statusBadgeClasses(st.status))}>
+                          <StatusIcon status={st.status} />
+                          {st.label}
+                        </Badge>
                       </div>
-                      <Badge variant="outline" className={statusBadgeClasses(st.status)}>{st.label}</Badge>
-                    </div>
-                    <div className="text-xs space-y-1">
-                      <div><span className="text-muted-foreground">Marca/Modelo:</span> {r.marca_modelo || "—"}</div>
-                      <div>
-                        <span className="text-muted-foreground">Calibração:</span>{" "}
-                        {r.data_calibracao
-                          ? formatDateOnly(r.data_calibracao)
-                          : "—"}
-                        {st.meses !== null && <span className="text-muted-foreground"> ({st.meses} mês(es))</span>}
+
+                      <div className="grid gap-2 rounded-xl border border-border/60 bg-muted/20 p-3 text-xs">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-muted-foreground">Marca / Modelo</span>
+                          <span className="max-w-[60%] text-right font-medium text-foreground">
+                            {r.marca_modelo || "—"}
+                          </span>
+                        </div>
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="text-muted-foreground">Calibração</span>
+                          <span className="text-right font-medium text-foreground">
+                            {r.data_calibracao ? formatDateOnly(r.data_calibracao) : "—"}
+                            {st.meses !== null && (
+                              <span className="block text-[10px] font-normal text-muted-foreground">
+                                {st.meses} mês(es)
+                              </span>
+                            )}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5 border-t border-border/50 pt-2">
+                          {r.certificado_path ? (
+                            <>
+                              <FileCheck2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" />
+                              <span className="truncate text-foreground" title={r.certificado_nome || ""}>
+                                {r.certificado_nome || "Certificado enviado"}
+                              </span>
+                            </>
+                          ) : (
+                            <>
+                              <FileX2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                              <span className="text-muted-foreground">Certificado não cadastrado</span>
+                            </>
+                          )}
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1.5">
-                        {r.certificado_path ? (
-                          <>
-                            <FileCheck2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="truncate" title={r.certificado_nome || ""}>
-                              {r.certificado_nome || "Certificado enviado"}
-                            </span>
-                          </>
-                        ) : (
-                          <>
-                            <FileX2 className="w-3.5 h-3.5 text-muted-foreground" />
-                            <span className="text-muted-foreground">Certificado não cadastrado</span>
-                          </>
-                        )}
+
+                      <div className="flex items-center gap-1 rounded-xl border border-border/70 bg-background/80 p-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Upload certificado"
+                          disabled={uploadingId === r.id}
+                          onClick={() => pickFile(r)}
+                        >
+                          <Upload className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Download certificado"
+                          disabled={!r.certificado_path}
+                          onClick={() => baixarCertificado(r)}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          title="Editar"
+                          onClick={() =>
+                            setEditReg({
+                              id: r.id,
+                              row_version: r.row_version,
+                              numero_serie: r.numero_serie || "",
+                              marca_modelo: r.marca_modelo || "",
+                              data_calibracao: r.data_calibracao || "",
+                            })
+                          }
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="ml-auto h-8 w-8 text-destructive hover:text-destructive"
+                          title="Excluir"
+                          onClick={() => setDelReg(r)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 pt-1 border-t">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Upload certificado"
-                        disabled={uploadingId === r.id}
-                        onClick={() => pickFile(r)}
-                      >
-                        <Upload className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Download certificado"
-                        disabled={!r.certificado_path}
-                        onClick={() => baixarCertificado(r)}
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        title="Editar"
-                        onClick={() =>
-                          setEditReg({
-                            id: r.id,
-                            numero_serie: r.numero_serie || "",
-                            marca_modelo: r.marca_modelo || "",
-                            data_calibracao: r.data_calibracao || "",
-                          })
-                        }
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive"
-                        title="Excluir"
-                        onClick={() => setDelReg(r)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
+                  </article>
                 );
               })}
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* ---------- Modal Listagem de Certificados ---------- */}
       <Dialog open={listagemOpen} onOpenChange={setListagemOpen}>
-        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="font-heading flex items-center gap-2">
-              <ClipboardList className="w-5 h-5 text-accent" /> Listagem de Certificados
+              <ClipboardList className="h-5 w-5 text-accent" /> Listagem de Certificados
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
@@ -409,14 +538,14 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
               if (regs.length === 0) return null;
               return (
                 <div key={e.id}>
-                  <h4 className="text-sm font-semibold uppercase tracking-wide text-foreground/80 mb-2">
+                  <h4 className="mb-2 text-sm font-semibold uppercase tracking-wide text-foreground/80">
                     {e.nome}
                   </h4>
                   <div className="space-y-1.5">
                     {regs.map((r: any) => (
                       <label
                         key={r.id}
-                        className="flex items-center gap-2 text-sm border rounded-md px-3 py-2 bg-muted/30 cursor-pointer"
+                        className="flex cursor-pointer items-center gap-2 rounded-md border bg-muted/30 px-3 py-2 text-sm"
                       >
                         <Checkbox
                           checked={!!selecionados[r.id]}
@@ -425,7 +554,7 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
                           }
                         />
                         <span className="font-medium">Série: {r.numero_serie}</span>
-                        <span className="text-muted-foreground text-xs">{r.marca_modelo || ""}</span>
+                        <span className="text-xs text-muted-foreground">{r.marca_modelo || ""}</span>
                         <span className="ml-auto text-xs">
                           {r.certificado_path ? (
                             <span className="text-emerald-600">Certificado disponível</span>
@@ -440,19 +569,20 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
               );
             })}
           </div>
-          <DialogFooter className="flex-col sm:flex-row gap-2">
-            <p className="text-[11px] text-muted-foreground mr-auto">
+          <DialogFooter className="flex-col gap-2 sm:flex-row">
+            <p className="mr-auto text-[11px] text-muted-foreground">
               Vários selecionados são reunidos em um único arquivo compactado (.zip).
             </p>
-            <Button variant="outline" onClick={() => setSelecionados({})}>Limpar seleção</Button>
-            <Button onClick={baixarSelecionados} disabled={baixando} className="gap-2">
-              <Download className="w-4 h-4" /> {baixando ? "Preparando..." : "Baixar"}
+            <Button type="button" variant="outline" onClick={() => setSelecionados({})}>
+              Limpar seleção
+            </Button>
+            <Button type="button" onClick={baixarSelecionados} disabled={baixando} className="gap-2">
+              <Download className="h-4 w-4" /> {baixando ? "Preparando..." : "Baixar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ---------- Modal editar registro ---------- */}
       <Dialog open={!!editReg} onOpenChange={(o) => !o && setEditReg(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -488,15 +618,16 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
             </div>
           )}
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditReg(null)}>Cancelar</Button>
-            <Button onClick={salvarRegistro} disabled={savingReg}>
+            <Button type="button" variant="outline" onClick={() => setEditReg(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" onClick={salvarRegistro} disabled={savingReg}>
               {savingReg ? "Salvando..." : "Salvar"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* ---------- Confirmar exclusão de registro ---------- */}
       <Dialog open={!!delReg} onOpenChange={(o) => !o && setDelReg(null)}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -507,8 +638,12 @@ export function EquipamentosPanel({ equipamentos, onNovoRegistro, onEditEquipame
             removido.
           </p>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDelReg(null)}>Cancelar</Button>
-            <Button variant="destructive" onClick={excluirRegistro}>Excluir</Button>
+            <Button type="button" variant="outline" onClick={() => setDelReg(null)}>
+              Cancelar
+            </Button>
+            <Button type="button" variant="destructive" onClick={excluirRegistro}>
+              Excluir
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

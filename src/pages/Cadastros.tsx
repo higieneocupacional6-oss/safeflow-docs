@@ -585,7 +585,7 @@ export default function Cadastros() {
           </TabsList>
         </div>
 
-        <div className="glass-card rounded-xl overflow-hidden">
+        <div className={tab === "equipamentos" ? "" : "glass-card rounded-xl overflow-hidden"}>
           <TabsContent value="riscos" className="m-0">
             {(() => {
               const categorias = ["Físico","Químico","Biológico","Ergonômico","Psicossocial","Acidente"];

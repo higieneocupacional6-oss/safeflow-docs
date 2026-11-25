@@ -17,6 +17,13 @@ export const normalizeAgente = (nome: any): string =>
     .replace(/\s+/g, " ")
     .trim();
 
+/** Detecta Ruído mesmo quando o cadastro usa só "Ruído" (sem contínuo/intermitente). */
+export const isAgenteRuido = (nome: any): boolean => {
+  const n = normalizeAgente(nome);
+  if (!n) return false;
+  return n.includes("ruido");
+};
+
 export interface AgentFlagDef {
   /** Nome da variável exposta ao template (sem acentos/espaços). */
   flag: string;

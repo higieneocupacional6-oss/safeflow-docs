@@ -398,9 +398,16 @@ export default function FormularioAepAetRegistro() {
     const ids = snapIdsRef.current;
     if (!ids) return false;
     if (salvandoLock.current) {
-      pendenteRef.current = d;
-      setAutoStatus("pendente");
-      return false;
+      // Aguarda o save em andamento em vez de falhar imediatamente (autosave + clique).
+      const inicio = Date.now();
+      while (salvandoLock.current && Date.now() - inicio < 8000) {
+        await new Promise((r) => setTimeout(r, 100));
+      }
+      if (salvandoLock.current) {
+        pendenteRef.current = d;
+        setAutoStatus("pendente");
+        return false;
+      }
     }
 
     salvandoLock.current = true;
@@ -546,11 +553,10 @@ export default function FormularioAepAetRegistro() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
-  const aguardarLock = async () => {
-    let tentativas = 0;
-    while (salvandoLock.current && tentativas < 20) {
+  const aguardarLock = async (maxMs = 8000) => {
+    const inicio = Date.now();
+    while (salvandoLock.current && Date.now() - inicio < maxMs) {
       await new Promise((r) => setTimeout(r, 100));
-      tentativas += 1;
     }
   };
 
@@ -595,10 +601,10 @@ export default function FormularioAepAetRegistro() {
     try {
       await aguardarLock();
       const ok = await persistir(dados, { marcarSalvo: true, etapa });
-      if (!ok) throw new Error();
+      if (!ok) throw new Error("Salvamento ainda em andamento. Aguarde e tente novamente.");
       toast.success(modo === "offline" ? "Salvo neste dispositivo (pendente de sincronização)." : "Avaliação salva.");
-    } catch {
-      toast.error("Não foi possível salvar. Tente novamente.");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Não foi possível salvar. Tente novamente.");
     } finally {
       setSalvandoExplicit(false);
     }
@@ -611,11 +617,11 @@ export default function FormularioAepAetRegistro() {
     try {
       await aguardarLock();
       const ok = await persistir(dados, { marcarRascunho: true, etapa });
-      if (!ok) throw new Error();
+      if (!ok) throw new Error("Salvamento ainda em andamento. Aguarde e tente novamente.");
       toast.success("Progresso salvo. Você pode continuar depois.");
       navigate(urlAepAetContrato(empresaId!, contratoId!));
-    } catch {
-      toast.error("Não foi possível salvar. Tente novamente.");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Não foi possível salvar. Tente novamente.");
     } finally {
       setSalvandoExplicit(false);
     }
@@ -636,15 +642,15 @@ export default function FormularioAepAetRegistro() {
     try {
       await aguardarLock();
       const ok = await persistir(dados, { marcarSalvo: true, etapa: AEP_AET_TOTAL_ETAPAS });
-      if (!ok) throw new Error();
+      if (!ok) throw new Error("Salvamento ainda em andamento. Aguarde e tente novamente.");
       toast.success(
         modo === "offline"
           ? "Avaliação concluída neste dispositivo. Sincronize no contrato quando estiver online."
           : "Avaliação salva com sucesso.",
       );
       navigate(urlAepAetContrato(empresaId!, contratoId!));
-    } catch {
-      toast.error("Não foi possível salvar. Tente novamente.");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Não foi possível salvar. Tente novamente.");
     } finally {
       setSalvandoExplicit(false);
     }

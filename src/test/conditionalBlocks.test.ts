@@ -57,6 +57,36 @@ const renderScenario = async (risks: any[]) => {
   return zip.file("word/document.xml")?.asText() || "";
 };
 
+describe("conditionalBlocks Ruído", () => {
+  it("ativa risco_ruido para agente cadastrado só como Ruído", () => {
+    const present = computePresentBlocks({
+      setores: [{
+        riscos: [{
+          agente_nome: "Ruído",
+          is_fisico: true,
+          is_ruido: true,
+          is_quantitativo: true,
+          tipo_avaliacao: "Quantitativa",
+        }],
+      }],
+    });
+    expect(present.has("risco_ruido")).toBe(true);
+  });
+
+  it("ativa risco_ruido por nome mesmo sem flag is_ruido", () => {
+    const present = computePresentBlocks({
+      setores: [{
+        riscos: [{
+          agente_nome: "Ruído contínuo ou intermitente",
+          is_fisico: true,
+          is_quantitativo: true,
+        }],
+      }],
+    });
+    expect(present.has("risco_ruido")).toBe(true);
+  });
+});
+
 describe("conditionalBlocks DOCX para agentes metálicos", () => {
   it.each([
     ["fumos metálicos", [risk("Fumos metálicos")], true, false],

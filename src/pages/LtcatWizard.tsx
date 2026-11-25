@@ -26,7 +26,7 @@ import { renderHtmlTemplateToDocx } from "@/lib/htmlTemplate";
 import { computePresentBlocks, stripConditionalBlocksDocx } from "@/lib/conditionalBlocks";
 import { avaliacaoValida as _avaliacaoValidaLib, riscoExiste as _riscoExisteLib, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 import { buildCalorFlags, buildMediaIbutg } from "@/lib/calorContext";
-import { buildAgentFlags, buildMetalQuantitativeFlags, aggregateAgentFlags } from "@/lib/agentFlags";
+import { buildAgentFlags, buildMetalQuantitativeFlags, aggregateAgentFlags, isAgenteRuido } from "@/lib/agentFlags";
 import { createAgentScopedParser } from "@/lib/setorLoopScope";
 import { LtcatListagemSetores } from "@/components/ltcat/LtcatListagemSetores";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
@@ -1050,21 +1050,24 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
 
 
   const buildDraftSnapshot = (overrides: Record<string, any> = {}) => ({
-    empresaId: overrides.empresaId ?? empresaId,
-    contratoId: overrides.contratoId ?? contratoId,
-    selectedTemplate: overrides.selectedTemplate ?? selectedTemplate,
-    responsavel: overrides.responsavel ?? responsavel,
+    empresaId: overrides.empresaId ?? overrides.empresa_id ?? empresaId,
+    contratoId: overrides.contratoId ?? overrides.contrato_id ?? contratoId,
+    selectedTemplate: overrides.selectedTemplate ?? overrides.template_id ?? selectedTemplate,
+    responsavel: overrides.responsavel ?? overrides.responsavel_tecnico ?? responsavel,
     crea: overrides.crea ?? crea,
     cargo: overrides.cargo ?? cargo,
-    dataElab: overrides.dataElab ?? dataElab,
-    alteracoesDoc: overrides.alteracoesDoc ?? alteracoesDoc,
+    dataElab: overrides.dataElab ?? overrides.data_elaboracao ?? dataElab,
+    alteracoesDoc: overrides.alteracoesDoc ?? overrides.alteracoes_documento ?? alteracoesDoc,
     revisoes: overrides.revisoes ?? revisoes,
-    step: overrides.step ?? step,
+    step: overrides.step ?? overrides.current_step ?? step,
     riscos: overrides.riscos ?? riscos,
     riskForm: overrides.riskForm ?? riskForm,
     currentRiskSetor: overrides.currentRiskSetor ?? currentRiskSetor,
     editingRiskId: overrides.editingRiskId ?? editingRiskId,
     tipoDocumento,
+    // Campos do documento (não entram no draft_snapshot; alimentam o patch)
+    status: overrides.status,
+    file_path: overrides.file_path,
   });
 
   const currentDraftSnapshot = useMemo(
@@ -2627,7 +2630,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           .normalize("NFD")
           .replace(/[\u0300-\u036f]/g, "")
           .trim();
-        const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
         const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
         const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
         const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
@@ -2637,7 +2639,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         const is_agente_fisico = is_fisico || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
         const is_agente_quimico = is_quimico || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
         const is_agente_biologico = is_biologico || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
-        const is_ruido = RUIDO_NAMES.some(n => agenteNomeLower.includes(n));
+        const is_ruido = isAgenteRuido(first.agente_nome);
         const temDadosCalor = agentEntries.some((r: any) => (r.resultados_calor || []).length > 0);
         const is_calor = normalized_agente_nome.includes("calor") || agenteNomeLower.includes("calor") || temDadosCalor;
         const is_vibracao = agenteNomeLower.includes("vibra");
@@ -2951,7 +2953,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const tipoAgenteUpper = (r.tipo_agente || "").toUpperCase();
       const agenteNomeLower = (r.agente_nome || "").toLowerCase().trim();
       const normalized_agente_nome = (r.agente_nome || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
-      const RUIDO_NAMES = ["ruído contínuo", "ruido continuo", "ruído intermitente", "ruido intermitente", "ruído contínuo e intermitente", "ruido continuo e intermitente"];
       const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
       const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
       const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
@@ -2974,7 +2975,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_agente_fisico: _aF,
         is_agente_quimico: _aQ,
         is_agente_biologico: _aB,
-        is_ruido: RUIDO_NAMES.some(n => agenteNomeLower.includes(n)),
+        is_ruido: isAgenteRuido(r.agente_nome),
         is_calor: normalized_agente_nome.includes("calor") || (r.resultados_calor || []).length > 0,
         is_vibracao: agenteNomeLower.includes("vibra"),
         is_vibracao_corpo_inteiro: isAgentVCI(r.agente_nome || ""),
@@ -3573,7 +3574,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     const empresaNome = selectedEmpObj?.razao_social || selectedEmpObj?.nome_fantasia || "Empresa";
     const databaseSnapshot = createLtcatDatabaseSnapshot(snapshot);
     const snapshotFingerprint = stableFingerprint(snapshot);
-    const documentPatch = {
+    const documentPatch: Record<string, any> = {
       empresa_id: snapshot.empresaId,
       empresa_nome: empresaNome,
       contrato_id: snapshot.contratoId || null,
@@ -3586,8 +3587,13 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       revisoes: snapshot.revisoes || [],
       current_step: snapshot.step ?? 0,
       draft_snapshot: databaseSnapshot,
-      status: "rascunho",
+      status: typeof snapshot.status === "string" && snapshot.status
+        ? snapshot.status
+        : "rascunho",
     };
+    if (typeof snapshot.file_path === "string" && snapshot.file_path) {
+      documentPatch.file_path = snapshot.file_path;
+    }
     const docId = currentDraftIdRef.current || crypto.randomUUID();
     const expectedVersion = documentVersionRef.current ?? 1;
     const evaluations = buildAvaliacoesPayload(snapshot.riscos || []) || [];

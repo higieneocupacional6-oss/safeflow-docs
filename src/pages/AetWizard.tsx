@@ -1,5 +1,5 @@
 import { formatDateOnly } from "@/lib/dateOnly";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import {
   ArrowLeft, Plus, Trash2, Loader2, Save, FileText, CheckCircle2,
@@ -806,12 +806,20 @@ export default function AetWizard() {
     setSetoresAet(setoresAet.map((s, i) => (i === idx ? { ...s, ...patch, _salvo: patch._salvo ?? false } : s)));
   };
 
+  const setoresAetRef = useRef(setoresAet);
+  setoresAetRef.current = setoresAet;
+
   // Persistência
-  const persist = async (status: "rascunho" | "concluido", silent = false): Promise<string | null> => {
+  const persist = async (
+    status: "rascunho" | "concluido",
+    silent = false,
+    setoresOverride?: SetorAet[],
+  ): Promise<string | null> => {
     if (!empresaId) {
       toast.error("Selecione a empresa");
       return null;
     }
+    const setoresPayload = setoresOverride ?? setoresAetRef.current;
     if (!contratoId && status === "concluido") {
       toast.error("Selecione o contrato");
       return null;
@@ -821,7 +829,7 @@ export default function AetWizard() {
         toast.error("Preencha responsável técnico e data de elaboração");
         return null;
       }
-      if (setoresAet.length === 0) {
+      if (setoresPayload.length === 0) {
         toast.error("Adicione ao menos um setor");
         return null;
       }
@@ -844,10 +852,11 @@ export default function AetWizard() {
         docIdLocal = doc.id;
         setDocId(docIdLocal);
       } else {
-        await supabase
+        const { error: docUpErr } = await supabase
           .from("documentos")
           .update({ empresa_id: empresaId, empresa_nome: empresaNome, status })
           .eq("id", docIdLocal);
+        if (docUpErr) throw docUpErr;
       }
 
       const payload = {
@@ -860,7 +869,7 @@ export default function AetWizard() {
         data_elaboracao: dataElaboracao || null,
         alteracoes_documento: alteracoes,
         revisoes: revisoes as any,
-        setores: setoresAet as any,
+        setores: setoresPayload as any,
         status,
       };
 
@@ -902,12 +911,11 @@ export default function AetWizard() {
     const newSetores = setoresAet.map((s, i) =>
       i === editingSetorIdx ? { ...s, _salvo: true } : s
     );
+    setoresAetRef.current = newSetores;
     setSetoresAet(newSetores);
-    // Persist with the updated array (state will update async)
     setEditingSetorIdx(null);
     toast.success(`Setor "${setor.setor_nome}" salvo`);
-    // Trigger save in background
-    setTimeout(() => persist("rascunho", true), 100);
+    await persist("rascunho", true, newSetores);
   };
 
   // ─── BUILD TEMPLATE DATA ───

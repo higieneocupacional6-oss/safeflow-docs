@@ -116,11 +116,30 @@ export default function Templates() {
       toast.error("Este é um template padrão do sistema e não pode ser excluído.");
       return;
     }
-    if (!confirm("Tem certeza que deseja excluir este template? Esta ação não pode ser desfeita.")) {
+    if (!confirm("Tem certeza que deseja excluir este template? Documentos que o usam serão mantidos, apenas sem vínculo ao template. Esta ação não pode ser desfeita.")) {
       return;
     }
     try {
-      // 1) Remove o registro do banco PRIMEIRO (assim, se falhar por RLS, mostramos erro)
+      // Desvincula documentos (e PCMSO) antes de apagar — evita FK documentos_template_id_fkey.
+      const { error: unlinkDocsErr } = await supabase
+        .from("documentos")
+        .update({ template_id: null })
+        .eq("template_id", id);
+      if (unlinkDocsErr) {
+        console.error("[Templates] unlink documentos:", unlinkDocsErr);
+        toast.error("Não foi possível desvincular o template dos documentos: " + unlinkDocsErr.message);
+        return;
+      }
+
+      const { error: unlinkPcmsoErr } = await supabase
+        .from("pcmso_documentos")
+        .update({ template_id: null })
+        .eq("template_id", id);
+      if (unlinkPcmsoErr) {
+        // Tabela pode não ter FK; não bloqueia se falhar por coluna ausente em ambientes antigos.
+        console.warn("[Templates] unlink pcmso_documentos:", unlinkPcmsoErr);
+      }
+
       const { data: deleted, error: dbError } = await supabase
         .from("templates")
         .delete()
@@ -140,7 +159,6 @@ export default function Templates() {
         return;
       }
 
-      // 2) Remove o arquivo do storage (não bloqueia o sucesso se falhar)
       if (filePath) {
         const { error: storageError } = await supabase.storage
           .from("templates")
@@ -151,6 +169,7 @@ export default function Templates() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ["templates"] });
+      await queryClient.invalidateQueries({ queryKey: ["documentos"] });
       toast.success("Template removido");
     } catch (err: any) {
       console.error("[Templates] delete exception:", err);

@@ -106,7 +106,15 @@ export function computePresentBlocks(templateData: any): Set<string> {
       (nome.includes("radiac") && nome.includes("nao") && nome.includes("ioniz")) ||
       (nome.includes("radiac") && nome.includes("n.ion"));
 
-    if (isFisico && isQuant && !!r?.is_ruido) present.add("risco_ruido");
+    // Ruído: aceita flag, nome curto ("Ruído") ou composto; não exige só is_quantitativo
+    // (mesmo padrão do calor — blocos sumiam com agentes cadastrados como "Ruído").
+    if (
+      !!r?.is_ruido
+      || nome.includes("ruido")
+      || (isFisico && isQuant && nome.includes("ruido"))
+    ) {
+      present.add("risco_ruido");
+    }
     // Calor: mantém o bloco sempre que houver agente/avaliações de calor,
     // independentemente da flag de quantitativa (bug: blocos sumiam com dados cadastrados).
     if (!!r?.is_calor || nome.includes("calor") || (Array.isArray(r?.avaliacoes) && r.avaliacoes.some((a: any) => a?.resultado_calor || a?.ibutg_resultado)))
@@ -151,9 +159,9 @@ export function stripConditionalBlocksHtml(html: string, present: Set<string>): 
   let out = html;
 
   for (const key of BLOCK_KEYS) {
-    if (present.has(key)) continue;
     const shortKey = key.replace(/^risco_/, "");
-    const patterns = [key, `risco_${shortKey}`];
+    if (present.has(key) || present.has(shortKey)) continue;
+    const patterns = [key, shortKey, `risco_${shortKey}`];
     for (const p of patterns) {
       const re = new RegExp(
         `#inicio_texto_${p}[\\s\\S]*?#fim_texto_${p}`,
@@ -286,6 +294,14 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
   });
 
   // Emparelha start↔end (mesma chave, end após start, mais próximo).
+  // Aceita alias curto: #inicio_texto_ruido ≡ #inicio_texto_risco_ruido.
+  const normalizeBlockKey = (key: string) => {
+    const k = key.toLowerCase();
+    if (present.has(k)) return k;
+    if (!k.startsWith("risco_") && present.has(`risco_${k}`)) return `risco_${k}`;
+    if (k.startsWith("risco_") && present.has(k.slice("risco_".length))) return k.slice("risco_".length);
+    return k;
+  };
   const usedEnds = new Set<number>();
   interface Pair { key: string; start: Element; end: Element; }
   const pairs: Pair[] = [];
@@ -301,7 +317,7 @@ function stripConditionalBlocksInXml(xml: string, present: Set<string>): string 
 
   // Aplica remoções para blocos NÃO presentes.
   for (const { key, start, end } of pairs) {
-    if (present.has(key)) continue;
+    if (present.has(key) || present.has(normalizeBlockKey(key))) continue;
     // Nós já removidos numa passagem anterior (blocos aninhados) são ignorados.
     if (!start.parentNode || !end.parentNode) continue;
     if (start === end) {
