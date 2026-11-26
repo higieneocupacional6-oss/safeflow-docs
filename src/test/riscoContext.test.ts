@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { riscoExiste, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
+import { avaliacaoValida, riscoExiste, sanitizeRisco, sanitizeSetores } from "@/lib/riscoContext";
 
 describe("riscoContext", () => {
   it("descarta risco sem avaliação e sem info técnica", () => {
@@ -8,6 +8,21 @@ describe("riscoContext", () => {
 
   it("aceita risco qualitativo com info técnica", () => {
     expect(riscoExiste({ agente_nome: "Fungos", fonte_geradora: "Resíduos" })).toBe(true);
+  });
+
+  it("mantém linhas qualitativas com colaborador/função mesmo sem resultado", () => {
+    expect(avaliacaoValida({ colaborador: "João", funcao: "Auxiliar" })).toBe(true);
+    expect(avaliacaoValida({ data_avaliacao: "01/01/2025" })).toBe(true);
+    const r = sanitizeRisco({
+      agente_nome: "Frio",
+      is_qualitativo: true,
+      avaliacoes: [
+        { colaborador: "Maria", funcao: "Operadora", descricao_avaliacao: "" },
+        {},
+      ],
+    } as any);
+    expect((r as any).avaliacoes).toHaveLength(1);
+    expect((r as any).avaliacoes[0].colaborador).toBe("Maria");
   });
 
   it("remove coleções vazias e flags falsas", () => {

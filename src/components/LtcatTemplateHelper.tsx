@@ -327,7 +327,13 @@ export function LtcatTemplateHelper() {
     },
     {
       title: "Flags Condicionais (Tipo de Agente)",
-      vars: ["{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}", "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}"],
+      vars: [
+        "{{#is_quimico}}", "{{/is_quimico}}", "{{#is_fisico}}", "{{/is_fisico}}", "{{#is_biologico}}", "{{/is_biologico}}",
+        "{{#is_ruido}}", "{{/is_ruido}}", "{{#is_calor}}", "{{/is_calor}}", "{{#is_vibracao}}", "{{/is_vibracao}}",
+        "{{#is_umidade}}", "{{/is_umidade}}", "{{#is_frio}}", "{{/is_frio}}",
+        "{{#is_cimento}}", "{{/is_cimento}}", "{{#is_hidrocarbonetos}}", "{{/is_hidrocarbonetos}}",
+        "{{#is_poeirademadeira}}", "{{/is_poeirademadeira}}",
+      ],
     },
     {
       title: "Flags Automáticas por Agente (GHE/Setor)",
@@ -340,6 +346,22 @@ export function LtcatTemplateHelper() {
         "{{#is_dioxidodetitanio}}", "{{/is_dioxidodetitanio}}",
         "{{#is_fumosmetalicos}}", "{{/is_fumosmetalicos}}",
         "{{#is_poeirasmetalicas}}", "{{/is_poeirasmetalicas}}",
+        "{{#is_umidade}}", "{{/is_umidade}}",
+        "{{#is_frio}}", "{{/is_frio}}",
+        "{{#is_cimento}}", "{{/is_cimento}}",
+        "{{#is_hidrocarbonetos}}", "{{/is_hidrocarbonetos}}",
+      ],
+    },
+    {
+      title: "Blocos de Texto por Risco (marcadores — padrão Ruído)",
+      vars: [
+        "#inicio_texto_risco_ruido", "#fim_texto_risco_ruido",
+        "#inicio_texto_risco_calor", "#fim_texto_risco_calor",
+        "#inicio_texto_risco_umidade", "#fim_texto_risco_umidade",
+        "#inicio_texto_risco_frio", "#fim_texto_risco_frio",
+        "#inicio_texto_risco_cimento", "#fim_texto_risco_cimento",
+        "#inicio_texto_risco_hidrocarbonetos", "#fim_texto_risco_hidrocarbonetos",
+        "#inicio_texto_risco_poeira_madeira", "#fim_texto_risco_poeira_madeira",
       ],
     },
     {
@@ -353,6 +375,8 @@ export function LtcatTemplateHelper() {
         "#inicio_texto_dioxidodetitanio_quantitativo", "#fim_texto_dioxidodetitanio_quantitativo",
         "#inicio_texto_fumosmetalicos_quantitativo", "#fim_texto_fumosmetalicos_quantitativo",
         "#inicio_texto_poeirasmetalicas_quantitativo", "#fim_texto_poeirasmetalicas_quantitativo",
+        "#inicio_texto_cimento_quantitativo", "#fim_texto_cimento_quantitativo",
+        "#inicio_texto_hidrocarbonetos_quantitativo", "#fim_texto_hidrocarbonetos_quantitativo",
       ],
     },
     {

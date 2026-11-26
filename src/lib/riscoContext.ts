@@ -11,7 +11,7 @@
 export const temValor = (v: any): boolean =>
   v != null && String(v).trim() !== "" && String(v).trim().toLowerCase() !== "null";
 
-/** Uma avaliação é válida quando possui resultado ou análise técnica. */
+/** Uma avaliação é válida quando possui resultado, análise técnica ou identidade qualitativa. */
 export const avaliacaoValida = (a: any): boolean =>
   !!a &&
   (temValor(a.resultado) ||
@@ -26,7 +26,13 @@ export const avaliacaoValida = (a: any): boolean =>
     temValor(a.dose_percentual) ||
     temValor(a.parecer_tecnico) ||
     temValor(a.descricao_avaliacao) ||
+    temValor(a.descricao_tecnica) ||
     temValor(a.situacao) ||
+    // Qualitativa: colaborador/função/data bastam para a linha aparecer na tabela
+    temValor(a.colaborador) ||
+    temValor(a.funcao) ||
+    temValor(a.nome_funcao) ||
+    temValor(a.data_avaliacao) ||
     (Array.isArray(a.componentes_amostra) &&
       a.componentes_amostra.some((c: any) => temValor(c?.resultado))));
 

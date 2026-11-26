@@ -250,7 +250,7 @@ export default function AvaliacaoPsicossocialPublica() {
   const submit = async () => {
     if (!token || !data?.link_id) return;
     if (!contratoId) { toast.error("Selecione o contrato"); return; }
-    if (!funcaoNome.trim()) { toast.error("Selecione/informe a função"); return; }
+    if (!funcaoNome.trim()) { toast.error("Informe a função"); return; }
     if (!allAnswered) { toast.error("Responda todas as perguntas"); return; }
 
     const clientId = newPsicoClientId();
@@ -458,25 +458,13 @@ export default function AvaliacaoPsicossocialPublica() {
               </div>
               <div className="min-w-0 space-y-1.5">
                 <Label className="text-[#334155]">Função *</Label>
-                {contrato && contrato.funcoes.length > 0 ? (
-                  <Select value={funcaoNome} onValueChange={setFuncaoNome}>
-                    <SelectTrigger className="h-11 w-full bg-white text-[#142B45]">
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {contrato.funcoes.map((f) => (
-                        <SelectItem key={f.id} value={f.nome}>{f.nome}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Input
-                    className="h-11 bg-white text-[#142B45]"
-                    value={funcaoNome}
-                    onChange={(e) => setFuncaoNome(e.target.value)}
-                    placeholder="Informe sua função"
-                  />
-                )}
+                <Input
+                  className="h-11 bg-white text-[#142B45]"
+                  value={funcaoNome}
+                  onChange={(e) => setFuncaoNome(e.target.value)}
+                  placeholder="Digite sua função"
+                  autoComplete="organization-title"
+                />
               </div>
               <div className="min-w-0 space-y-1.5">
                 <Label className="text-[#334155]">Nome (opcional)</Label>

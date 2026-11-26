@@ -87,6 +87,37 @@ describe("conditionalBlocks Ruído", () => {
   });
 });
 
+describe("conditionalBlocks qualitativo", () => {
+  it("ativa risco_fisico_qualitativo por tipo_avaliacao sem flag is_qualitativo", () => {
+    const present = computePresentBlocks({
+      setores: [{
+        riscos: [{
+          agente_nome: "Umidade",
+          is_fisico: true,
+          tipo_avaliacao: "Qualitativa",
+        }],
+      }],
+    });
+    expect(present.has("risco_fisico_qualitativo")).toBe(true);
+  });
+});
+
+describe("conditionalBlocks seções Umidade/Frio/Cimento/Hidrocarbonetos/Poeira madeira", () => {
+  it.each([
+    ["Umidade", "risco_umidade"],
+    ["Frio", "risco_frio"],
+    ["Cimento", "risco_cimento"],
+    ["Hidrocarbonetos", "risco_hidrocarbonetos"],
+    ["Poeira de Madeira", "risco_poeira_madeira"],
+    ["Pó de madeira", "risco_poeira_madeira"],
+  ])("ativa %s → %s", (nome, block) => {
+    const present = computePresentBlocks({
+      setores: [{ riscos: [{ agente_nome: nome }] }],
+    });
+    expect(present.has(block)).toBe(true);
+  });
+});
+
 describe("conditionalBlocks DOCX para agentes metálicos", () => {
   it.each([
     ["fumos metálicos", [risk("Fumos metálicos")], true, false],

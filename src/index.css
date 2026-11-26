@@ -23,15 +23,18 @@
     --primary-foreground: 0 0% 100%;
     --primary-glow: 210 45% 32%;
 
-    /* Complementar sage discreto */
+    /* Complementar sage discreto (superfícies claras) */
     --secondary: 145 18% 88%;
     --secondary-foreground: 210 55% 18%;
 
     --muted: 140 14% 92%;
     --muted-foreground: 210 18% 38%;
 
-    --accent: 152 22% 90%;
-    --accent-foreground: 210 55% 18%;
+    /* Accent sólido — contraste em ícones/texto sobre fundo claro do portal */
+    --accent: 152 38% 28%;
+    --accent-foreground: 0 0% 100%;
+    /* Tinta suave para chips/fundos (não usar em text-accent) */
+    --accent-soft: 152 22% 90%;
 
     --destructive: 0 68% 46%;
     --destructive-foreground: 0 0% 100%;
@@ -105,8 +108,10 @@
     --secondary-foreground: 210 20% 94%;
     --muted: 210 22% 16%;
     --muted-foreground: 210 12% 72%;
-    --accent: 210 24% 18%;
-    --accent-foreground: 210 20% 96%;
+    /* Accent claro o bastante para ícones/texto sobre fundo escuro */
+    --accent: 152 40% 58%;
+    --accent-foreground: 210 50% 10%;
+    --accent-soft: 210 24% 18%;
     --destructive: 0 70% 52%;
     --destructive-foreground: 0 0% 100%;
     --success: 152 42% 42%;
@@ -273,5 +278,10 @@
 
   .portal-surface {
     @apply rounded-2xl border border-border/80 bg-card shadow-sm;
+  }
+
+  /* Fundo suave de accent sem perder contraste dos ícones (text-accent). */
+  .bg-accent-soft {
+    background-color: hsl(var(--accent-soft));
   }
 }

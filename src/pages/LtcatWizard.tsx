@@ -2571,17 +2571,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             equipamentos: equipamentosAvaliacaoLoop,
               data_avaliacao: formatDateOnly(r.data_avaliacao),
               componente_avaliado: item.componente_avaliado || "",
-              descricao_avaliacao: (item as any).descricao_avaliacao || (r as any).descricao_tecnica || "",
+              descricao_avaliacao:
+                (item as any).descricao_avaliacao
+                || (r as any).descricao_tecnica
+                || (r as any).descricao_avaliacao
+                || base.descricao_avaliacao
+                || "",
               dose_percentual: "",
               resultado: r.resultado || "",
               unidade_resultado: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
               unidade: unidades.find(u => u.id === r.unidade_resultado_id)?.simbolo || "",
               limite_tolerancia: r.limite_tolerancia || "",
               unidade_limite: unidades.find(u => u.id === r.unidade_limite_id)?.simbolo || "",
-              situacao: "",
+              situacao: (item as any).situacao || "",
               cod_gfip: "",
-              parecer_tecnico: r.parecer_tecnico || dbParecer?.parecer_tecnico || "",
-              aposentadoria_especial: r.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
+              parecer_tecnico: (item as any).parecer_tecnico || r.parecer_tecnico || dbParecer?.parecer_tecnico || "",
+              aposentadoria_especial: (item as any).aposentadoria_especial || r.aposentadoria_especial || dbParecer?.aposentadoria_especial || "",
               epi_nome,
               epc_nome,
               equipamento_avaliado: "",
@@ -2631,7 +2636,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           .replace(/[\u0300-\u036f]/g, "")
           .trim();
         const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
-        const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
+        const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno", "cimento", "hidrocarboneto"];
         const is_quimico = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
         const is_fisico = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
         const is_biologico = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
@@ -2650,8 +2655,17 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           || normalized_agente_nome.includes("soda caustica")
           || normalized_agente_nome.replace(/\s/g, "").includes("naoh");
         const tipoAvalLower = String(first.tipo_avaliacao || "").toLowerCase();
-        const is_qualitativo = tipoAvalLower.includes("qualitativ");
-        const is_quantitativo = tipoAvalLower.includes("quantitativ");
+        const tipoAgenteLower = String(first.tipo_agente || "").toLowerCase();
+        // Alinha com a regra de salvamento: biológico / químico-qualitativo / frio / radiação N.I. são qualitativos
+        const is_qualitativo =
+          tipoAvalLower.includes("qualitativ")
+          || tipoAgenteLower.includes("biológic") || tipoAgenteLower.includes("biologic")
+          || tipoAgenteLower.includes("químicos - qualitat") || tipoAgenteLower.includes("quimicos - qualitat")
+          || tipoAgenteLower.includes("radiação não ionizante") || tipoAgenteLower.includes("radiacao nao ionizante")
+          || tipoAgenteLower.includes("frio")
+          || normalized_agente_nome.includes("frio")
+          || normalized_agente_nome.includes("umidade");
+        const is_quantitativo = !is_qualitativo && tipoAvalLower.includes("quantitativ");
         // Blocos condicionais específicos: Qualitativa + tipo de agente
         const is_qualitativo_quimico = is_qualitativo && (is_quimico || is_agente_quimico);
         const is_qualitativo_biologico = is_qualitativo && (is_biologico || is_agente_biologico);
@@ -2954,14 +2968,71 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const agenteNomeLower = (r.agente_nome || "").toLowerCase().trim();
       const normalized_agente_nome = (r.agente_nome || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
       const FISICOS_NOMES = ["ruido", "calor", "vibracao", "radiacao nao ionizante", "frio", "umidade", "pressao"];
-      const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno"];
+      const QUIMICOS_NOMES = ["poeira", "vapor", "fumo", "nevoa", "neblina", "gas", "gases", "solvente", "silica", "benzeno", "cimento", "hidrocarboneto"];
       const _isQ = tipoAgenteUpper.includes("QUIMI") || tipoAgenteUpper.includes("QUÍMI");
       const _isF = tipoAgenteUpper.includes("FISI") || tipoAgenteUpper.includes("FÍSI");
       const _isB = tipoAgenteUpper.includes("BIOLOG") || tipoAgenteUpper.includes("BIOLÓG");
       const _aQ = _isQ || QUIMICOS_NOMES.some(n => normalized_agente_nome.includes(n));
       const _aF = _isF || FISICOS_NOMES.some(n => normalized_agente_nome.includes(n));
       const _aB = _isB || normalized_agente_nome.includes("biolog") || normalized_agente_nome.includes("virus") || normalized_agente_nome.includes("bacter") || normalized_agente_nome.includes("fung");
-      const _isQual = String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ");
+      const tipoAgenteStr = (r.tipo_agente || "").toLowerCase();
+      const _isQual =
+        String(r.tipo_avaliacao || "").toLowerCase().includes("qualitativ")
+        || tipoAgenteStr.includes("biológic") || tipoAgenteStr.includes("biologic")
+        || tipoAgenteStr.includes("químicos - qualitat") || tipoAgenteStr.includes("quimicos - qualitat")
+        || tipoAgenteStr.includes("radiação não ionizante") || tipoAgenteStr.includes("radiacao nao ionizante")
+        || tipoAgenteStr.includes("frio")
+        || normalized_agente_nome.includes("frio")
+        || normalized_agente_nome.includes("umidade");
+      const _isQuant = !_isQual && String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ");
+      // Linhas da tabela qualitativa/quantitativa no loop consolidado {{#riscos}}{{#avaliacoes}}
+      const avaliacoesConsolidadas = (r.items || []).length
+        ? (r.items || []).map((item: any) => {
+            const f = funcoes.find((x: any) => x.id === item.funcao_id);
+            const fields = ltcatEvaluationFields(r, item, tecnicas);
+            return {
+              ...fields,
+              colaborador: item.colaborador || fields.colaborador || "",
+              funcao: item.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: item.funcao_nome || f?.nome_funcao || "",
+              cbo_codigo: f?.cbo_codigo || "",
+              cbo_descricao: f?.cbo_descricao || "",
+              descricao_atividades: f?.descricao_atividades || "",
+              descricao_atividade: f?.descricao_atividades || "",
+              data_avaliacao: formatDateOnly(item.data_avaliacao || r.data_avaliacao),
+              descricao_avaliacao:
+                fields.descricao_avaliacao
+                || item.descricao_avaliacao
+                || r.descricao_tecnica
+                || r.descricao_avaliacao
+                || "",
+              parecer_tecnico: item.parecer_tecnico || parecer_tecnico || "",
+              aposentadoria_especial: item.aposentadoria_especial || aposentadoria_especial || "",
+              situacao: item.situacao || "",
+              resultado: item.resultado || r.resultado || "",
+              componente_avaliado: item.componente_avaliado || "",
+            };
+          })
+        : allResults.map((row: any) => {
+            const f = funcoes.find((x: any) => x.id === row.funcao_id);
+            const fields = ltcatEvaluationFields(r, row, tecnicas);
+            return {
+              ...fields,
+              ...row,
+              colaborador: row.colaborador || fields.colaborador || "",
+              funcao: row.funcao_nome || f?.nome_funcao || "",
+              nome_funcao: row.funcao_nome || f?.nome_funcao || "",
+              data_avaliacao: formatDateOnly(row.data_avaliacao || r.data_avaliacao),
+              descricao_avaliacao:
+                fields.descricao_avaliacao
+                || row.descricao_avaliacao
+                || r.descricao_tecnica
+                || r.descricao_avaliacao
+                || "",
+              parecer_tecnico: row.parecer_tecnico || parecer_tecnico || "",
+              aposentadoria_especial: row.aposentadoria_especial || aposentadoria_especial || "",
+            };
+          });
       return {
         agente_nome: r.agente_nome || "",
         tipo_agente: r.tipo_agente || "",
@@ -2987,14 +3058,14 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         ...buildAgentFlags(r.agente_nome),
         ...buildMetalQuantitativeFlags({
           ...r,
-          is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+          is_quantitativo: _isQuant,
           avaliacoes: [
             ...(r.resultados_detalhados || []),
             ...(r.resultados_componentes || []),
           ],
         }),
         is_qualitativo: _isQual,
-        is_quantitativo: String(r.tipo_avaliacao || "").toLowerCase().includes("quantitativ"),
+        is_quantitativo: _isQuant,
         is_qualitativo_quimico: _isQual && _aQ,
         is_qualitativo_biologico: _isQual && _aB,
         is_qualitativo_fisico: _isQual && _aF,
@@ -3003,7 +3074,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
         is_fisico_qualitativo: _isQual && _aF,
         tipo_avaliacao: r.tipo_avaliacao || "",
         setor: setores.find(s => s.id === r.setor_id)?.nome_setor || "",
-        ...ltcatRiskFields([r], [...(r.items || []).map(item => ltcatEvaluationFields(r, item, tecnicas)), ...allResults.map(row => ltcatEvaluationFields(r, row, tecnicas))], tecnicas),
+        ...ltcatRiskFields([r], [...avaliacoesConsolidadas, ...allResults.map(row => ltcatEvaluationFields(r, row, tecnicas))], tecnicas),
+        avaliacoes: avaliacoesConsolidadas,
         parecer_tecnico,
         aposentadoria_especial,
         // ---- Variáveis de cálculo (NEN / Dose média / Químicos) ----
@@ -3468,6 +3540,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
           ordem,
         })) : [],
         epi_epc: risk.epi_id || risk.epc_id || risk.epi_eficaz || risk.epc_eficaz ? {
+          // id vazio → RPC gera UUID; nunca reutilizar PK de outro GHE/setor.
           id: risk.epi_epc_id || "",
           epi_id: risk.epi_id || "", epi_ca: risk.epi_ca || "",
           epi_atenuacao: risk.epi_atenuacao || "", epi_eficaz: risk.epi_eficaz || "",
@@ -7616,23 +7689,39 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                   }
                   const clones: RiscoEntry[] = source.map((r) => {
                     // Deep clone independente + novos IDs em toda subestrutura.
+                    // Obrigatório: não reutilizar epi_epc_id / ids filhos do setor origem
+                    // (evita PK conflict em ltcat_av_epi_epc ao salvar).
                     const cloned = JSON.parse(JSON.stringify(r)) as RiscoEntry;
-                    cloned.id = crypto.randomUUID();
                     cloned.setor_id = target.id;
                     cloned.setor_nome = target.nome_setor;
-                    cloned.items = (cloned.items || []).map((it) => ({
-                      ...it,
-                      id: crypto.randomUUID(),
-                    }));
-                    const reid = (arr?: any[]) =>
-                      Array.isArray(arr)
-                        ? arr.map((x) => ({ ...x, id: crypto.randomUUID() }))
-                        : arr;
-                    cloned.resultados_detalhados = reid(cloned.resultados_detalhados);
-                    cloned.resultados_componentes = reid(cloned.resultados_componentes);
-                    cloned.resultados_vibracao = reid(cloned.resultados_vibracao);
-                    cloned.resultados_calor = reid(cloned.resultados_calor);
-                    cloned.equipamentos_avaliacao = reid(cloned.equipamentos_avaliacao);
+                    const reidDeep = (value: any): any => {
+                      if (Array.isArray(value)) return value.map(reidDeep);
+                      if (!value || typeof value !== "object") return value;
+                      const next: Record<string, any> = { ...value };
+                      if (typeof next.id === "string" && next.id) {
+                        next.id = crypto.randomUUID();
+                      }
+                      for (const key of Object.keys(next)) {
+                        if (key === "id") continue;
+                        if (Array.isArray(next[key]) || (next[key] && typeof next[key] === "object")) {
+                          next[key] = reidDeep(next[key]);
+                        }
+                      }
+                      return next;
+                    };
+                    cloned.items = (cloned.items || []).map((it) => reidDeep(it));
+                    // Invariante de hidratação: risk.id === items[0].id === ltcat_avaliacoes.id
+                    cloned.id = cloned.items[0]?.id || crypto.randomUUID();
+                    if (!cloned.items.length) {
+                      cloned.items = [{ id: cloned.id } as any];
+                    }
+                    cloned.resultados_detalhados = reidDeep(cloned.resultados_detalhados || []);
+                    cloned.resultados_componentes = reidDeep(cloned.resultados_componentes || []);
+                    cloned.resultados_vibracao = reidDeep(cloned.resultados_vibracao || []);
+                    cloned.resultados_calor = reidDeep(cloned.resultados_calor || []);
+                    cloned.equipamentos_avaliacao = reidDeep(cloned.equipamentos_avaliacao || []);
+                    // Novo vínculo EPI/EPC — deixa o RPC gerar o UUID
+                    cloned.epi_epc_id = "";
                     return cloned;
                   });
                   setRiscos((prev) => [...prev, ...clones]);

@@ -45,7 +45,17 @@ export const AGENT_FLAG_MAP: AgentFlagDef[] = [
   { flag: "is_vaporesorganicos", matchers: ["vapores organicos", "vapor organico", "vapores organico"] },
   { flag: "is_solventesorganicos", matchers: ["solventes organicos", "solvente organico", "solventes"] },
   { flag: "is_acidosulfurico", matchers: ["acido sulfurico", "h2so4"] },
-  { flag: "is_poeirademadeira", matchers: ["poeira de madeira", "poeira madeira", "po de madeira"] },
+  {
+    flag: "is_poeirademadeira",
+    matchers: [
+      "poeira de madeira",
+      "poeira madeira",
+      "poeiras de madeira",
+      "po de madeira",
+      "po madeira",
+      "pos de madeira",
+    ],
+  },
   { flag: "is_dioxidodetitanio", matchers: ["dioxido de titanio", "dioxido titanio", "tio2"] },
   {
     flag: "is_fumosmetalicos",
@@ -55,7 +65,56 @@ export const AGENT_FLAG_MAP: AgentFlagDef[] = [
     flag: "is_poeirasmetalicas",
     matchers: ["poeiras metalicas", "poeira metalica", "poeiras metalica", "particulados metalicos", "po metalico"],
   },
+  // Físicos / químicos solicitados para blocos tipo Ruído
+  { flag: "is_umidade", matchers: ["umidade"] },
+  { flag: "is_frio", matchers: ["frio"] },
+  { flag: "is_cimento", matchers: ["cimento", "cimentos"] },
+  {
+    flag: "is_hidrocarbonetos",
+    matchers: [
+      "hidrocarboneto",
+      "hidrocarbonetos",
+      "hidrocarbonetos aromaticos",
+      "hidrocarboneto aromatico",
+      "hpa",
+      "pah",
+    ],
+  },
 ];
+
+/**
+ * Blocos de seção no template (marcadores #inicio_texto_risco_* … #fim_texto_risco_*),
+ * no mesmo padrão de #inicio_texto_risco_ruido.
+ */
+export const RISK_SECTION_BLOCKS: Array<{
+  blockKey: string;
+  flag: string;
+  matchers: string[];
+}> = [
+  { blockKey: "risco_umidade", flag: "is_umidade", matchers: ["umidade"] },
+  { blockKey: "risco_frio", flag: "is_frio", matchers: ["frio"] },
+  { blockKey: "risco_cimento", flag: "is_cimento", matchers: ["cimento", "cimentos"] },
+  {
+    blockKey: "risco_hidrocarbonetos",
+    flag: "is_hidrocarbonetos",
+    matchers: ["hidrocarboneto", "hidrocarbonetos", "hpa", "pah"],
+  },
+  {
+    blockKey: "risco_poeira_madeira",
+    flag: "is_poeirademadeira",
+    matchers: ["poeira de madeira", "poeira madeira", "po de madeira", "po madeira", "poeiras de madeira"],
+  },
+];
+
+export const matchesRiskSection = (agenteNome: any, matchers: string[]): boolean => {
+  const n = normalizeAgente(agenteNome);
+  if (!n) return false;
+  const compact = n.replace(/[^a-z0-9]/g, "");
+  return matchers.some((m) => {
+    const mn = normalizeAgente(m);
+    return n.includes(mn) || compact.includes(mn.replace(/[^a-z0-9]/g, ""));
+  });
+};
 
 export const AGENT_FLAG_KEYS = AGENT_FLAG_MAP.map((d) => d.flag);
 

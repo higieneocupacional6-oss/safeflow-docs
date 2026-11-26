@@ -428,10 +428,11 @@ export default function AepWizard() {
       toast.error("Descreva a atividade realizada");
       return;
     }
-    setSetoresAep((prev) => prev.map((s, i) => (i === editingSetorIdx ? { ...s, _salvo: true } : s)));
+    const next = setoresAep.map((s, i) => (i === editingSetorIdx ? { ...s, _salvo: true } : s));
+    setSetoresAep(next);
     setEditingSetorIdx(null);
     toast.success(`Setor "${setor.setor_nome}" salvo`);
-    setTimeout(() => persist("rascunho", true), 100);
+    await persist("rascunho", true, next);
   };
 
   // ───────────── IA ─────────────

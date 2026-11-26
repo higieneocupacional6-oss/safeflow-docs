@@ -21,6 +21,7 @@ const KNOWN_VARS = [
   "resultado", "unidade_resultado", "limite_tolerancia", "unidade_limite",
   "epi_nome", "epi_ca", "epi_atenuacao", "epi_eficaz", "epc_nome", "epc_eficaz",
   "is_quimico", "is_fisico", "is_biologico", "is_ruido", "is_calor", "is_vibracao",
+  "is_umidade", "is_frio", "is_cimento", "is_hidrocarbonetos", "is_poeirademadeira",
   "is_qualitativo", "is_quantitativo", "descricao_avaliacao",
   "is_agente_fisico", "is_agente_quimico", "is_agente_biologico", "normalized_agente_nome",
   "is_nocivo", "is_seguro", "is_hidroxido_sodio",

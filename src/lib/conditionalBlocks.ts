@@ -15,23 +15,24 @@
  * Quando o risco existe, apenas os próprios marcadores são apagados.
  *
  * Chaves suportadas:
- *   ruido                      → Físico + Ruído + Quantitativo
- *   calor                      → Físico + Calor + Quantitativo
- *   vci                        → Físico + Vibração Corpo Inteiro + Quantitativo
- *   vmb                        → Físico + Vibração Mãos e Braços + Quantitativo
- *   radiacao_nao_ionizante     → Físico + Radiação Não Ionizante
- *   poeira_silica              → Químico + Poeira/Sílica + Quantitativo
- *   quimico_quantitativo       → Qualquer Químico Quantitativo
- *   quimico_qualitativo        → Qualquer Químico Qualitativo
- *   biologico                  → Biológico + Qualitativo
+ *   ruido                      → Ruído
+ *   calor                      → Calor
+ *   vci / vmb                  → Vibração
+ *   radiacao_nao_ionizante     → Radiação Não Ionizante
+ *   umidade / frio             → Físicos
+ *   cimento / hidrocarbonetos / poeira_madeira → Químicos específicos
+ *   poeira_silica              → Químico + Poeira/Sílica
+ *   quimico_quantitativo / qualitativo / biologico / fisico_qualitativo
  */
 
 import PizZip from "pizzip";
 import {
   AGENT_FLAG_MAP,
+  RISK_SECTION_BLOCKS,
   buildAgentFlags,
   buildMetalQuantitativeFlags,
   hasQuantitativeResult,
+  matchesRiskSection,
 } from "@/lib/agentFlags";
 
 const BASE_BLOCK_KEYS = [
@@ -45,6 +46,12 @@ const BASE_BLOCK_KEYS = [
   "risco_quimico_qualitativo",
   "risco_biologico",
   "risco_fisico_qualitativo",
+  // Seções pedidas (mesmo padrão do ruído)
+  "risco_umidade",
+  "risco_frio",
+  "risco_cimento",
+  "risco_hidrocarbonetos",
+  "risco_poeira_madeira",
 ] as const;
 
 /**
@@ -97,7 +104,12 @@ export function computePresentBlocks(templateData: any): Set<string> {
   for (const r of allRiscos) {
     const nome = norm(r?.agente_nome);
     const isQuant = !!r?.is_quantitativo || norm(r?.tipo_avaliacao).includes("quantitativ");
-    const isQual = !!r?.is_qualitativo;
+    const isQual =
+      !!r?.is_qualitativo
+      || !!r?.is_qualitativo_fisico
+      || !!r?.is_qualitativo_quimico
+      || !!r?.is_qualitativo_biologico
+      || norm(r?.tipo_avaliacao).includes("qualitativ");
     const isFisico = !!(r?.is_fisico || r?.is_agente_fisico);
     const isQuimico = !!(r?.is_quimico || r?.is_agente_quimico);
     const isBiologico = !!(r?.is_biologico || r?.is_agente_biologico);
@@ -132,6 +144,13 @@ export function computePresentBlocks(templateData: any): Set<string> {
     }
     if (isQuimico && isQual) present.add("risco_quimico_qualitativo");
     if (isBiologico && isQual) present.add("risco_biologico");
+
+    // Seções dedicadas (Umidade, Frio, Cimento, Hidrocarbonetos, Poeira de Madeira)
+    for (const section of RISK_SECTION_BLOCKS) {
+      if (r?.[section.flag] === true || matchesRiskSection(r?.agente_nome, section.matchers)) {
+        present.add(section.blockKey);
+      }
+    }
 
     // Blocos quantitativos por agente químico específico (escaláveis via AGENT_FLAG_MAP)
     const agentFlags = {
