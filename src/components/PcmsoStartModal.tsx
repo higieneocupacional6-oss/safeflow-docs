@@ -9,6 +9,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { buildSetoresFromEmpresa, copyPgrSnapshotIntoSetores } from "@/lib/copyPgrToPcmso";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 type Mode = "choose" | "copiar" | "zero";
 
@@ -22,16 +27,19 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas-pcmso-modal"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia").order("razao_social");
+      const { data, error } = await supabase.from("empresas").select("id,razao_social,nome_fantasia,sem_contrato").order("razao_social");
       if (error) throw error;
       return data;
     },
     enabled: open,
   });
 
+  const empresaPcmsoCurrent = (empresas as any[]).find((e) => e.id === empresaId);
+  const independentePcmso = empresaSemContrato(empresaPcmsoCurrent);
+
   const { data: contratos = [] } = useQuery({
     queryKey: ["contratos-pcmso-modal", empresaId],
-    enabled: open && !!empresaId,
+    enabled: open && !!empresaId && !independentePcmso,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -48,17 +56,18 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
 
   const createPcmso = async (copyFromPgr: boolean) => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
-    if (!contratoId) { toast.error("Selecione o contrato"); return; }
+    if (!independentePcmso && !contratoId) { toast.error("Selecione o contrato"); return; }
     setLoading(true);
+    const contratoIdReal = contratoIdPersistivel(contratoId);
     try {
       const empresa = (empresas as any[]).find((e) => e.id === empresaId);
       const empresaNome = empresa?.razao_social || empresa?.nome_fantasia || "";
-      let setores = await buildSetoresFromEmpresa(empresaId, contratoId);
-      if (copyFromPgr) setores = await copyPgrSnapshotIntoSetores(empresaId, setores, contratoId);
+      let setores = await buildSetoresFromEmpresa(empresaId, contratoIdReal ?? "");
+      if (copyFromPgr) setores = await copyPgrSnapshotIntoSetores(empresaId, setores, contratoIdReal ?? "");
 
       const { data: pcmso, error: e1 } = await supabase
         .from("pcmso_documentos")
-        .insert({ empresa_id: empresaId, contrato_id: contratoId, setores_snapshot: setores as any, revisoes: [] } as any)
+        .insert({ empresa_id: empresaId, contrato_id: contratoIdReal, setores_snapshot: setores as any, revisoes: [] } as any)
         .select("id")
         .single();
       if (e1) throw e1;
@@ -67,7 +76,7 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
         id: pcmso.id,
         tipo: "PCMSO",
         empresa_id: empresaId,
-        contrato_id: contratoId,
+        contrato_id: contratoIdReal,
         empresa_nome: empresaNome,
         status: "rascunho",
       } as any);
@@ -114,7 +123,7 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
           <div className="space-y-4 py-2">
             <div>
               <Label className="text-xs font-bold uppercase">Empresa *</Label>
-              <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
+              <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); const emp = (empresas as any[]).find((e) => e.id === v); setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : ""); }}>
                 <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {(empresas as any[]).map((e) => (
@@ -123,27 +132,31 @@ export function PcmsoStartModal({ open, onOpenChange }: { open: boolean; onOpenC
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label className="text-xs font-bold uppercase">Contrato *</Label>
-              <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || contratos.length === 0}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue placeholder={!empresaId ? "Selecione a empresa primeiro" : contratos.length ? "Selecione o contrato" : "Nenhum contrato cadastrado"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {(contratos as any[]).map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              {empresaId && contratos.length === 0 && (
-                <p className="text-xs text-muted-foreground mt-1">Cadastre um contrato em Empresas & Contratos.</p>
-              )}
-            </div>
+            {empresaId && independentePcmso ? (
+              <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+            ) : (
+              <div>
+                <Label className="text-xs font-bold uppercase">Contrato *</Label>
+                <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || contratos.length === 0}>
+                  <SelectTrigger className="mt-1">
+                    <SelectValue placeholder={!empresaId ? "Selecione a empresa primeiro" : contratos.length ? "Selecione o contrato" : "Nenhum contrato cadastrado"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(contratos as any[]).map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {empresaId && contratos.length === 0 && (
+                  <p className="text-xs text-muted-foreground mt-1">Cadastre um contrato em Empresas & Contratos.</p>
+                )}
+              </div>
+            )}
             <DialogFooter>
               <Button variant="ghost" onClick={() => setMode("choose")} disabled={loading}>Voltar</Button>
-              <Button onClick={() => createPcmso(mode === "copiar")} disabled={!empresaId || !contratoId || loading}>
+              <Button onClick={() => createPcmso(mode === "copiar")} disabled={!empresaId || (!independentePcmso && !contratoId) || loading}>
                 {loading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Criando...</> : "Criar PCMSO"}
               </Button>
             </DialogFooter>

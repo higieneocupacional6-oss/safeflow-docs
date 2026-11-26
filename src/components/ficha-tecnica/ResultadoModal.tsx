@@ -14,7 +14,8 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   empresaId: string;
-  contratoId: string;
+  /** UUID do contrato ou null para empresa independente. */
+  contratoId: string | null;
   tipo: FichaTipo;
   setores: any[];
   funcoes: any[];
@@ -94,9 +95,12 @@ export function ResultadoModal({ open, onOpenChange, empresaId, contratoId, tipo
         amostrador: form.amostrador || null, amostrador_serie: form.amostrador_serie || null, exposicao: numberOrNull(form.exposicao),
         limite_tolerancia: numberOrNull(form.limite_tolerancia),
       };
-      const query = registro
-        ? (supabase as any).from("ficha_tecnica_resultados").update(payload).eq("id", registro.id).eq("empresa_id", empresaId).eq("contrato_id", contratoId)
+      let query = registro
+        ? (supabase as any).from("ficha_tecnica_resultados").update(payload).eq("id", registro.id).eq("empresa_id", empresaId)
         : (supabase as any).from("ficha_tecnica_resultados").insert(payload);
+      if (registro) {
+        query = contratoId == null ? query.is("contrato_id", null) : query.eq("contrato_id", contratoId);
+      }
       const { error } = await query;
       if (error) throw error;
       toast.success(registro ? "Resultado atualizado." : "Resultado cadastrado.");

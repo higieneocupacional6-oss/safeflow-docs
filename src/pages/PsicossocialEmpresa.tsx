@@ -11,6 +11,10 @@ import { ArrowLeft, Plus, Users, CalendarDays, ClipboardList, Activity, ChevronR
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { statusGeralPsicossocial, corClassificacao } from "@/lib/psicoLink";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 function Stat({ icon: Icon, label, value, extra }: any) {
   return (
@@ -39,6 +43,10 @@ export default function PsicossocialEmpresa() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
+  // Empresa independente: contratoId param === "independente"; queries use null
+  const isIndependente = contratoId === CONTRATO_INDEPENDENTE_SLUG;
+  const contratoIdReal = contratoIdPersistivel(contratoId) ?? undefined;
+
   useRealtimeSync(
     [
       { table: "psico_avaliacoes", queryKey: ["psico-avs", empresaId, contratoId] },
@@ -59,7 +67,7 @@ export default function PsicossocialEmpresa() {
 
   const { data: contrato } = useQuery({
     queryKey: ["psico-contrato", contratoId],
-    enabled: !!contratoId,
+    enabled: !!contratoId && !isIndependente,
     queryFn: async () => {
       const { data, error } = await supabase.from("contratos").select("*").eq("id", contratoId!).maybeSingle();
       if (error) throw error;
@@ -71,12 +79,13 @@ export default function PsicossocialEmpresa() {
     queryKey: ["psico-avs", empresaId, contratoId],
     enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("psico_avaliacoes")
         .select("*")
-        .eq("empresa_id", empresaId!)
-        .eq("contrato_id", contratoId!)
-        .order("created_at", { ascending: false });
+        .eq("empresa_id", empresaId!);
+      if (isIndependente) q = (q as any).is("contrato_id", null);
+      else q = (q as any).eq("contrato_id", contratoId!);
+      const { data, error } = await (q as any).order("created_at", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -84,13 +93,15 @@ export default function PsicossocialEmpresa() {
 
   const { data: respostas = [] } = useQuery({
     queryKey: ["psico-resps", empresaId, contratoId],
-    enabled: !!contratoId,
+    enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("psico_respostas")
         .select("id, avaliacao_id, funcao_nome, data_avaliacao, blocos")
-        .eq("contrato_id", contratoId!)
-        .order("data_avaliacao", { ascending: false });
+        .eq("empresa_id", empresaId!);
+      if (isIndependente) q = (q as any).is("contrato_id", null);
+      else q = (q as any).eq("contrato_id", contratoId!);
+      const { data, error } = await (q as any).order("data_avaliacao", { ascending: false });
       if (error) throw error;
       return data as any[];
     },
@@ -111,7 +122,7 @@ export default function PsicossocialEmpresa() {
       .from("psico_avaliacoes")
       .insert({
         empresa_id: empresaId!,
-        contrato_id: contratoId!,
+        contrato_id: contratoIdReal ?? null,
         titulo: `Avaliação ${new Date().toLocaleDateString("pt-BR")}`,
       } as any)
       .select("id")
@@ -131,7 +142,7 @@ export default function PsicossocialEmpresa() {
 
       <PageHeader
         title={empresa?.razao_social || "Empresa"}
-        description={`Contrato: ${contrato?.numero_contrato || contrato?.escopo_contrato || "—"}`}
+        description={isIndependente ? "Empresa independente — sem contrato" : `Contrato: ${contrato?.numero_contrato || contrato?.escopo_contrato || "—"}`}
         actions={
           <Button onClick={novaAvaliacao}>
             <Plus className="w-4 h-4 mr-1.5" /> Nova Avaliação

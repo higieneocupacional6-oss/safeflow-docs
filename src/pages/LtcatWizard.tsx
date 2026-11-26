@@ -32,6 +32,11 @@ import { LtcatListagemSetores } from "@/components/ltcat/LtcatListagemSetores";
 import { NenCalculator, type NenResultado } from "@/components/NenCalculator";
 import { QuimicoCalculator, type QuimicoResultado } from "@/components/QuimicoCalculator";
 import { sortByGes, gesOrder } from "@/lib/sortGes";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 import { tiposEquipamentoPorAgente } from "@/lib/equipamentoTipos";
 import { usePersistedState, clearPersistedState } from "@/hooks/usePersistedState";
 import {
@@ -809,7 +814,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (error) throw error;
       return data;
     },
-    enabled: !!empresaId,
+    enabled: !!empresaId && !independenteLtcat,
   });
 
   // Detalhe COMPLETO do contrato selecionado — usado para popular variáveis do template
@@ -829,23 +834,27 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
     enabled: !!contratoId,
   });
 
+  const ltcatEscopoPronto = !!empresaId && (independenteLtcat || !!contratoId);
+
   const { data: fichaResultadosCount = 0 } = useQuery({
     queryKey: ["ficha-tecnica-disponivel", empresaId, contratoId],
     queryFn: async () => {
-      if (!empresaId || !contratoId || isPericulosidade) return 0;
-      const { count, error } = await (supabase as any)
+      if (!empresaId || isPericulosidade) return 0;
+      let q = (supabase as any)
         .from("ficha_tecnica_resultados")
         .select("id", { count: "exact", head: true })
-        .eq("empresa_id", empresaId)
-        .eq("contrato_id", contratoId);
+        .eq("empresa_id", empresaId);
+      if (independenteLtcat || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+      else { if (!contratoId) return 0; q = q.eq("contrato_id", contratoId); }
+      const { count, error } = await q;
       if (error) throw error;
       return count || 0;
     },
-    enabled: !!empresaId && !!contratoId && !isPericulosidade,
+    enabled: ltcatEscopoPronto && !isPericulosidade,
   });
 
   useEffect(() => {
-    if (!empresaId || !contratoId || !fichaResultadosCount || isPericulosidade) return;
+    if (!ltcatEscopoPronto || !fichaResultadosCount || isPericulosidade) return;
     const key = `${tipoDocumento}:${currentDraftId || documentoId || "novo"}:${empresaId}:${contratoId}`;
     if (fichaPromptedRef.current.has(key)) return;
     fichaPromptedRef.current.add(key);
@@ -940,18 +949,22 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, cnae_principal, grau_risco, endereco, numero_funcionarios_fem, numero_funcionarios_masc, total_funcionarios, jornada_trabalho").order("razao_social");
+      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, cnae_principal, grau_risco, endereco, numero_funcionarios_fem, numero_funcionarios_masc, total_funcionarios, jornada_trabalho, sem_contrato").order("razao_social");
       if (error) throw error;
       return data;
     },
   });
+
+  const empresaAtualLtcat = (empresas as any[]).find((e: any) => e.id === empresaId);
+  const independenteLtcat = empresaSemContrato(empresaAtualLtcat);
 
   const { data: setores = [] as any[], isLoading: loadingSetores } = useQuery({
     queryKey: ["setores", empresaId, contratoId],
     queryFn: async (): Promise<any[]> => {
       if (!empresaId) return [];
       let q = (supabase as any).from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, descricao_ambiente");
-      if (contratoId) q = q.eq("contrato_id", contratoId);
+      if (independenteLtcat || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null).eq("empresa_id", empresaId);
+      else if (contratoId) q = q.eq("contrato_id", contratoId);
       else q = q.eq("empresa_id", empresaId);
       const { data, error } = await q;
       if (error) throw error;
@@ -3482,7 +3495,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return {
         id: item.id,
         ficha_tecnica_resultado_id: risk.ficha_tecnica_resultado_id || "",
-        contrato_id: contratoId || "",
+        contrato_id: contratoIdPersistivel(contratoId) ?? "",
         setor_id: risk.setor_id || "",
         funcao_id: item.funcao_id || "",
         colaborador: item.colaborador || "",
@@ -3919,7 +3932,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const { data, error } = await (supabase as any).rpc("import_ficha_tecnica_resultados", {
         _documento_id: docId,
         _empresa_id: empresaId,
-        _contrato_id: contratoId,
+        _contrato_id: contratoIdPersistivel(contratoId),
         _tipo_documento: tipoDocumento,
       });
       if (error) throw error;
@@ -4036,7 +4049,7 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       const baseFields: any = {
         empresa_id: empresaId || null,
         empresa_nome: empresaNome,
-        contrato_id: contratoId || null,
+        contrato_id: contratoIdPersistivel(contratoId),
         template_id: selectedTemplate,
         responsavel_tecnico: responsavel || null,
         crea: crea || null,
@@ -4226,7 +4239,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
             <div className="glass-card rounded-xl p-6 max-w-2xl space-y-4">
               <div>
                 <Label>Empresa <span className="text-destructive">*</span></Label>
-                <Select value={empresaId} onValueChange={(value) => { setEmpresaId(value); setContratoId(""); }}>
+                <Select value={empresaId} onValueChange={(value) => {
+                  setEmpresaId(value);
+                  const emp = (empresas as any[]).find((e: any) => e.id === value);
+                  setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "");
+                }}>
                   <SelectTrigger className="mt-1"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                   <SelectContent>
                     {empresas.map((e: any) => (
@@ -4238,7 +4255,11 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
                 </Select>
               </div>
 
-              {empresaId && (
+              {empresaId && independenteLtcat && (
+                <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+              )}
+
+              {empresaId && !independenteLtcat && (
                 <div>
                   <Label>Contrato {contratosEmpresa.length === 0 && <span className="text-xs text-muted-foreground font-normal">(nenhum cadastrado)</span>}</Label>
                   <Select value={contratoId} onValueChange={setContratoId} disabled={contratosEmpresa.length === 0}>

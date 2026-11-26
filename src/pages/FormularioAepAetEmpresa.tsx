@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useAuth } from "@/hooks/useAuth";
 import { TIPO_AEP_AET, urlAepAetContrato, urlAepAetNovo } from "@/lib/aepAetFormulario";
+import { CONTRATO_INDEPENDENTE_SLUG, empresaSemContrato } from "@/lib/empresaEscopo";
 import { countAepAetOfflinePending } from "@/lib/aepAetOfflineDb";
 import { syncAepAetOfflinePendentes } from "@/lib/aepAetOfflineSync";
 import { toast } from "sonner";
@@ -35,13 +36,15 @@ export default function FormularioAepAetEmpresa() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id, razao_social, nome_fantasia, cnpj")
+        .select("id, razao_social, nome_fantasia, cnpj, sem_contrato")
         .eq("id", empresaId!)
         .maybeSingle();
       if (error) throw error;
       return data as any;
     },
   });
+
+  const isIndependente = empresaSemContrato(empresa);
 
   const { data: contratos = [], isLoading: loadingCtr } = useQuery({
     queryKey: ["aep-aet-contratos", empresaId],
@@ -156,6 +159,20 @@ export default function FormularioAepAetEmpresa() {
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        </div>
+      ) : isIndependente ? (
+        <div className="portal-surface p-6">
+          <p className="text-sm text-muted-foreground mb-4">Empresa independente — sem seleção de contrato.</p>
+          <button
+            type="button"
+            className="portal-surface flex items-center gap-3 p-4 w-full text-left transition-shadow hover:shadow-md"
+            onClick={() => navigate(urlAepAetContrato(empresaId!, CONTRATO_INDEPENDENTE_SLUG))}
+          >
+            <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
+              <FileSignature className="h-5 w-5" />
+            </div>
+            <span className="font-medium">Empresa independente (sem contrato)</span>
+          </button>
         </div>
       ) : contratosComStats.length === 0 ? (
         <div className="portal-surface p-10 text-center text-sm text-muted-foreground">

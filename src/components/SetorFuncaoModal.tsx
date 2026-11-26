@@ -9,12 +9,14 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CONTRATO_INDEPENDENTE_SLUG, contratoIdPersistivel } from "@/lib/empresaEscopo";
 
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   empresaId: string;
+  /** UUID do contrato, ou slug "independente" / vazio para empresa sem contrato. */
   contratoId: string;
   onSaved: () => void;
 }
@@ -35,7 +37,11 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, contratoId, on
   };
 
   const handleSave = async () => {
-    if (!contratoId) { toast.error("Selecione um contrato antes de cadastrar"); return; }
+    const contratoDb = contratoIdPersistivel(contratoId);
+    if (!contratoId || (contratoId !== CONTRATO_INDEPENDENTE_SLUG && !contratoDb)) {
+      toast.error("Selecione um contrato antes de cadastrar");
+      return;
+    }
     if (!nomeSetor.trim()) { toast.error("Informe o nome do setor"); return; }
     if (!nomeFuncao.trim()) { toast.error("Informe o nome da função"); return; }
 
@@ -43,7 +49,7 @@ export function SetorFuncaoModal({ open, onOpenChange, empresaId, contratoId, on
     try {
       const { data: setor, error: sErr } = await supabase
         .from("setores")
-        .insert({ empresa_id: empresaId, contrato_id: contratoId, ghe_ges: gheGes || null, nome_setor: nomeSetor.trim(), descricao_ambiente: descAmbiente || null } as any)
+        .insert({ empresa_id: empresaId, contrato_id: contratoDb, ghe_ges: gheGes || null, nome_setor: nomeSetor.trim(), descricao_ambiente: descAmbiente || null } as any)
         .select("id")
         .single();
       if (sErr) throw sErr;

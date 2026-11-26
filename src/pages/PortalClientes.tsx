@@ -29,6 +29,10 @@ import {
   uploadPortalArquivoEmPartes,
   type PortalUploadProgress,
 } from "@/lib/portalClientes";
+import {
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 type LinkRow = {
   id: string;
@@ -67,16 +71,19 @@ export default function PortalClientes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id, razao_social, nome_fantasia")
+        .select("id, razao_social, nome_fantasia, sem_contrato")
         .order("razao_social");
       if (error) throw error;
       return data as any[];
     },
   });
 
+  const empresaAtualPortal = empresas.find((e: any) => e.id === empresaId);
+  const independentePortal = empresaSemContrato(empresaAtualPortal);
+
   const { data: contratos = [], isLoading: loadingCtr } = useQuery({
     queryKey: ["portal-contratos", empresaId],
-    enabled: !!empresaId,
+    enabled: !!empresaId && !independentePortal,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -140,7 +147,7 @@ export default function PortalClientes() {
       toast.error("Selecione a empresa.");
       return;
     }
-    if (!contratoId) {
+    if (!independentePortal && !contratoId) {
       toast.error("Selecione o contrato.");
       return;
     }
@@ -168,7 +175,7 @@ export default function PortalClientes() {
         await uploadPortalArquivoEmPartes({
           file,
           linkId: link.id,
-          contratoId,
+          contratoId: contratoIdPersistivel(contratoId) ?? "",
           onProgress: (p) => {
             setProgressos((prev) => prev.map((row, idx) => (idx === i ? p : row)));
           },
@@ -333,7 +340,7 @@ export default function PortalClientes() {
               <Label>Empresa</Label>
               <Select
                 value={empresaId || undefined}
-                onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}
+                onValueChange={(v) => { setEmpresaId(v); setContratoId(""); const emp = empresas.find((e: any) => e.id === v); if (empresaSemContrato(emp)) setContratoId(""); }}
                 disabled={gerando}
               >
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
@@ -346,26 +353,30 @@ export default function PortalClientes() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
-              <Label>Contrato</Label>
-              <Select
-                value={contratoId || undefined}
-                onValueChange={setContratoId}
-                disabled={!empresaId || gerando || loadingCtr}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder={!empresaId ? "Selecione a empresa" : loadingCtr ? "Carregando…" : "Selecione o contrato"} />
-                </SelectTrigger>
-                <SelectContent>
-                  {contratos.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.numero_contrato || "(sem número)"}
-                      {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {empresaId && independentePortal ? (
+              <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+            ) : (
+              <div className="space-y-1.5">
+                <Label>Contrato</Label>
+                <Select
+                  value={contratoId || undefined}
+                  onValueChange={setContratoId}
+                  disabled={!empresaId || gerando || loadingCtr}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder={!empresaId ? "Selecione a empresa" : loadingCtr ? "Carregando…" : "Selecione o contrato"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {contratos.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero_contrato || "(sem número)"}
+                        {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-1.5">
               <Label>Data</Label>
               <Input type="date" value={dataRef} onChange={(e) => setDataRef(e.target.value)} disabled={gerando} />

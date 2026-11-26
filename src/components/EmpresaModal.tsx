@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,6 +6,16 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { conflictMessage, updateWithVersion } from "@/lib/concurrency";
@@ -73,6 +83,8 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
   const [fiscais, setFiscais] = useState<Contato[]>([emptyContato()]);
   const [gestores, setGestores] = useState<Contato[]>([emptyContato()]);
   const [prepostos, setPrepostos] = useState<Contato[]>([emptyContato()]);
+  const [askContratoOpen, setAskContratoOpen] = useState(false);
+  const contratoSectionRef = useRef<HTMLDivElement>(null);
 
   const isEdit = !!empresa;
 
@@ -255,20 +267,20 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
   };
 
+  const contratoPreenchido = () =>
+    !!form.numero_contrato.trim() ||
+    !!form.cnpj_contratante.trim() ||
+    !!form.nome_contratante.trim() ||
+    !!form.vigencia_inicio ||
+    !!form.vigencia_fim ||
+    !!form.local_trabalho.trim() ||
+    !!form.escopo_contrato.trim() ||
+    gestores.some((g) => g.nome.trim()) ||
+    fiscais.some((f) => f.nome.trim()) ||
+    prepostos.some((p) => p.nome.trim());
+
   const upsertContratoFromForm = async (empresaId: string) => {
-    // Considera "preenchido" se qualquer campo da seção Informações do Contrato tiver valor
-    const hasAny =
-      !!form.numero_contrato.trim() ||
-      !!form.cnpj_contratante.trim() ||
-      !!form.nome_contratante.trim() ||
-      !!form.vigencia_inicio ||
-      !!form.vigencia_fim ||
-      !!form.local_trabalho.trim() ||
-      !!form.escopo_contrato.trim() ||
-      gestores.some((g) => g.nome.trim()) ||
-      fiscais.some((f) => f.nome.trim()) ||
-      prepostos.some((p) => p.nome.trim());
-    if (!hasAny) return;
+    if (!contratoPreenchido()) return;
 
     const numero = form.numero_contrato.trim() || "Contrato Principal";
 
@@ -296,7 +308,6 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
       preposto_telefone: prepostos[0]?.telefone || null,
     };
 
-    // Procura contrato existente pelo número (ou "Contrato Padrão" / "Contrato Principal")
     const { data: existentes } = await supabase
       .from("contratos")
       .select("id, numero_contrato")
@@ -315,6 +326,65 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
     }
   };
 
+  const persistEmpresa = async (opts: { semContrato: boolean }) => {
+    const independente = opts.semContrato;
+    const payload: Record<string, unknown> = {
+      cnpj: form.cnpj,
+      razao_social: form.razao_social,
+      nome_fantasia: form.nome_fantasia || null,
+      cnae_principal: form.cnae_principal || null,
+      grau_risco: form.grau_risco || null,
+      endereco: form.endereco || null,
+      numero_funcionarios_fem: form.numero_funcionarios_fem ? parseInt(form.numero_funcionarios_fem) : 0,
+      numero_funcionarios_masc: form.numero_funcionarios_masc ? parseInt(form.numero_funcionarios_masc) : 0,
+      total_funcionarios: form.total_funcionarios ? parseInt(form.total_funcionarios) : 0,
+      jornada_trabalho: form.jornada_trabalho || null,
+      sem_contrato: independente,
+      numero_contrato: independente ? null : form.numero_contrato || null,
+      cnpj_contratante: independente ? null : form.cnpj_contratante || null,
+      nome_contratante: independente ? null : form.nome_contratante || null,
+      vigencia_inicio: independente ? null : form.vigencia_inicio || null,
+      vigencia_fim: independente ? null : form.vigencia_fim || null,
+      local_trabalho: independente ? null : form.local_trabalho || null,
+      escopo_contrato: independente ? null : form.escopo_contrato || null,
+      gestor_nome: independente ? null : gestores[0]?.nome || form.gestor_nome || null,
+      gestor_email: independente ? null : gestores[0]?.email || form.gestor_email || null,
+      gestor_telefone: independente ? null : gestores[0]?.telefone || form.gestor_telefone || null,
+      fiscal_nome: independente ? null : fiscais[0]?.nome || form.fiscal_nome || null,
+      fiscal_email: independente ? null : fiscais[0]?.email || form.fiscal_email || null,
+      fiscal_telefone: independente ? null : fiscais[0]?.telefone || form.fiscal_telefone || null,
+      preposto_nome: independente ? null : prepostos[0]?.nome || form.preposto_nome || null,
+      preposto_email: independente ? null : prepostos[0]?.email || form.preposto_email || null,
+      preposto_telefone: independente ? null : prepostos[0]?.telefone || form.preposto_telefone || null,
+    };
+
+    let empresaId: string;
+    if (isEdit) {
+      await updateWithVersion("empresas", empresa.id, empresa.row_version ?? 1, payload);
+      empresaId = empresa.id;
+    } else {
+      const { data, error } = await supabase.from("empresas").insert(payload).select("id").single();
+      if (error) throw error;
+      empresaId = data.id;
+    }
+
+    await saveContatos(empresaId);
+    if (!independente) {
+      await upsertContratoFromForm(empresaId);
+    }
+
+    toast.success(
+      independente
+        ? isEdit
+          ? "Empresa atualizada como independente (sem contrato)."
+          : "Empresa cadastrada como independente (sem contrato)."
+        : isEdit
+          ? "Empresa atualizada!"
+          : "Empresa cadastrada!",
+    );
+    onSaved();
+    onOpenChange(false);
+  };
 
   const handleSave = async () => {
     if (!form.cnpj || form.cnpj.replace(/\D/g, "").length !== 14) {
@@ -325,58 +395,57 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
       toast.error("Preencha a Razão Social");
       return;
     }
+
+    if (contratoPreenchido()) {
+      setSaving(true);
+      try {
+        await persistEmpresa({ semContrato: false });
+      } catch (err: any) {
+        toast.error(conflictMessage(err));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    // Sem dados de contrato: se já era independente, salva direto; senão pergunta.
+    if (empresa?.sem_contrato === true) {
+      setSaving(true);
+      try {
+        await persistEmpresa({ semContrato: true });
+      } catch (err: any) {
+        toast.error(conflictMessage(err));
+      } finally {
+        setSaving(false);
+      }
+      return;
+    }
+
+    setAskContratoOpen(true);
+  };
+
+  const confirmarSemContrato = async () => {
+    setAskContratoOpen(false);
     setSaving(true);
     try {
-      const payload = {
-        cnpj: form.cnpj,
-        razao_social: form.razao_social,
-        nome_fantasia: form.nome_fantasia || null,
-        cnae_principal: form.cnae_principal || null,
-        grau_risco: form.grau_risco || null,
-        endereco: form.endereco || null,
-        numero_funcionarios_fem: form.numero_funcionarios_fem ? parseInt(form.numero_funcionarios_fem) : 0,
-        numero_funcionarios_masc: form.numero_funcionarios_masc ? parseInt(form.numero_funcionarios_masc) : 0,
-        total_funcionarios: form.total_funcionarios ? parseInt(form.total_funcionarios) : 0,
-        jornada_trabalho: form.jornada_trabalho || null,
-        numero_contrato: form.numero_contrato || null,
-        cnpj_contratante: form.cnpj_contratante || null,
-        nome_contratante: form.nome_contratante || null,
-        vigencia_inicio: form.vigencia_inicio || null,
-        vigencia_fim: form.vigencia_fim || null,
-        local_trabalho: form.local_trabalho || null,
-        escopo_contrato: form.escopo_contrato || null,
-        gestor_nome: gestores[0]?.nome || form.gestor_nome || null,
-        gestor_email: gestores[0]?.email || form.gestor_email || null,
-        gestor_telefone: gestores[0]?.telefone || form.gestor_telefone || null,
-        fiscal_nome: fiscais[0]?.nome || form.fiscal_nome || null,
-        fiscal_email: fiscais[0]?.email || form.fiscal_email || null,
-        fiscal_telefone: fiscais[0]?.telefone || form.fiscal_telefone || null,
-        preposto_nome: prepostos[0]?.nome || form.preposto_nome || null,
-        preposto_email: prepostos[0]?.email || form.preposto_email || null,
-        preposto_telefone: prepostos[0]?.telefone || form.preposto_telefone || null,
-      };
-
-      let empresaId: string;
-      if (isEdit) {
-        await updateWithVersion("empresas", empresa.id, empresa.row_version ?? 1, payload);
-        empresaId = empresa.id;
-      } else {
-        const { data, error } = await supabase.from("empresas").insert(payload).select("id").single();
-        if (error) throw error;
-        empresaId = data.id;
-      }
-
-      await saveContatos(empresaId);
-      await upsertContratoFromForm(empresaId);
-
-      toast.success(isEdit ? "Empresa atualizada!" : "Empresa cadastrada!");
-      onSaved();
-      onOpenChange(false);
+      await persistEmpresa({ semContrato: true });
     } catch (err: any) {
       toast.error(conflictMessage(err));
     } finally {
       setSaving(false);
     }
+  };
+
+  const confirmarTemContrato = () => {
+    setAskContratoOpen(false);
+    toast.message("Preencha os campos do contrato", {
+      description: "Informe ao menos o número ou os dados da contratante e salve novamente.",
+    });
+    requestAnimationFrame(() => {
+      contratoSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const first = contratoSectionRef.current?.querySelector("input");
+      if (first instanceof HTMLElement) first.focus();
+    });
   };
 
   const renderContatoSection = (titulo: string, list: Contato[], setList: (v: Contato[]) => void) => (
@@ -545,9 +614,14 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
           <Separator />
 
           {/* SEÇÃO 2: Informações do Contrato */}
-          <div>
+          <div ref={contratoSectionRef}>
             <h3 className="font-heading font-semibold text-sm text-muted-foreground uppercase tracking-wider mb-3">
               Informações do Contrato (Opcional)
+              {empresa?.sem_contrato === true && (
+                <span className="ml-2 text-[11px] font-medium normal-case tracking-normal text-foreground">
+                  · empresa independente
+                </span>
+              )}
             </h3>
             <div className="space-y-3">
               <div>
@@ -645,7 +719,7 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
             Cancelar
           </Button>
           <Button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="bg-accent text-accent-foreground hover:bg-accent/90"
           >
@@ -654,6 +728,27 @@ export function EmpresaModal({ open, onOpenChange, onSaved, empresa }: EmpresaMo
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={askContratoOpen} onOpenChange={setAskContratoOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Essa empresa tem contrato?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Os dados do contrato não foram preenchidos. Se a empresa for independente, ela será
+              salva sem vínculo de contrato e os demais módulos não pedirão contrato.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>Cancelar</AlertDialogCancel>
+            <Button type="button" variant="outline" disabled={saving} onClick={confirmarTemContrato}>
+              Sim
+            </Button>
+            <AlertDialogAction disabled={saving} onClick={() => void confirmarSemContrato()}>
+              Não
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

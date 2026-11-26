@@ -99,9 +99,13 @@ export default function EmpresasContratos() {
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-heading font-semibold text-foreground">{empresaNome}</span>
                         {emp.cnpj && <Badge variant="outline" className="font-mono text-[10px]">{emp.cnpj}</Badge>}
-                        <Badge className="bg-accent/10 text-accent-foreground border-accent/20 text-[10px]">
-                          {list.length} contrato{list.length === 1 ? "" : "s"}
-                        </Badge>
+                        {emp.sem_contrato ? (
+                          <Badge variant="outline" className="text-[10px] border-blue-400/40 text-blue-700 dark:text-blue-300">Independente</Badge>
+                        ) : (
+                          <Badge className="bg-accent/10 text-accent-foreground border-accent/20 text-[10px]">
+                            {list.length} contrato{list.length === 1 ? "" : "s"}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-0.5">{emp.razao_social}</p>
                     </div>

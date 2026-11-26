@@ -26,6 +26,10 @@ import {
   type DocumentoVencimentoLike,
   type TipoControleVencimento,
 } from "@/lib/documentoValidade";
+import {
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 import type { StatusDoc } from "@/lib/notificacoes";
 
 const statusBadge = (s: StatusDoc | null) => {
@@ -93,6 +97,9 @@ export default function ControleDocumentos() {
     queryKey: ["ctrl-profiles"],
     queryFn: async () => (await supabase.from("profiles").select("user_id, nome, email")).data || [],
   });
+
+  const empresaCadAtual = (empresas as DocRow[]).find((e) => e.id === cadEmpresaId);
+  const independenteCad = empresaSemContrato(empresaCadAtual);
 
   const contratosDaEmpresaCad = useMemo(
     () => (contratos as DocRow[]).filter((c) => c.empresa_id === cadEmpresaId),
@@ -204,7 +211,7 @@ export default function ControleDocumentos() {
     const contrato = (contratos as DocRow[]).find((c) => c.id === cadContratoId);
     const elaboracao = normalizeDateOnly(cadElaboracao);
     if (!empresa) return toast.error("Selecione a empresa.");
-    if (!contrato) return toast.error("Selecione o contrato.");
+    if (!independenteCad && !contrato) return toast.error("Selecione o contrato.");
     if (!elaboracao) return toast.error("Informe a data de elaboração.");
     if (!TIPOS_CONTROLE_VENCIMENTO.includes(cadTipo)) return toast.error("Tipo de documento inválido.");
 
@@ -213,14 +220,16 @@ export default function ControleDocumentos() {
 
     setSaving(true);
     try {
-      const { data: existentes, error: dupErr } = await supabase
+      const contratoIdCad = contratoIdPersistivel(cadContratoId);
+      let dupQuery = (supabase as any)
         .from("documentos")
         .select("id")
         .eq("empresa_id", cadEmpresaId)
-        .eq("contrato_id", cadContratoId)
         .eq("tipo", cadTipo)
-        .eq("data_elaboracao", elaboracao)
-        .limit(1);
+        .eq("data_elaboracao", elaboracao);
+      if (independenteCad) dupQuery = dupQuery.is("contrato_id", null);
+      else dupQuery = dupQuery.eq("contrato_id", cadContratoId);
+      const { data: existentes, error: dupErr } = await dupQuery.limit(1);
       if (dupErr) throw dupErr;
       if ((existentes || []).length > 0) {
         toast.error("Já existe documento com a mesma empresa, contrato, tipo e data de elaboração.");
@@ -231,7 +240,7 @@ export default function ControleDocumentos() {
       const payload = {
         tipo: cadTipo,
         empresa_id: cadEmpresaId,
-        contrato_id: cadContratoId,
+        contrato_id: contratoIdCad,
         empresa_nome: empresaNome,
         nome_documento: `${labelTipoDocumento(cadTipo)} — ${empresaNome}`,
         data_elaboracao: elaboracao,
@@ -496,24 +505,28 @@ export default function ControleDocumentos() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Contrato</Label>
-              <Select
-                value={cadContratoId || undefined}
-                onValueChange={setCadContratoId}
-                disabled={!cadEmpresaId}
-              >
-                <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
-                <SelectContent>
-                  {contratosDaEmpresaCad.map((c) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.numero_contrato || "(sem número)"}
-                      {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {cadEmpresaId && independenteCad ? (
+              <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+            ) : (
+              <div className="space-y-2">
+                <Label>Contrato</Label>
+                <Select
+                  value={cadContratoId || undefined}
+                  onValueChange={setCadContratoId}
+                  disabled={!cadEmpresaId}
+                >
+                  <SelectTrigger><SelectValue placeholder="Selecione o contrato" /></SelectTrigger>
+                  <SelectContent>
+                    {contratosDaEmpresaCad.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero_contrato || "(sem número)"}
+                        {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Tipo de documento</Label>
               <Select value={cadTipo} onValueChange={(v) => setCadTipo(v as TipoControleVencimento)}>

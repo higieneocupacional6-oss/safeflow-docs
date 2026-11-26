@@ -21,6 +21,11 @@ import {
   criarRegistroAetVale, funcaoDoRegistroAetVale, riscosAepAltos, setorDoRegistroAetVale,
   type AetValeSetor,
 } from "@/lib/aetVale";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 export default function AetValeNovo() {
   const navigate = useNavigate();
@@ -60,23 +65,37 @@ export default function AetValeNovo() {
   });
 
   const empresasQuery = useQuery({ queryKey: ["aet-vale-empresas"], queryFn: async () => {
-    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
+    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, sem_contrato").order("razao_social");
     if (error) throw error; return data || [];
   } });
-  const contratosQuery = useQuery({ queryKey: ["aet-vale-contratos", empresaId], enabled: !!empresaId, queryFn: async () => {
+
+  const empresaAtual = (empresasQuery.data || []).find((e: any) => e.id === empresaId);
+  const independente = empresaSemContrato(empresaAtual);
+  const escopoPronto = !!empresaId && (independente || !!contratoId);
+
+  const contratosQuery = useQuery({ queryKey: ["aet-vale-contratos", empresaId], enabled: !!empresaId && !independente, queryFn: async () => {
     const { data, error } = await supabase.from("contratos").select("id, numero_contrato, nome_contratante").eq("empresa_id", empresaId).order("created_at", { ascending: false });
     if (error) throw error; return data || [];
   } });
-  const setoresQuery = useQuery({ queryKey: ["aet-vale-setores", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId).eq("contrato_id", contratoId);
-    if (error) throw error; return sortByGes(setoresAprErgoDoContrato(data || [], empresaId, contratoId));
+  const setoresQuery = useQuery({ queryKey: ["aet-vale-setores", empresaId, contratoId], enabled: escopoPronto, queryFn: async () => {
+    let q = (supabase as any).from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId);
+    if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+    else { if (!contratoId) return []; q = q.eq("contrato_id", contratoId); }
+    const { data, error } = await q;
+    if (error) throw error; return sortByGes(setoresAprErgoDoContrato(data || [], empresaId, contratoIdPersistivel(contratoId) ?? ""));
   } });
-  const aepQuery = useQuery({ queryKey: ["aet-vale-aep", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("updated_at", { ascending: false });
+  const aepQuery = useQuery({ queryKey: ["aet-vale-aep", empresaId, contratoId], enabled: escopoPronto, queryFn: async () => {
+    let q = (supabase as any).from("aep_documentos").select("id, setores, updated_at").eq("empresa_id", empresaId);
+    if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+    else { if (!contratoId) return []; q = q.eq("contrato_id", contratoId); }
+    const { data, error } = await q.order("updated_at", { ascending: false });
     if (error) throw error; return data || [];
   } });
-  const registrosQuery = useQuery({ queryKey: ["aet-vale-registros", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("documentos").select("id, draft_snapshot, status, created_at").eq("tipo", "AET-VALE").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("created_at");
+  const registrosQuery = useQuery({ queryKey: ["aet-vale-registros", empresaId, contratoId], enabled: escopoPronto, queryFn: async () => {
+    let q = (supabase as any).from("documentos").select("id, draft_snapshot, status, created_at").eq("tipo", "AET-VALE").eq("empresa_id", empresaId);
+    if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+    else { if (!contratoId) return []; q = q.eq("contrato_id", contratoId); }
+    const { data, error } = await q.order("created_at");
     if (error) throw error; return data || [];
   } });
   useRealtimeSync([
@@ -118,7 +137,8 @@ export default function AetValeNovo() {
     if (!funcs.length) return toast.error("Selecione ao menos uma função para registrar.");
     if (salvandoRef.current || registrosQuery.isLoading || registrosQuery.isError) return;
     const empresa = empresasQuery.data?.find((e) => e.id === empresaId);
-    if (!empresa || !contratosQuery.data?.some((c) => c.id === contratoId)) return toast.error("Selecione uma empresa e um contrato válidos.");
+    if (!empresa) return toast.error("Selecione uma empresa válida.");
+    if (!independente && !contratosQuery.data?.some((c) => c.id === contratoId)) return toast.error("Selecione um contrato válido.");
     salvandoRef.current = true; setSalvando(setor.id);
     try {
       const existentes = registrosQuery.data || [];
@@ -127,7 +147,7 @@ export default function AetValeNovo() {
         const existente = existentes.find((r) => setorDoRegistroAetVale(r.draft_snapshot) === setor.id && funcaoDoRegistroAetVale(r.draft_snapshot) === funcaoId);
         if (existente) { ids.push(existente.id); continue; }
         const id = crypto.randomUUID();
-        const registro = criarRegistroAetVale(setor, empresaId, contratoId, empresa.razao_social, id, funcaoId);
+        const registro = criarRegistroAetVale(setor, empresaId, contratoIdPersistivel(contratoId) ?? "", empresa.razao_social, id, funcaoId);
         const { error } = await supabase.from("documentos").upsert(registro, { onConflict: "id", ignoreDuplicates: true });
         if (error) throw error;
         ids.push(id);
@@ -144,12 +164,13 @@ export default function AetValeNovo() {
     <PageHeader title="AET (VALE)" description="Seleção de empresa, contrato, setores e funções para análise ergonômica" actions={<Button variant="outline" onClick={() => navigate("/documentos")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>} />
     <div className="max-w-3xl space-y-5 mb-6">
       <div className="space-y-2"><Label className="flex items-center gap-2"><Building2 className="w-4 h-4" />Empresa</Label>
-        <Select value={empresaId} disabled={empresasQuery.isLoading || !!salvando} onValueChange={(v) => { mudarEscopoLocal(); setEscopo({ empresa: v }); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
+        <Select value={empresaId} disabled={empresasQuery.isLoading || !!salvando} onValueChange={(v) => { mudarEscopoLocal(); const emp = (empresasQuery.data || []).find((e: any) => e.id === v); const isIndep = empresaSemContrato(emp); setEscopo(isIndep ? { empresa: v, contrato: CONTRATO_INDEPENDENTE_SLUG } : { empresa: v }); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
       </div>
-      {empresaId && <div className="space-y-2"><Label className="flex items-center gap-2"><FileSignature className="w-4 h-4" />Contrato</Label>
+      {empresaId && !independente && <div className="space-y-2"><Label className="flex items-center gap-2"><FileSignature className="w-4 h-4" />Contrato</Label>
         <Select value={contratoId} disabled={contratosQuery.isLoading || !!salvando} onValueChange={(v) => { mudarEscopoLocal(); setEscopo({ contrato: v }); }}><SelectTrigger aria-label="Contrato"><SelectValue placeholder="Selecione o contrato" /></SelectTrigger><SelectContent>{(contratosQuery.data || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}</SelectItem>)}{contratosQuery.data?.length === 0 && <SelectItem value="vazio" disabled>Nenhum contrato cadastrado</SelectItem>}</SelectContent></Select>
       </div>}
-      {contratoId && <Button variant="outline" disabled={!!salvando || setoresQuery.isLoading} onClick={() => { setTemporarios(selecionados); setModal(true); }}><FolderTree className="w-4 h-4 mr-2" />Selecionar setores</Button>}
+      {empresaId && independente && <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>}
+      {escopoPronto && <Button variant="outline" disabled={!!salvando || setoresQuery.isLoading} onClick={() => { setTemporarios(selecionados); setModal(true); }}><FolderTree className="w-4 h-4 mr-2" />Selecionar setores</Button>}
       {erro && <div className="text-sm text-destructive flex flex-wrap gap-3 items-center">Não foi possível carregar os cadastros ou registros.<Button variant="outline" onClick={() => { void empresasQuery.refetch(); if (empresaId) void contratosQuery.refetch(); if (contratoId) { void setoresQuery.refetch(); void aepQuery.refetch(); void registrosQuery.refetch(); } }}>Tentar novamente</Button></div>}
     </div>
     <div className="space-y-4">{setores.filter((s) => selecionados.includes(s.id)).map((s) => {
@@ -181,7 +202,7 @@ export default function AetValeNovo() {
         </div>}
       </section>;
     })}</div>
-    {contratoId && <div className="flex flex-col items-end gap-2 py-6"><Button disabled={!!salvando || !selecionados.length} onClick={() => { const setor = setores.find(s => selecionados.includes(s.id) && (funcSel[s.id] || []).length); if (setor) void registrar(setor); else toast.error("Selecione uma função para avançar."); }}>Avançar<ArrowRight className="w-4 h-4 ml-2" /></Button><Button variant="outline" aria-label="Plano de ação mensal" title="Plano de ação mensal" onClick={() => navigate(`/documentos/aet-vale/plano/${empresaId}/${contratoId}`, { state: { setores: selecionados } })}><CalendarRange className="w-4 h-4 mr-2" />Plano de ação</Button></div>}
+    {escopoPronto && <div className="flex flex-col items-end gap-2 py-6"><Button disabled={!!salvando || !selecionados.length} onClick={() => { const setor = setores.find(s => selecionados.includes(s.id) && (funcSel[s.id] || []).length); if (setor) void registrar(setor); else toast.error("Selecione uma função para avançar."); }}>Avançar<ArrowRight className="w-4 h-4 ml-2" /></Button><Button variant="outline" aria-label="Plano de ação mensal" title="Plano de ação mensal" onClick={() => navigate(`/documentos/aet-vale/plano/${empresaId}/${contratoId}`, { state: { setores: selecionados } })}><CalendarRange className="w-4 h-4 mr-2" />Plano de ação</Button></div>}
     <Dialog open={modal} onOpenChange={setModal}><DialogContent className="sm:max-w-lg"><DialogHeader><DialogTitle>Selecione os setores</DialogTitle></DialogHeader>
       <div className="max-h-80 overflow-y-auto space-y-2">{setores.map((s) => <label key={s.id} className="flex items-center gap-3 p-3 border border-border rounded-md cursor-pointer"><Checkbox checked={temporarios.includes(s.id)} onCheckedChange={(checked) => setTemporarios((ids) => checked === true ? [...ids.filter((id) => id !== s.id), s.id] : ids.filter((id) => id !== s.id))} /><span className="text-sm break-words">{s.ghe_ges ? `${s.ghe_ges} — ` : ""}{s.nome_setor}</span></label>)}{setores.length === 0 && <p className="text-sm text-muted-foreground">Nenhum setor cadastrado neste contrato</p>}</div>
       <DialogFooter><Button variant="outline" onClick={() => setModal(false)}>Cancelar</Button><Button onClick={() => { setEscopo({ setores: temporarios }); setModal(false); }}>OK</Button></DialogFooter>

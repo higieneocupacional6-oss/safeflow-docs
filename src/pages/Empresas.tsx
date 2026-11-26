@@ -114,7 +114,12 @@ export default function Empresas() {
                   <TableRow key={empresa.id} className="hover:bg-muted/50">
                     <TableCell>
                       <div>
-                        <p className="font-medium text-foreground">{empresa.nome_fantasia || empresa.razao_social}</p>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <p className="font-medium text-foreground">{empresa.nome_fantasia || empresa.razao_social}</p>
+                          {empresa.sem_contrato && (
+                            <Badge variant="outline" className="text-[10px] border-blue-400/40 text-blue-700 dark:text-blue-300">Independente</Badge>
+                          )}
+                        </div>
                         <p className="text-xs text-muted-foreground">{empresa.razao_social}</p>
                       </div>
                     </TableCell>

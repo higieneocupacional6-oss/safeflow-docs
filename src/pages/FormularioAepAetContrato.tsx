@@ -20,17 +20,19 @@ import {
 } from "@/lib/aepAetFormulario";
 import { baixarAepAetPdf } from "@/lib/aepAetPdf";
 import { listAepAetOffline, type AepAetOfflineAvaliacao } from "@/lib/aepAetOfflineDb";
+import { CONTRATO_INDEPENDENTE_SLUG } from "@/lib/empresaEscopo";
 
 export default function FormularioAepAetContrato() {
   const { empresaId, contratoId } = useParams();
   const navigate = useNavigate();
   const [offlineLocais, setOfflineLocais] = useState<AepAetOfflineAvaliacao[]>([]);
+  const isIndependente = contratoId === CONTRATO_INDEPENDENTE_SLUG;
 
   useRealtimeSync(
     [
-      { table: "setores", queryKey: ["aep-aet-setores", contratoId] },
-      { table: "funcoes", queryKey: ["aep-aet-funcoes", contratoId] },
-      { table: "documentos", queryKey: ["aep-aet-docs-ctr", contratoId] },
+      { table: "setores", queryKey: ["aep-aet-setores", empresaId, contratoId] },
+      { table: "funcoes", queryKey: ["aep-aet-funcoes", empresaId, contratoId] },
+      { table: "documentos", queryKey: ["aep-aet-docs-ctr", empresaId, contratoId] },
     ],
     `aep-aet-ctr-${contratoId}`,
   );
@@ -41,7 +43,7 @@ export default function FormularioAepAetContrato() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id, razao_social, nome_fantasia")
+        .select("id, razao_social, nome_fantasia, sem_contrato")
         .eq("id", empresaId!)
         .maybeSingle();
       if (error) throw error;
@@ -51,7 +53,7 @@ export default function FormularioAepAetContrato() {
 
   const { data: contrato } = useQuery({
     queryKey: ["aep-aet-contrato", contratoId],
-    enabled: !!contratoId,
+    enabled: !!contratoId && !isIndependente,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -64,26 +66,29 @@ export default function FormularioAepAetContrato() {
   });
 
   const { data: setores = [], isLoading } = useQuery({
-    queryKey: ["aep-aet-setores", contratoId],
-    enabled: !!contratoId,
+    queryKey: ["aep-aet-setores", empresaId, contratoId],
+    enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("setores")
         .select("id, nome_setor, ghe_ges")
-        .eq("contrato_id", contratoId!)
         .eq("empresa_id", empresaId!);
+      if (isIndependente) q = (q as any).is("contrato_id", null);
+      else q = (q as any).eq("contrato_id", contratoId!);
+      const { data, error } = await q;
       if (error) throw error;
       return sortByGes((data || []) as any[]);
     },
   });
 
   const { data: funcoes = [] } = useQuery({
-    queryKey: ["aep-aet-funcoes", contratoId],
-    enabled: !!contratoId,
+    queryKey: ["aep-aet-funcoes", empresaId, contratoId],
+    enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
-      const setorIds = (
-        await supabase.from("setores").select("id").eq("contrato_id", contratoId!).eq("empresa_id", empresaId!)
-      ).data?.map((s: any) => s.id) || [];
+      let sq = supabase.from("setores").select("id").eq("empresa_id", empresaId!);
+      if (isIndependente) sq = (sq as any).is("contrato_id", null);
+      else sq = (sq as any).eq("contrato_id", contratoId!);
+      const setorIds = (await sq).data?.map((s: any) => s.id) || [];
       if (!setorIds.length) return [] as any[];
       const { data, error } = await supabase
         .from("funcoes")
@@ -95,15 +100,17 @@ export default function FormularioAepAetContrato() {
   });
 
   const { data: docs = [] } = useQuery({
-    queryKey: ["aep-aet-docs-ctr", contratoId],
-    enabled: !!contratoId,
+    queryKey: ["aep-aet-docs-ctr", empresaId, contratoId],
+    enabled: !!empresaId && !!contratoId,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = supabase
         .from("documentos")
         .select("id, status, draft_snapshot, updated_at")
         .eq("tipo", TIPO_AEP_AET)
-        .eq("empresa_id", empresaId!)
-        .eq("contrato_id", contratoId!);
+        .eq("empresa_id", empresaId!);
+      if (isIndependente) q = (q as any).is("contrato_id", null);
+      else q = (q as any).eq("contrato_id", contratoId!);
+      const { data, error } = await q;
       if (error) throw error;
       return data as any[];
     },
@@ -179,7 +186,11 @@ export default function FormularioAepAetContrato() {
       </div>
 
       <PageHeader
-        title={`Contrato ${contrato?.numero_contrato || "—"}`}
+        title={
+          isIndependente
+            ? "Empresa independente"
+            : `Contrato ${contrato?.numero_contrato || "—"}`
+        }
         description={`${empresa?.nome_fantasia || empresa?.razao_social || "Empresa"} — setores e funções avaliadas`}
         actions={
           <Button onClick={() => navigate(urlAepAetNovo({ empresa: empresaId, contrato: contratoId }))}>
@@ -194,7 +205,9 @@ export default function FormularioAepAetContrato() {
         </div>
       ) : setoresComFuncoes.length === 0 ? (
         <div className="portal-surface p-10 text-center text-sm text-muted-foreground">
-          Nenhuma função avaliada neste contrato. Use “Nova avaliação” para cadastrar.
+          {isIndependente
+            ? "Nenhuma função avaliada nesta empresa. Use “Nova avaliação” para cadastrar."
+            : "Nenhuma função avaliada neste contrato. Use “Nova avaliação” para cadastrar."}
         </div>
       ) : (
         <div className="space-y-4">

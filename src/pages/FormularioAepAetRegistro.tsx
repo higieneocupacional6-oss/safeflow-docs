@@ -49,6 +49,7 @@ import {
   persistirAepAetOnline,
 } from "@/lib/aepAetPersistencia";
 import { baixarAepAetPdf } from "@/lib/aepAetPdf";
+import { CONTRATO_INDEPENDENTE_SLUG } from "@/lib/empresaEscopo";
 import { cn } from "@/lib/utils";
 
 type AutoStatus = "salvo" | "pendente" | "salvando" | "erro";
@@ -270,7 +271,7 @@ export default function FormularioAepAetRegistro() {
 
   const { data: contrato } = useQuery({
     queryKey: ["aep-aet-reg-contrato", contratoId],
-    enabled: !!contratoId && !rotaOffline,
+    enabled: !!contratoId && contratoId !== CONTRATO_INDEPENDENTE_SLUG && !rotaOffline,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")

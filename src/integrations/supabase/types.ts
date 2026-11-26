@@ -509,6 +509,7 @@ export type Database = {
           preposto_telefone: string | null
           razao_social: string
           row_version: number
+          sem_contrato: boolean
           total_funcionarios: number | null
           updated_at: string
           vigencia_fim: string | null
@@ -542,6 +543,7 @@ export type Database = {
           preposto_telefone?: string | null
           razao_social: string
           row_version?: number
+          sem_contrato?: boolean
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null
@@ -575,6 +577,7 @@ export type Database = {
           preposto_telefone?: string | null
           razao_social?: string
           row_version?: number
+          sem_contrato?: boolean
           total_funcionarios?: number | null
           updated_at?: string
           vigencia_fim?: string | null

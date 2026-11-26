@@ -18,6 +18,11 @@ import {
   baixarPdfFormularioAep, montarPdfDados, urlNovoFormularioAep, urlPreencherFormularioAep,
 } from "@/lib/formularioAepRegistro";
 import { toast } from "sonner";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 export default function FormularioAepNovo() {
   const navigate = useNavigate();
@@ -37,16 +42,19 @@ export default function FormularioAepNovo() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id, razao_social, nome_fantasia")
+        .select("id, razao_social, nome_fantasia, sem_contrato")
         .order("razao_social");
       if (error) throw error;
       return data as any[];
     },
   });
 
+  const empresaAtual = empresas.find((e: any) => e.id === empresaId);
+  const independente = empresaSemContrato(empresaAtual);
+
   const { data: contratos = [], isLoading: loadingContratos } = useQuery({
     queryKey: ["formulario-aep-novo-contratos", empresaId],
-    enabled: !!empresaId,
+    enabled: !!empresaId && !independente,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -58,15 +66,23 @@ export default function FormularioAepNovo() {
     },
   });
 
+  const escopoPronto = !!empresaId && (independente || !!contratoId);
+
   const { data: setores = [], isLoading: loadingSetores, isFetched: setoresProntos } = useQuery({
     queryKey: ["formulario-aep-novo-setores", empresaId, contratoId],
-    enabled: !!empresaId && !!contratoId,
+    enabled: escopoPronto,
     queryFn: async () => {
-      const { data, error } = await (supabase as any)
+      let q = (supabase as any)
         .from("setores")
         .select("id, nome_setor, ghe_ges, descricao_ambiente, funcoes(id, nome_funcao, descricao_atividades)")
-        .eq("empresa_id", empresaId)
-        .eq("contrato_id", contratoId);
+        .eq("empresa_id", empresaId);
+      if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) {
+        q = q.is("contrato_id", null);
+      } else {
+        if (!contratoId) return [];
+        q = q.eq("contrato_id", contratoId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return sortByGes(data || []);
     },
@@ -74,13 +90,19 @@ export default function FormularioAepNovo() {
 
   const { data: salvos = [] } = useQuery({
     queryKey: ["formulario-aep-novo-salvos", empresaId, contratoId],
-    enabled: !!empresaId && !!contratoId,
+    enabled: escopoPronto,
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = (supabase as any)
         .from("formularios_aep")
         .select("id, funcao_id, updated_at")
-        .eq("empresa_id", empresaId)
-        .eq("contrato_id", contratoId);
+        .eq("empresa_id", empresaId);
+      if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) {
+        q = q.is("contrato_id", null);
+      } else {
+        if (!contratoId) return [];
+        q = q.eq("contrato_id", contratoId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return data as { id: string; funcao_id: string | null; updated_at: string }[];
     },
@@ -149,7 +171,7 @@ export default function FormularioAepNovo() {
 
   const handleCriar = () => {
     if (!empresaId) return toast.error("Selecione a empresa");
-    if (!contratoId) return toast.error("Selecione o contrato");
+    if (!independente && !contratoId) return toast.error("Selecione o contrato");
     const pares = (setores as any[]).flatMap((setor) =>
       (funcoesPorSetor[setor.id] || []).map((funcaoId: string) => ({ setorId: setor.id, funcaoId })),
     );
@@ -179,10 +201,12 @@ export default function FormularioAepNovo() {
             value={empresaId}
             onValueChange={(v) => {
               setEmpresaId(v);
-              setContratoId("");
+              const emp = empresas.find((e: any) => e.id === v);
+              const ctr = empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "";
+              setContratoId(ctr);
               setFuncoesPorSetor({});
               restaurado.current = "";
-              navigate(urlNovoFormularioAep(v, "", []), { replace: true });
+              navigate(urlNovoFormularioAep(v, ctr, []), { replace: true });
             }}
             disabled={loadingEmpresas}
           >
@@ -199,7 +223,7 @@ export default function FormularioAepNovo() {
           </Select>
         </div>
 
-        {empresaId && (
+        {empresaId && !independente && (
           <div className="space-y-2">
             <Label className="flex items-center gap-2">
               <FileSignature className="w-4 h-4 text-muted-foreground" /> Contrato
@@ -234,8 +258,11 @@ export default function FormularioAepNovo() {
             </Select>
           </div>
         )}
+        {empresaId && independente && (
+          <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+        )}
 
-        {empresaId && contratoId && (
+        {escopoPronto && (
           <SeletorSetorFuncoesAep
             setores={setores as any[]}
             loading={loadingSetores}

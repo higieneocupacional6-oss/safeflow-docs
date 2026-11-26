@@ -23,6 +23,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useSetoresFuncoesSync } from "@/hooks/useSetoresFuncoesSync";
 
 import { sortByGes } from "@/lib/sortGes";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 import { buildAgentFlags, aggregateAgentFlags } from "@/lib/agentFlags";
 import PgrCronogramaStep from "@/components/PgrCronogramaStep";
 
@@ -163,9 +168,12 @@ export default function PgrWizard() {
     },
   });
 
+  const empresaAtualPgr = (empresas as any[]).find((e: any) => e.id === empresaId);
+  const independentePgr = empresaSemContrato(empresaAtualPgr);
+
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-pgr", empresaId],
-    enabled: !!empresaId,
+    enabled: !!empresaId && !independentePgr,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -182,7 +190,8 @@ export default function PgrWizard() {
     enabled: !!empresaId,
     queryFn: async () => {
       let q = (supabase as any).from("setores").select("id,nome_setor,ghe_ges,descricao_ambiente").order("nome_setor");
-      if (contratoId) q = q.eq("contrato_id", contratoId);
+      if (independentePgr || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null).eq("empresa_id", empresaId);
+      else if (contratoId) q = q.eq("contrato_id", contratoId);
       else q = q.eq("empresa_id", empresaId);
       const { data, error } = await q;
       if (error) throw error;
@@ -322,8 +331,8 @@ export default function PgrWizard() {
 
   const handleEmpresaChange = (id: string) => {
     setEmpresaId(id);
-    setContratoId("");
     const emp = (empresas as any[]).find(e => e.id === id);
+    setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "");
     setEmpresaNome(emp ? (emp.razao_social || emp.nome_fantasia || "") : "");
   };
 
@@ -346,7 +355,7 @@ export default function PgrWizard() {
     return {
       tipo: "PGR",
       empresa_id: empresaId || null,
-      contrato_id: contratoId || null,
+      contrato_id: contratoIdPersistivel(contratoId),
       empresa_nome: empresaNome || "",
       responsavel_tecnico: responsavelTecnico || null,
       crea: crea || null,
@@ -706,7 +715,11 @@ export default function PgrWizard() {
             </Select>
           </div>
 
-          {empresaId && (
+          {empresaId && independentePgr && (
+            <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+          )}
+
+          {empresaId && !independentePgr && (
             <div>
               <Label className="text-xs font-bold uppercase">Contrato *</Label>
               <Select value={contratoId} onValueChange={setContratoId} disabled={(contratosEmpresa as any[]).length === 0}>

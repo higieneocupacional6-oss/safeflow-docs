@@ -15,6 +15,11 @@ import { sortByGes } from "@/lib/sortGes";
 import { criarRegistroAprErgo, nomeRegistroAprErgo, rotuloStatusAprErgo, setorDoRegistroAprErgo, setoresAprErgoDoContrato, type AprErgoSetor } from "@/lib/aprErgo";
 
 import { AprErgoExcluirModal, type AprParaExcluir } from "@/components/AprErgoExcluirModal";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+  contratoIdPersistivel,
+} from "@/lib/empresaEscopo";
 
 export default function AprErgoNovo() {
   const navigate = useNavigate();
@@ -38,22 +43,43 @@ export default function AprErgoNovo() {
   });
   useEffect(() => {
     if (!documento) return;
-    setEmpresaId(documento.empresa_id || ""); setContratoId(documento.contrato_id || "");
+    setEmpresaId(documento.empresa_id || "");
+    setContratoId(documento.contrato_id || "");
   }, [documento]);
+
+  // After empresa loads, auto-set slug for independent companies
+  useEffect(() => {
+    if (!empresaId || !empresasQuery.data?.length) return;
+    const emp = empresasQuery.data.find((e: any) => e.id === empresaId);
+    if (empresaSemContrato(emp) && !contratoId) {
+      setContratoId(CONTRATO_INDEPENDENTE_SLUG);
+    }
+  }, [empresaId, empresasQuery.data, contratoId]);
   const empresasQuery = useQuery({ queryKey: ["apr-ergo-empresas"], queryFn: async () => {
-    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
+    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, sem_contrato").order("razao_social");
     if (error) throw error; return data || [];
   } });
-  const contratosQuery = useQuery({ queryKey: ["apr-ergo-contratos", empresaId], enabled: !!empresaId, queryFn: async () => {
+
+  const empresaAtual = (empresasQuery.data || []).find((e: any) => e.id === empresaId);
+  const independente = empresaSemContrato(empresaAtual);
+  const escopoPronto = !!empresaId && (independente || !!contratoId);
+
+  const contratosQuery = useQuery({ queryKey: ["apr-ergo-contratos", empresaId], enabled: !!empresaId && !independente, queryFn: async () => {
     const { data, error } = await supabase.from("contratos").select("id, numero_contrato, nome_contratante").eq("empresa_id", empresaId).order("created_at", { ascending: false });
     if (error) throw error; return data || [];
   } });
-  const setoresQuery = useQuery({ queryKey: ["apr-ergo-setores", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId).eq("contrato_id", contratoId);
-    if (error) throw error; return sortByGes(setoresAprErgoDoContrato(data || [], empresaId, contratoId));
+  const setoresQuery = useQuery({ queryKey: ["apr-ergo-setores", empresaId, contratoId], enabled: escopoPronto, queryFn: async () => {
+    let q = (supabase as any).from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId);
+    if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+    else { if (!contratoId) return []; q = q.eq("contrato_id", contratoId); }
+    const { data, error } = await q;
+    if (error) throw error; return sortByGes(setoresAprErgoDoContrato(data || [], empresaId, contratoIdPersistivel(contratoId) ?? ""));
   } });
-  const registrosQuery = useQuery({ queryKey: ["apr-ergo-registros", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("documentos").select("id, draft_snapshot, status, created_at").eq("tipo", "APR-ERGO").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("created_at");
+  const registrosQuery = useQuery({ queryKey: ["apr-ergo-registros", empresaId, contratoId], enabled: escopoPronto, queryFn: async () => {
+    let q = (supabase as any).from("documentos").select("id, draft_snapshot, status, created_at").eq("tipo", "APR-ERGO").eq("empresa_id", empresaId);
+    if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+    else { if (!contratoId) return []; q = q.eq("contrato_id", contratoId); }
+    const { data, error } = await q.order("created_at");
     if (error) throw error; return data || [];
   } });
   useRealtimeSync([
@@ -66,12 +92,13 @@ export default function AprErgoNovo() {
   const adicionarRegistro = async (setor: AprErgoSetor, funcaoId: string, abrir = true) => {
     if (salvandoRef.current || registrosQuery.isError || registrosQuery.isLoading) return;
     const empresa = empresasQuery.data?.find((e) => e.id === empresaId);
-    if (!empresa || !contratosQuery.data?.some((c) => c.id === contratoId)) return toast.error("Selecione uma empresa e um contrato válidos.");
+    if (!empresa) return toast.error("Selecione uma empresa válida.");
+    if (!independente && !contratosQuery.data?.some((c) => c.id === contratoId)) return toast.error("Selecione um contrato válido.");
     salvandoRef.current = true; setSalvando(setor.id);
     const id = pendingId.current?.setorId === setor.id && pendingId.current.funcaoId === funcaoId ? pendingId.current.id : crypto.randomUUID();
     pendingId.current = { setorId: setor.id, funcaoId, id };
     try {
-      const registro = criarRegistroAprErgo(setor, empresaId, contratoId, empresa.razao_social, id, funcaoId);
+      const registro = criarRegistroAprErgo(setor, empresaId, contratoIdPersistivel(contratoId) ?? "", empresa.razao_social, id, funcaoId);
       const { error } = await supabase.from("documentos").upsert(registro, { onConflict: "id", ignoreDuplicates: true });
       if (error) throw error;
       pendingId.current = null;
@@ -88,11 +115,12 @@ export default function AprErgoNovo() {
     <PageHeader title={documentoId ? "APR-ERGO" : "Novo APR-ERGO"} actions={<Button variant="outline" onClick={() => navigate("/documentos/apr-ergo")}><ArrowLeft className="w-4 h-4 mr-2" />Voltar</Button>} />
     <div className="max-w-3xl space-y-5 mb-6">
       <div className="space-y-2"><Label className="flex items-center gap-2"><Building2 className="w-4 h-4" />Empresa</Label>
-        <Select value={empresaId} disabled={!!documentoId || empresasQuery.isLoading || !!salvando} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); mudarEscopo(); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
+        <Select value={empresaId} disabled={!!documentoId || empresasQuery.isLoading || !!salvando} onValueChange={(v) => { setEmpresaId(v); const emp = (empresasQuery.data || []).find((e: any) => e.id === v); setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : ""); mudarEscopo(); }}><SelectTrigger aria-label="Empresa"><SelectValue placeholder="Selecione a empresa" /></SelectTrigger><SelectContent>{(empresasQuery.data || []).map((e) => <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>)}</SelectContent></Select>
       </div>
-      {empresaId && <div className="space-y-2"><Label className="flex items-center gap-2"><FileSignature className="w-4 h-4" />Contrato</Label>
+      {empresaId && !independente && <div className="space-y-2"><Label className="flex items-center gap-2"><FileSignature className="w-4 h-4" />Contrato</Label>
         <Select value={contratoId} disabled={!!documentoId || contratosQuery.isLoading || !!salvando} onValueChange={(v) => { setContratoId(v); mudarEscopo(); }}><SelectTrigger aria-label="Contrato"><SelectValue placeholder="Selecione o contrato" /></SelectTrigger><SelectContent>{(contratosQuery.data || []).map((c) => <SelectItem key={c.id} value={c.id}>{c.numero_contrato || "Sem número"}{c.nome_contratante ? ` — ${c.nome_contratante}` : ""}</SelectItem>)}{contratosQuery.data?.length === 0 && <SelectItem value="vazio" disabled>Nenhum contrato cadastrado</SelectItem>}</SelectContent></Select>
       </div>}
+      {empresaId && independente && <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>}
       {erro && <div className="text-sm text-destructive flex flex-wrap gap-3 items-center">Não foi possível carregar os cadastros ou registros.<Button variant="outline" onClick={() => { void empresasQuery.refetch(); if (empresaId) void contratosQuery.refetch(); if (contratoId) { void setoresQuery.refetch(); void registrosQuery.refetch(); } }}>Tentar novamente</Button></div>}
     </div>
     <div className="space-y-4">{setores.map((s) => {
@@ -106,7 +134,7 @@ export default function AprErgoNovo() {
         {registros.length > 0 && <ul className="divide-y divide-border">{registros.map((r) => { const nome = nomeRegistroAprErgo(r.draft_snapshot, s.funcoes); return <li key={r.id} className="py-2 flex justify-between items-center gap-3 text-sm"><Button variant="link" className="h-auto p-0 whitespace-normal text-left justify-start break-words" onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}`)}>{nome}</Button><div className="flex items-center gap-2 shrink-0"><Badge variant="outline">{rotuloStatusAprErgo(r.status)}</Badge>{r.status !== "rascunho" && <Button variant="ghost" size="icon" className="h-7 w-7" title="Baixar PDF" aria-label={`Baixar PDF ${nome}`} onClick={() => navigate(`/documentos/apr-ergo/registro/${r.id}?baixar=1`)}><Download className="w-4 h-4" /></Button>}<Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" title={`Excluir APR ${nome}`} aria-label={`Excluir APR ${nome}`} onClick={() => setExcluirRegistros([{ id: r.id, nome }])}><Trash2 className="w-4 h-4" /></Button></div></li>; })}</ul>}
       </section>;
     })}</div>
-    {contratoId && <div className="mt-6 flex justify-center">
+    {escopoPronto && <div className="mt-6 flex justify-center">
       <Button variant="outline" disabled={!!salvando || setoresQuery.isLoading || registrosQuery.isLoading} onClick={() => navigate(`/documentos/apr-ergo/plano/${empresaId}/${contratoId}`)}><ClipboardList className="w-4 h-4 mr-2" />Plano de Ação</Button>
     </div>}
     {excluirRegistros && <AprErgoExcluirModal registros={excluirRegistros} empresaId={empresaId} contratoId={contratoId} onClose={() => setExcluirRegistros(null)} onDeleted={(id) => { if (id === documentoId) navigate("/documentos/apr-ergo"); }} />}

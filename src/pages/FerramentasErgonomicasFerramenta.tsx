@@ -25,6 +25,10 @@ import {
   urlFerramentasErgonomicas,
 } from "@/lib/ferramentasErgonomicas";
 import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+} from "@/lib/empresaEscopo";
+import {
   getErgoOffline,
   getErgoOfflineContext,
   isErgoOfflineNow,
@@ -106,9 +110,12 @@ export default function FerramentasErgonomicasFerramenta() {
     },
   });
 
+  const empresaFeAtual = empresas.find((e) => e.id === empresaId);
+  const independenteFe = empresaSemContrato(empresaFeAtual);
+
   const { data: contratosOnline = [], isLoading: loadingCtr } = useQuery({
     queryKey: ["fe-contratos", empresaId],
-    enabled: !!empresaId && online && !isErgoOfflineNow(),
+    enabled: !!empresaId && !independenteFe && online && !isErgoOfflineNow(),
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -120,16 +127,19 @@ export default function FerramentasErgonomicasFerramenta() {
     },
   });
 
+  const feEscopoPronto = !!empresaId && (independenteFe || !!contratoId);
+
   const { data: setoresOnline = [], isLoading: loadingSetores } = useQuery({
     queryKey: ["fe-setores", empresaId, contratoId],
-    enabled: !!empresaId && !!contratoId && online && !isErgoOfflineNow(),
+    enabled: feEscopoPronto && online && !isErgoOfflineNow(),
     queryFn: async () => {
-      const { data, error } = await supabase
+      let q = (supabase as any)
         .from("setores")
         .select("id, nome_setor, ghe_ges")
-        .eq("empresa_id", empresaId)
-        .eq("contrato_id", contratoId)
-        .order("nome_setor");
+        .eq("empresa_id", empresaId);
+      if (independenteFe || contratoId === CONTRATO_INDEPENDENTE_SLUG) q = q.is("contrato_id", null);
+      else q = q.eq("contrato_id", contratoId);
+      const { data, error } = await q.order("nome_setor");
       if (error) throw error;
       return data as any[];
     },
@@ -229,7 +239,7 @@ export default function FerramentasErgonomicasFerramenta() {
       toast.error("Selecione a empresa.");
       return;
     }
-    if (!contratoId) {
+    if (!independenteFe && !contratoId) {
       toast.error("Selecione o contrato.");
       return;
     }
@@ -355,7 +365,8 @@ export default function FerramentasErgonomicasFerramenta() {
               value={empresaId || undefined}
               onValueChange={(v) => {
                 setEmpresaId(v);
-                setContratoId("");
+                const emp = empresas.find((e) => e.id === v);
+                setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "");
                 setSetorIdx(0);
               }}
               disabled={!offlineMode && loadingEmp}
@@ -372,39 +383,45 @@ export default function FerramentasErgonomicasFerramenta() {
               </SelectContent>
             </Select>
           </div>
-          <div className="space-y-1.5">
-            <Label>Contrato</Label>
-            <Select
-              value={contratoId || undefined}
-              onValueChange={(v) => {
-                setContratoId(v);
-                setSetorIdx(0);
-              }}
-              disabled={!empresaId || (!offlineMode && loadingCtr)}
-            >
-              <SelectTrigger>
-                <SelectValue
-                  placeholder={
-                    !empresaId ? "Selecione a empresa" : loadingCtr && !offlineMode ? "Carregando…" : "Selecione o contrato"
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                {contratos.map((c) => (
-                  <SelectItem key={c.id} value={c.id}>
-                    {c.numero_contrato || "(sem número)"}
-                    {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+          {empresaId && independenteFe ? (
+            <div className="space-y-1.5 flex items-end">
+              <p className="text-sm text-muted-foreground pb-2">Empresa independente — sem seleção de contrato.</p>
+            </div>
+          ) : (
+            <div className="space-y-1.5">
+              <Label>Contrato</Label>
+              <Select
+                value={contratoId || undefined}
+                onValueChange={(v) => {
+                  setContratoId(v);
+                  setSetorIdx(0);
+                }}
+                disabled={!empresaId || (!offlineMode && loadingCtr)}
+              >
+                <SelectTrigger>
+                  <SelectValue
+                    placeholder={
+                      !empresaId ? "Selecione a empresa" : loadingCtr && !offlineMode ? "Carregando…" : "Selecione o contrato"
+                    }
+                  />
+                </SelectTrigger>
+                <SelectContent>
+                  {contratos.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>
+                      {c.numero_contrato || "(sem número)"}
+                      {c.nome_contratante ? ` — ${c.nome_contratante}` : ""}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
-        {empresaId && contratoId && (
+        {feEscopoPronto && (
           <p className="text-xs text-muted-foreground">
             {loadingSetores && !offlineMode
               ? "Carregando setores…"
-              : `${setores.length} setor(es) disponível(is) neste contrato.`}
+              : `${setores.length} setor(es) disponível(is).`}
           </p>
         )}
       </div>

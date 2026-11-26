@@ -18,6 +18,10 @@ import { toast } from "sonner";
 import { sortByGes } from "@/lib/sortGes";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { useNavigate } from "react-router-dom";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+} from "@/lib/empresaEscopo";
 
 export default function SetoresFuncoes() {
   const navigate = useNavigate();
@@ -32,8 +36,8 @@ export default function SetoresFuncoes() {
     [
       { table: "empresas", queryKey: ["empresas"] },
       { table: "contratos", queryKey: ["contratos-sf", empresaId] },
-      { table: "setores", queryKey: ["setores", contratoId] },
-      { table: "funcoes", queryKey: ["funcoes", contratoId] },
+      { table: "setores", queryKey: ["setores", empresaId, contratoId] },
+      { table: "funcoes", queryKey: ["funcoes", empresaId, contratoId] },
     ],
     `setores-funcoes-sync-${contratoId || "none"}`
   );
@@ -91,15 +95,22 @@ export default function SetoresFuncoes() {
   const { data: empresas = [] } = useQuery({
     queryKey: ["empresas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
+      const { data, error } = await supabase
+        .from("empresas")
+        .select("id, razao_social, nome_fantasia, sem_contrato")
+        .order("razao_social");
       if (error) throw error;
       return data;
     },
   });
 
+  const empresaAtual = empresas.find((e: any) => e.id === empresaId);
+  const independente = empresaSemContrato(empresaAtual);
+  const escopoPronto = !!empresaId && (independente || (!!contratoId && contratoId !== CONTRATO_INDEPENDENTE_SLUG));
+
   const { data: contratos = [] } = useQuery({
     queryKey: ["contratos-sf", empresaId],
-    enabled: !!empresaId,
+    enabled: !!empresaId && !independente,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos")
@@ -112,20 +123,27 @@ export default function SetoresFuncoes() {
   });
 
   const { data: setores = [], isLoading } = useQuery({
-    queryKey: ["setores", contratoId],
+    queryKey: ["setores", empresaId, contratoId],
     queryFn: async () => {
-      if (!contratoId) return [];
-      const { data, error } = await (supabase as any).from("setores").select("*").eq("contrato_id", contratoId);
+      if (!empresaId) return [];
+      let q = (supabase as any).from("setores").select("*").eq("empresa_id", empresaId);
+      if (independente || contratoId === CONTRATO_INDEPENDENTE_SLUG) {
+        q = q.is("contrato_id", null);
+      } else {
+        if (!contratoId) return [];
+        q = q.eq("contrato_id", contratoId);
+      }
+      const { data, error } = await q;
       if (error) throw error;
       return sortByGes(data || []);
     },
-    enabled: !!contratoId,
+    enabled: escopoPronto,
   });
 
   const { data: funcoes = [] } = useQuery({
-    queryKey: ["funcoes", contratoId],
+    queryKey: ["funcoes", empresaId, contratoId],
     queryFn: async () => {
-      if (!contratoId || setores.length === 0) return [];
+      if (!escopoPronto || setores.length === 0) return [];
       const setorIds = setores.map((s: any) => s.id);
       const { data, error } = await supabase.from("funcoes").select("*").in("setor_id", setorIds).order("nome_funcao");
       if (error) throw error;
@@ -135,8 +153,14 @@ export default function SetoresFuncoes() {
   });
 
   const handleSaved = () => {
-    queryClient.invalidateQueries({ queryKey: ["setores", contratoId] });
-    queryClient.invalidateQueries({ queryKey: ["funcoes", contratoId] });
+    queryClient.invalidateQueries({ queryKey: ["setores", empresaId, contratoId] });
+    queryClient.invalidateQueries({ queryKey: ["funcoes", empresaId, contratoId] });
+  };
+
+  const escolherEmpresa = (id: string) => {
+    setEmpresaId(id);
+    const emp = empresas.find((e: any) => e.id === id);
+    setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "");
   };
 
   const openFuncaoModal = (setorId: string) => {
@@ -222,9 +246,9 @@ export default function SetoresFuncoes() {
     <div>
       <PageHeader
         title="Setores e Funções"
-        description="Gerencie setores e funções vinculados a cada contrato da empresa"
+        description="Gerencie setores e funções vinculados à empresa (e ao contrato, quando houver)"
         actions={
-          contratoId ? (
+          escopoPronto ? (
             <Button onClick={() => setModalOpen(true)} className="bg-accent text-accent-foreground hover:bg-accent/90">
               <Plus className="w-4 h-4 mr-2" />Novo Cadastro
             </Button>
@@ -235,19 +259,31 @@ export default function SetoresFuncoes() {
       <div className="glass-card rounded-xl p-5 mb-6 space-y-4">
         <div>
           <label className="text-sm font-medium text-foreground mb-2 block">Selecionar Empresa *</label>
-          <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
+          <Select value={empresaId} onValueChange={escolherEmpresa}>
             <SelectTrigger className="max-w-md">
               <SelectValue placeholder="Escolha uma empresa cadastrada" />
             </SelectTrigger>
             <SelectContent>
               {empresas.map((e: any) => (
-                <SelectItem key={e.id} value={e.id}>{e.nome_fantasia || e.razao_social}</SelectItem>
+                <SelectItem key={e.id} value={e.id}>
+                  {e.nome_fantasia || e.razao_social}
+                  {empresaSemContrato(e) ? " · independente" : ""}
+                </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {empresaId && (
+        {empresaId && independente && (
+          <div className="flex items-center gap-3 rounded-lg border border-border/70 bg-muted/20 p-3 max-w-md">
+            <Building2 className="h-4 w-4 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              Empresa independente — setores e funções ficam vinculados só a esta empresa (sem contrato).
+            </p>
+          </div>
+        )}
+
+        {empresaId && !independente && (
           <div>
             <label className="text-sm font-medium text-foreground mb-2 block">Selecionar Contrato *</label>
             {contratos.length === 0 ? (
@@ -279,7 +315,7 @@ export default function SetoresFuncoes() {
           <Building2 className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
           <p className="text-muted-foreground">Selecione uma empresa para começar</p>
         </div>
-      ) : !contratoId ? (
+      ) : !escopoPronto ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <FileSignature className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
           <p className="text-muted-foreground">Selecione um contrato para visualizar setores e funções</p>
@@ -289,7 +325,9 @@ export default function SetoresFuncoes() {
       ) : setores.length === 0 ? (
         <div className="glass-card rounded-xl p-12 text-center">
           <Users className="w-10 h-10 mx-auto mb-3 text-muted-foreground/40" />
-          <p className="text-muted-foreground">Nenhum setor cadastrado para este contrato</p>
+          <p className="text-muted-foreground">
+            {independente ? "Nenhum setor cadastrado para esta empresa" : "Nenhum setor cadastrado para este contrato"}
+          </p>
           <Button onClick={() => setModalOpen(true)} variant="outline" className="mt-4">
             <Plus className="w-4 h-4 mr-2" />Cadastrar Setor e Função
           </Button>

@@ -16,6 +16,7 @@ import {
   riscosAprParaPlano, COLUNAS_PLANO_APR, PRIORIDADES_PLANO_APR,
   type AcaoPlanoApr,
 } from "@/lib/aprErgoPlano";
+import { CONTRATO_INDEPENDENTE_SLUG, contratoIdPersistivel } from "@/lib/empresaEscopo";
 
 type StatusSalvamento = "salvo" | "pendente" | "erro";
 
@@ -30,25 +31,36 @@ export default function AprErgoPlano() {
   const [gerando, setGerando] = useState(false);
   const [proposta, setProposta] = useState<AcaoPlanoApr[] | null>(null);
   const carregado = useRef(false);
+  const isIndependente = contratoId === CONTRATO_INDEPENDENTE_SLUG;
+  const contratoDb = contratoIdPersistivel(contratoId);
 
   const empresaQuery = useQuery({ queryKey: ["apr-plano-empresa", empresaId], enabled: !!empresaId, queryFn: async () => {
     const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia").eq("id", empresaId).single();
     if (error) throw error; return data;
   } });
-  const contratoQuery = useQuery({ queryKey: ["apr-plano-contrato", contratoId], enabled: !!contratoId, queryFn: async () => {
+  const contratoQuery = useQuery({ queryKey: ["apr-plano-contrato", contratoId], enabled: !!contratoId && !isIndependente, queryFn: async () => {
     const { data, error } = await supabase.from("contratos").select("id, numero_contrato, nome_contratante").eq("id", contratoId).eq("empresa_id", empresaId).single();
     if (error) throw error; return data;
   } });
   const setoresQuery = useQuery({ queryKey: ["apr-ergo-setores", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId).eq("contrato_id", contratoId);
+    let q = supabase.from("setores").select("id, empresa_id, contrato_id, nome_setor, ghe_ges, funcoes(id, nome_funcao)").eq("empresa_id", empresaId);
+    if (isIndependente) q = (q as any).is("contrato_id", null);
+    else q = (q as any).eq("contrato_id", contratoId);
+    const { data, error } = await q;
     if (error) throw error; return data || [];
   } });
   const registrosQuery = useQuery({ queryKey: ["apr-ergo-registros", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("documentos").select("id, draft_snapshot, status").eq("tipo", "APR-ERGO").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("created_at");
+    let q = supabase.from("documentos").select("id, draft_snapshot, status").eq("tipo", "APR-ERGO").eq("empresa_id", empresaId).order("created_at");
+    if (isIndependente) q = (q as any).is("contrato_id", null);
+    else q = (q as any).eq("contrato_id", contratoId);
+    const { data, error } = await q;
     if (error) throw error; return data || [];
   } });
   const planoQuery = useQuery({ queryKey: ["apr-ergo-plano", empresaId, contratoId], enabled: !!empresaId && !!contratoId, queryFn: async () => {
-    const { data, error } = await supabase.from("documentos").select("id, draft_snapshot").eq("tipo", "APR-ERGO-PLANO").eq("empresa_id", empresaId).eq("contrato_id", contratoId).order("created_at").limit(1);
+    let q = supabase.from("documentos").select("id, draft_snapshot").eq("tipo", "APR-ERGO-PLANO").eq("empresa_id", empresaId).order("created_at").limit(1);
+    if (isIndependente) q = (q as any).is("contrato_id", null);
+    else q = (q as any).eq("contrato_id", contratoId);
+    const { data, error } = await q;
     if (error) throw error; return data?.[0] || null;
   } });
   useRealtimeSync([{ table: "documentos", queryKey: ["apr-ergo-plano"] }], "apr-ergo-plano");
@@ -82,9 +94,9 @@ export default function AprErgoPlano() {
     setSalvando(true);
     const id = planoId || crypto.randomUUID();
     const registro = {
-      id, tipo: "APR-ERGO-PLANO", empresa_id: empresaId, contrato_id: contratoId,
+      id, tipo: "APR-ERGO-PLANO", empresa_id: empresaId, contrato_id: contratoDb,
       empresa_nome: empresaQuery.data?.razao_social || "",
-      nome_documento: `Plano de Ação APR-ERGO — ${contratoQuery.data?.numero_contrato || contratoQuery.data?.nome_contratante || "Contrato"}`,
+      nome_documento: `Plano de Ação APR-ERGO — ${isIndependente ? "Empresa independente" : (contratoQuery.data?.numero_contrato || contratoQuery.data?.nome_contratante || "Contrato")}`,
       status: "salvo",
       draft_snapshot: { acoes },
     };
@@ -101,7 +113,7 @@ export default function AprErgoPlano() {
     if (gerando) return;
     setGerando(true);
     try {
-      const resultado = await invocarGeracaoIa<{ acoes: AcaoPlanoApr[] }>("apr-ergo-plano-generate", { empresaId, contratoId });
+      const resultado = await invocarGeracaoIa<{ acoes: AcaoPlanoApr[] }>("apr-ergo-plano-generate", { empresaId, contratoId: contratoDb });
       const propostas = aplicarPropostaPlano((resultado?.acoes || []).map((a) => ({ ...novaAcaoPlanoApr(a.id || crypto.randomUUID()), ...a })));
       if (!propostas.length) { toast.error("A IA não encontrou ações fundamentadas nas avaliações salvas."); return; }
       setProposta(propostas);
@@ -118,7 +130,9 @@ export default function AprErgoPlano() {
       const { data, error } = await supabase.from("documentos").select("draft_snapshot").eq("id", planoId).eq("tipo", "APR-ERGO-PLANO").single();
       if (error) throw error;
       const empresa = empresaQuery.data?.razao_social || empresaQuery.data?.nome_fantasia || "";
-      const contrato = contratoQuery.data?.numero_contrato || contratoQuery.data?.nome_contratante || "";
+      const contrato = isIndependente
+        ? "Empresa independente"
+        : (contratoQuery.data?.numero_contrato || contratoQuery.data?.nome_contratante || "");
       const blob = await gerarPlanoAprDocx(acoesDoPlano(data.draft_snapshot), empresa, contrato);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");

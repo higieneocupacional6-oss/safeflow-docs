@@ -9,6 +9,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
 import { AmostradoresDialog } from "@/components/ficha-tecnica/AmostradoresDialog";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+} from "@/lib/empresaEscopo";
 
 export default function FichaTecnica() {
   const navigate = useNavigate();
@@ -24,23 +28,24 @@ export default function FichaTecnica() {
   const { data: empresas = [], isLoading } = useQuery({
     queryKey: ["ficha-tecnica-empresas"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj").order("razao_social");
-      if (error) throw error;
-      return data as any[];
-    },
-  });
-
-  const { data: contratos = [] } = useQuery({
-    queryKey: ["ficha-tecnica-contratos", selectedEmpresa],
-    enabled: !!selectedEmpresa,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("contratos").select("id, empresa_id, numero_contrato, nome_contratante, local_trabalho").eq("empresa_id", selectedEmpresa || "").order("created_at", { ascending: false });
+      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, sem_contrato").order("razao_social");
       if (error) throw error;
       return data as any[];
     },
   });
 
   const empresa = empresas.find((item) => item.id === selectedEmpresa);
+  const independente = empresaSemContrato(empresa);
+
+  const { data: contratos = [] } = useQuery({
+    queryKey: ["ficha-tecnica-contratos", selectedEmpresa],
+    enabled: !!selectedEmpresa && !independente,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("contratos").select("id, empresa_id, numero_contrato, nome_contratante, local_trabalho").eq("empresa_id", selectedEmpresa || "").order("created_at", { ascending: false });
+      if (error) throw error;
+      return data as any[];
+    },
+  });
 
   return (
     <div className="space-y-6">
@@ -71,9 +76,24 @@ export default function FichaTecnica() {
           <Button type="button" variant="ghost" className="w-fit px-0 text-muted-foreground" onClick={() => setSelectedEmpresa(null)}>← Todas as empresas</Button>
           <div>
             <h2 className="font-heading text-xl font-semibold">{empresa?.nome_fantasia || empresa?.razao_social}</h2>
-            <p className="text-sm text-muted-foreground">Selecione um contrato</p>
+            {independente ? (
+              <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Selecione um contrato</p>
+            )}
           </div>
-          {contratos.length === 0 ? (
+          {independente ? (
+            <Card className="p-5 cursor-pointer transition-all hover:border-primary/50 hover:shadow-md group" onClick={() => navigate(`/ficha-tecnica/${selectedEmpresa}/${CONTRATO_INDEPENDENTE_SLUG}`)}>
+              <div className="flex items-start gap-4">
+                <div className="text-accent-foreground shrink-0"><Folder className="h-10 w-10 fill-accent text-accent group-hover:hidden" /><FolderOpen className="h-10 w-10 fill-accent text-accent hidden group-hover:block" /></div>
+                <div className="min-w-0 flex-1">
+                  <h3 className="font-semibold truncate">Empresa independente</h3>
+                  <p className="text-xs text-muted-foreground truncate mt-1">Sem vínculo de contrato</p>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground" />
+              </div>
+            </Card>
+          ) : contratos.length === 0 ? (
             <Card className="p-10 text-center text-muted-foreground">Nenhum contrato cadastrado para esta empresa.</Card>
           ) : (
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

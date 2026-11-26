@@ -17,6 +17,10 @@ import {
 import { Brain, ClipboardList, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { useRealtimeSync } from "@/hooks/useRealtimeSync";
+import {
+  CONTRATO_INDEPENDENTE_SLUG,
+  empresaSemContrato,
+} from "@/lib/empresaEscopo";
 
 export default function Psicossocial() {
   const navigate = useNavigate();
@@ -36,14 +40,18 @@ export default function Psicossocial() {
     queryKey: ["psico-empresas"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("empresas").select("id, razao_social, nome_fantasia").order("razao_social");
+        .from("empresas").select("id, razao_social, nome_fantasia, sem_contrato").order("razao_social");
       if (error) throw error;
-      return data;
+      return data as any[];
     },
   });
 
+  const empresaAtual = empresas.find((e: any) => e.id === empresaId);
+  const independente = empresaSemContrato(empresaAtual);
+
   const { data: contratos = [], isError: erroContratos } = useQuery({
     queryKey: ["psico-contratos"],
+    enabled: !independente,
     queryFn: async () => {
       const { data, error } = await supabase
         .from("contratos").select("id, empresa_id, numero_contrato, escopo_contrato, local_trabalho").order("created_at", { ascending: false });
@@ -92,9 +100,10 @@ export default function Psicossocial() {
 
   const abrir = () => {
     if (!empresaId) { toast.error("Selecione a empresa"); return; }
-    if (!contratoId) { toast.error("Selecione o contrato"); return; }
+    if (!independente && !contratoId) { toast.error("Selecione o contrato"); return; }
     setOpen(false);
-    navigate(`/psicossocial/${empresaId}/${contratoId}`);
+    const param = independente ? CONTRATO_INDEPENDENTE_SLUG : contratoId;
+    navigate(`/psicossocial/${empresaId}/${param}`);
   };
 
   return (
@@ -151,7 +160,11 @@ export default function Psicossocial() {
           <div className="space-y-3">
             <div className="grid gap-1.5">
               <Label>Empresa *</Label>
-              <Select value={empresaId} onValueChange={(v) => { setEmpresaId(v); setContratoId(""); }}>
+              <Select value={empresaId} onValueChange={(v) => {
+                setEmpresaId(v);
+                const emp = empresas.find((e: any) => e.id === v);
+                setContratoId(empresaSemContrato(emp) ? CONTRATO_INDEPENDENTE_SLUG : "");
+              }}>
                 <SelectTrigger><SelectValue placeholder="Selecione a empresa" /></SelectTrigger>
                 <SelectContent>
                   {empresas.map((e: any) => (
@@ -160,23 +173,27 @@ export default function Psicossocial() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid gap-1.5">
-              <Label>Contrato *</Label>
-              <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || erroContratos}>
-                <SelectTrigger><SelectValue placeholder={erroContratos ? "Falha ao carregar contratos" : "Selecione o contrato"} /></SelectTrigger>
-                <SelectContent>
-                  {erroContratos ? (
-                    <SelectItem value="__erro" disabled>Não foi possível carregar os contratos</SelectItem>
-                  ) : contratosEmpresa.length === 0 ? (
-                    <SelectItem value="__vazio" disabled>Nenhum contrato nesta empresa</SelectItem>
-                  ) : contratosEmpresa.map((c: any) => (
-                    <SelectItem key={c.id} value={c.id}>
-                      {c.numero_contrato || c.escopo_contrato || "Contrato"}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {empresaId && independente ? (
+              <p className="text-sm text-muted-foreground">Empresa independente — sem seleção de contrato.</p>
+            ) : (
+              <div className="grid gap-1.5">
+                <Label>Contrato *</Label>
+                <Select value={contratoId} onValueChange={setContratoId} disabled={!empresaId || erroContratos}>
+                  <SelectTrigger><SelectValue placeholder={erroContratos ? "Falha ao carregar contratos" : "Selecione o contrato"} /></SelectTrigger>
+                  <SelectContent>
+                    {erroContratos ? (
+                      <SelectItem value="__erro" disabled>Não foi possível carregar os contratos</SelectItem>
+                    ) : contratosEmpresa.length === 0 ? (
+                      <SelectItem value="__vazio" disabled>Nenhum contrato nesta empresa</SelectItem>
+                    ) : contratosEmpresa.map((c: any) => (
+                      <SelectItem key={c.id} value={c.id}>
+                        {c.numero_contrato || c.escopo_contrato || "Contrato"}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>
