@@ -47,6 +47,11 @@ export default function AprErgoNovo() {
     setContratoId(documento.contrato_id || "");
   }, [documento]);
 
+  const empresasQuery = useQuery({ queryKey: ["apr-ergo-empresas"], queryFn: async () => {
+    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, sem_contrato").order("razao_social");
+    if (error) throw error; return data || [];
+  } });
+
   // After empresa loads, auto-set slug for independent companies
   useEffect(() => {
     if (!empresaId || !empresasQuery.data?.length) return;
@@ -55,10 +60,6 @@ export default function AprErgoNovo() {
       setContratoId(CONTRATO_INDEPENDENTE_SLUG);
     }
   }, [empresaId, empresasQuery.data, contratoId]);
-  const empresasQuery = useQuery({ queryKey: ["apr-ergo-empresas"], queryFn: async () => {
-    const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, sem_contrato").order("razao_social");
-    if (error) throw error; return data || [];
-  } });
 
   const empresaAtual = (empresasQuery.data || []).find((e: any) => e.id === empresaId);
   const independente = empresaSemContrato(empresaAtual);

@@ -99,7 +99,11 @@ export default function ControleDocumentos() {
   });
 
   const empresaCadAtual = (empresas as DocRow[]).find((e) => e.id === cadEmpresaId);
-  const independenteCad = empresaSemContrato(empresaCadAtual);
+  const independenteCad = empresaSemContrato(
+    empresaCadAtual
+      ? { id: String(empresaCadAtual.id || ""), sem_contrato: !!empresaCadAtual.sem_contrato }
+      : null,
+  );
 
   const contratosDaEmpresaCad = useMemo(
     () => (contratos as DocRow[]).filter((c) => c.empresa_id === cadEmpresaId),
