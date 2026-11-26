@@ -802,6 +802,19 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
   const localEditGenerationRef = useRef(0);
   const reloadDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const { data: empresas = [] } = useQuery({
+    queryKey: ["empresas"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, cnae_principal, grau_risco, endereco, numero_funcionarios_fem, numero_funcionarios_masc, total_funcionarios, jornada_trabalho, sem_contrato").order("razao_social");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const empresaAtualLtcat = (empresas as any[]).find((e: any) => e.id === empresaId);
+  const independenteLtcat = empresaSemContrato(empresaAtualLtcat);
+  const ltcatEscopoPronto = !!empresaId && (independenteLtcat || !!contratoId);
+
   const { data: contratosEmpresa = [] } = useQuery({
     queryKey: ["contratos-empresa", empresaId],
     queryFn: async () => {
@@ -831,10 +844,8 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       if (error) throw error;
       return data;
     },
-    enabled: !!contratoId,
+    enabled: !!contratoId && !independenteLtcat,
   });
-
-  const ltcatEscopoPronto = !!empresaId && (independenteLtcat || !!contratoId);
 
   const { data: fichaResultadosCount = 0 } = useQuery({
     queryKey: ["ficha-tecnica-disponivel", empresaId, contratoId],
@@ -945,18 +956,6 @@ export default function LtcatWizard({ modo = "ltcat" }: { modo?: WizardModo } = 
       return data;
     },
   });
-
-  const { data: empresas = [] } = useQuery({
-    queryKey: ["empresas"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("empresas").select("id, razao_social, nome_fantasia, cnpj, cnae_principal, grau_risco, endereco, numero_funcionarios_fem, numero_funcionarios_masc, total_funcionarios, jornada_trabalho, sem_contrato").order("razao_social");
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const empresaAtualLtcat = (empresas as any[]).find((e: any) => e.id === empresaId);
-  const independenteLtcat = empresaSemContrato(empresaAtualLtcat);
 
   const { data: setores = [] as any[], isLoading: loadingSetores } = useQuery({
     queryKey: ["setores", empresaId, contratoId],

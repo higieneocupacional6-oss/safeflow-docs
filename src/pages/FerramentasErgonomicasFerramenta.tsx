@@ -103,15 +103,26 @@ export default function FerramentasErgonomicasFerramenta() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("empresas")
-        .select("id, razao_social, nome_fantasia")
+        .select("id, razao_social, nome_fantasia, sem_contrato")
         .order("razao_social");
       if (error) throw error;
       return data as any[];
     },
   });
 
+  const empresas = useMemo(() => {
+    if (!offlineMode && empresasOnline.length) return empresasOnline;
+    return (offlineCtx?.empresas || []).map((e) => ({
+      id: e.id,
+      razao_social: e.razao_social,
+      nome_fantasia: e.nome_fantasia,
+      sem_contrato: (e as any).sem_contrato === true,
+    }));
+  }, [offlineMode, empresasOnline, offlineCtx]);
+
   const empresaFeAtual = empresas.find((e) => e.id === empresaId);
   const independenteFe = empresaSemContrato(empresaFeAtual);
+  const feEscopoPronto = !!empresaId && (independenteFe || !!contratoId);
 
   const { data: contratosOnline = [], isLoading: loadingCtr } = useQuery({
     queryKey: ["fe-contratos", empresaId],
@@ -126,8 +137,6 @@ export default function FerramentasErgonomicasFerramenta() {
       return data as any[];
     },
   });
-
-  const feEscopoPronto = !!empresaId && (independenteFe || !!contratoId);
 
   const { data: setoresOnline = [], isLoading: loadingSetores } = useQuery({
     queryKey: ["fe-setores", empresaId, contratoId],
@@ -161,15 +170,6 @@ export default function FerramentasErgonomicasFerramenta() {
       return (data || []) as HistRow[];
     },
   });
-
-  const empresas = useMemo(() => {
-    if (!offlineMode && empresasOnline.length) return empresasOnline;
-    return (offlineCtx?.empresas || []).map((e) => ({
-      id: e.id,
-      razao_social: e.razao_social,
-      nome_fantasia: e.nome_fantasia,
-    }));
-  }, [offlineMode, empresasOnline, offlineCtx]);
 
   const contratos = useMemo(() => {
     if (!offlineMode && contratosOnline.length) return contratosOnline;
