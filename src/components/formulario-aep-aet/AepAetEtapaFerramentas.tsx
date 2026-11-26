@@ -37,7 +37,7 @@ export function AepAetEtapaFerramentas({ value, onChange, errors }: Props) {
           Ferramentas e mobiliário operacional
         </h2>
         <p className="text-sm text-muted-foreground">
-          Selecione sugestões, descreva o que for necessário e registre 3 fotografias.
+          Selecione sugestões, descreva o que for necessário e registre pelo menos uma fotografia.
         </p>
       </div>
 
@@ -89,8 +89,8 @@ export function AepAetEtapaFerramentas({ value, onChange, errors }: Props) {
         fotos={value.fotos}
         onChange={(fotos) => onChange({ ...value, fotos })}
         required
-        minFotos={3}
-        maxFotos={3}
+        minFotos={1}
+        maxFotos={8}
         error={!!errors?.fotos}
       />
     </section>

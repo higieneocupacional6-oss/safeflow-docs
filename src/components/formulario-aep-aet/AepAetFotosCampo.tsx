@@ -62,8 +62,8 @@ export function AepAetFotosCampo({
         </Label>
         {minFotos != null && (
           <p className="text-xs text-muted-foreground">
-            {fotos.length}/{minFotos} foto{minFotos === 1 ? "" : "s"}
-            {maxFotos < 8 ? ` (máx. ${maxFotos})` : ""}
+            {fotos.length} foto{fotos.length === 1 ? "" : "s"} · mín. {minFotos}
+            {maxFotos < 8 ? ` · máx. ${maxFotos}` : " · pode adicionar mais"}
           </p>
         )}
       </div>

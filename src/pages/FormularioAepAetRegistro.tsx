@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, ArrowRight, Check, Loader2, Save } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check, FileDown, Loader2, Save } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
@@ -48,6 +48,7 @@ import {
   persistirAepAetOfflineLocal,
   persistirAepAetOnline,
 } from "@/lib/aepAetPersistencia";
+import { baixarAepAetPdf } from "@/lib/aepAetPdf";
 import { cn } from "@/lib/utils";
 
 type AutoStatus = "salvo" | "pendente" | "salvando" | "erro";
@@ -115,6 +116,9 @@ function errosEsforco(dados: AepAetDados) {
 
 function errosMobiliario(dados: AepAetDados) {
   const m = dados.mobiliario_equipamentos;
+  if (m.sem_mobiliario) {
+    return { mesa: {}, cadeira: {}, monitor: {} };
+  }
   return {
     mesa: {
       altura_cm: numeroNaoNegativo(m.mesa.altura_cm) == null,
@@ -127,13 +131,13 @@ function errosMobiliario(dados: AepAetDados) {
       altura_assento_cm: numeroNaoNegativo(m.cadeira.altura_assento_cm) == null,
       profundidade_assento_cm: numeroNaoNegativo(m.cadeira.profundidade_assento_cm) == null,
       largura_assento_cm: numeroNaoNegativo(m.cadeira.largura_assento_cm) == null,
-      fotos: m.cadeira.fotos.length < 2,
+      fotos: m.cadeira.fotos.length < 1,
     },
     monitor: {
       altura_monitor: numeroNaoNegativo(m.monitor.altura_monitor) == null,
       distancia_olhos: numeroNaoNegativo(m.monitor.distancia_olhos) == null,
       distancia_teclado_borda: numeroNaoNegativo(m.monitor.distancia_teclado_borda) == null,
-      fotos: m.monitor.fotos.length < 2,
+      fotos: m.monitor.fotos.length < 1,
     },
   };
 }
@@ -145,7 +149,7 @@ function errosFerramentas(dados: AepAetDados) {
     descricao:
       (f.sugestoes.includes("Outros") && !f.descricao.trim()) ||
       (!f.sugestoes.length && !f.descricao.trim()),
-    fotos: f.fotos.length < 3,
+    fotos: f.fotos.length < 1,
   };
 }
 
@@ -645,10 +649,9 @@ export default function FormularioAepAetRegistro() {
       if (!ok) throw new Error("Salvamento ainda em andamento. Aguarde e tente novamente.");
       toast.success(
         modo === "offline"
-          ? "Avaliação concluída neste dispositivo. Sincronize no contrato quando estiver online."
-          : "Avaliação salva com sucesso.",
+          ? "Avaliação concluída neste dispositivo. Você já pode baixar o PDF."
+          : "Avaliação salva. Você já pode baixar o PDF.",
       );
-      navigate(urlAepAetContrato(empresaId!, contratoId!));
     } catch (e) {
       toast.error(e instanceof Error && e.message ? e.message : "Não foi possível salvar. Tente novamente.");
     } finally {
@@ -717,6 +720,20 @@ export default function FormularioAepAetRegistro() {
   const tituloFuncao = dados?.identificacao.funcao_avaliada || offlineRow?.funcao_nome || funcao?.nome_funcao || "Função";
   const tituloSetor = dados?.identificacao.setor_avaliado || offlineRow?.setor_nome || setor?.nome_setor || "Setor";
 
+  const baixarPdf = () => {
+    if (!dados) return;
+    try {
+      baixarAepAetPdf({
+        empresaNome: empresaNome || "Empresa",
+        contratoNome: contratoLabel,
+        dados,
+      });
+      toast.success("PDF gerado.");
+    } catch (e) {
+      toast.error(e instanceof Error && e.message ? e.message : "Não foi possível gerar o PDF.");
+    }
+  };
+
   const carregando =
     bootOffline ||
     (!rotaOffline && (loadingDoc || (!!doc && !!snap && !initDone && (loadingSetor || loadingFuncao)))) ||
@@ -781,6 +798,9 @@ export default function FormularioAepAetRegistro() {
             {offlineRow?.sync_status === "pending" && (
               <Badge variant="secondary">Sync pendente</Badge>
             )}
+            <Button type="button" variant="outline" size="sm" onClick={baixarPdf}>
+              <FileDown className="mr-1.5 h-4 w-4" /> Baixar PDF
+            </Button>
             <span className="text-xs text-muted-foreground" aria-live="polite">
               {autoStatus === "salvo"
                 ? (modo === "offline" ? "Salvo no dispositivo" : "Tudo salvo")
@@ -953,6 +973,9 @@ export default function FormularioAepAetRegistro() {
                 <Save className="mr-1.5 h-4 w-4" />
               )}
               Salvar e continuar depois
+            </Button>
+            <Button type="button" variant="outline" onClick={baixarPdf}>
+              <FileDown className="mr-1.5 h-4 w-4" /> Baixar PDF
             </Button>
             <Button onClick={() => void salvarAvaliacaoFinal()} disabled={salvandoExplicit}>
               {salvandoExplicit ? (

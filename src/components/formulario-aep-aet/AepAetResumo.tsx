@@ -81,8 +81,12 @@ export function AepAetResumo({ dados, empresaNome, contratoNome }: Props) {
 
       <Bloco titulo="Mobiliário e ambiente">
         <Item
-          label="Mesa (A×C×L)"
-          value={`${dados.mobiliario_equipamentos.mesa.altura_cm || "—"} × ${dados.mobiliario_equipamentos.mesa.comprimento_cm || "—"} × ${dados.mobiliario_equipamentos.mesa.largura_cm || "—"} cm`}
+          label="Mobiliário"
+          value={
+            dados.mobiliario_equipamentos.sem_mobiliario
+              ? "Sem mobiliário"
+              : `Mesa ${dados.mobiliario_equipamentos.mesa.altura_cm || "—"} × ${dados.mobiliario_equipamentos.mesa.comprimento_cm || "—"} × ${dados.mobiliario_equipamentos.mesa.largura_cm || "—"} cm`
+          }
         />
         <Item
           label="Ferramentas/mobiliário"

@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ChevronRight, CloudOff, FolderTree, Loader2, Plus, Users } from "lucide-react";
+import { ArrowLeft, ChevronRight, CloudOff, FileDown, FolderTree, Loader2, Plus, Users } from "lucide-react";
+import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
@@ -15,7 +16,9 @@ import {
   urlAepAetNovo,
   urlAepAetOffline,
   urlAepAetRegistro,
+  type AepAetDados,
 } from "@/lib/aepAetFormulario";
+import { baixarAepAetPdf } from "@/lib/aepAetPdf";
 import { listAepAetOffline, type AepAetOfflineAvaliacao } from "@/lib/aepAetOfflineDb";
 
 export default function FormularioAepAetContrato() {
@@ -130,11 +133,12 @@ export default function FormularioAepAetContrato() {
             return {
               avaliacaoId: x.doc.id,
               funcaoId: x.snap!.funcao_id,
-              nome: fn?.nome_funcao || "Função",
+              nome: fn?.nome_funcao || x.snap!.dados.identificacao.funcao_avaliada || "Função",
               status: x.doc.status,
               updated_at: x.doc.updated_at,
               offline: false as boolean,
               clientId: null as string | null,
+              dados: x.snap!.dados as AepAetDados,
             };
           });
 
@@ -148,6 +152,7 @@ export default function FormularioAepAetContrato() {
             updated_at: o.updated_at,
             offline: true,
             clientId: o.client_id,
+            dados: o.dados as AepAetDados,
           }));
 
         const all = [...avaliacoes, ...offlineDoSetor].sort((a, b) =>
@@ -207,10 +212,10 @@ export default function FormularioAepAetContrato() {
               </div>
               <ul className="divide-y divide-border/70">
                 {setor.avaliacoes.map((av) => (
-                  <li key={av.avaliacaoId}>
+                  <li key={av.avaliacaoId} className="flex items-center gap-1 px-2 py-1.5">
                     <button
                       type="button"
-                      className="flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-muted/40"
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-md px-2 py-2 text-left transition-colors hover:bg-muted/40"
                       onClick={() =>
                         navigate(
                           av.offline && av.clientId
@@ -230,6 +235,32 @@ export default function FormularioAepAetContrato() {
                       </Badge>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0"
+                      title="Baixar PDF"
+                      aria-label={`Baixar PDF de ${av.nome}`}
+                      onClick={() => {
+                        try {
+                          baixarAepAetPdf({
+                            empresaNome: empresa?.nome_fantasia || empresa?.razao_social || "Empresa",
+                            contratoNome: contrato
+                              ? `${contrato.numero_contrato || "(sem número)"}${contrato.nome_contratante ? ` — ${contrato.nome_contratante}` : ""}`
+                              : "—",
+                            dados: av.dados,
+                          });
+                          toast.success("PDF gerado.");
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error && e.message ? e.message : "Não foi possível gerar o PDF.",
+                          );
+                        }
+                      }}
+                    >
+                      <FileDown className="h-4 w-4" />
+                    </Button>
                   </li>
                 ))}
               </ul>

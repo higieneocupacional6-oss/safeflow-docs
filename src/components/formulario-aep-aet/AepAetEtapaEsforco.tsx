@@ -173,6 +173,8 @@ export function AepAetEtapaEsforco({ value, onChange, errors }: Props) {
             fotos={value.fotos}
             onChange={(fotos) => onChange({ ...value, fotos })}
             required
+            minFotos={1}
+            maxFotos={8}
             error={!!errors?.fotos}
           />
         </div>

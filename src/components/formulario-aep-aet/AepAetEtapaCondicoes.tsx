@@ -93,7 +93,7 @@ export function AepAetEtapaCondicoes({ value, onChange, errors }: Props) {
         onChange={(fotos) => onChange({ ...value, fotos })}
         required
         minFotos={1}
-        maxFotos={1}
+        maxFotos={8}
         error={!!errors?.fotos}
       />
 

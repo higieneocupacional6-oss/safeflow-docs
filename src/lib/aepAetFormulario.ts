@@ -121,6 +121,8 @@ export type AepAetMobiliarioMonitor = {
 };
 
 export type AepAetMobiliarioEquipamentos = {
+  /** Quando true, mesa/cadeira/monitor ficam dispensados. */
+  sem_mobiliario: boolean;
   mesa: AepAetMobiliarioMesa;
   cadeira: AepAetMobiliarioCadeira;
   monitor: AepAetMobiliarioMonitor;
@@ -388,6 +390,7 @@ export function dadosVaziosAepAet(opts?: {
       fotos: [],
     },
     mobiliario_equipamentos: {
+      sem_mobiliario: false,
       mesa: { altura_cm: "", comprimento_cm: "", largura_cm: "", cor: "", fotos: [] },
       cadeira: {
         altura_assento_cm: "",
@@ -572,6 +575,7 @@ export function lerDadosAepAet(
       fotos: sem_esforco ? [] : lerFotos(ef.fotos),
     },
     mobiliario_equipamentos: {
+      sem_mobiliario: me.sem_mobiliario === true,
       mesa: {
         altura_cm: lerTexto(mesaRaw.altura_cm),
         comprimento_cm: lerTexto(mesaRaw.comprimento_cm),
@@ -734,11 +738,13 @@ export function validarEtapaEsforco(d: AepAetEsforcoFisico): string | null {
 }
 
 export function validarEtapaMobiliario(d: AepAetMobiliarioEquipamentos): string | null {
+  if (d.sem_mobiliario) return null;
+
   if (numeroNaoNegativo(d.mesa.altura_cm) == null) return "Informe a altura da mesa (cm).";
   if (numeroNaoNegativo(d.mesa.comprimento_cm) == null) return "Informe o comprimento da mesa (cm).";
   if (numeroNaoNegativo(d.mesa.largura_cm) == null) return "Informe a largura da mesa (cm).";
   if (!d.mesa.cor.trim()) return "Informe a cor da mesa.";
-  if (d.mesa.fotos.length < 1) return "Inclua a foto da mesa.";
+  if (d.mesa.fotos.length < 1) return "Inclua pelo menos uma foto da mesa.";
 
   if (numeroNaoNegativo(d.cadeira.altura_assento_cm) == null) {
     return "Informe a altura do assento (cm).";
@@ -749,7 +755,7 @@ export function validarEtapaMobiliario(d: AepAetMobiliarioEquipamentos): string 
   if (numeroNaoNegativo(d.cadeira.largura_assento_cm) == null) {
     return "Informe a largura do assento (cm).";
   }
-  if (d.cadeira.fotos.length < 2) return "Inclua 2 fotos da cadeira.";
+  if (d.cadeira.fotos.length < 1) return "Inclua pelo menos uma foto da cadeira.";
 
   if (numeroNaoNegativo(d.monitor.altura_monitor) == null) return "Informe a altura do monitor.";
   if (numeroNaoNegativo(d.monitor.distancia_olhos) == null) {
@@ -758,7 +764,7 @@ export function validarEtapaMobiliario(d: AepAetMobiliarioEquipamentos): string 
   if (numeroNaoNegativo(d.monitor.distancia_teclado_borda) == null) {
     return "Informe a distância entre o teclado e a borda da mesa.";
   }
-  if (d.monitor.fotos.length < 2) return "Inclua 2 fotos do monitor e periféricos.";
+  if (d.monitor.fotos.length < 1) return "Inclua pelo menos uma foto do monitor e periféricos.";
   return null;
 }
 
@@ -769,7 +775,7 @@ export function validarEtapaFerramentas(d: AepAetFerramentasMobiliario): string 
   if (d.sugestoes.includes("Outros") && !d.descricao.trim()) {
     return "Descreva o item em “Outros”.";
   }
-  if (d.fotos.length < 3) return "Inclua 3 fotografias das ferramentas/mobiliário.";
+  if (d.fotos.length < 1) return "Inclua pelo menos uma fotografia das ferramentas/mobiliário.";
   return null;
 }
 
